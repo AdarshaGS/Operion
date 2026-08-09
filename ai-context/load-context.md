@@ -26,6 +26,8 @@ Simple now → extensible later. Not: complex architecture from day one.
 
 Shared database/shared schema with `organisation_id`-based tenant isolation (default choice — don't switch to database-per-tenant without a strong reason). Data across organisations must never leak. Every tenant-scoped table needs a clear boundary; auth/authz/audit must be tenant-aware.
 
+**Implemented**: Hibernate `@TenantId` on a `TenantScopedEntity` base class + a `CurrentTenantIdentifierResolver` reading `TenantContext` (a `ThreadLocal`), verified end to end by `OrganisationTenantIsolationTest`. **Load-bearing gotcha, confirmed by two real bugs**: the tenant identifier resolves once per Hibernate session/transaction, not per query. `TenantContext.set(...)` must happen *before* the transaction/session that will touch a tenant-scoped entity opens — setting it mid-transaction (e.g. after the first repository call already opened one) silently does nothing. Bit both org provisioning (fixed by not wrapping it in one `@Transactional`) and login's own membership check (fixed by setting `TenantContext` right after the org is resolved, before querying `OrganisationMembership`).
+
 ## Identity model
 
 - `User` = authentication identity, separate from `Person`.
@@ -35,6 +37,8 @@ Shared database/shared schema with `organisation_id`-based tenant isolation (def
 ## RBAC
 
 `User → Organisation Membership → Role → Permissions`. Roles should be configurable, not hardcoded. Permissions granular (e.g. `STUDENT_VIEW`, `FEE_COLLECT`, `ATTENDANCE_MARK`) but not overbuilt.
+
+**Implemented so far**: the data model, plus login and tenant-context wiring only — no permission-level enforcement yet. Auth is JWT (stateless, chosen over server-side sessions to suit the planned SPA + React Native app), issued by `POST /api/v1/auth/login` scoped to one org at a time (slug + email + password → a token embedding both ids, not a separate post-login org-switcher). Password hashing via `spring-security-crypto` (BCrypt) only — deliberately not the full `spring-boot-starter-security`, to avoid its opinionated default filter chain. JWT library is JJWT with the **gson** backend, not jackson (this project runs Jackson 3.x under the `tools.jackson` package per Spring Boot 4.1's rebrand; jjwt-jackson would clash with it). Provisioning an org also creates its first admin login (User + Person + OrganisationMembership on the Org Admin role) — the seeded role needs someone assigned to it. **Next Foundation loose end**: nothing currently checks a caller's actual permissions, only that their token is valid.
 
 ## Academic structure
 
@@ -51,6 +55,8 @@ Admission → Enrollment → Academic Year → Class/Section → Attendance → 
 ## Tech direction
 
 Modular monolith (not microservices) in Java/Spring Boot, MySQL, Redis (only when there's a real use case), Docker, REST APIs, Gradle. Don't add Kafka/event streaming prematurely.
+
+Running Spring Boot 4.1 / Hibernate 7.4 (newer than what most docs/training data assume) — it split several autoconfiguration classes into their own per-feature modules that aren't pulled in by the underlying library alone: `spring-boot-hibernate` (`HibernatePropertiesCustomizer`), `spring-boot-data-jpa-test` (`@DataJpaTest`), `spring-boot-flyway` (Flyway autoconfiguration — just having `flyway-core`/`flyway-mysql` on the classpath is *not* enough). If a Spring Boot class "should" be on the classpath but isn't found, check for a newly-split module first before assuming it's misconfigured.
 
 Conceptual module layout:
 ```
@@ -119,4 +125,8 @@ Building everything at once; unneeded microservices; generic catch-all tables; o
 
 ## Current status
 
-Fresh repo (Gradle/Java skeleton only, no domain code yet). First real objective: design the Organisation module and multi-tenant foundation — nothing else — per milestone 1.
+Foundation module (milestone 1) is built, tested, and pushed (`origin/main` @ `85710ec`): Organisation/Campus/AcademicYear/Configuration, User/Person, Role/Permission/OrganisationMembership, AuditLog, all tenant-isolated via Hibernate `@TenantId` — plus a first auth pass (JWT login + tenant-context wiring, no permission enforcement yet). A minimal REST API and a throwaway static-HTML smoke-test page exist to exercise it against real MySQL; the real React admin portal hasn't been started.
+
+Full system design (all 9 milestones) is written up in `ai-context/erp-system-plan.md` — read that alongside this file for anything beyond Foundation.
+
+**Not yet decided**: whether to close out Foundation with RBAC/permission enforcement next, or move to milestone 2 (Academic Structure). Surface both options before picking.
