@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Operion - Foundation smoke test</title>
+<style>
+  body { font-family: -apple-system, Segoe UI, sans-serif; max-width: 720px; margin: 2rem auto; color: #222; }
+  h1 { font-size: 1.3rem; }
+  h2 { font-size: 1rem; margin-top: 2rem; color: #555; }
+  form { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
+  input { padding: 0.4rem; border: 1px solid #ccc; border-radius: 4px; flex: 1; min-width: 120px; }
+  button { padding: 0.4rem 0.8rem; border: 1px solid #333; background: #333; color: #fff; border-radius: 4px; cursor: pointer; }
+  button.secondary { background: #fff; color: #333; }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+  table { width: 100%; border-collapse: collapse; margin-top: 0.5rem; }
+  th, td { text-align: left; padding: 0.4rem; border-bottom: 1px solid #eee; font-size: 0.9rem; }
+  select { padding: 0.3rem; }
+  #message { font-size: 0.85rem; padding: 0.5rem; border-radius: 4px; margin-top: 0.5rem; white-space: pre-wrap; }
+  #session { font-size: 0.85rem; padding: 0.5rem; border-radius: 4px; background: #eef; margin-top: 0.5rem; }
+  .ok { background: #e6f4ea; color: #1e7b34; }
+  .err { background: #fdecea; color: #b3261e; }
+  fieldset { border: 1px solid #ddd; border-radius: 6px; margin-bottom: 0.5rem; }
+</style>
+</head>
+<body>
+  <h1>Operion - Foundation smoke test</h1>
+  <p>Not the real admin UI - just enough to confirm the Foundation module (provisioning, login, tenant-scoped data, status lifecycle) works end to end against MySQL.</p>
+
+  <h2>1. Provision an organisation</h2>
+  <form id="create-form">
+    <fieldset>
+      <legend>Organisation</legend>
+      <input name="name" placeholder="Name (e.g. Green Valley School)" required>
+      <input name="legalName" placeholder="Legal name">
+      <input name="slug" placeholder="slug (e.g. green-valley)" required>
+    </fieldset>
+    <fieldset>
+      <legend>First admin login</legend>
+      <input name="adminFirstName" placeholder="Admin first name" required>
+      <input name="adminLastName" placeholder="Admin last name">
+      <input name="adminEmail" type="email" placeholder="Admin email" required>
+      <input name="adminPassword" type="password" placeholder="Admin password" required>
+    </fieldset>
+    <button type="submit">Create</button>
+  </form>
+
+  <h2>2. Log in</h2>
+  <form id="login-form">
+    <input name="organisationSlug" placeholder="Organisation slug" required>
+    <input name="email" type="email" placeholder="Email" required>
+    <input name="password" type="password" placeholder="Password" required>
+    <button type="submit">Log in</button>
+  </form>
+  <div id="session">Not logged in.</div>
+
+  <h2>3. Organisations (requires login)</h2>
+  <button class="secondary" id="refresh">Refresh</button>
+  <table>
+    <thead><tr><th>ID</th><th>Name</th><th>Slug</th><th>Status</th><th>Change status</th></tr></thead>
+    <tbody id="rows"></tbody>
+  </table>
+
+  <div id="message"></div>
+
+<script>
+const STATUSES = ["TRIAL", "ACTIVE", "SUSPENDED", "ARCHIVED"];
+let session = null; // { token, expiresAt, userId, organisationId }
+
+function showMessage(text, isError) {
+  const el = document.getElementById("message");
+  el.textContent = text;
+  el.className = isError ? "err" : "ok";
+}
+
+function renderSession() {
+  const el = document.getElementById("session");
+  el.textContent = session
+    ? `Logged in as user ${session.userId} in organisation ${session.organisationId} (token expires ${session.expiresAt})`
+    : "Not logged in.";
+}
+
+function authHeaders() {
+  return session ? { "Authorization": `Bearer ${session.token}` } : {};
+}
+
+async function loadOrganisations() {
+  if (!session) {
+    showMessage("Log in first - the organisations list requires a token.", true);
+    return;
+  }
+  const res = await fetch("/api/v1/organisations", { headers: authHeaders() });
+  if (res.status === 401) {
+    showMessage("Session rejected (401) - log in again.", true);
+    session = null;
+    renderSession();
+    return;
+  }
+  const orgs = await res.json();
+  const rows = document.getElementById("rows");
+  rows.innerHTML = "";
+  for (const org of orgs) {
+    const tr = document.createElement("tr");
+
+    const select = document.createElement("select");
+    for (const status of STATUSES) {
+      const opt = document.createElement("option");
+      opt.value = status;
+      opt.textContent = status;
+      if (status === org.status) opt.selected = true;
+      select.appendChild(opt);
+    }
+
+    const button = document.createElement("button");
+    button.textContent = "Apply";
+    button.className = "secondary";
+    button.onclick = () => changeStatus(org.id, select.value);
+
+    tr.innerHTML = `<td>${org.id}</td><td>${org.name}</td><td>${org.slug}</td><td>${org.status}</td>`;
+    const actionTd = document.createElement("td");
+    actionTd.appendChild(select);
+    actionTd.appendChild(button);
+    tr.appendChild(actionTd);
+
+    rows.appendChild(tr);
+  }
+}
+
+async function changeStatus(id, status) {
+  const res = await fetch(`/api/v1/organisations/${id}/status`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...authHeaders() },
+    body: JSON.stringify({ status })
+  });
+  const body = await res.json();
+  if (!res.ok) {
+    showMessage(`Status change rejected: ${body.error || res.status}`, true);
+  } else {
+    showMessage(`Organisation ${id} is now ${body.status}`, false);
+  }
+  loadOrganisations();
+}
+
+document.getElementById("create-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const form = new FormData(event.target);
+  const res = await fetch("/api/v1/organisations", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      name: form.get("name"),
+      legalName: form.get("legalName"),
+      slug: form.get("slug"),
+      adminFirstName: form.get("adminFirstName"),
+      adminLastName: form.get("adminLastName"),
+      adminEmail: form.get("adminEmail"),
+      adminPassword: form.get("adminPassword")
+    })
+  });
+  const body = await res.json();
+  if (!res.ok) {
+    showMessage(`Create failed: ${body.error || res.status}`, true);
+  } else {
+    showMessage(`Created organisation "${body.name}" (id ${body.id}). Log in with the admin email/password you just set.`, false);
+    document.querySelector('#login-form [name="organisationSlug"]').value = body.slug;
+    document.querySelector('#login-form [name="email"]').value = form.get("adminEmail");
+    event.target.reset();
+  }
+});
+
+document.getElementById("login-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const form = new FormData(event.target);
+  const res = await fetch("/api/v1/auth/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      organisationSlug: form.get("organisationSlug"),
+      email: form.get("email"),
+      password: form.get("password")
+    })
+  });
+  const body = await res.json();
+  if (!res.ok) {
+    showMessage(`Login failed: ${body.error || res.status}`, true);
+    session = null;
+  } else {
+    session = body;
+    showMessage("Logged in.", false);
+  }
+  renderSession();
+  loadOrganisations();
+});
+
+document.getElementById("refresh").addEventListener("click", loadOrganisations);
+renderSession();
+</script>
+</body>
+</html>
