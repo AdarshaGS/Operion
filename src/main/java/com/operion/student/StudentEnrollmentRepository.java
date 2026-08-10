@@ -13,5 +13,7 @@ public interface StudentEnrollmentRepository extends JpaRepository<StudentEnroll
 
 	List<StudentEnrollment> findBySectionId(Long sectionId);
 
+	List<StudentEnrollment> findBySectionIdAndCurrentTrue(Long sectionId);
+
 	List<StudentEnrollment> findByAcademicYearId(Long academicYearId);
 }

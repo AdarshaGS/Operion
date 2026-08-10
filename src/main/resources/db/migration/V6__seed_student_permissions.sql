@@ -2,7 +2,7 @@
 -- convention as V2/V4. No enforcement wired yet (none exists anywhere in the codebase
 -- yet) - these rows exist so roles can be configured against them once enforcement is
 -- built.
-INSERT INTO permissions (code, module, description, created_at, updated_at) VALUES
+INSERT IGNORE INTO permissions (code, module, description, created_at, updated_at) VALUES
     ('STUDENT_VIEW',              'student', 'View student records',                        NOW(6), NOW(6)),
     ('STUDENT_MANAGE',            'student', 'Admit/edit student records',                   NOW(6), NOW(6)),
     ('STUDENT_ENROLLMENT_MANAGE', 'student', 'Enroll, promote, and reassign students',       NOW(6), NOW(6)),

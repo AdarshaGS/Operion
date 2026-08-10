@@ -1,6 +1,6 @@
 -- Global permission catalog. Closed and code-owned: tenants configure which
 -- permissions a role has (role_permissions), never what permissions exist.
-INSERT INTO permissions (code, module, description, created_at, updated_at) VALUES
+INSERT IGNORE INTO permissions (code, module, description, created_at, updated_at) VALUES
     ('STUDENT_VIEW',         'student',       'View student records',                       NOW(6), NOW(6)),
     ('STUDENT_CREATE',       'student',       'Create/admit students',                       NOW(6), NOW(6)),
     ('STUDENT_UPDATE',       'student',       'Update student records',                      NOW(6), NOW(6)),

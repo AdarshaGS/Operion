@@ -4,48 +4,46 @@
 
 ## Session date
 
-2026-08-09
+2026-08-10 (second session of the day — follows on from the Fees/Examinations session already folded into load-context.md and cleared from this file)
 
 ## Module / milestone worked on
 
-Milestone 4 — Attendance (`ClassAttendanceRegister`, `StudentAttendance`, `AttendanceCorrection`, `StaffAttendance`), built end to end (entities → migrations → service → API → tests) in one session, on top of Foundation + Academic Foundation + Student Management from prior sessions. This picked "Option B — Attendance" out of the three-way fork left open at the end of the last session (RBAC enforcement / Attendance / Academic Foundation test backfill).
+**Communication module** (`com.operion.communication`) — the first of the remaining light-sketch modules (erp-system-plan.md §3.3) to get a deep design and full build, picked over RBAC enforcement and the Academic Foundation test backfill when those three options were surfaced at session start per the standing "surface options before picking" instruction in load-context.md.
 
 ## Decisions made
 
-- **Which fork to take** — user explicitly chose Attendance (milestone 4) over closing the RBAC-enforcement gap or backfilling Academic Foundation's test coverage. The other two are still open, carried forward again below.
-- **Shared `AttendanceStatus` enum** for both `StudentAttendance` and `StaffAttendance` (PRESENT/ABSENT/LATE/HALF_DAY) rather than two separate enums — flagged as a recommendation in the design doc, user accepted as-is ("proceed as it is").
-- **Register locking is an explicit admin action only** (`SUBMITTED → LOCKED`), no date-based auto-lock policy — also flagged and accepted as-is; avoids needing a scheduler that doesn't exist yet.
-- **No separate `marked_by`/`marked_at`/`corrected_by`/`corrected_at` columns** — `BaseEntity`'s `createdBy`/`createdAt` already capture these, since `StudentAttendance` is only ever mutated in place (never re-inserted) and `AttendanceCorrection` is only ever inserted (never updated). A simplification over the original erp-system-plan.md §3.1 sketch, made once BaseEntity's auditing convention was confirmed.
-- **`school_class_id` denormalized onto `StudentAttendance`** in addition to `section_id`, following the same "denormalize off section→class→year" convention `TeacherAssignment` already established, rather than requiring a join for class-level reports.
-- **Test wiring**: `AttendanceService`/`AuditLogService` are constructed by hand in tests (`new AttendanceService(...)`) rather than `@Import`-ed as Spring beans — see the new gotcha folded into load-context.md's Tech direction section. First attempt (`@Import`-ing a plain `@Configuration` test class to supply an `ObjectMapper`) broke `@DataJpaTest`'s `@EnableAutoConfiguration` base-package detection.
+- **User picked Communication** over RBAC enforcement / Academic Foundation test backfill / other light-sketch modules, via an explicit multiple-choice prompt at session start.
+- **Design doc presented and approved with all three recommended options** ("Proceed with implementation" + confirmed all three): (1) v1 ships **IN_APP delivery only** — EMAIL/SMS are reserved enum values, no provider wired; (2) **audience targeting is a type+id polymorphic column** (`audienceType` + `audienceRefId`) rather than a join table, matching "one Announcement targets exactly one audience"; (3) **read receipts tracked** (`readAt` per `NotificationRecipient`).
+- **Because v1 is IN_APP-only, no polling dispatch worker was built** — this was a design simplification made during implementation (not explicitly asked, but a direct consequence of decision #1): `NotificationRecipient` rows are written straight to `SENT` at fan-out time, since row-creation-is-delivery for an in-app channel. A worker only becomes necessary once EMAIL/SMS are actually wired to a provider — flagged in code comments so it isn't mistaken for an oversight later.
+- **Fan-out for CLASS/SECTION/INDIVIDUAL resolves students + their guardians only, not assigned teachers** — a deliberate v2 scope cut, not an oversight (flagged in `CommunicationService`'s class doc).
+- **`NotificationTemplate` was built but nothing calls it yet** — it exists as a seam for a future module (e.g. Fees firing a due-date reminder) to use via `CommunicationService.sendTemplatedNotification`, matching the "don't build a generic template engine speculatively, but leave the seam" balance struck elsewhere in the codebase.
+- **"Current person" resolution is new territory**: no prior module needed to map the JWT's `userId` (`TenantContext.getActorId()`) to a `Person` for a `/me`-style endpoint. Resolved via `OrganisationMembershipRepository.findByUserId(actorId).findFirst().getPerson()` — duplicated inline in the two controllers that need it (`NotificationController`, `NotificationPreferenceController`) rather than extracted into a shared helper, matching the codebase's general preference for controllers composing repositories directly over introducing abstraction for a 3-line lookup used in only two places.
 
 ## What was actually built
 
-- **Entities/enums** — `src/main/java/com/operion/attendance/`: `AttendanceStatus`, `ClassAttendanceRegister`, `ClassAttendanceRegisterStatus`, `StudentAttendance`, `AttendanceCorrection`, `StaffAttendance`.
-- **Repositories** — one per entity in the same package (`StudentAttendanceRepository`, `ClassAttendanceRegisterRepository`, `AttendanceCorrectionRepository`, `StaffAttendanceRepository`).
-- **Service** — `AttendanceService`: `markDailyAttendance` (creates/reuses the DRAFT register, rejects double-marking a student's day), `submitRegister`/`lockRegister` (state machine, each transition also writes to the shared `AuditLog`), `correct` (writes a typed `AttendanceCorrection` row + mutates the `StudentAttendance` row + mirrors to `AuditLog`, blocked once the register is LOCKED), `markStaffAttendance`/`checkOutStaff`.
-- **Migrations** — `V7__attendance_schema.sql` (4 tables: `class_attendance_registers`, `student_attendances`, `attendance_corrections`, `staff_attendances`) and `V8__seed_attendance_permissions.sql` (6 permission codes: `ATTENDANCE_MARK/VIEW/CORRECT/LOCK`, `STAFF_ATTENDANCE_MARK/VIEW`).
-- **API** — `src/main/java/com/operion/attendance/api/`: `StudentAttendanceController` + `StaffAttendanceController` and their request/response DTOs, under `/api/v1/attendance/...`.
-- **Tests** — `StudentAttendanceLifecycleTest` (double-marking rejection, DRAFT→SUBMITTED→LOCKED transitions, correction allowed-after-submit/blocked-after-lock, AuditLog mirror), `StaffAttendanceTest` (check-in/out, double-marking rejection), `AttendanceTenantIsolationTest` (extends the standing isolation-test pattern). Full suite passing (up from 13 tests before this session).
-- **Docs** — `ai-context/load-context.md`'s "Current status" updated to record the Attendance module and re-point the open fork at milestone 5 (Fees); Tech direction section got a new `@DataJpaTest`/`AuditLogService` gotcha entry (see Decisions above).
+- **Communication** (`com.operion.communication`): `Announcement`, `NotificationTemplate`, `NotificationRecipient`, `NotificationPreference` + enums (`AudienceType`, `AnnouncementStatus`, `NotificationChannel`, `DeliveryStatus`); `CommunicationService` (draft/publish/cancel announcement, audience fan-out resolution per type, preference-filtered recipient creation, mark-read, template CRUD, preference upsert); full REST API under `/api/v1/announcements`, `/api/v1/notifications`, `/api/v1/notification-preferences`, `/api/v1/notification-templates`; migrations `V13__communication_schema.sql`, `V14__seed_communication_permissions.sql`; tests `AnnouncementFanOutTest` (5 cases: SECTION resolves student+guardian, disabled preference excludes a person, ORG resolves active memberships only, publish/cancel reject non-DRAFT transitions), `CommunicationTenantIsolationTest`.
+- Two small supporting repository methods added to existing modules to support fan-out: `StudentEnrollmentRepository.findBySectionIdAndCurrentTrue`, `OrganisationMembershipRepository.findByStatus` / `findByCampusIdAndStatus`.
+- `ai-context/load-context.md`'s "Current status" section updated live during the session to record the module and re-point the open fork (now: RBAC enforcement vs. Academic Foundation test backfill vs. Transportation/Library/Inventory/HR).
+- `./gradlew test` run full-suite (not just the new module's tests) after building: 39/39 passing, 0 failures/errors.
 
 ## Open questions (unresolved, carry to next session)
 
-- Same three-way-minus-one fork as before, now: **RBAC/permission enforcement** (outstanding since Foundation — permission codes exist across four modules now, nothing checks them) vs. **milestone 5 (Fees)** vs. **backfilling Academic Foundation's test gap** (`GradeLevel`/`SchoolClass`/`Section`/`Subject`/`ClassSubject` still untested directly). Surface all three at the start of next session per load-context.md's "How to work with me" rule.
-- Still nothing committed to git. Student Management (two sessions ago) and Attendance (this session) are both sitting uncommitted on disk. User asked for commit messages this session and said they'd run `git commit` themselves — messages were provided (one per module, matching the one-commit-per-milestone history), but no `git add`/`git commit` was executed by the assistant. Check at the start of next session whether the user actually committed, since the diff between load-context.md's assumed state and actual git history depends on it.
+- The open fork, now with Communication resolved off the list: **RBAC/permission enforcement** (outstanding since Foundation — seven modules' worth of permission codes now exist, nothing checks them) vs. **backfilling Academic Foundation's test gap** (`GradeLevel`/`SchoolClass`/`Section`/`Subject`/`ClassSubject` still untested directly) vs. **Transportation / Library / Inventory / HR** (none deep-designed yet, see erp-system-plan.md §3.3). Surface all three at the start of next session, same as this one.
+- **Still nothing committed to git.** `git status` at this session's start showed Fees + Examinations (from the prior session) already uncommitted, plus small `INSERT` → `INSERT IGNORE` edits to `V2`/`V6`/`V8`/`V10` made outside any conversation. This session adds Communication (`V13`/`V14`) on top, uncommitted. Check `git log`/`git status` at the start of next session rather than assuming anything landed.
+- **The `INSERT IGNORE` migration inconsistency from last session is still unresolved, and now has more data points.** Confirmed this session: `V2`, `V6`, `V8`, `V10` are `INSERT IGNORE INTO` (uncommitted edits, origin unknown — not made by the assistant in either session). `V4` and `V12` were **not** touched and remain plain `INSERT INTO`. This session's new `V14` was also written as plain `INSERT INTO`, matching `V4`/`V12` (the untouched majority) rather than guessing at the `IGNORE` pattern's intent. Worth deciding explicitly next session: was `INSERT IGNORE` on V2/V6/V8/V10 an intentional idempotency fix that should be extended to V4/V12/V14 too, or a one-off/accidental edit that should be reverted? Don't assume either way — ask.
 
 ## Explicitly deferred / rejected
 
-- Nothing new deferred/rejected this session beyond the two decisions in the design doc that were flagged and then accepted as-is (shared enum, explicit-lock-only) — see Decisions above.
+- Nothing explicitly rejected this session — the design doc's three flagged decisions were all accepted as recommended.
 
 ## Next step
 
-Start of next session: check `git log`/`git status` first to see if the Student Management + Attendance commits landed. Then ask the user to pick one of the three open items (RBAC enforcement / Fees / Academic Foundation test backfill) before writing any code — don't assume.
+Start of next session: check `git log`/`git status` first (three modules' worth of uncommitted work now: Fees, Examinations, Communication — confirm nothing changed outside the conversation again, especially re: the `INSERT IGNORE` question above). Then ask the user to pick one of the three open items (RBAC enforcement / Academic Foundation test backfill / a remaining light-sketch module) before writing any code — don't assume, and don't propose UI/frontend work per the standing `workflow_build_all_modules_first` memory.
 
 ---
 
 ### Fold-back checklist (before clearing this file)
 
-- [x] Any new standing principle or correction → yes: the `@DataJpaTest` + `AuditLogService`/Jackson gotcha, folded into load-context.md's Tech direction section (durable, will recur in Fees).
-- [x] Milestone order still correct? → yes, unchanged (Foundation → Academic → Student/Parent → Attendance → Fees → ...); Attendance now done, Fees is next in sequence but still competing with the two other open items.
+- [x] Any new standing principle or correction → none this session; existing `workflow_build_all_modules_first` memory already covered the design-doc-first + full-suite-test-run behavior this session followed, no update needed.
+- [x] Milestone order still correct? → yes, unchanged; Communication (part of milestone 7 in load-context.md's ordering) now done. Remaining: RBAC enforcement (cross-cutting, not a milestone number), Academic Foundation test backfill, or one of Transportation/Library/Inventory/HR (order not yet decided among them).
 - [x] "Current status" line in load-context.md updated to match where things actually stand → done live during the session.
