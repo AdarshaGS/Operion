@@ -3,7 +3,9 @@ package com.operion.academic.api;
 import java.util.List;
 
 import com.operion.academic.AcademicService;
+import com.operion.academic.ClassSubject;
 import com.operion.academic.ClassSubjectRepository;
+import com.operion.academic.ClassSubjectStatus;
 import com.operion.academic.SchoolClass;
 import com.operion.academic.SchoolClassRepository;
 import com.operion.academic.Subject;
@@ -45,5 +47,14 @@ public class ClassSubjectController {
 	@GetMapping
 	public List<ClassSubjectResponse> list(@PathVariable Long classId) {
 		return classSubjectRepository.findBySchoolClassId(classId).stream().map(ClassSubjectResponse::from).toList();
+	}
+
+	@PostMapping("/{id}/status")
+	public ClassSubjectResponse changeStatus(
+			@PathVariable Long classId, @PathVariable Long id, @RequestBody ChangeStatusRequest request) {
+		ClassSubject classSubject = classSubjectRepository.findById(id)
+				.orElseThrow(() -> new IllegalArgumentException("No class subject with id " + id));
+		return ClassSubjectResponse.from(
+				academicService.changeClassSubjectStatus(classSubject, ClassSubjectStatus.valueOf(request.status())));
 	}
 }

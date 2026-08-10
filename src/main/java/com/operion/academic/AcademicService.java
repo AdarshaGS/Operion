@@ -40,20 +40,45 @@ public class AcademicService {
 		return gradeLevelRepository.save(new GradeLevel(name, sequenceOrder, stage));
 	}
 
+	public GradeLevel changeGradeLevelStatus(GradeLevel gradeLevel, GradeLevelStatus status) {
+		gradeLevel.changeStatus(status);
+		return gradeLevelRepository.save(gradeLevel);
+	}
+
 	public Subject createSubject(String name, String code, boolean elective) {
 		return subjectRepository.save(new Subject(name, code, elective));
+	}
+
+	public Subject changeSubjectStatus(Subject subject, SubjectStatus status) {
+		subject.changeStatus(status);
+		return subjectRepository.save(subject);
 	}
 
 	public SchoolClass createSchoolClass(AcademicYear academicYear, Campus campus, GradeLevel gradeLevel, String displayName) {
 		return schoolClassRepository.save(new SchoolClass(academicYear, campus, gradeLevel, displayName));
 	}
 
+	public SchoolClass changeSchoolClassStatus(SchoolClass schoolClass, SchoolClassStatus status) {
+		schoolClass.changeStatus(status);
+		return schoolClassRepository.save(schoolClass);
+	}
+
 	public Section createSection(SchoolClass schoolClass, String name, Integer capacity, String room) {
 		return sectionRepository.save(new Section(schoolClass, name, capacity, room));
 	}
 
+	public Section changeSectionStatus(Section section, SectionStatus status) {
+		section.changeStatus(status);
+		return sectionRepository.save(section);
+	}
+
 	public ClassSubject assignSubjectToClass(SchoolClass schoolClass, Subject subject, boolean mandatory) {
 		return classSubjectRepository.save(new ClassSubject(schoolClass, subject, mandatory));
+	}
+
+	public ClassSubject changeClassSubjectStatus(ClassSubject classSubject, ClassSubjectStatus status) {
+		classSubject.changeStatus(status);
+		return classSubjectRepository.save(classSubject);
 	}
 
 	/**
@@ -76,5 +101,10 @@ public class AcademicService {
 		AcademicYear academicYear = section.getSchoolClass().getAcademicYear();
 		return teacherAssignmentRepository.save(
 				new TeacherAssignment(academicYear, section, subject, teacherPerson, assignmentType, startDate));
+	}
+
+	public TeacherAssignment endTeacherAssignment(TeacherAssignment assignment, LocalDate endDate) {
+		assignment.end(endDate);
+		return teacherAssignmentRepository.save(assignment);
 	}
 }

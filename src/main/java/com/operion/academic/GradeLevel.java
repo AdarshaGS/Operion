@@ -40,4 +40,8 @@ public class GradeLevel extends TenantScopedEntity {
 		this.stage = stage;
 		this.status = GradeLevelStatus.ACTIVE;
 	}
+
+	public void changeStatus(GradeLevelStatus status) {
+		this.status = status;
+	}
 }

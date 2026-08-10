@@ -7,11 +7,13 @@ import com.operion.academic.GradeLevel;
 import com.operion.academic.GradeLevelRepository;
 import com.operion.academic.SchoolClass;
 import com.operion.academic.SchoolClassRepository;
+import com.operion.academic.SchoolClassStatus;
 import com.operion.organisation.AcademicYear;
 import com.operion.organisation.AcademicYearRepository;
 import com.operion.organisation.Campus;
 import com.operion.organisation.CampusRepository;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -57,5 +59,13 @@ public class SchoolClassController {
 				? schoolClassRepository.findByAcademicYearId(academicYearId)
 				: schoolClassRepository.findAll();
 		return schoolClasses.stream().map(SchoolClassResponse::from).toList();
+	}
+
+	@PostMapping("/{id}/status")
+	public SchoolClassResponse changeStatus(@PathVariable Long id, @RequestBody ChangeStatusRequest request) {
+		SchoolClass schoolClass = schoolClassRepository.findById(id)
+				.orElseThrow(() -> new IllegalArgumentException("No school class with id " + id));
+		return SchoolClassResponse.from(
+				academicService.changeSchoolClassStatus(schoolClass, SchoolClassStatus.valueOf(request.status())));
 	}
 }

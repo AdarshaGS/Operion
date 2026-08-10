@@ -7,6 +7,7 @@ import com.operion.academic.Section;
 import com.operion.academic.SectionRepository;
 import com.operion.academic.Subject;
 import com.operion.academic.SubjectRepository;
+import com.operion.academic.TeacherAssignment;
 import com.operion.academic.TeacherAssignmentRepository;
 import com.operion.academic.TeacherAssignmentType;
 import com.operion.identity.Person;
@@ -62,5 +63,12 @@ public class TeacherAssignmentController {
 		return teacherAssignmentRepository.findByTeacherPersonId(personId).stream()
 				.map(TeacherAssignmentResponse::from)
 				.toList();
+	}
+
+	@PostMapping("/api/v1/teacher-assignments/{id}/end")
+	public TeacherAssignmentResponse end(@PathVariable Long id, @RequestBody EndTeacherAssignmentRequest request) {
+		TeacherAssignment assignment = teacherAssignmentRepository.findById(id)
+				.orElseThrow(() -> new IllegalArgumentException("No teacher assignment with id " + id));
+		return TeacherAssignmentResponse.from(academicService.endTeacherAssignment(assignment, request.endDate()));
 	}
 }

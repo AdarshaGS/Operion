@@ -36,4 +36,8 @@ public class Subject extends TenantScopedEntity {
 		this.elective = elective;
 		this.status = SubjectStatus.ACTIVE;
 	}
+
+	public void changeStatus(SubjectStatus status) {
+		this.status = status;
+	}
 }

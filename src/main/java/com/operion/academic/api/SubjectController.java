@@ -3,8 +3,11 @@ package com.operion.academic.api;
 import java.util.List;
 
 import com.operion.academic.AcademicService;
+import com.operion.academic.Subject;
 import com.operion.academic.SubjectRepository;
+import com.operion.academic.SubjectStatus;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -30,5 +33,12 @@ public class SubjectController {
 	@GetMapping
 	public List<SubjectResponse> list() {
 		return subjectRepository.findAll().stream().map(SubjectResponse::from).toList();
+	}
+
+	@PostMapping("/{id}/status")
+	public SubjectResponse changeStatus(@PathVariable Long id, @RequestBody ChangeStatusRequest request) {
+		Subject subject = subjectRepository.findById(id)
+				.orElseThrow(() -> new IllegalArgumentException("No subject with id " + id));
+		return SubjectResponse.from(academicService.changeSubjectStatus(subject, SubjectStatus.valueOf(request.status())));
 	}
 }

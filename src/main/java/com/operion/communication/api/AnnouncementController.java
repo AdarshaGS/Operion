@@ -64,12 +64,15 @@ public class AnnouncementController {
 		return AnnouncementResponse.from(communicationService.cancelAnnouncement(findAnnouncement(id)));
 	}
 
-	/** Feed of published announcements, optionally narrowed to one campus. */
+	/** Defaults to PUBLISHED (the consumer-facing feed); an admin management view passes
+	 * status=DRAFT to find its own unpublished announcements to publish or cancel. */
 	@GetMapping
-	public List<AnnouncementResponse> feed(@RequestParam(required = false) Long campusId) {
+	public List<AnnouncementResponse> feed(
+			@RequestParam(required = false) Long campusId, @RequestParam(required = false) String status) {
+		AnnouncementStatus filterStatus = status != null ? AnnouncementStatus.valueOf(status) : AnnouncementStatus.PUBLISHED;
 		List<Announcement> announcements = campusId != null
-				? announcementRepository.findByCampusIdAndStatus(campusId, AnnouncementStatus.PUBLISHED)
-				: announcementRepository.findByStatus(AnnouncementStatus.PUBLISHED);
+				? announcementRepository.findByCampusIdAndStatus(campusId, filterStatus)
+				: announcementRepository.findByStatus(filterStatus);
 		return announcements.stream().map(AnnouncementResponse::from).toList();
 	}
 

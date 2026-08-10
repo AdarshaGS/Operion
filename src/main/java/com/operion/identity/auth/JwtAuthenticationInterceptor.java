@@ -3,6 +3,7 @@ package com.operion.identity.auth;
 import com.operion.common.TenantContext;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.http.HttpMethod;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 
@@ -24,7 +25,11 @@ public class JwtAuthenticationInterceptor implements HandlerInterceptor {
 
 	@Override
 	public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) {
-		if (isPublic(request)) {
+		// A CORS preflight never carries the real bearer token - Spring's own CORS
+		// processing (WebConfig.addCorsMappings) already validated the origin/method/
+		// headers before this interceptor runs, so let it through to be answered as a
+		// preflight rather than rejecting it here and breaking every cross-origin call.
+		if (HttpMethod.OPTIONS.matches(request.getMethod()) || isPublic(request)) {
 			return true;
 		}
 

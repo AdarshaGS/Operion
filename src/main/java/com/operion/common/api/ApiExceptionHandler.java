@@ -3,6 +3,7 @@ package com.operion.common.api;
 import java.util.Map;
 
 import com.operion.identity.auth.AuthenticationFailedException;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -20,6 +21,15 @@ class ApiExceptionHandler {
 	@ExceptionHandler(IllegalStateException.class)
 	ResponseEntity<Map<String, String>> conflict(IllegalStateException ex) {
 		return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error", ex.getMessage()));
+	}
+
+	/** A DB-level unique constraint firing (e.g. a duplicate code/name within an org) is
+	 * still a conflict, not a server fault - controllers that skip a pre-check and rely
+	 * on the constraint itself (simple "create" endpoints with no dedicated service,
+	 * like Person/Campus/AcademicYear) would otherwise surface a raw 500. */
+	@ExceptionHandler(DataIntegrityViolationException.class)
+	ResponseEntity<Map<String, String>> dataIntegrityConflict(DataIntegrityViolationException ex) {
+		return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error", "This record conflicts with an existing one"));
 	}
 
 	@ExceptionHandler(AuthenticationFailedException.class)

@@ -47,4 +47,8 @@ public class Section extends TenantScopedEntity {
 		this.room = room;
 		this.status = SectionStatus.ACTIVE;
 	}
+
+	public void changeStatus(SectionStatus status) {
+		this.status = status;
+	}
 }

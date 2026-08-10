@@ -44,4 +44,8 @@ public class ClassSubject extends TenantScopedEntity {
 		this.mandatory = mandatory;
 		this.status = ClassSubjectStatus.ACTIVE;
 	}
+
+	public void changeStatus(ClassSubjectStatus status) {
+		this.status = status;
+	}
 }

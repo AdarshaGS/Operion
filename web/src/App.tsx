@@ -1,0 +1,67 @@
+import { Navigate, Route, Routes } from "react-router-dom";
+import { AuthProvider } from "./auth/AuthContext";
+import { LoginPage } from "./auth/LoginPage";
+import { ProtectedRoute } from "./auth/ProtectedRoute";
+import { AppLayout } from "./layout/AppLayout";
+import { AcademicsPage } from "./modules/academics/AcademicsPage";
+import { SchoolClassSectionsPage } from "./modules/academics/SchoolClassSectionsPage";
+import { SectionDetailPage } from "./modules/academics/SectionDetailPage";
+import { AttendancePage } from "./modules/attendance/AttendancePage";
+import { CommunicationPage } from "./modules/communication/CommunicationPage";
+import { ExamDetailPage } from "./modules/examinations/ExamDetailPage";
+import { ExaminationsPage } from "./modules/examinations/ExaminationsPage";
+import { MarksEntryPage } from "./modules/examinations/MarksEntryPage";
+import { FeesPage } from "./modules/fees/FeesPage";
+import { HrPage } from "./modules/hr/HrPage";
+import { StaffCreatePage } from "./modules/hr/StaffCreatePage";
+import { StaffDetailPage } from "./modules/hr/StaffDetailPage";
+import { ItemDetailPage } from "./modules/inventory/ItemDetailPage";
+import { InventoryPage } from "./modules/inventory/InventoryPage";
+import { BookDetailPage } from "./modules/library/BookDetailPage";
+import { LibraryPage } from "./modules/library/LibraryPage";
+import { SettingsPage } from "./modules/settings/SettingsPage";
+import { RouteDetailPage } from "./modules/transport/RouteDetailPage";
+import { TransportPage } from "./modules/transport/TransportPage";
+import { StudentCreatePage } from "./modules/students/StudentCreatePage";
+import { StudentDetailPage } from "./modules/students/StudentDetailPage";
+import { StudentListPage } from "./modules/students/StudentListPage";
+
+function App() {
+	return (
+		<AuthProvider>
+			<Routes>
+				<Route path="/login" element={<LoginPage />} />
+				<Route element={<ProtectedRoute />}>
+					<Route element={<AppLayout />}>
+						<Route index element={<Navigate to="/students" replace />} />
+						<Route path="/students" element={<StudentListPage />} />
+						<Route path="/students/new" element={<StudentCreatePage />} />
+						<Route path="/students/:studentId" element={<StudentDetailPage />} />
+						<Route path="/academics" element={<AcademicsPage />} />
+						<Route path="/academics/classes/:classId" element={<SchoolClassSectionsPage />} />
+						<Route path="/academics/classes/:classId/sections/:sectionId" element={<SectionDetailPage />} />
+						<Route path="/attendance" element={<AttendancePage />} />
+						<Route path="/fees" element={<FeesPage />} />
+						<Route path="/examinations" element={<ExaminationsPage />} />
+						<Route path="/examinations/exams/:examId" element={<ExamDetailPage />} />
+						<Route path="/examinations/exams/:examId/schedules/:scheduleId" element={<MarksEntryPage />} />
+						<Route path="/communication" element={<CommunicationPage />} />
+						<Route path="/transport" element={<TransportPage />} />
+						<Route path="/transport/routes/:routeId" element={<RouteDetailPage />} />
+						<Route path="/library" element={<LibraryPage />} />
+						<Route path="/library/books/:bookId" element={<BookDetailPage />} />
+						<Route path="/inventory" element={<InventoryPage />} />
+						<Route path="/inventory/items/:itemId" element={<ItemDetailPage />} />
+						<Route path="/hr" element={<HrPage />} />
+						<Route path="/hr/staff/new" element={<StaffCreatePage />} />
+						<Route path="/hr/staff/:staffProfileId" element={<StaffDetailPage />} />
+						<Route path="/settings" element={<SettingsPage />} />
+					</Route>
+				</Route>
+				<Route path="*" element={<Navigate to="/" replace />} />
+			</Routes>
+		</AuthProvider>
+	);
+}
+
+export default App;

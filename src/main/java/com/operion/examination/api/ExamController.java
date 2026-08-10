@@ -58,6 +58,11 @@ public class ExamController {
 		return examRepository.findByAcademicYearId(academicYearId).stream().map(ExamResponse::from).toList();
 	}
 
+	@GetMapping("/{examId}")
+	public ExamResponse get(@PathVariable Long examId) {
+		return ExamResponse.from(findExam(examId));
+	}
+
 	@PostMapping("/{examId}/schedules")
 	public ExamScheduleResponse addSchedule(@PathVariable Long examId, @RequestBody CreateExamScheduleRequest request) {
 		Exam exam = findExam(examId);

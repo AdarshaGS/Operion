@@ -51,4 +51,8 @@ public class SchoolClass extends TenantScopedEntity {
 		this.displayName = displayName;
 		this.status = SchoolClassStatus.ACTIVE;
 	}
+
+	public void changeStatus(SchoolClassStatus status) {
+		this.status = status;
+	}
 }
