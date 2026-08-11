@@ -38,3 +38,6 @@ out/
 
 ### graphify ###
 graphify-out/
+
+### macOS ###
+.DS_Store
