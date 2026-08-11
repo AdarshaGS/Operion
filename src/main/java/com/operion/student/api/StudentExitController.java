@@ -2,6 +2,7 @@ package com.operion.student.api;
 
 import java.util.List;
 
+import com.operion.authorization.RequirePermission;
 import com.operion.student.Student;
 import com.operion.student.StudentExit;
 import com.operion.student.StudentExitRepository;
@@ -17,6 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/students/{studentId}/exits")
+@RequirePermission("STUDENT_VIEW")
 public class StudentExitController {
 
 	private final StudentService studentService;
@@ -31,6 +33,7 @@ public class StudentExitController {
 	}
 
 	@PostMapping
+	@RequirePermission("STUDENT_EXIT_MANAGE")
 	public StudentExitResponse recordExit(@PathVariable Long studentId, @RequestBody RecordExitRequest request) {
 		Student student = studentRepository.findById(studentId)
 				.orElseThrow(() -> new IllegalArgumentException("No student with id " + studentId));

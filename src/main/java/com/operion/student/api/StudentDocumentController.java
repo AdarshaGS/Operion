@@ -2,6 +2,7 @@ package com.operion.student.api;
 
 import java.util.List;
 
+import com.operion.authorization.RequirePermission;
 import com.operion.student.DocumentVerificationStatus;
 import com.operion.student.Student;
 import com.operion.student.StudentDocument;
@@ -18,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/students/{studentId}/documents")
+@RequirePermission("STUDENT_DOCUMENT_VIEW")
 public class StudentDocumentController {
 
 	private final StudentService studentService;
@@ -32,6 +34,7 @@ public class StudentDocumentController {
 	}
 
 	@PostMapping
+	@RequirePermission("STUDENT_DOCUMENT_MANAGE")
 	public StudentDocumentResponse upload(@PathVariable Long studentId, @RequestBody UploadDocumentRequest request) {
 		Student student = studentRepository.findById(studentId)
 				.orElseThrow(() -> new IllegalArgumentException("No student with id " + studentId));
@@ -42,6 +45,7 @@ public class StudentDocumentController {
 	}
 
 	@PatchMapping("/{documentId}/verify")
+	@RequirePermission("STUDENT_DOCUMENT_MANAGE")
 	public StudentDocumentResponse verify(
 			@PathVariable Long studentId, @PathVariable Long documentId, @RequestBody VerifyDocumentRequest request) {
 		StudentDocument document = studentDocumentRepository.findById(documentId)

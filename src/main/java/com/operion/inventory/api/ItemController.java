@@ -2,6 +2,7 @@ package com.operion.inventory.api;
 
 import java.util.List;
 
+import com.operion.authorization.RequirePermission;
 import com.operion.inventory.InventoryService;
 import com.operion.inventory.Item;
 import com.operion.inventory.ItemCategory;
@@ -20,6 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/inventory/items")
+@RequirePermission("INVENTORY_VIEW")
 public class ItemController {
 
 	private final InventoryService inventoryService;
@@ -36,6 +38,7 @@ public class ItemController {
 	}
 
 	@PostMapping
+	@RequirePermission("INVENTORY_CATALOG_MANAGE")
 	public ItemResponse create(@RequestBody CreateItemRequest request) {
 		ItemCategory category = itemCategoryRepository.findById(request.categoryId())
 				.orElseThrow(() -> new IllegalArgumentException("No item category with id " + request.categoryId()));
@@ -49,6 +52,7 @@ public class ItemController {
 	}
 
 	@PostMapping("/{id}/discontinue")
+	@RequirePermission("INVENTORY_CATALOG_MANAGE")
 	public ItemResponse discontinue(@PathVariable Long id) {
 		return ItemResponse.from(inventoryService.discontinueItem(findItem(id)));
 	}

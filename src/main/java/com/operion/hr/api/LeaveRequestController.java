@@ -2,6 +2,7 @@ package com.operion.hr.api;
 
 import java.util.List;
 
+import com.operion.authorization.RequirePermission;
 import com.operion.hr.HrService;
 import com.operion.hr.LeaveRequest;
 import com.operion.hr.LeaveRequestRepository;
@@ -22,6 +23,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/hr/leave-requests")
+@RequirePermission("HR_VIEW")
 public class LeaveRequestController {
 
 	private final HrService hrService;
@@ -41,6 +43,7 @@ public class LeaveRequestController {
 	}
 
 	@PostMapping
+	@RequirePermission("HR_LEAVE_MANAGE")
 	public LeaveRequestResponse raise(@RequestBody RaiseLeaveRequestRequest request) {
 		StaffProfile staffProfile = findStaffProfile(request.staffProfileId());
 		LeaveType leaveType = findLeaveType(request.leaveTypeId());
@@ -70,16 +73,19 @@ public class LeaveRequestController {
 	}
 
 	@PostMapping("/{id}/approve")
+	@RequirePermission("HR_LEAVE_MANAGE")
 	public LeaveRequestResponse approve(@PathVariable Long id, @RequestBody DecideLeaveRequestRequest request) {
 		return LeaveRequestResponse.from(hrService.approve(findLeaveRequest(id), request.decidedBy()));
 	}
 
 	@PostMapping("/{id}/reject")
+	@RequirePermission("HR_LEAVE_MANAGE")
 	public LeaveRequestResponse reject(@PathVariable Long id, @RequestBody DecideLeaveRequestRequest request) {
 		return LeaveRequestResponse.from(hrService.reject(findLeaveRequest(id), request.decidedBy()));
 	}
 
 	@PostMapping("/{id}/cancel")
+	@RequirePermission("HR_LEAVE_MANAGE")
 	public LeaveRequestResponse cancel(@PathVariable Long id) {
 		return LeaveRequestResponse.from(hrService.cancel(findLeaveRequest(id)));
 	}

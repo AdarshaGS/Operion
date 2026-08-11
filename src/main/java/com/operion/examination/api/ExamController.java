@@ -6,6 +6,7 @@ import com.operion.academic.SchoolClass;
 import com.operion.academic.SchoolClassRepository;
 import com.operion.academic.Subject;
 import com.operion.academic.SubjectRepository;
+import com.operion.authorization.RequirePermission;
 import com.operion.examination.Exam;
 import com.operion.examination.ExamRepository;
 import com.operion.examination.ExamSchedule;
@@ -24,6 +25,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/examinations/exams")
+@RequirePermission("EXAM_VIEW")
 public class ExamController {
 
 	private final ExaminationService examinationService;
@@ -45,6 +47,7 @@ public class ExamController {
 	}
 
 	@PostMapping
+	@RequirePermission("EXAM_MANAGE")
 	public ExamResponse create(@RequestBody CreateExamRequest request) {
 		AcademicYear academicYear = academicYearRepository.findById(request.academicYearId())
 				.orElseThrow(() -> new IllegalArgumentException("No academic year with id " + request.academicYearId()));
@@ -64,6 +67,7 @@ public class ExamController {
 	}
 
 	@PostMapping("/{examId}/schedules")
+	@RequirePermission("EXAM_MANAGE")
 	public ExamScheduleResponse addSchedule(@PathVariable Long examId, @RequestBody CreateExamScheduleRequest request) {
 		Exam exam = findExam(examId);
 		SchoolClass schoolClass = schoolClassRepository.findById(request.schoolClassId())

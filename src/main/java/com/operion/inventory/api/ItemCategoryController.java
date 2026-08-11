@@ -2,6 +2,7 @@ package com.operion.inventory.api;
 
 import java.util.List;
 
+import com.operion.authorization.RequirePermission;
 import com.operion.inventory.InventoryService;
 import com.operion.inventory.ItemCategoryRepository;
 import com.operion.inventory.ItemCategoryStatus;
@@ -13,6 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/inventory/categories")
+@RequirePermission("INVENTORY_VIEW")
 public class ItemCategoryController {
 
 	private final InventoryService inventoryService;
@@ -24,6 +26,7 @@ public class ItemCategoryController {
 	}
 
 	@PostMapping
+	@RequirePermission("INVENTORY_CATALOG_MANAGE")
 	public ItemCategoryResponse create(@RequestBody CreateItemCategoryRequest request) {
 		return ItemCategoryResponse.from(inventoryService.createCategory(request.code(), request.name(), request.description()));
 	}

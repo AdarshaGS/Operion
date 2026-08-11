@@ -2,6 +2,7 @@ package com.operion.transport.api;
 
 import java.util.List;
 
+import com.operion.authorization.RequirePermission;
 import com.operion.student.StudentEnrollment;
 import com.operion.student.StudentEnrollmentRepository;
 import com.operion.transport.Route;
@@ -22,6 +23,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/transport/assignments")
+@RequirePermission("TRANSPORT_VIEW")
 public class StudentTransportAssignmentController {
 
 	private final TransportService transportService;
@@ -42,6 +44,7 @@ public class StudentTransportAssignmentController {
 	}
 
 	@PostMapping
+	@RequirePermission("TRANSPORT_ASSIGNMENT_MANAGE")
 	public StudentTransportAssignmentResponse create(@RequestBody CreateStudentTransportAssignmentRequest request) {
 		StudentEnrollment enrollment = findEnrollment(request.studentEnrollmentId());
 		Route route = findRoute(request.routeId());
@@ -67,6 +70,7 @@ public class StudentTransportAssignmentController {
 	}
 
 	@PostMapping("/{id}/reassign")
+	@RequirePermission("TRANSPORT_ASSIGNMENT_MANAGE")
 	public StudentTransportAssignmentResponse reassignRoute(@PathVariable Long id, @RequestBody ReassignRouteRequest request) {
 		StudentTransportAssignment assignment = findAssignment(id);
 		return StudentTransportAssignmentResponse.from(
@@ -74,6 +78,7 @@ public class StudentTransportAssignmentController {
 	}
 
 	@PostMapping("/{id}/legs")
+	@RequirePermission("TRANSPORT_ASSIGNMENT_MANAGE")
 	public StudentTransportAssignmentResponse updateLegs(@PathVariable Long id, @RequestBody UpdateAssignmentLegsRequest request) {
 		StudentTransportAssignment assignment = findAssignment(id);
 		return StudentTransportAssignmentResponse.from(
@@ -81,6 +86,7 @@ public class StudentTransportAssignmentController {
 	}
 
 	@PostMapping("/{id}/end")
+	@RequirePermission("TRANSPORT_ASSIGNMENT_MANAGE")
 	public StudentTransportAssignmentResponse end(@PathVariable Long id, @RequestBody EndAssignmentRequest request) {
 		StudentTransportAssignment assignment = findAssignment(id);
 		return StudentTransportAssignmentResponse.from(transportService.endAssignment(assignment, request.effectiveTo()));

@@ -2,6 +2,7 @@ package com.operion.hr.api;
 
 import java.util.List;
 
+import com.operion.authorization.RequirePermission;
 import com.operion.hr.DocumentVerificationStatus;
 import com.operion.hr.EmploymentType;
 import com.operion.hr.HrService;
@@ -25,6 +26,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/hr/staff")
+@RequirePermission("HR_VIEW")
 public class StaffProfileController {
 
 	private final HrService hrService;
@@ -43,6 +45,7 @@ public class StaffProfileController {
 	}
 
 	@PostMapping
+	@RequirePermission("HR_STAFF_MANAGE")
 	public StaffProfileResponse create(@RequestBody CreateStaffProfileRequest request) {
 		Person person = personRepository.findById(request.personId())
 				.orElseThrow(() -> new IllegalArgumentException("No person with id " + request.personId()));
@@ -61,11 +64,13 @@ public class StaffProfileController {
 	}
 
 	@PostMapping("/{id}/status")
+	@RequirePermission("HR_STAFF_MANAGE")
 	public StaffProfileResponse changeStatus(@PathVariable Long id, @RequestBody ChangeStaffStatusRequest request) {
 		return StaffProfileResponse.from(hrService.changeStaffStatus(findStaffProfile(id), StaffProfileStatus.valueOf(request.status())));
 	}
 
 	@PostMapping("/{id}/documents")
+	@RequirePermission("HR_STAFF_MANAGE")
 	public StaffDocumentResponse addDocument(@PathVariable Long id, @RequestBody AddStaffDocumentRequest request) {
 		StaffProfile staffProfile = findStaffProfile(id);
 		StaffDocument document = hrService.addDocument(
@@ -81,6 +86,7 @@ public class StaffProfileController {
 	}
 
 	@PostMapping("/documents/{documentId}/verify")
+	@RequirePermission("HR_STAFF_MANAGE")
 	public StaffDocumentResponse verifyDocument(@PathVariable Long documentId, @RequestBody VerifyStaffDocumentRequest request) {
 		StaffDocument document = staffDocumentRepository.findById(documentId)
 				.orElseThrow(() -> new IllegalArgumentException("No staff document with id " + documentId));

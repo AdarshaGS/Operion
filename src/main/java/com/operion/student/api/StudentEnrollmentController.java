@@ -4,6 +4,7 @@ import java.util.List;
 
 import com.operion.academic.Section;
 import com.operion.academic.SectionRepository;
+import com.operion.authorization.RequirePermission;
 import com.operion.organisation.AcademicYear;
 import com.operion.organisation.AcademicYearRepository;
 import com.operion.student.Student;
@@ -20,6 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/students/{studentId}/enrollments")
+@RequirePermission("STUDENT_VIEW")
 public class StudentEnrollmentController {
 
 	private final StudentService studentService;
@@ -39,6 +41,7 @@ public class StudentEnrollmentController {
 	}
 
 	@PostMapping
+	@RequirePermission("STUDENT_ENROLLMENT_MANAGE")
 	public StudentEnrollmentResponse enroll(@PathVariable Long studentId, @RequestBody EnrollStudentRequest request) {
 		Student student = findStudent(studentId);
 		AcademicYear academicYear = findAcademicYear(request.academicYearId());
@@ -50,6 +53,7 @@ public class StudentEnrollmentController {
 	}
 
 	@PostMapping("/promote")
+	@RequirePermission("STUDENT_ENROLLMENT_MANAGE")
 	public StudentEnrollmentResponse promote(@PathVariable Long studentId, @RequestBody PromoteStudentRequest request) {
 		Student student = findStudent(studentId);
 		AcademicYear academicYear = findAcademicYear(request.academicYearId());
@@ -61,6 +65,7 @@ public class StudentEnrollmentController {
 	}
 
 	@PostMapping("/reassign-section")
+	@RequirePermission("STUDENT_ENROLLMENT_MANAGE")
 	public StudentEnrollmentResponse reassignSection(
 			@PathVariable Long studentId, @RequestBody ReassignSectionRequest request) {
 		Student student = findStudent(studentId);

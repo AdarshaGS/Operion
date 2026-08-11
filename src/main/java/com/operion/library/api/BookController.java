@@ -2,6 +2,7 @@ package com.operion.library.api;
 
 import java.util.List;
 
+import com.operion.authorization.RequirePermission;
 import com.operion.library.Book;
 import com.operion.library.BookCopy;
 import com.operion.library.BookCopyRepository;
@@ -19,6 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/library/books")
+@RequirePermission("LIBRARY_VIEW")
 public class BookController {
 
 	private final LibraryService libraryService;
@@ -35,6 +37,7 @@ public class BookController {
 	}
 
 	@PostMapping
+	@RequirePermission("LIBRARY_CATALOG_MANAGE")
 	public BookResponse create(@RequestBody CreateBookRequest request) {
 		Book book = libraryService.createBook(request.isbn(), request.title(), request.author(), request.publisher(),
 				request.category(), request.edition());
@@ -47,11 +50,13 @@ public class BookController {
 	}
 
 	@PostMapping("/{id}/withdraw")
+	@RequirePermission("LIBRARY_CATALOG_MANAGE")
 	public BookResponse withdraw(@PathVariable Long id) {
 		return BookResponse.from(libraryService.withdrawBook(findBook(id)));
 	}
 
 	@PostMapping("/{id}/copies")
+	@RequirePermission("LIBRARY_CATALOG_MANAGE")
 	public BookCopyResponse addCopy(@PathVariable Long id, @RequestBody AddBookCopyRequest request) {
 		Book book = findBook(id);
 		Campus campus = campusRepository.findById(request.campusId())

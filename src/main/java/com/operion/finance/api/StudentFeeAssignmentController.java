@@ -2,6 +2,7 @@ package com.operion.finance.api;
 
 import java.util.List;
 
+import com.operion.authorization.RequirePermission;
 import com.operion.finance.FeeService;
 import com.operion.finance.FeeStructure;
 import com.operion.finance.FeeStructureInstallment;
@@ -22,6 +23,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/fees/assignments")
+@RequirePermission("FEE_VIEW")
 public class StudentFeeAssignmentController {
 
 	private final FeeService feeService;
@@ -41,6 +43,7 @@ public class StudentFeeAssignmentController {
 	}
 
 	@PostMapping
+	@RequirePermission("FEE_ASSIGNMENT_MANAGE")
 	public StudentFeeAssignmentResponse assign(@RequestBody AssignFeeRequest request) {
 		StudentEnrollment enrollment = studentEnrollmentRepository.findById(request.studentEnrollmentId())
 				.orElseThrow(() -> new IllegalArgumentException("No student enrollment with id " + request.studentEnrollmentId()));
@@ -53,6 +56,7 @@ public class StudentFeeAssignmentController {
 	}
 
 	@PostMapping("/{assignmentId}/revise")
+	@RequirePermission("FEE_ASSIGNMENT_MANAGE")
 	public StudentFeeAssignmentResponse revise(@PathVariable Long assignmentId, @RequestBody ReviseAssignmentRequest request) {
 		StudentFeeAssignment assignment = findAssignment(assignmentId);
 		StudentFeeAssignment revised =
@@ -61,6 +65,7 @@ public class StudentFeeAssignmentController {
 	}
 
 	@PostMapping("/{assignmentId}/invoices")
+	@RequirePermission("FEE_INVOICE_MANAGE")
 	public InvoiceResponse generateInvoice(@PathVariable Long assignmentId, @RequestBody GenerateInvoiceRequest request) {
 		StudentFeeAssignment assignment = findAssignment(assignmentId);
 		FeeStructureInstallment installment = feeStructureInstallmentRepository.findById(request.feeStructureInstallmentId())

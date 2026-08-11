@@ -12,6 +12,7 @@ import com.operion.attendance.ClassAttendanceRegister;
 import com.operion.attendance.ClassAttendanceRegisterRepository;
 import com.operion.attendance.StudentAttendance;
 import com.operion.attendance.StudentAttendanceRepository;
+import com.operion.authorization.RequirePermission;
 import com.operion.student.StudentEnrollment;
 import com.operion.student.StudentEnrollmentRepository;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -25,6 +26,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/attendance")
+@RequirePermission("ATTENDANCE_VIEW")
 public class StudentAttendanceController {
 
 	private final AttendanceService attendanceService;
@@ -45,6 +47,7 @@ public class StudentAttendanceController {
 	}
 
 	@PostMapping("/sections/{sectionId}/register")
+	@RequirePermission("ATTENDANCE_MARK")
 	public AttendanceRegisterResponse mark(@PathVariable Long sectionId, @RequestBody MarkAttendanceRequest request) {
 		Section section = findSection(sectionId);
 		List<StudentAttendanceMark> marks = request.marks().stream()
@@ -58,11 +61,13 @@ public class StudentAttendanceController {
 	}
 
 	@PostMapping("/register/{registerId}/submit")
+	@RequirePermission("ATTENDANCE_MARK")
 	public AttendanceRegisterResponse submit(@PathVariable Long registerId) {
 		return toRegisterResponse(attendanceService.submitRegister(findRegister(registerId)));
 	}
 
 	@PostMapping("/register/{registerId}/lock")
+	@RequirePermission("ATTENDANCE_LOCK")
 	public AttendanceRegisterResponse lock(@PathVariable Long registerId) {
 		return toRegisterResponse(attendanceService.lockRegister(findRegister(registerId)));
 	}
@@ -78,6 +83,7 @@ public class StudentAttendanceController {
 	}
 
 	@PatchMapping("/students/{attendanceId}")
+	@RequirePermission("ATTENDANCE_CORRECT")
 	public StudentAttendanceResponse correct(@PathVariable Long attendanceId, @RequestBody CorrectAttendanceRequest request) {
 		StudentAttendance attendance = studentAttendanceRepository.findById(attendanceId)
 				.orElseThrow(() -> new IllegalArgumentException("No student attendance with id " + attendanceId));

@@ -2,6 +2,7 @@ package com.operion.communication.api;
 
 import java.util.List;
 
+import com.operion.authorization.RequirePermission;
 import com.operion.communication.CommunicationService;
 import com.operion.communication.NotificationChannel;
 import com.operion.communication.NotificationTemplateRepository;
@@ -13,6 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/notification-templates")
+@RequirePermission("COMMUNICATION_VIEW")
 public class NotificationTemplateController {
 
 	private final CommunicationService communicationService;
@@ -24,6 +26,7 @@ public class NotificationTemplateController {
 	}
 
 	@PostMapping
+	@RequirePermission("NOTIFICATION_TEMPLATE_MANAGE")
 	public NotificationTemplateResponse create(@RequestBody CreateNotificationTemplateRequest request) {
 		return NotificationTemplateResponse.from(communicationService.createTemplate(
 				request.code(), NotificationChannel.valueOf(request.channel()), request.subjectTemplate(), request.bodyTemplate()));

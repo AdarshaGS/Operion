@@ -2,6 +2,7 @@ package com.operion.finance.api;
 
 import java.util.List;
 
+import com.operion.authorization.RequirePermission;
 import com.operion.finance.FeeService;
 import com.operion.finance.FeeService.AllocationInput;
 import com.operion.finance.Payment;
@@ -18,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/fees/payments")
+@RequirePermission("FEE_VIEW")
 public class PaymentController {
 
 	private final FeeService feeService;
@@ -31,6 +33,7 @@ public class PaymentController {
 	}
 
 	@PostMapping
+	@RequirePermission("FEE_COLLECT")
 	public PaymentResponse record(@RequestBody RecordPaymentRequest request) {
 		AcademicYear academicYear = academicYearRepository.findById(request.academicYearId())
 				.orElseThrow(() -> new IllegalArgumentException("No academic year with id " + request.academicYearId()));
@@ -45,6 +48,7 @@ public class PaymentController {
 	}
 
 	@PostMapping("/{paymentId}/bounce")
+	@RequirePermission("FEE_COLLECT")
 	public PaymentResponse bounce(@PathVariable Long paymentId) {
 		Payment payment = findPayment(paymentId);
 		return PaymentResponse.from(feeService.bouncePayment(payment));

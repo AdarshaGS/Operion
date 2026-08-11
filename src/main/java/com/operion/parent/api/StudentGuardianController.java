@@ -2,6 +2,7 @@ package com.operion.parent.api;
 
 import java.util.List;
 
+import com.operion.authorization.RequirePermission;
 import com.operion.parent.Guardian;
 import com.operion.parent.GuardianRelationshipType;
 import com.operion.parent.GuardianRepository;
@@ -18,6 +19,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
+@RequirePermission("GUARDIAN_VIEW")
 public class StudentGuardianController {
 
 	private final ParentService parentService;
@@ -34,6 +36,7 @@ public class StudentGuardianController {
 	}
 
 	@PostMapping("/api/v1/students/{studentId}/guardians")
+	@RequirePermission("GUARDIAN_MANAGE")
 	public StudentGuardianResponse link(@PathVariable Long studentId, @RequestBody LinkGuardianRequest request) {
 		Student student = studentRepository.findById(studentId)
 				.orElseThrow(() -> new IllegalArgumentException("No student with id " + studentId));
@@ -47,6 +50,7 @@ public class StudentGuardianController {
 	}
 
 	@PatchMapping("/api/v1/students/{studentId}/guardians/{studentGuardianId}")
+	@RequirePermission("GUARDIAN_MANAGE")
 	public StudentGuardianResponse update(@PathVariable Long studentId, @PathVariable Long studentGuardianId,
 			@RequestBody UpdateGuardianRelationshipRequest request) {
 		StudentGuardian studentGuardian = studentGuardianRepository.findById(studentGuardianId)

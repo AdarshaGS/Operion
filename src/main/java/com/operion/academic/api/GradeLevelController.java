@@ -6,6 +6,7 @@ import com.operion.academic.AcademicService;
 import com.operion.academic.GradeLevel;
 import com.operion.academic.GradeLevelRepository;
 import com.operion.academic.GradeLevelStatus;
+import com.operion.authorization.RequirePermission;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/grade-levels")
+@RequirePermission("GRADE_LEVEL_VIEW")
 public class GradeLevelController {
 
 	private final AcademicService academicService;
@@ -26,6 +28,7 @@ public class GradeLevelController {
 	}
 
 	@PostMapping
+	@RequirePermission("GRADE_LEVEL_MANAGE")
 	public GradeLevelResponse create(@RequestBody CreateGradeLevelRequest request) {
 		return GradeLevelResponse.from(
 				academicService.createGradeLevel(request.name(), request.sequenceOrder(), request.stage()));
@@ -37,6 +40,7 @@ public class GradeLevelController {
 	}
 
 	@PostMapping("/{id}/status")
+	@RequirePermission("GRADE_LEVEL_MANAGE")
 	public GradeLevelResponse changeStatus(@PathVariable Long id, @RequestBody ChangeStatusRequest request) {
 		GradeLevel gradeLevel = gradeLevelRepository.findById(id)
 				.orElseThrow(() -> new IllegalArgumentException("No grade level with id " + id));

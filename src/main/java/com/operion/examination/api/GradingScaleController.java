@@ -2,6 +2,7 @@ package com.operion.examination.api;
 
 import java.util.List;
 
+import com.operion.authorization.RequirePermission;
 import com.operion.examination.ExaminationService;
 import com.operion.examination.ExaminationService.BandInput;
 import com.operion.examination.GradingScale;
@@ -14,8 +15,11 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+/** No dedicated GRADING_SCALE_VIEW code - reuses EXAM_VIEW for reads (grading scales are
+ * exam-adjacent config), same reasoning as Section/ClassSubject reusing CLASS_VIEW. */
 @RestController
 @RequestMapping("/api/v1/examinations/grading-scales")
+@RequirePermission("EXAM_VIEW")
 public class GradingScaleController {
 
 	private final ExaminationService examinationService;
@@ -30,6 +34,7 @@ public class GradingScaleController {
 	}
 
 	@PostMapping
+	@RequirePermission("GRADING_SCALE_MANAGE")
 	public GradingScaleResponse create(@RequestBody CreateGradingScaleRequest request) {
 		List<BandInput> bands = request.bands().stream()
 				.map(entry -> new BandInput(entry.grade(), entry.minPercentage(), entry.remark()))

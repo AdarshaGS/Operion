@@ -2,6 +2,7 @@ package com.operion.finance.api;
 
 import java.util.List;
 
+import com.operion.authorization.RequirePermission;
 import com.operion.finance.Invoice;
 import com.operion.finance.InvoiceRepository;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -12,6 +13,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/fees/invoices")
+@RequirePermission("FEE_VIEW")
 public class InvoiceController {
 
 	private final InvoiceRepository invoiceRepository;

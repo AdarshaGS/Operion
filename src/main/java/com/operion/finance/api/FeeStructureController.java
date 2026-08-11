@@ -4,6 +4,7 @@ import java.util.List;
 
 import com.operion.academic.SchoolClass;
 import com.operion.academic.SchoolClassRepository;
+import com.operion.authorization.RequirePermission;
 import com.operion.finance.FeeCategory;
 import com.operion.finance.FeeCategoryRepository;
 import com.operion.finance.FeeService;
@@ -23,6 +24,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/fees/structures")
+@RequirePermission("FEE_VIEW")
 public class FeeStructureController {
 
 	private final FeeService feeService;
@@ -44,6 +46,7 @@ public class FeeStructureController {
 	}
 
 	@PostMapping
+	@RequirePermission("FEE_STRUCTURE_MANAGE")
 	public FeeStructureResponse create(@RequestBody CreateFeeStructureRequest request) {
 		AcademicYear academicYear = academicYearRepository.findById(request.academicYearId())
 				.orElseThrow(() -> new IllegalArgumentException("No academic year with id " + request.academicYearId()));

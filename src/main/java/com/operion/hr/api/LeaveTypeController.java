@@ -2,6 +2,7 @@ package com.operion.hr.api;
 
 import java.util.List;
 
+import com.operion.authorization.RequirePermission;
 import com.operion.hr.HrService;
 import com.operion.hr.LeaveTypeRepository;
 import com.operion.hr.LeaveTypeStatus;
@@ -13,6 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/hr/leave-types")
+@RequirePermission("HR_VIEW")
 public class LeaveTypeController {
 
 	private final HrService hrService;
@@ -24,6 +26,7 @@ public class LeaveTypeController {
 	}
 
 	@PostMapping
+	@RequirePermission("HR_LEAVE_TYPE_MANAGE")
 	public LeaveTypeResponse create(@RequestBody CreateLeaveTypeRequest request) {
 		return LeaveTypeResponse.from(hrService.createLeaveType(request.code(), request.name(), request.defaultAnnualDays()));
 	}

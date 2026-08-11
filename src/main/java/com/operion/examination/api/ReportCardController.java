@@ -2,6 +2,7 @@ package com.operion.examination.api;
 
 import java.util.List;
 
+import com.operion.authorization.RequirePermission;
 import com.operion.examination.Exam;
 import com.operion.examination.ExamRepository;
 import com.operion.examination.ExaminationService;
@@ -21,6 +22,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/examinations")
+@RequirePermission("EXAM_VIEW")
 public class ReportCardController {
 
 	private final ExaminationService examinationService;
@@ -40,6 +42,7 @@ public class ReportCardController {
 	}
 
 	@PostMapping("/exams/{examId}/report-cards")
+	@RequirePermission("REPORT_CARD_PUBLISH")
 	public ReportCardResponse publish(@PathVariable Long examId, @RequestBody PublishReportCardRequest request) {
 		Exam exam = examRepository.findById(examId).orElseThrow(() -> new IllegalArgumentException("No exam with id " + examId));
 		StudentEnrollment enrollment = studentEnrollmentRepository.findById(request.studentEnrollmentId())

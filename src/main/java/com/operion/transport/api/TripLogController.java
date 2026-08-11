@@ -3,6 +3,7 @@ package com.operion.transport.api;
 import java.time.LocalDate;
 import java.util.List;
 
+import com.operion.authorization.RequirePermission;
 import com.operion.identity.Person;
 import com.operion.identity.PersonRepository;
 import com.operion.transport.Route;
@@ -23,6 +24,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/transport/trip-logs")
+@RequirePermission("TRANSPORT_VIEW")
 public class TripLogController {
 
 	private final TransportService transportService;
@@ -41,6 +43,7 @@ public class TripLogController {
 	}
 
 	@PostMapping
+	@RequirePermission("TRANSPORT_TRIP_LOG")
 	public TripLogResponse schedule(@RequestBody ScheduleTripRequest request) {
 		Route route = routeRepository.findById(request.routeId())
 				.orElseThrow(() -> new IllegalArgumentException("No route with id " + request.routeId()));
@@ -58,16 +61,19 @@ public class TripLogController {
 	}
 
 	@PostMapping("/{id}/start")
+	@RequirePermission("TRANSPORT_TRIP_LOG")
 	public TripLogResponse start(@PathVariable Long id) {
 		return TripLogResponse.from(transportService.startTrip(findTripLog(id)));
 	}
 
 	@PostMapping("/{id}/complete")
+	@RequirePermission("TRANSPORT_TRIP_LOG")
 	public TripLogResponse complete(@PathVariable Long id, @RequestBody TripRemarksRequest request) {
 		return TripLogResponse.from(transportService.completeTrip(findTripLog(id), request.remarks()));
 	}
 
 	@PostMapping("/{id}/cancel")
+	@RequirePermission("TRANSPORT_TRIP_LOG")
 	public TripLogResponse cancel(@PathVariable Long id, @RequestBody TripRemarksRequest request) {
 		return TripLogResponse.from(transportService.cancelTrip(findTripLog(id), request.remarks()));
 	}

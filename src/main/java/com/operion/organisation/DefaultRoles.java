@@ -15,7 +15,7 @@ final class DefaultRoles {
 	static final Map<String, Set<String>> NON_ADMIN_ROLES = Map.of(
 			"Teacher", Set.of("STUDENT_VIEW", "ATTENDANCE_VIEW", "ATTENDANCE_MARK", "REPORT_VIEW"),
 			"Accountant", Set.of("STUDENT_VIEW", "FEE_VIEW", "FEE_COLLECT", "REPORT_VIEW"),
-			"Front Desk", Set.of("STUDENT_VIEW", "STUDENT_CREATE", "STUDENT_UPDATE"));
+			"Front Desk", Set.of("STUDENT_VIEW", "STUDENT_MANAGE"));
 
 	private DefaultRoles() {
 	}

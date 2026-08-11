@@ -2,6 +2,7 @@ package com.operion.organisation.api;
 
 import java.util.List;
 
+import com.operion.authorization.RequirePermission;
 import com.operion.organisation.Campus;
 import com.operion.organisation.CampusRepository;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -23,6 +24,7 @@ public class CampusController {
 	}
 
 	@PostMapping
+	@RequirePermission("ORGANISATION_MANAGE")
 	public CampusResponse create(@RequestBody CreateCampusRequest request) {
 		Campus campus = new Campus(request.name(), request.code());
 		campus.setAddressLine1(request.addressLine1());

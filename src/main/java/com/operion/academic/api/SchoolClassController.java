@@ -8,6 +8,7 @@ import com.operion.academic.GradeLevelRepository;
 import com.operion.academic.SchoolClass;
 import com.operion.academic.SchoolClassRepository;
 import com.operion.academic.SchoolClassStatus;
+import com.operion.authorization.RequirePermission;
 import com.operion.organisation.AcademicYear;
 import com.operion.organisation.AcademicYearRepository;
 import com.operion.organisation.Campus;
@@ -22,6 +23,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/school-classes")
+@RequirePermission("CLASS_VIEW")
 public class SchoolClassController {
 
 	private final AcademicService academicService;
@@ -41,6 +43,7 @@ public class SchoolClassController {
 	}
 
 	@PostMapping
+	@RequirePermission("CLASS_MANAGE")
 	public SchoolClassResponse create(@RequestBody CreateSchoolClassRequest request) {
 		AcademicYear academicYear = academicYearRepository.findById(request.academicYearId())
 				.orElseThrow(() -> new IllegalArgumentException("No academic year with id " + request.academicYearId()));
@@ -62,6 +65,7 @@ public class SchoolClassController {
 	}
 
 	@PostMapping("/{id}/status")
+	@RequirePermission("CLASS_MANAGE")
 	public SchoolClassResponse changeStatus(@PathVariable Long id, @RequestBody ChangeStatusRequest request) {
 		SchoolClass schoolClass = schoolClassRepository.findById(id)
 				.orElseThrow(() -> new IllegalArgumentException("No school class with id " + id));

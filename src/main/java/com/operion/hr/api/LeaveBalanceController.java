@@ -1,5 +1,6 @@
 package com.operion.hr.api;
 
+import com.operion.authorization.RequirePermission;
 import com.operion.hr.HrService;
 import com.operion.hr.LeaveBalance;
 import com.operion.hr.LeaveBalanceRepository;
@@ -18,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/hr/leave-balances")
+@RequirePermission("HR_VIEW")
 public class LeaveBalanceController {
 
 	private final HrService hrService;
@@ -37,6 +39,7 @@ public class LeaveBalanceController {
 	}
 
 	@PostMapping
+	@RequirePermission("HR_LEAVE_MANAGE")
 	public LeaveBalanceResponse allocate(@RequestBody AllocateLeaveBalanceRequest request) {
 		StaffProfile staffProfile = findStaffProfile(request.staffProfileId());
 		LeaveType leaveType = findLeaveType(request.leaveTypeId());

@@ -2,6 +2,7 @@ package com.operion.library.api;
 
 import java.util.List;
 
+import com.operion.authorization.RequirePermission;
 import com.operion.library.BorrowRecord;
 import com.operion.library.BorrowRecordRepository;
 import com.operion.library.Fine;
@@ -18,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/library/fines")
+@RequirePermission("LIBRARY_VIEW")
 public class FineController {
 
 	private final LibraryService libraryService;
@@ -31,6 +33,7 @@ public class FineController {
 	}
 
 	@PostMapping
+	@RequirePermission("LIBRARY_FINE_MANAGE")
 	public FineResponse raise(@RequestBody RaiseFineRequest request) {
 		BorrowRecord borrowRecord = borrowRecordRepository.findById(request.borrowRecordId())
 				.orElseThrow(() -> new IllegalArgumentException("No borrow record with id " + request.borrowRecordId()));
@@ -44,11 +47,13 @@ public class FineController {
 	}
 
 	@PostMapping("/{id}/pay")
+	@RequirePermission("LIBRARY_FINE_MANAGE")
 	public FineResponse pay(@PathVariable Long id, @RequestBody PayFineRequest request) {
 		return FineResponse.from(libraryService.payFine(findFine(id), request.paidDate()));
 	}
 
 	@PostMapping("/{id}/waive")
+	@RequirePermission("LIBRARY_FINE_MANAGE")
 	public FineResponse waive(@PathVariable Long id, @RequestBody WaiveFineRequest request) {
 		return FineResponse.from(libraryService.waiveFine(findFine(id), request.waivedBy(), request.waivedReason()));
 	}

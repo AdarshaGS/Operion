@@ -8,6 +8,7 @@ import com.operion.academic.SchoolClassRepository;
 import com.operion.academic.Section;
 import com.operion.academic.SectionRepository;
 import com.operion.academic.SectionStatus;
+import com.operion.authorization.RequirePermission;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -15,8 +16,11 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+/** No dedicated *_VIEW/*_MANAGE codes exist for Section specifically - it's a class-scoped
+ * sub-resource, so it reuses CLASS_VIEW/CLASS_MANAGE (same reasoning as ClassSubject). */
 @RestController
 @RequestMapping("/api/v1/school-classes/{classId}/sections")
+@RequirePermission("CLASS_VIEW")
 public class SectionController {
 
 	private final AcademicService academicService;
@@ -31,6 +35,7 @@ public class SectionController {
 	}
 
 	@PostMapping
+	@RequirePermission("CLASS_MANAGE")
 	public SectionResponse create(@PathVariable Long classId, @RequestBody CreateSectionRequest request) {
 		SchoolClass schoolClass = findClassOrThrow(classId);
 		return SectionResponse.from(
@@ -43,6 +48,7 @@ public class SectionController {
 	}
 
 	@PostMapping("/{sectionId}/status")
+	@RequirePermission("CLASS_MANAGE")
 	public SectionResponse changeStatus(
 			@PathVariable Long classId, @PathVariable Long sectionId, @RequestBody ChangeStatusRequest request) {
 		Section section = sectionRepository.findById(sectionId)

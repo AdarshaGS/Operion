@@ -2,6 +2,7 @@ package com.operion.transport.api;
 
 import java.util.List;
 
+import com.operion.authorization.RequirePermission;
 import com.operion.organisation.Campus;
 import com.operion.organisation.CampusRepository;
 import com.operion.transport.Route;
@@ -22,6 +23,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/transport/routes")
+@RequirePermission("TRANSPORT_VIEW")
 public class RouteController {
 
 	private final TransportService transportService;
@@ -40,6 +42,7 @@ public class RouteController {
 	}
 
 	@PostMapping
+	@RequirePermission("TRANSPORT_ROUTE_MANAGE")
 	public RouteResponse create(@RequestBody CreateRouteRequest request) {
 		Campus campus = campusRepository.findById(request.campusId())
 				.orElseThrow(() -> new IllegalArgumentException("No campus with id " + request.campusId()));
@@ -54,18 +57,21 @@ public class RouteController {
 	}
 
 	@PostMapping("/{id}/vehicle")
+	@RequirePermission("TRANSPORT_ROUTE_MANAGE")
 	public RouteResponse assignVehicle(@PathVariable Long id, @RequestBody AssignVehicleRequest request) {
 		Route route = findRoute(id);
 		return RouteResponse.from(transportService.assignVehicleToRoute(route, findVehicle(request.vehicleId())));
 	}
 
 	@PostMapping("/{id}/status")
+	@RequirePermission("TRANSPORT_ROUTE_MANAGE")
 	public RouteResponse changeStatus(@PathVariable Long id, @RequestBody ChangeRouteStatusRequest request) {
 		Route route = findRoute(id);
 		return RouteResponse.from(transportService.changeRouteStatus(route, RouteStatus.valueOf(request.status())));
 	}
 
 	@PostMapping("/{id}/stops")
+	@RequirePermission("TRANSPORT_ROUTE_MANAGE")
 	public RouteStopResponse addStop(@PathVariable Long id, @RequestBody AddRouteStopRequest request) {
 		Route route = findRoute(id);
 		RouteStop stop = transportService.addStop(route, request.stopName(), request.sequenceNumber(),

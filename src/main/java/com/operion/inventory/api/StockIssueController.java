@@ -2,6 +2,7 @@ package com.operion.inventory.api;
 
 import java.util.List;
 
+import com.operion.authorization.RequirePermission;
 import com.operion.inventory.InventoryService;
 import com.operion.inventory.Item;
 import com.operion.inventory.ItemRepository;
@@ -18,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/inventory/stock-issues")
+@RequirePermission("INVENTORY_VIEW")
 public class StockIssueController {
 
 	private final InventoryService inventoryService;
@@ -34,6 +36,7 @@ public class StockIssueController {
 	}
 
 	@PostMapping
+	@RequirePermission("INVENTORY_STOCK_MANAGE")
 	public StockIssueResponse record(@RequestBody RecordStockIssueRequest request) {
 		Item item = findItem(request.itemId());
 		Campus campus = findCampus(request.campusId());

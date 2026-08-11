@@ -1,5 +1,6 @@
 package com.operion.finance.api;
 
+import com.operion.authorization.RequirePermission;
 import com.operion.finance.FeeService;
 import com.operion.finance.Invoice;
 import com.operion.finance.InvoiceRepository;
@@ -26,6 +27,7 @@ public class RefundController {
 	}
 
 	@PostMapping
+	@RequirePermission("FEE_REFUND_APPROVE")
 	public RefundResponse record(@RequestBody RecordRefundRequest request) {
 		Payment payment = paymentRepository.findById(request.paymentId())
 				.orElseThrow(() -> new IllegalArgumentException("No payment with id " + request.paymentId()));

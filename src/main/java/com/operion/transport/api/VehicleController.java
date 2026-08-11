@@ -2,6 +2,7 @@ package com.operion.transport.api;
 
 import java.util.List;
 
+import com.operion.authorization.RequirePermission;
 import com.operion.identity.Person;
 import com.operion.identity.PersonRepository;
 import com.operion.organisation.Campus;
@@ -21,6 +22,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/transport/vehicles")
+@RequirePermission("TRANSPORT_VIEW")
 public class VehicleController {
 
 	private final TransportService transportService;
@@ -37,6 +39,7 @@ public class VehicleController {
 	}
 
 	@PostMapping
+	@RequirePermission("TRANSPORT_VEHICLE_MANAGE")
 	public VehicleResponse create(@RequestBody CreateVehicleRequest request) {
 		Campus campus = findCampus(request.campusId());
 		Person driver = findPerson(request.driverPersonId());
@@ -53,6 +56,7 @@ public class VehicleController {
 	}
 
 	@PostMapping("/{id}/crew")
+	@RequirePermission("TRANSPORT_VEHICLE_MANAGE")
 	public VehicleResponse reassignCrew(@PathVariable Long id, @RequestBody ReassignCrewRequest request) {
 		Vehicle vehicle = findVehicle(id);
 		Person driver = findPerson(request.driverPersonId());
@@ -61,6 +65,7 @@ public class VehicleController {
 	}
 
 	@PostMapping("/{id}/status")
+	@RequirePermission("TRANSPORT_VEHICLE_MANAGE")
 	public VehicleResponse changeStatus(@PathVariable Long id, @RequestBody ChangeVehicleStatusRequest request) {
 		Vehicle vehicle = findVehicle(id);
 		return VehicleResponse.from(transportService.changeVehicleStatus(vehicle, VehicleStatus.valueOf(request.status())));

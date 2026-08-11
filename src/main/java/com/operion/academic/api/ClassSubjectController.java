@@ -10,6 +10,7 @@ import com.operion.academic.SchoolClass;
 import com.operion.academic.SchoolClassRepository;
 import com.operion.academic.Subject;
 import com.operion.academic.SubjectRepository;
+import com.operion.authorization.RequirePermission;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -19,6 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/school-classes/{classId}/subjects")
+@RequirePermission("CLASS_VIEW")
 public class ClassSubjectController {
 
 	private final AcademicService academicService;
@@ -35,6 +37,7 @@ public class ClassSubjectController {
 	}
 
 	@PostMapping
+	@RequirePermission("CLASS_MANAGE")
 	public ClassSubjectResponse assign(@PathVariable Long classId, @RequestBody AssignSubjectRequest request) {
 		SchoolClass schoolClass = schoolClassRepository.findById(classId)
 				.orElseThrow(() -> new IllegalArgumentException("No school class with id " + classId));
@@ -50,6 +53,7 @@ public class ClassSubjectController {
 	}
 
 	@PostMapping("/{id}/status")
+	@RequirePermission("CLASS_MANAGE")
 	public ClassSubjectResponse changeStatus(
 			@PathVariable Long classId, @PathVariable Long id, @RequestBody ChangeStatusRequest request) {
 		ClassSubject classSubject = classSubjectRepository.findById(id)

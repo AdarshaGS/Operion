@@ -4,6 +4,7 @@ import java.util.List;
 
 import com.operion.academic.SchoolClassRepository;
 import com.operion.academic.SectionRepository;
+import com.operion.authorization.RequirePermission;
 import com.operion.communication.Announcement;
 import com.operion.communication.AnnouncementRepository;
 import com.operion.communication.AnnouncementStatus;
@@ -22,6 +23,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/announcements")
+@RequirePermission("COMMUNICATION_VIEW")
 public class AnnouncementController {
 
 	private final CommunicationService communicationService;
@@ -43,6 +45,7 @@ public class AnnouncementController {
 	}
 
 	@PostMapping
+	@RequirePermission("ANNOUNCEMENT_CREATE")
 	public AnnouncementResponse create(@RequestBody CreateAnnouncementRequest request) {
 		Campus campus = request.campusId() == null ? null : campusRepository.findById(request.campusId())
 				.orElseThrow(() -> new IllegalArgumentException("No campus with id " + request.campusId()));
@@ -55,11 +58,13 @@ public class AnnouncementController {
 	}
 
 	@PostMapping("/{id}/publish")
+	@RequirePermission("ANNOUNCEMENT_PUBLISH")
 	public AnnouncementResponse publish(@PathVariable Long id) {
 		return AnnouncementResponse.from(communicationService.publishAnnouncement(findAnnouncement(id)));
 	}
 
 	@PostMapping("/{id}/cancel")
+	@RequirePermission("ANNOUNCEMENT_CANCEL")
 	public AnnouncementResponse cancel(@PathVariable Long id) {
 		return AnnouncementResponse.from(communicationService.cancelAnnouncement(findAnnouncement(id)));
 	}

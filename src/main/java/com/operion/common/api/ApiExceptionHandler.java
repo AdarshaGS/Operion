@@ -2,7 +2,9 @@ package com.operion.common.api;
 
 import java.util.Map;
 
+import com.operion.authorization.AuthorizationDeniedException;
 import com.operion.identity.auth.AuthenticationFailedException;
+import com.operion.platform.auth.PlatformAuthenticationFailedException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -35,5 +37,15 @@ class ApiExceptionHandler {
 	@ExceptionHandler(AuthenticationFailedException.class)
 	ResponseEntity<Map<String, String>> unauthorized(AuthenticationFailedException ex) {
 		return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", ex.getMessage()));
+	}
+
+	@ExceptionHandler(PlatformAuthenticationFailedException.class)
+	ResponseEntity<Map<String, String>> platformUnauthorized(PlatformAuthenticationFailedException ex) {
+		return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", ex.getMessage()));
+	}
+
+	@ExceptionHandler(AuthorizationDeniedException.class)
+	ResponseEntity<Map<String, String>> forbidden(AuthorizationDeniedException ex) {
+		return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", ex.getMessage()));
 	}
 }

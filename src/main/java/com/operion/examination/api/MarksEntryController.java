@@ -2,6 +2,7 @@ package com.operion.examination.api;
 
 import java.util.List;
 
+import com.operion.authorization.RequirePermission;
 import com.operion.examination.ExamSchedule;
 import com.operion.examination.ExamScheduleRepository;
 import com.operion.examination.ExaminationService;
@@ -20,6 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/examinations")
+@RequirePermission("EXAM_VIEW")
 public class MarksEntryController {
 
 	private final ExaminationService examinationService;
@@ -36,6 +38,7 @@ public class MarksEntryController {
 	}
 
 	@PostMapping("/schedules/{scheduleId}/marks")
+	@RequirePermission("MARKS_ENTER")
 	public List<MarksEntryResponse> enter(@PathVariable Long scheduleId, @RequestBody EnterMarksRequest request) {
 		ExamSchedule schedule = examScheduleRepository.findById(scheduleId)
 				.orElseThrow(() -> new IllegalArgumentException("No exam schedule with id " + scheduleId));
@@ -53,6 +56,7 @@ public class MarksEntryController {
 	}
 
 	@PatchMapping("/marks/{marksEntryId}")
+	@RequirePermission("MARKS_CORRECT")
 	public MarksEntryResponse correct(@PathVariable Long marksEntryId, @RequestBody CorrectMarksRequest request) {
 		MarksEntry entry = marksEntryRepository.findById(marksEntryId)
 				.orElseThrow(() -> new IllegalArgumentException("No marks entry with id " + marksEntryId));

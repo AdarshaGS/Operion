@@ -2,6 +2,7 @@ package com.operion.organisation.api;
 
 import java.util.List;
 
+import com.operion.authorization.RequirePermission;
 import com.operion.organisation.AcademicYear;
 import com.operion.organisation.AcademicYearRepository;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -26,6 +27,7 @@ public class AcademicYearController {
 	}
 
 	@PostMapping
+	@RequirePermission("ORGANISATION_MANAGE")
 	public AcademicYearResponse create(@RequestBody CreateAcademicYearRequest request) {
 		AcademicYear academicYear = new AcademicYear(request.name(), request.startDate(), request.endDate());
 		return AcademicYearResponse.from(academicYearRepository.save(academicYear));

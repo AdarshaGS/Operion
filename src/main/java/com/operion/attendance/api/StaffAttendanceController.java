@@ -7,6 +7,7 @@ import com.operion.attendance.AttendanceService;
 import com.operion.attendance.AttendanceStatus;
 import com.operion.attendance.StaffAttendance;
 import com.operion.attendance.StaffAttendanceRepository;
+import com.operion.authorization.RequirePermission;
 import com.operion.identity.Person;
 import com.operion.identity.PersonRepository;
 import com.operion.organisation.Campus;
@@ -22,6 +23,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/attendance/staff")
+@RequirePermission("STAFF_ATTENDANCE_VIEW")
 public class StaffAttendanceController {
 
 	private final AttendanceService attendanceService;
@@ -38,6 +40,7 @@ public class StaffAttendanceController {
 	}
 
 	@PostMapping
+	@RequirePermission("STAFF_ATTENDANCE_MARK")
 	public StaffAttendanceResponse mark(@RequestBody CheckInStaffRequest request) {
 		Person person = personRepository.findById(request.personId())
 				.orElseThrow(() -> new IllegalArgumentException("No person with id " + request.personId()));
@@ -50,6 +53,7 @@ public class StaffAttendanceController {
 	}
 
 	@PatchMapping("/{attendanceId}/check-out")
+	@RequirePermission("STAFF_ATTENDANCE_MARK")
 	public StaffAttendanceResponse checkOut(@PathVariable Long attendanceId, @RequestBody CheckOutStaffRequest request) {
 		StaffAttendance attendance = staffAttendanceRepository.findById(attendanceId)
 				.orElseThrow(() -> new IllegalArgumentException("No staff attendance with id " + attendanceId));

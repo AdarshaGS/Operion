@@ -2,6 +2,7 @@ package com.operion.student.api;
 
 import java.util.List;
 
+import com.operion.authorization.RequirePermission;
 import com.operion.identity.Person;
 import com.operion.identity.PersonRepository;
 import com.operion.student.Student;
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/students")
+@RequirePermission("STUDENT_VIEW")
 public class StudentController {
 
 	private final StudentService studentService;
@@ -30,6 +32,7 @@ public class StudentController {
 	}
 
 	@PostMapping
+	@RequirePermission("STUDENT_MANAGE")
 	public StudentResponse admit(@RequestBody CreateStudentRequest request) {
 		Person person = personRepository.findById(request.personId())
 				.orElseThrow(() -> new IllegalArgumentException("No person with id " + request.personId()));

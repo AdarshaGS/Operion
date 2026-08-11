@@ -10,6 +10,7 @@ import com.operion.academic.SubjectRepository;
 import com.operion.academic.TeacherAssignment;
 import com.operion.academic.TeacherAssignmentRepository;
 import com.operion.academic.TeacherAssignmentType;
+import com.operion.authorization.RequirePermission;
 import com.operion.identity.Person;
 import com.operion.identity.PersonRepository;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -19,6 +20,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
+@RequirePermission("TEACHER_ASSIGNMENT_VIEW")
 public class TeacherAssignmentController {
 
 	private final AcademicService academicService;
@@ -38,6 +40,7 @@ public class TeacherAssignmentController {
 	}
 
 	@PostMapping("/api/v1/sections/{sectionId}/teacher-assignments")
+	@RequirePermission("TEACHER_ASSIGNMENT_MANAGE")
 	public TeacherAssignmentResponse assign(@PathVariable Long sectionId, @RequestBody AssignTeacherRequest request) {
 		Section section = sectionRepository.findById(sectionId)
 				.orElseThrow(() -> new IllegalArgumentException("No section with id " + sectionId));
@@ -66,6 +69,7 @@ public class TeacherAssignmentController {
 	}
 
 	@PostMapping("/api/v1/teacher-assignments/{id}/end")
+	@RequirePermission("TEACHER_ASSIGNMENT_MANAGE")
 	public TeacherAssignmentResponse end(@PathVariable Long id, @RequestBody EndTeacherAssignmentRequest request) {
 		TeacherAssignment assignment = teacherAssignmentRepository.findById(id)
 				.orElseThrow(() -> new IllegalArgumentException("No teacher assignment with id " + id));

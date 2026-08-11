@@ -2,6 +2,7 @@ package com.operion.finance.api;
 
 import java.util.List;
 
+import com.operion.authorization.RequirePermission;
 import com.operion.finance.FeeCategory;
 import com.operion.finance.FeeCategoryRepository;
 import com.operion.finance.FeeCategoryStatus;
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/fees/categories")
+@RequirePermission("FEE_VIEW")
 public class FeeCategoryController {
 
 	private final FeeService feeService;
@@ -25,6 +27,7 @@ public class FeeCategoryController {
 	}
 
 	@PostMapping
+	@RequirePermission("FEE_CATEGORY_MANAGE")
 	public FeeCategoryResponse create(@RequestBody CreateFeeCategoryRequest request) {
 		FeeCategory category = feeService.createCategory(request.code(), request.name(), request.description());
 		return FeeCategoryResponse.from(category);

@@ -1,5 +1,6 @@
 package com.operion.parent.api;
 
+import com.operion.authorization.RequirePermission;
 import com.operion.identity.Person;
 import com.operion.identity.PersonRepository;
 import com.operion.parent.Guardian;
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1/guardians")
+@RequirePermission("GUARDIAN_VIEW")
 public class GuardianController {
 
 	private final ParentService parentService;
@@ -27,6 +29,7 @@ public class GuardianController {
 	}
 
 	@PostMapping
+	@RequirePermission("GUARDIAN_MANAGE")
 	public GuardianResponse getOrCreate(@RequestBody CreateGuardianRequest request) {
 		Person person = personRepository.findById(request.personId())
 				.orElseThrow(() -> new IllegalArgumentException("No person with id " + request.personId()));

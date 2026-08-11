@@ -26,4 +26,14 @@ public class Permission extends BaseEntity {
 	private String module;
 
 	private String description;
+
+	/** Package-private, not exposed via any service/controller - the catalog is closed and
+	 * only ever populated by a Flyway migration in real deployments. Exists so tests can
+	 * build a fixture row directly instead of depending on migration data that intentionally
+	 * doesn't run against the H2 test database (see application-test properties). */
+	Permission(String code, String module, String description) {
+		this.code = code;
+		this.module = module;
+		this.description = description;
+	}
 }
