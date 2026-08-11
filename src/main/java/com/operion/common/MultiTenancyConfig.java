@@ -1,7 +1,6 @@
 package com.operion.common;
 
 import org.hibernate.context.spi.CurrentTenantIdentifierResolver;
-import org.hibernate.engine.spi.SessionFactoryImplementor;
 import org.springframework.boot.hibernate.autoconfigure.HibernatePropertiesCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
