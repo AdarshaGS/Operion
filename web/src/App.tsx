@@ -20,6 +20,7 @@ import { InventoryPage } from "./modules/inventory/InventoryPage";
 import { BookDetailPage } from "./modules/library/BookDetailPage";
 import { LibraryPage } from "./modules/library/LibraryPage";
 import { SettingsPage } from "./modules/settings/SettingsPage";
+import { UserDetailPage } from "./modules/settings/UserDetailPage";
 import { RouteDetailPage } from "./modules/transport/RouteDetailPage";
 import { TransportPage } from "./modules/transport/TransportPage";
 import { StudentCreatePage } from "./modules/students/StudentCreatePage";
@@ -56,6 +57,7 @@ function App() {
 						<Route path="/hr/staff/new" element={<StaffCreatePage />} />
 						<Route path="/hr/staff/:staffProfileId" element={<StaffDetailPage />} />
 						<Route path="/settings" element={<SettingsPage />} />
+						<Route path="/settings/users/:userId" element={<UserDetailPage />} />
 					</Route>
 				</Route>
 				<Route path="*" element={<Navigate to="/" replace />} />

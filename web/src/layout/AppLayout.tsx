@@ -3,7 +3,6 @@ import AppBar from "@mui/material/AppBar";
 import Box from "@mui/material/Box";
 import Divider from "@mui/material/Divider";
 import Drawer from "@mui/material/Drawer";
-import IconButton from "@mui/material/IconButton";
 import List from "@mui/material/List";
 import ListItemButton from "@mui/material/ListItemButton";
 import ListItemIcon from "@mui/material/ListItemIcon";
@@ -22,8 +21,8 @@ import MenuBookIcon from "@mui/icons-material/MenuBook";
 import Inventory2Icon from "@mui/icons-material/Inventory2";
 import BadgeIcon from "@mui/icons-material/Badge";
 import SettingsIcon from "@mui/icons-material/Settings";
-import LogoutIcon from "@mui/icons-material/Logout";
 import { useAuth } from "../auth/AuthContext";
+import { ProfileMenu } from "./ProfileMenu";
 
 const DRAWER_WIDTH = 240;
 
@@ -32,30 +31,50 @@ interface NavItem {
 	path: string;
 	icon: React.ReactNode;
 	/** Screens for these modules aren't built yet - shown so the intended portal shape is visible from day one. */
-	enabled: boolean;
+	built: boolean;
+	/** Visible/enabled if the caller holds ANY of these view permissions. Empty = no gate (ungated backend endpoints, e.g. Settings). */
+	requiredPermissions: string[];
 }
 
 const NAV_ITEMS: NavItem[] = [
-	{ label: "Students", path: "/students", icon: <SchoolIcon />, enabled: true },
-	{ label: "Academics", path: "/academics", icon: <ClassIcon />, enabled: true },
-	{ label: "Attendance", path: "/attendance", icon: <EventAvailableIcon />, enabled: true },
-	{ label: "Fees", path: "/fees", icon: <PaymentsIcon />, enabled: true },
-	{ label: "Examinations", path: "/examinations", icon: <AssignmentIcon />, enabled: true },
-	{ label: "Communication", path: "/communication", icon: <CampaignIcon />, enabled: true },
-	{ label: "Transport", path: "/transport", icon: <DirectionsBusIcon />, enabled: true },
-	{ label: "Library", path: "/library", icon: <MenuBookIcon />, enabled: true },
-	{ label: "Inventory", path: "/inventory", icon: <Inventory2Icon />, enabled: true },
-	{ label: "HR", path: "/hr", icon: <BadgeIcon />, enabled: true },
+	{ label: "Students", path: "/students", icon: <SchoolIcon />, built: true, requiredPermissions: ["STUDENT_VIEW"] },
+	{
+		label: "Academics",
+		path: "/academics",
+		icon: <ClassIcon />,
+		built: true,
+		requiredPermissions: ["CLASS_VIEW", "GRADE_LEVEL_VIEW", "SUBJECT_VIEW", "TEACHER_ASSIGNMENT_VIEW"],
+	},
+	{
+		label: "Attendance",
+		path: "/attendance",
+		icon: <EventAvailableIcon />,
+		built: true,
+		requiredPermissions: ["ATTENDANCE_VIEW", "STAFF_ATTENDANCE_VIEW"],
+	},
+	{ label: "Fees", path: "/fees", icon: <PaymentsIcon />, built: true, requiredPermissions: ["FEE_VIEW"] },
+	{ label: "Examinations", path: "/examinations", icon: <AssignmentIcon />, built: true, requiredPermissions: ["EXAM_VIEW"] },
+	{ label: "Communication", path: "/communication", icon: <CampaignIcon />, built: true, requiredPermissions: ["COMMUNICATION_VIEW"] },
+	{ label: "Transport", path: "/transport", icon: <DirectionsBusIcon />, built: true, requiredPermissions: ["TRANSPORT_VIEW"] },
+	{ label: "Library", path: "/library", icon: <MenuBookIcon />, built: true, requiredPermissions: ["LIBRARY_VIEW"] },
+	{ label: "Inventory", path: "/inventory", icon: <Inventory2Icon />, built: true, requiredPermissions: ["INVENTORY_VIEW"] },
+	{ label: "HR", path: "/hr", icon: <BadgeIcon />, built: true, requiredPermissions: ["HR_VIEW"] },
 ];
 
 /** Foundation-owned config (Campus/AcademicYear), not a domain module - kept in its own
- * nav group below a divider rather than mixed into the module list above. */
-const SETTINGS_ITEM: NavItem = { label: "Settings", path: "/settings", icon: <SettingsIcon />, enabled: true };
+ * nav group below a divider rather than mixed into the module list above. Campus/AcademicYear
+ * mutation endpoints reuse ORGANISATION_MANAGE but their listing endpoints are deliberately
+ * ungated (reachable by any authenticated org member), so this nav item is never permission-gated. */
+const SETTINGS_ITEM: NavItem = { label: "Settings", path: "/settings", icon: <SettingsIcon />, built: true, requiredPermissions: [] };
 
 export function AppLayout() {
 	const navigate = useNavigate();
 	const location = useLocation();
-	const { logout } = useAuth();
+	const { hasAnyPermission, permissionsLoaded } = useAuth();
+
+	// While permissions are still loading, don't gate on them - enforcement is backend-side
+	// regardless, this is UX sugar to avoid a flash of every nav item looking unauthorized.
+	const isPermitted = (item: NavItem) => item.requiredPermissions.length === 0 || !permissionsLoaded || hasAnyPermission(item.requiredPermissions);
 
 	return (
 		<Box sx={{ display: "flex" }}>
@@ -64,11 +83,7 @@ export function AppLayout() {
 					<Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
 						Operion
 					</Typography>
-					<Tooltip title="Sign out">
-						<IconButton color="inherit" onClick={logout}>
-							<LogoutIcon />
-						</IconButton>
-					</Tooltip>
+					<ProfileMenu />
 				</Toolbar>
 			</AppBar>
 			<Drawer
@@ -82,20 +97,25 @@ export function AppLayout() {
 				<Toolbar />
 				<Divider />
 				<List>
-					{NAV_ITEMS.map((item) => (
-						<Tooltip key={item.path} title={item.enabled ? "" : "Coming soon"} placement="right">
-							<span>
-								<ListItemButton
-									selected={location.pathname.startsWith(item.path)}
-									disabled={!item.enabled}
-									onClick={() => navigate(item.path)}
-								>
-									<ListItemIcon>{item.icon}</ListItemIcon>
-									<ListItemText primary={item.label} />
-								</ListItemButton>
-							</span>
-						</Tooltip>
-					))}
+					{NAV_ITEMS.map((item) => {
+						const permitted = isPermitted(item);
+						const enabled = item.built && permitted;
+						const tooltip = !item.built ? "Coming soon" : !permitted ? "You don't have permission to view this" : "";
+						return (
+							<Tooltip key={item.path} title={tooltip} placement="right">
+								<span>
+									<ListItemButton
+										selected={location.pathname.startsWith(item.path)}
+										disabled={!enabled}
+										onClick={() => navigate(item.path)}
+									>
+										<ListItemIcon>{item.icon}</ListItemIcon>
+										<ListItemText primary={item.label} />
+									</ListItemButton>
+								</span>
+							</Tooltip>
+						);
+					})}
 				</List>
 				<Divider />
 				<List>
