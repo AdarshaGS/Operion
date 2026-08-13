@@ -33,4 +33,10 @@ public class PlatformInvoiceController {
 	public PlatformInvoiceResponse markPaid(@PathVariable Long id) {
 		return PlatformInvoiceResponse.from(billingService.markPaid(id));
 	}
+
+	/** Cross-org, for the platform dashboard - see BillingService.allInvoices(). */
+	@GetMapping("/api/v1/platform/invoices")
+	public List<PlatformInvoiceResponse> all() {
+		return billingService.allInvoices().stream().map(PlatformInvoiceResponse::from).toList();
+	}
 }

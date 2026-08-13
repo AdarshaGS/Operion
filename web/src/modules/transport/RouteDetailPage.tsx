@@ -231,7 +231,14 @@ export function RouteDetailPage() {
 								onChange={(e) => setTripDate(e.target.value)}
 								slotProps={{ inputLabel: { shrink: true } }}
 							/>
-							<Button size="small" startIcon={<AddIcon />} onClick={() => setTripDialogOpen(true)}>
+							<Button
+								size="small"
+								startIcon={<AddIcon />}
+								onClick={() => {
+									listVehicles().then(setVehicles).catch(() => {});
+									setTripDialogOpen(true);
+								}}
+							>
 								Schedule trip
 							</Button>
 						</Box>

@@ -1,10 +1,10 @@
 package com.operion.organisation;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import org.junit.jupiter.api.Test;
 
+/** No restricted state machine (issues#21) - any status can move to any other, anytime. */
 class OrganisationStatusTransitionTest {
 
 	@Test
@@ -17,20 +17,12 @@ class OrganisationStatusTransitionTest {
 	}
 
 	@Test
-	void rejectsArchivedToTrial() {
+	void allowsArchivedBackToTrial() {
 		Organisation organisation = new Organisation("Test School", "Test School Trust", "test-school");
 		organisation.changeStatus(OrganisationStatus.ARCHIVED);
 
-		assertThatThrownBy(() -> organisation.changeStatus(OrganisationStatus.TRIAL))
-				.isInstanceOf(IllegalStateException.class);
-	}
+		organisation.changeStatus(OrganisationStatus.TRIAL);
 
-	@Test
-	void archivedIsTerminal() {
-		Organisation organisation = new Organisation("Test School", "Test School Trust", "test-school");
-		organisation.changeStatus(OrganisationStatus.ARCHIVED);
-
-		assertThat(organisation.getStatus().canTransitionTo(OrganisationStatus.ACTIVE)).isFalse();
-		assertThat(organisation.getStatus().canTransitionTo(OrganisationStatus.SUSPENDED)).isFalse();
+		assertThat(organisation.getStatus()).isEqualTo(OrganisationStatus.TRIAL);
 	}
 }

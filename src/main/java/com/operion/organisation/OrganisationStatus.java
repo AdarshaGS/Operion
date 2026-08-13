@@ -1,22 +1,13 @@
 package com.operion.organisation;
 
-import java.util.EnumSet;
-import java.util.Map;
-import java.util.Set;
-
+/**
+ * No enforced state machine between these - a platform admin (or an org's own admin,
+ * via ORGANISATION_MANAGE) can move an organisation to any status at any time, per
+ * https://github.com/AdarshaGS/Operion/issues/21.
+ */
 public enum OrganisationStatus {
 	TRIAL,
 	ACTIVE,
 	SUSPENDED,
 	ARCHIVED;
-
-	private static final Map<OrganisationStatus, Set<OrganisationStatus>> ALLOWED_TRANSITIONS = Map.of(
-			TRIAL, EnumSet.of(ACTIVE, ARCHIVED),
-			ACTIVE, EnumSet.of(SUSPENDED, ARCHIVED),
-			SUSPENDED, EnumSet.of(ACTIVE, ARCHIVED),
-			ARCHIVED, EnumSet.noneOf(OrganisationStatus.class));
-
-	public boolean canTransitionTo(OrganisationStatus target) {
-		return ALLOWED_TRANSITIONS.get(this).contains(target);
-	}
 }

@@ -74,6 +74,12 @@ public class BillingService {
 		return subscriptionRepository.findByOrganisationIdOrderByStartDateDesc(organisationId);
 	}
 
+	/** Cross-org, for the platform dashboard - same "the platform plane is the one place
+	 * cross-tenant listing is allowed" precedent as PlatformOrganisationController.list(). */
+	public List<Subscription> allSubscriptions() {
+		return subscriptionRepository.findAll();
+	}
+
 	/**
 	 * Snapshots the org's current ACTIVE student headcount and bills it against the
 	 * org's ACTIVE subscription's rate for the given period - no date-based proration,
@@ -113,6 +119,11 @@ public class BillingService {
 
 	public List<PlatformInvoice> invoiceHistory(Long organisationId) {
 		return platformInvoiceRepository.findByOrganisationIdOrderByPeriodStartDesc(organisationId);
+	}
+
+	/** Cross-org, for the platform dashboard - see allSubscriptions() above. */
+	public List<PlatformInvoice> allInvoices() {
+		return platformInvoiceRepository.findAll();
 	}
 
 	/**

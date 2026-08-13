@@ -50,6 +50,9 @@ export function StudentAssignmentPanel() {
 		setEnrollmentId(null);
 		setAssignment(null);
 		if (!studentId) return;
+		// Refetch routes each time a student is picked, not just at mount - a route added
+		// in the sibling RoutesPanel on the same page must show up here without a remount.
+		listRoutes().then(setRoutes).catch(() => {});
 		listStudentEnrollments(Number(studentId))
 			.then((enrollments) => {
 				const current = enrollments.find((e) => e.current);

@@ -21,6 +21,7 @@ import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import AddIcon from "@mui/icons-material/Add";
 import { type BookCopyResponse, type BookResponse, listBookCopies, listBooks } from "../../api/books";
+import { useAuth } from "../../auth/AuthContext";
 import {
 	issueBook,
 	listActiveBorrowsByBorrower,
@@ -39,6 +40,7 @@ function todayIso(): string {
 }
 
 export function BorrowPanel() {
+	const { profile } = useAuth();
 	const [persons, setPersons] = useState<PersonResponse[]>([]);
 	const [borrowerId, setBorrowerId] = useState("");
 	const [activeBorrows, setActiveBorrows] = useState<BorrowRecordResponse[]>([]);
@@ -166,9 +168,9 @@ export function BorrowPanel() {
 	}
 
 	async function handleWaiveFine(id: number) {
-		if (!lastRecord) return;
+		if (!lastRecord || !profile?.personId) return;
 		try {
-			await waiveFine(id, 1, "Waived by admin");
+			await waiveFine(id, profile.personId, "Waived by admin");
 			setFines(await listFinesForRecord(lastRecord.id));
 		} catch (err) {
 			setError(err instanceof ApiError ? err.message : "Failed to waive fine");
@@ -261,7 +263,7 @@ export function BorrowPanel() {
 															<Button size="small" onClick={() => handlePayFine(fine.id)}>
 																Pay
 															</Button>
-															<Button size="small" onClick={() => handleWaiveFine(fine.id)}>
+															<Button size="small" onClick={() => handleWaiveFine(fine.id)} disabled={!profile?.personId}>
 																Waive
 															</Button>
 														</>

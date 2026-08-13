@@ -3,6 +3,8 @@ package com.operion.common.api;
 import java.util.Map;
 
 import com.operion.authorization.AuthorizationDeniedException;
+import com.operion.finance.PaymentGatewayException;
+import com.operion.finance.WebhookVerificationException;
 import com.operion.identity.auth.AuthenticationFailedException;
 import com.operion.platform.auth.PlatformAuthenticationFailedException;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -42,6 +44,16 @@ class ApiExceptionHandler {
 	@ExceptionHandler(PlatformAuthenticationFailedException.class)
 	ResponseEntity<Map<String, String>> platformUnauthorized(PlatformAuthenticationFailedException ex) {
 		return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", ex.getMessage()));
+	}
+
+	@ExceptionHandler(WebhookVerificationException.class)
+	ResponseEntity<Map<String, String>> webhookUnauthorized(WebhookVerificationException ex) {
+		return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("error", ex.getMessage()));
+	}
+
+	@ExceptionHandler(PaymentGatewayException.class)
+	ResponseEntity<Map<String, String>> paymentGatewayFailure(PaymentGatewayException ex) {
+		return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(Map.of("error", ex.getMessage()));
 	}
 
 	@ExceptionHandler(AuthorizationDeniedException.class)

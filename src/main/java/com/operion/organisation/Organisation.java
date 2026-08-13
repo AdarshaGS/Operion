@@ -44,11 +44,8 @@ public class Organisation extends BaseEntity {
 		this.status = OrganisationStatus.TRIAL;
 	}
 
-	/** Only path by which status changes - enforces the allowed-transition map at the source of truth. */
+	/** Only path by which status changes - no restricted transition map, any status can move to any other. */
 	public void changeStatus(OrganisationStatus target) {
-		if (!status.canTransitionTo(target)) {
-			throw new IllegalStateException("Cannot transition organisation from " + status + " to " + target);
-		}
 		this.status = target;
 	}
 }

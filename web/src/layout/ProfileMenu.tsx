@@ -12,6 +12,7 @@ import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import LogoutIcon from "@mui/icons-material/Logout";
 import { useAuth } from "../auth/AuthContext";
+import { colors, fontDisplay } from "../theme";
 
 function initials(name: string | null): string {
 	if (!name) return "?";
@@ -34,7 +35,11 @@ export function ProfileMenu() {
 		<>
 			<Tooltip title={profile?.personName ?? "Account"}>
 				<IconButton onClick={(event: MouseEvent<HTMLElement>) => setAnchorEl(event.currentTarget)} color="inherit">
-					<Avatar sx={{ width: 32, height: 32, fontSize: 14 }}>{initials(profile?.personName ?? null)}</Avatar>
+					<Avatar
+						sx={{ width: 32, height: 32, fontSize: 13, fontFamily: fontDisplay, bgcolor: colors.ruleStrong, color: colors.accentInk }}
+					>
+						{initials(profile?.personName ?? null)}
+					</Avatar>
 				</IconButton>
 			</Tooltip>
 			<Menu anchorEl={anchorEl} open={anchorEl !== null} onClose={() => setAnchorEl(null)}>
@@ -49,7 +54,7 @@ export function ProfileMenu() {
 					{profile && profile.roleNames.length > 0 && (
 						<Stack direction="row" spacing={0.5} sx={{ mt: 1, flexWrap: "wrap", gap: 0.5 }}>
 							{profile.roleNames.map((roleName) => (
-								<Chip key={roleName} label={roleName} size="small" />
+								<Chip key={roleName} label={roleName} size="small" variant="outlined" sx={{ borderColor: colors.rule }} />
 							))}
 						</Stack>
 					)}

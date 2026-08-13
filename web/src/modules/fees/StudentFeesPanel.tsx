@@ -27,8 +27,23 @@ import { listFeeCategories, type FeeCategoryResponse } from "../../api/feeCatego
 import { listFeeStructures, type FeeStructureResponse } from "../../api/feeStructures";
 import { generateInvoice, listInvoices, type InvoiceResponse } from "../../api/invoices";
 import { recordPayment, type AllocationEntry } from "../../api/payments";
+import { colors } from "../../theme";
 
 const PAYMENT_METHODS = ["CASH", "CHEQUE", "UPI", "CARD", "BANK_TRANSFER"];
+
+const ASSIGNMENT_STATUS_LABEL: Record<string, string> = { ACTIVE: "Active", SUPERSEDED: "Superseded" };
+const ASSIGNMENT_STATUS_COLOR: Record<string, "success" | "default"> = { ACTIVE: "success", SUPERSEDED: "default" };
+
+const INVOICE_STATUS_LABEL: Record<string, string> = { ISSUED: "Issued", PARTIALLY_PAID: "Partially paid", PAID: "Paid" };
+const INVOICE_STATUS_COLOR: Record<string, "success" | "warning" | "default"> = {
+	ISSUED: "default",
+	PARTIALLY_PAID: "warning",
+	PAID: "success",
+};
+
+function currency(amount: number): string {
+	return `₹${amount.toLocaleString("en-IN")}`;
+}
 
 interface Props {
 	studentEnrollmentId: number;
@@ -130,6 +145,11 @@ export function StudentFeesPanel({ studentEnrollmentId, academicYearId, schoolCl
 	}
 
 	const outstandingInvoices = invoices.filter((invoice) => invoice.outstanding > 0);
+	const totalCollected = invoices.reduce((sum, invoice) => sum + invoice.amountPaid, 0);
+	const totalOutstanding = invoices.reduce((sum, invoice) => sum + invoice.outstanding, 0);
+	const today = new Date().toISOString().slice(0, 10);
+	const overdueCount = invoices.filter((invoice) => invoice.outstanding > 0 && invoice.dueDate < today).length;
+
 	const allocatedTotal = Object.values(allocations).reduce((sum, value) => sum + (Number(value) || 0), 0);
 	const allocationsMatch = Math.abs(allocatedTotal - (Number(paymentAmount) || 0)) < 0.005;
 
@@ -223,7 +243,11 @@ export function StudentFeesPanel({ studentEnrollmentId, academicYearId, schoolCl
 											<TableCell>{assignment.discountAmount ?? "—"}</TableCell>
 											<TableCell>{assignment.effectiveAmount}</TableCell>
 											<TableCell>
-												<Chip label={assignment.status} size="small" />
+												<Chip
+													label={ASSIGNMENT_STATUS_LABEL[assignment.status] ?? assignment.status}
+													color={ASSIGNMENT_STATUS_COLOR[assignment.status] ?? "default"}
+													size="small"
+												/>
 											</TableCell>
 											<TableCell>
 												<Button size="small" onClick={() => setInvoiceDialogAssignment(assignment)}>
@@ -251,6 +275,35 @@ export function StudentFeesPanel({ studentEnrollmentId, academicYearId, schoolCl
 					{invoices.length === 0 && <Alert severity="info">No invoices generated yet.</Alert>}
 
 					{invoices.length > 0 && (
+						<Box sx={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 1.5 }}>
+							<Box sx={{ border: `1px solid ${colors.rule}`, borderRadius: 1, p: 1.5, bgcolor: colors.paperRaised }}>
+								<Typography variant="overline" sx={{ color: colors.inkFaint, fontSize: "0.65rem" }}>
+									Collected
+								</Typography>
+								<Typography variant="h6" sx={{ color: colors.ok }}>
+									{currency(totalCollected)}
+								</Typography>
+							</Box>
+							<Box sx={{ border: `1px solid ${colors.rule}`, borderRadius: 1, p: 1.5, bgcolor: colors.paperRaised }}>
+								<Typography variant="overline" sx={{ color: colors.inkFaint, fontSize: "0.65rem" }}>
+									Outstanding
+								</Typography>
+								<Typography variant="h6" sx={{ color: colors.warn }}>
+									{currency(totalOutstanding)}
+								</Typography>
+							</Box>
+							<Box sx={{ border: `1px solid ${colors.rule}`, borderRadius: 1, p: 1.5, bgcolor: colors.paperRaised }}>
+								<Typography variant="overline" sx={{ color: colors.inkFaint, fontSize: "0.65rem" }}>
+									Overdue
+								</Typography>
+								<Typography variant="h6" sx={{ color: overdueCount > 0 ? colors.bad : "inherit" }}>
+									{overdueCount} invoice{overdueCount === 1 ? "" : "s"}
+								</Typography>
+							</Box>
+						</Box>
+					)}
+
+					{invoices.length > 0 && (
 						<TableContainer>
 							<Table size="small">
 								<TableHead>
@@ -268,11 +321,15 @@ export function StudentFeesPanel({ studentEnrollmentId, academicYearId, schoolCl
 										<TableRow key={invoice.id}>
 											<TableCell>{invoice.invoiceNumber}</TableCell>
 											<TableCell>{invoice.dueDate}</TableCell>
-											<TableCell>{invoice.totalAmount}</TableCell>
-											<TableCell>{invoice.amountPaid}</TableCell>
-											<TableCell>{invoice.outstanding}</TableCell>
+											<TableCell>{currency(invoice.totalAmount)}</TableCell>
+											<TableCell>{currency(invoice.amountPaid)}</TableCell>
+											<TableCell>{currency(invoice.outstanding)}</TableCell>
 											<TableCell>
-												<Chip label={invoice.status} size="small" />
+												<Chip
+													label={INVOICE_STATUS_LABEL[invoice.status] ?? invoice.status}
+													color={INVOICE_STATUS_COLOR[invoice.status] ?? "default"}
+													size="small"
+												/>
 											</TableCell>
 										</TableRow>
 									))}

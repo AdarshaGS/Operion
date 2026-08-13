@@ -10,6 +10,8 @@ import ListItemText from "@mui/material/ListItemText";
 import Toolbar from "@mui/material/Toolbar";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
+import { Wordmark } from "../branding/Wordmark";
+import { colors } from "../theme";
 import SchoolIcon from "@mui/icons-material/School";
 import ClassIcon from "@mui/icons-material/Class";
 import EventAvailableIcon from "@mui/icons-material/EventAvailable";
@@ -70,7 +72,7 @@ const SETTINGS_ITEM: NavItem = { label: "Settings", path: "/settings", icon: <Se
 export function AppLayout() {
 	const navigate = useNavigate();
 	const location = useLocation();
-	const { hasAnyPermission, permissionsLoaded } = useAuth();
+	const { profile, hasAnyPermission, permissionsLoaded } = useAuth();
 
 	// While permissions are still loading, don't gate on them - enforcement is backend-side
 	// regardless, this is UX sugar to avoid a flash of every nav item looking unauthorized.
@@ -79,10 +81,17 @@ export function AppLayout() {
 	return (
 		<Box sx={{ display: "flex" }}>
 			<AppBar position="fixed" sx={{ zIndex: (theme) => theme.zIndex.drawer + 1 }}>
-				<Toolbar>
-					<Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
-						Operion
-					</Typography>
+				<Toolbar sx={{ gap: 2 }}>
+					<Wordmark size="small" />
+					{profile?.organisationName && (
+						<Typography
+							variant="body2"
+							sx={{ color: colors.inkSoft, pl: 1.5, ml: 0.5, borderLeft: `1px solid ${colors.rule}` }}
+						>
+							{profile.organisationName}
+						</Typography>
+					)}
+					<Box sx={{ flexGrow: 1 }} />
 					<ProfileMenu />
 				</Toolbar>
 			</AppBar>
@@ -125,9 +134,11 @@ export function AppLayout() {
 					</ListItemButton>
 				</List>
 			</Drawer>
-			<Box component="main" sx={{ flexGrow: 1, p: 3 }}>
+			<Box component="main" sx={{ flexGrow: 1, p: { xs: 2, md: 4 } }}>
 				<Toolbar />
-				<Outlet />
+				<Box sx={{ maxWidth: 1280, mx: "auto" }}>
+					<Outlet />
+				</Box>
 			</Box>
 		</Box>
 	);

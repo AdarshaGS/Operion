@@ -13,8 +13,10 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 /**
- * Capacity is a soft limit enforced in AcademicService, not a DB constraint - schools
- * routinely override it. Homeroom teacher is deliberately not a FK here; see
+ * Capacity is an application-layer limit, not a DB constraint - enforced in
+ * StudentService (enroll/promote/reassignSection all reject once a section's current
+ * enrollment count would exceed it), not here or in AcademicService, since Section
+ * itself has no view of enrollment. Homeroom teacher is deliberately not a FK here; see
  * TeacherAssignment.
  */
 @Getter

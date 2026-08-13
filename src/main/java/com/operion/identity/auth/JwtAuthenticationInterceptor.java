@@ -56,9 +56,21 @@ public class JwtAuthenticationInterceptor implements HandlerInterceptor {
 
 	// Organisation creation is the bootstrap step - there is no token to send before the
 	// org (and its first admin login) exists yet, so it alone stays unauthenticated.
+	// claim-invite is the same shape of bootstrap for a Guardian: PortalInviteService
+	// resolves the org from the request body's slug itself, exactly like login() does,
+	// since there is no token yet to carry it. Payment links are the same shape again,
+	// but with the org slug carried in the URL path instead (see
+	// FeePaymentGatewayService.getLinkStatus/initiateCheckout) - a parent opening a
+	// "pay this invoice" link has no login at all, by design. The Razorpay webhook is a
+	// different kind of public: it trusts an HMAC signature instead of a slug+token,
+	// verified inside FeePaymentGatewayService.handleWebhook - never a bearer token,
+	// since the caller is Razorpay's own servers, not a browser.
 	private boolean isPublic(HttpServletRequest request) {
 		String path = request.getRequestURI();
-		if (path.equals("/api/v1/auth/login")) {
+		if (path.equals("/api/v1/auth/login") || path.equals("/api/v1/auth/claim-invite")) {
+			return true;
+		}
+		if (path.startsWith("/api/v1/fees/payment-links/") || path.equals("/api/v1/webhooks/razorpay")) {
 			return true;
 		}
 		return path.equals("/api/v1/organisations") && "POST".equalsIgnoreCase(request.getMethod());

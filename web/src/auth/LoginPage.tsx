@@ -8,6 +8,8 @@ import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { ApiError } from "../api/client";
+import { Wordmark } from "../branding/Wordmark";
+import { colors } from "../theme";
 import { useAuth } from "./AuthContext";
 
 export function LoginPage() {
@@ -31,7 +33,10 @@ export function LoginPage() {
 		setError(null);
 		setSubmitting(true);
 		try {
-			await login(organisationSlug, email, password);
+			// Mobile keyboards routinely append a trailing space when a predictive-text
+			// suggestion is tapped (seen on org slug in the wild) - trim defensively rather
+			// than trust every mobile browser/keyboard combination to behave.
+			await login(organisationSlug.trim(), email.trim(), password);
 			navigate("/students", { replace: true });
 		} catch (err) {
 			setError(err instanceof ApiError ? err.message : "Login failed - please try again");
@@ -41,12 +46,17 @@ export function LoginPage() {
 	}
 
 	return (
-		<Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "100vh", bgcolor: "grey.100" }}>
-			<Paper component="form" onSubmit={handleSubmit} elevation={3} sx={{ p: 4, width: 360 }}>
+		<Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", minHeight: "100vh", bgcolor: colors.paper }}>
+			<Paper
+				component="form"
+				onSubmit={handleSubmit}
+				variant="outlined"
+				sx={{ p: 4, width: 360, borderColor: colors.rule, boxShadow: "0 1px 2px rgba(22,35,58,0.09)" }}
+			>
 				<Stack spacing={2}>
-					<Typography variant="h5" component="h1">
-						Operion
-					</Typography>
+					<Box sx={{ mb: 0.5 }}>
+						<Wordmark tagline="School Administration" />
+					</Box>
 					<Typography variant="body2" color="text.secondary">
 						Sign in to your school's admin portal
 					</Typography>
@@ -57,14 +67,32 @@ export function LoginPage() {
 						onChange={(e) => setOrganisationSlug(e.target.value)}
 						required
 						autoFocus
+						autoComplete="off"
+						autoCapitalize="off"
+						autoCorrect="off"
+						spellCheck={false}
 					/>
-					<TextField label="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+					<TextField
+						label="Email"
+						type="email"
+						value={email}
+						onChange={(e) => setEmail(e.target.value)}
+						required
+						autoComplete="username"
+						autoCapitalize="off"
+						autoCorrect="off"
+						spellCheck={false}
+					/>
 					<TextField
 						label="Password"
 						type="password"
 						value={password}
 						onChange={(e) => setPassword(e.target.value)}
 						required
+						autoComplete="current-password"
+						autoCapitalize="off"
+						autoCorrect="off"
+						spellCheck={false}
 					/>
 					<Button type="submit" variant="contained" disabled={submitting}>
 						{submitting ? "Signing in..." : "Sign in"}

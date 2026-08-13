@@ -85,7 +85,13 @@ public class OrganisationService {
 	}
 
 	private void createAdminMembership(NewAdminAccount admin, Role adminRole) {
-		User user = userRepository.save(new User(admin.email(), null, passwordEncoder.encode(admin.password())));
+		// A person who already has a User from another org (or a retried provisioning
+		// attempt after a partial earlier failure - see the comment on provision() above)
+		// is reused as-is rather than crashing on User.email's global unique constraint;
+		// their existing password is never overwritten. Same pattern as
+		// PortalInviteService.claim().
+		User user = userRepository.findByEmail(admin.email())
+				.orElseGet(() -> userRepository.save(new User(admin.email(), null, passwordEncoder.encode(admin.password()))));
 		Person person = new Person(admin.firstName(), admin.lastName());
 		person.setUser(user);
 		person = personRepository.save(person);

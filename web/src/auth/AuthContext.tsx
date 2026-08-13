@@ -3,6 +3,7 @@ import { login as loginRequest, me as meRequest } from "../api/auth";
 import { clearSession, getSession, setSession, type StoredSession } from "../api/tokenStore";
 
 export interface Profile {
+	personId: number | null;
 	personName: string | null;
 	email: string | null;
 	roleNames: string[];
@@ -41,6 +42,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 			.then((response) => {
 				setPermissions(new Set(response.permissions));
 				setProfile({
+					personId: response.personId,
 					personName: response.personName,
 					email: response.email,
 					roleNames: response.roleNames,

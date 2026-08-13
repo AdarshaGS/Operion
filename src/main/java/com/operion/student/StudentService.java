@@ -49,6 +49,7 @@ public class StudentService {
 		studentEnrollmentRepository.findByStudentIdAndCurrentTrue(student.getId()).ifPresent(existing -> {
 			throw new IllegalStateException("Student " + student.getId() + " already has a current enrollment");
 		});
+		assertCapacityAvailable(section);
 		if (student.getStatus() == StudentStatus.ADMITTED) {
 			student.activate();
 			studentRepository.save(student);
@@ -67,6 +68,7 @@ public class StudentService {
 		StudentEnrollment current = studentEnrollmentRepository.findByStudentIdAndCurrentTrue(student.getId())
 				.orElseThrow(() -> new IllegalStateException("Student " + student.getId() + " has no current enrollment to promote from"));
 		current.close(repeated ? StudentEnrollmentStatus.REPEATED : StudentEnrollmentStatus.PROMOTED, promotionDate);
+		assertCapacityAvailable(newSection);
 		return studentEnrollmentRepository.save(new StudentEnrollment(student, newAcademicYear, newSection, rollNumber, promotionDate));
 	}
 
@@ -75,8 +77,28 @@ public class StudentService {
 	public StudentEnrollment reassignSection(Student student, Section newSection) {
 		StudentEnrollment current = studentEnrollmentRepository.findByStudentIdAndCurrentTrue(student.getId())
 				.orElseThrow(() -> new IllegalStateException("Student " + student.getId() + " has no current enrollment"));
+		if (!newSection.getId().equals(current.getSection().getId())) {
+			assertCapacityAvailable(newSection);
+		}
 		current.reassignSection(newSection);
 		return studentEnrollmentRepository.save(current);
+	}
+
+	/**
+	 * Capacity is a soft application-layer limit (Section.capacity is nullable = no
+	 * limit set), not a DB constraint - checked here, on every path that places a
+	 * current enrollment into a section, same live-guard convention as
+	 * InventoryService's negative-balance check.
+	 */
+	private void assertCapacityAvailable(Section section) {
+		Integer capacity = section.getCapacity();
+		if (capacity == null) {
+			return;
+		}
+		int currentCount = studentEnrollmentRepository.findBySectionIdAndCurrentTrue(section.getId()).size();
+		if (currentCount >= capacity) {
+			throw new IllegalStateException("Section " + section.getId() + " is at capacity (" + capacity + ")");
+		}
 	}
 
 	/** Records the exit event, closes the current enrollment (if any), and transitions the student's own status - one atomic action. */

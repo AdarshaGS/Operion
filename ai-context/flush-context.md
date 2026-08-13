@@ -37,4 +37,3 @@
 - [ ] Any new standing principle or correction → fold into `load-context.md`'s relevant section, or into this repo's CLAUDE.md if it's a durable workflow rule.
 - [ ] Milestone order still correct?
 - [ ] "Current status" / React admin portal section in `load-context.md` updated to match where things actually stand?
-- [ ] Re-run `/graphify` to refresh `graphify-out/` against the codebase's current state (per `load-context.md`'s Housekeeping note).

@@ -43,7 +43,7 @@ export function StudentListPage() {
 	}, []);
 
 	return (
-		<Stack spacing={2}>
+		<Stack spacing={2} sx={{ maxWidth: 1000 }}>
 			<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
 				<Typography variant="h4" component="h1">
 					Students

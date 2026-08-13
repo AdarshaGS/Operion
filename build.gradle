@@ -20,6 +20,13 @@ repositories {
 dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
 	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
+	// Exposes /v3/api-docs from the existing controllers/DTOs with no extra annotations -
+	// the source of truth the frontend's generated-types.ts is generated from.
+	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.6'
+	// RestClient.Builder autoconfiguration split into its own module in Spring Boot 4.1,
+	// same class of gotcha as spring-boot-hibernate/spring-boot-flyway/spring-boot-data-jpa-test
+	// above - needed for RazorpayHttpGateway, the app's first outbound HTTP integration.
+	implementation 'org.springframework.boot:spring-boot-starter-restclient'
 	implementation 'org.flywaydb:flyway-core'
 	implementation 'org.flywaydb:flyway-mysql'
 	implementation 'org.springframework.boot:spring-boot-flyway'

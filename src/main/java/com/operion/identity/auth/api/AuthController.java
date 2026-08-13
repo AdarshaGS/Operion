@@ -11,6 +11,7 @@ import com.operion.identity.UserRepository;
 import com.operion.identity.auth.AuthenticationService;
 import com.operion.organisation.Organisation;
 import com.operion.organisation.OrganisationRepository;
+import com.operion.parent.PortalInviteService;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -25,18 +26,26 @@ public class AuthController {
 	private final OrganisationMembershipRepository membershipRepository;
 	private final UserRepository userRepository;
 	private final OrganisationRepository organisationRepository;
+	private final PortalInviteService portalInviteService;
 
 	public AuthController(AuthenticationService authenticationService, OrganisationMembershipRepository membershipRepository,
-			UserRepository userRepository, OrganisationRepository organisationRepository) {
+			UserRepository userRepository, OrganisationRepository organisationRepository, PortalInviteService portalInviteService) {
 		this.authenticationService = authenticationService;
 		this.membershipRepository = membershipRepository;
 		this.userRepository = userRepository;
 		this.organisationRepository = organisationRepository;
+		this.portalInviteService = portalInviteService;
 	}
 
 	@PostMapping("/login")
 	public LoginResponse login(@RequestBody LoginRequest request) {
 		return LoginResponse.from(authenticationService.login(request.organisationSlug(), request.email(), request.password()));
+	}
+
+	/** Public, unauthenticated - same trust tier as /login, see PortalInviteService.claim(). */
+	@PostMapping("/claim-invite")
+	public LoginResponse claimInvite(@RequestBody ClaimInviteRequest request) {
+		return LoginResponse.from(portalInviteService.claim(request.organisationSlug(), request.token(), request.password()));
 	}
 
 	/**
@@ -59,7 +68,8 @@ public class AuthController {
 
 		// One user maps to one Person within a given org (multiple roles are multiple
 		// membership rows sharing that same person, per the identity model) - take the
-		// first membership's person as the display name.
+		// first membership's person as the display identity.
+		Long personId = activeMemberships.stream().findFirst().map(membership -> membership.getPerson().getId()).orElse(null);
 		String personName = activeMemberships.stream()
 				.findFirst()
 				.map(membership -> membership.getPerson().getFirstName() + " " + membership.getPerson().getLastName())
@@ -69,7 +79,7 @@ public class AuthController {
 		String email = userRepository.findById(userId).map(User::getEmail).orElse(null);
 		String organisationName = organisationRepository.findById(organisationId).map(Organisation::getName).orElse(null);
 
-		return new MeResponse(userId, organisationId, organisationName, email, personName, roleNames,
+		return new MeResponse(userId, organisationId, organisationName, email, personId, personName, roleNames,
 				membershipRepository.findActivePermissionCodesForUser(userId));
 	}
 }
