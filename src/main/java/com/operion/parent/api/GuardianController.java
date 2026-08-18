@@ -7,6 +7,7 @@ import com.operion.parent.Guardian;
 import com.operion.parent.GuardianRepository;
 import com.operion.parent.ParentService;
 import com.operion.parent.PortalInviteService;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -34,7 +35,7 @@ public class GuardianController {
 
 	@PostMapping
 	@RequirePermission("GUARDIAN_MANAGE")
-	public GuardianResponse getOrCreate(@RequestBody CreateGuardianRequest request) {
+	public GuardianResponse getOrCreate(@Valid @RequestBody CreateGuardianRequest request) {
 		Person person = personRepository.findById(request.personId())
 				.orElseThrow(() -> new IllegalArgumentException("No person with id " + request.personId()));
 

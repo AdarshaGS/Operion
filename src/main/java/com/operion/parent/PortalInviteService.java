@@ -15,6 +15,7 @@ import com.operion.identity.UserRepository;
 import com.operion.identity.auth.AuthenticationFailedException;
 import com.operion.identity.auth.JwtService;
 import com.operion.identity.auth.LoginResult;
+import com.operion.identity.auth.RefreshTokenService;
 import com.operion.organisation.Organisation;
 import com.operion.organisation.OrganisationRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -48,11 +49,13 @@ public class PortalInviteService {
 	private final MembershipService membershipService;
 	private final PasswordEncoder passwordEncoder;
 	private final JwtService jwtService;
+	private final RefreshTokenService refreshTokenService;
 	private final SecureRandom secureRandom = new SecureRandom();
 
 	public PortalInviteService(PortalInviteRepository portalInviteRepository, GuardianRepository guardianRepository,
 			UserRepository userRepository, RoleRepository roleRepository, OrganisationRepository organisationRepository,
-			MembershipService membershipService, PasswordEncoder passwordEncoder, JwtService jwtService) {
+			MembershipService membershipService, PasswordEncoder passwordEncoder, JwtService jwtService,
+			RefreshTokenService refreshTokenService) {
 		this.portalInviteRepository = portalInviteRepository;
 		this.guardianRepository = guardianRepository;
 		this.userRepository = userRepository;
@@ -61,6 +64,7 @@ public class PortalInviteService {
 		this.membershipService = membershipService;
 		this.passwordEncoder = passwordEncoder;
 		this.jwtService = jwtService;
+		this.refreshTokenService = refreshTokenService;
 	}
 
 	/** Staff-facing - runs with TenantContext already set by JwtAuthenticationInterceptor,
@@ -114,7 +118,9 @@ public class PortalInviteService {
 			portalInviteRepository.save(invite);
 
 			JwtService.IssuedToken issued = jwtService.issue(user.getId(), organisation.getId());
-			return new LoginResult(issued.token(), issued.expiresAt(), user.getId(), organisation.getId());
+			RefreshTokenService.IssuedRefreshToken refresh = refreshTokenService.issue(user.getId());
+			return new LoginResult(issued.token(), issued.expiresAt(), refresh.rawToken(), refresh.expiresAt(), user.getId(),
+					organisation.getId());
 		} finally {
 			TenantContext.clear();
 		}

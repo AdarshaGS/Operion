@@ -1,4 +1,6 @@
 package com.operion.parent.api;
 
-public record CreateGuardianRequest(Long personId, String occupation) {
+import jakarta.validation.constraints.NotNull;
+
+public record CreateGuardianRequest(@NotNull Long personId, String occupation) {
 }

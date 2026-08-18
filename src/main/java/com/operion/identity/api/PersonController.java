@@ -4,6 +4,7 @@ import java.util.List;
 
 import com.operion.identity.Person;
 import com.operion.identity.PersonRepository;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -27,7 +28,7 @@ public class PersonController {
 	}
 
 	@PostMapping
-	public PersonResponse create(@RequestBody CreatePersonRequest request) {
+	public PersonResponse create(@Valid @RequestBody CreatePersonRequest request) {
 		Person person = new Person(request.firstName(), request.lastName());
 		person.setDateOfBirth(request.dateOfBirth());
 		person.setGender(request.gender());

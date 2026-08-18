@@ -8,6 +8,7 @@ import com.operion.identity.PersonRepository;
 import com.operion.student.Student;
 import com.operion.student.StudentRepository;
 import com.operion.student.StudentService;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -33,7 +34,7 @@ public class StudentController {
 
 	@PostMapping
 	@RequirePermission("STUDENT_MANAGE")
-	public StudentResponse admit(@RequestBody CreateStudentRequest request) {
+	public StudentResponse admit(@Valid @RequestBody CreateStudentRequest request) {
 		Person person = personRepository.findById(request.personId())
 				.orElseThrow(() -> new IllegalArgumentException("No person with id " + request.personId()));
 

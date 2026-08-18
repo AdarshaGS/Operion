@@ -21,6 +21,8 @@ import com.operion.identity.UserRepository;
 import com.operion.identity.auth.AuthenticationFailedException;
 import com.operion.identity.auth.JwtService;
 import com.operion.identity.auth.LoginResult;
+import com.operion.identity.auth.RefreshTokenRepository;
+import com.operion.identity.auth.RefreshTokenService;
 import com.operion.organisation.CampusRepository;
 import com.operion.organisation.Organisation;
 import com.operion.organisation.OrganisationRepository;
@@ -78,11 +80,15 @@ class PortalInviteLifecycleTest {
 	@Autowired
 	private PortalInviteRepository portalInviteRepository;
 
+	@Autowired
+	private RefreshTokenRepository refreshTokenRepository;
+
 	private PortalInviteService portalInviteService() {
 		MembershipService membershipService = new MembershipService(membershipRepository, userRepository, personRepository,
 				roleRepository, campusRepository, new AuditLogService(auditLogRepository, new ObjectMapper()));
 		return new PortalInviteService(portalInviteRepository, guardianRepository, userRepository, roleRepository,
-				organisationRepository, membershipService, ENCODER, new JwtService(TEST_SECRET, 480));
+				organisationRepository, membershipService, ENCODER, new JwtService(TEST_SECRET, 480),
+				new RefreshTokenService(refreshTokenRepository, ENCODER));
 	}
 
 	private Organisation newOrgWithGuardianRole(String slugPrefix) {
