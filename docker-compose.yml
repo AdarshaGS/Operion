@@ -1,0 +1,44 @@
+services:
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_DATABASE: operion
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-operion}
+    ports:
+      - "3306:3306"
+    volumes:
+      - operion-mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${DB_ROOT_PASSWORD:-operion}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      DB_URL: jdbc:mysql://mysql:3306/operion
+      DB_USERNAME: root
+      DB_PASSWORD: ${DB_ROOT_PASSWORD:-operion}
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
+      JWT_SECRET: ${JWT_SECRET:-dev-only-secret-change-me-before-any-real-deployment-32bytes-min}
+      PLATFORM_JWT_SECRET: ${PLATFORM_JWT_SECRET:-dev-only-platform-secret-change-me-before-any-real-deployment-32b}
+    ports:
+      - "8080:8080"
+
+  frontend:
+    build:
+      context: web
+      dockerfile: Dockerfile
+    depends_on:
+      - backend
+    ports:
+      - "5173:80"
+
+volumes:
+  operion-mysql-data:

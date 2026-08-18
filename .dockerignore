@@ -1,0 +1,14 @@
+.git
+.gradle
+build/
+bin/
+.vscode
+.settings
+.classpath
+.factorypath
+.project
+graphify-out/
+web/
+ai-context/
+docs/
+*.md
