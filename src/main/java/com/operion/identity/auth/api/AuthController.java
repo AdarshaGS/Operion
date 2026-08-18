@@ -9,11 +9,16 @@ import com.operion.common.TenantContext;
 import com.operion.identity.User;
 import com.operion.identity.UserRepository;
 import com.operion.identity.auth.AuthenticationService;
+import com.operion.identity.auth.EmailVerificationService;
+import com.operion.identity.auth.PasswordResetService;
+import com.operion.identity.auth.RefreshTokenService;
+import com.operion.identity.auth.StaffInviteService;
 import com.operion.organisation.Organisation;
 import com.operion.organisation.OrganisationRepository;
 import com.operion.parent.PortalInviteService;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -27,14 +32,24 @@ public class AuthController {
 	private final UserRepository userRepository;
 	private final OrganisationRepository organisationRepository;
 	private final PortalInviteService portalInviteService;
+	private final StaffInviteService staffInviteService;
+	private final RefreshTokenService refreshTokenService;
+	private final PasswordResetService passwordResetService;
+	private final EmailVerificationService emailVerificationService;
 
 	public AuthController(AuthenticationService authenticationService, OrganisationMembershipRepository membershipRepository,
-			UserRepository userRepository, OrganisationRepository organisationRepository, PortalInviteService portalInviteService) {
+			UserRepository userRepository, OrganisationRepository organisationRepository, PortalInviteService portalInviteService,
+			StaffInviteService staffInviteService, RefreshTokenService refreshTokenService, PasswordResetService passwordResetService,
+			EmailVerificationService emailVerificationService) {
 		this.authenticationService = authenticationService;
 		this.membershipRepository = membershipRepository;
 		this.userRepository = userRepository;
 		this.organisationRepository = organisationRepository;
 		this.portalInviteService = portalInviteService;
+		this.staffInviteService = staffInviteService;
+		this.refreshTokenService = refreshTokenService;
+		this.passwordResetService = passwordResetService;
+		this.emailVerificationService = emailVerificationService;
 	}
 
 	@PostMapping("/login")
@@ -46,6 +61,58 @@ public class AuthController {
 	@PostMapping("/claim-invite")
 	public LoginResponse claimInvite(@RequestBody ClaimInviteRequest request) {
 		return LoginResponse.from(portalInviteService.claim(request.organisationSlug(), request.token(), request.password()));
+	}
+
+	/** Public, unauthenticated - the whole point is exchanging a refresh token for a new
+	 * access token once the old access token has already expired, see AuthenticationService.refresh(). */
+	@PostMapping("/refresh")
+	public LoginResponse refresh(@RequestBody RefreshRequest request) {
+		return LoginResponse.from(authenticationService.refresh(request.organisationSlug(), request.refreshToken()));
+	}
+
+	/** Public, unauthenticated - same trust tier as claim-invite, see StaffInviteService.claim(). */
+	@PostMapping("/claim-staff-invite")
+	public LoginResponse claimStaffInvite(@RequestBody ClaimStaffInviteRequest request) {
+		return LoginResponse.from(staffInviteService.claim(request.organisationSlug(), request.token(), request.password()));
+	}
+
+	/** "Sign out everywhere" - see RefreshTokenService.revokeAllForUser(). Authenticated
+	 * (bearer-protected like every other non-bootstrap endpoint): the caller's own token is
+	 * what resolves which user's sessions to revoke. */
+	@PostMapping("/logout")
+	public AckResponse logout() {
+		refreshTokenService.revokeAllForUser(TenantContext.getActorId());
+		return new AckResponse("Logged out");
+	}
+
+	/** Authenticated - see AuthenticationService.changePassword() for why the "current
+	 * password wrong" message can be specific here unlike everywhere else in this class. */
+	@PutMapping("/password")
+	public AckResponse changePassword(@RequestBody ChangePasswordRequest request) {
+		authenticationService.changePassword(TenantContext.getActorId(), request.currentPassword(), request.newPassword());
+		return new AckResponse("Password updated");
+	}
+
+	/** Public, unauthenticated - see PasswordResetService for why the response never varies
+	 * with whether the org/email actually matched anything. */
+	@PostMapping("/password-reset/request")
+	public AckResponse requestPasswordReset(@RequestBody RequestPasswordResetRequest request) {
+		passwordResetService.requestReset(request.organisationSlug(), request.email());
+		return new AckResponse("If that account exists, a reset link has been sent");
+	}
+
+	/** Public, unauthenticated. */
+	@PostMapping("/password-reset/confirm")
+	public AckResponse confirmPasswordReset(@RequestBody ConfirmPasswordResetRequest request) {
+		passwordResetService.confirmReset(request.organisationSlug(), request.token(), request.newPassword());
+		return new AckResponse("Password reset");
+	}
+
+	/** Public, unauthenticated - see EmailVerificationService. */
+	@PostMapping("/verify-email")
+	public AckResponse verifyEmail(@RequestBody VerifyEmailRequest request) {
+		emailVerificationService.confirm(request.organisationSlug(), request.token());
+		return new AckResponse("Email verified");
 	}
 
 	/**

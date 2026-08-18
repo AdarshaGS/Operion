@@ -24,9 +24,11 @@ import lombok.Setter;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class User extends BaseEntity {
 
+	@Setter
 	@Column(nullable = false, unique = true)
 	private String email;
 
+	@Setter
 	@Column(unique = true)
 	private String phone;
 
@@ -42,6 +44,10 @@ public class User extends BaseEntity {
 	@Setter
 	@Column(name = "last_login_at")
 	private Instant lastLoginAt;
+
+	@Setter
+	@Column(name = "email_verified_at")
+	private Instant emailVerifiedAt;
 
 	public User(String email, String phone, String passwordHash) {
 		this.email = email;

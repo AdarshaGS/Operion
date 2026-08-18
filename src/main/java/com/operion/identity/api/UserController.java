@@ -7,10 +7,15 @@ import com.operion.authorization.OrganisationMembershipRepository;
 import com.operion.authorization.RequirePermission;
 import com.operion.identity.User;
 import com.operion.identity.UserRepository;
+import com.operion.identity.UserService;
+import com.operion.identity.UserStatus;
+import com.operion.identity.auth.EmailVerificationService;
+import com.operion.identity.auth.StaffInviteService;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -39,18 +44,35 @@ public class UserController {
 	private final UserRepository userRepository;
 	private final OrganisationMembershipRepository membershipRepository;
 	private final PasswordEncoder passwordEncoder;
+	private final UserService userService;
+	private final StaffInviteService staffInviteService;
+	private final EmailVerificationService emailVerificationService;
 
 	public UserController(UserRepository userRepository, OrganisationMembershipRepository membershipRepository,
-			PasswordEncoder passwordEncoder) {
+			PasswordEncoder passwordEncoder, UserService userService, StaffInviteService staffInviteService,
+			EmailVerificationService emailVerificationService) {
 		this.userRepository = userRepository;
 		this.membershipRepository = membershipRepository;
 		this.passwordEncoder = passwordEncoder;
+		this.userService = userService;
+		this.staffInviteService = staffInviteService;
+		this.emailVerificationService = emailVerificationService;
 	}
 
 	@PostMapping
 	public UserResponse create(@RequestBody CreateUserRequest request) {
 		User user = new User(request.email(), request.phone(), passwordEncoder.encode(request.password()));
-		return UserResponse.from(userRepository.save(user));
+		user = userRepository.save(user);
+		emailVerificationService.issue(user.getId());
+		return UserResponse.from(user);
+	}
+
+	/** Preferred path for onboarding a new staff login - see StaffInviteService. Unlike
+	 * create() above, the admin never sees or sets the real password. */
+	@PostMapping("/invite")
+	public StaffInviteResponse invite(@RequestBody InviteUserRequest request) {
+		StaffInviteService.IssuedInvite invite = staffInviteService.issue(request.email(), request.phone());
+		return new StaffInviteResponse(invite.userId(), invite.inviteId(), invite.rawToken(), invite.expiresAt());
 	}
 
 	@GetMapping
@@ -71,5 +93,16 @@ public class UserController {
 		}
 		return UserResponse.from(userRepository.findById(id)
 				.orElseThrow(() -> new IllegalArgumentException("No user with id " + id)));
+	}
+
+	@PutMapping("/{id}")
+	public UserResponse update(@PathVariable Long id, @RequestBody UpdateUserRequest request) {
+		return UserResponse.from(userService.update(id, request.email(), request.phone()));
+	}
+
+	/** Also the deactivate path (status=DISABLED) - see UserService.changeStatus. */
+	@PostMapping("/{id}/status")
+	public UserResponse changeStatus(@PathVariable Long id, @RequestBody ChangeUserStatusRequest request) {
+		return UserResponse.from(userService.changeStatus(id, UserStatus.valueOf(request.status())));
 	}
 }

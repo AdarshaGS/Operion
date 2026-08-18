@@ -27,6 +27,8 @@ dependencies {
 	// same class of gotcha as spring-boot-hibernate/spring-boot-flyway/spring-boot-data-jpa-test
 	// above - needed for RazorpayHttpGateway, the app's first outbound HTTP integration.
 	implementation 'org.springframework.boot:spring-boot-starter-restclient'
+	implementation 'org.springframework.boot:spring-boot-starter-validation'
+	implementation 'org.springframework.boot:spring-boot-starter-actuator'
 	implementation 'org.flywaydb:flyway-core'
 	implementation 'org.flywaydb:flyway-mysql'
 	implementation 'org.springframework.boot:spring-boot-flyway'

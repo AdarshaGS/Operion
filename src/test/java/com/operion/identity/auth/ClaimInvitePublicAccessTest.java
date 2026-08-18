@@ -20,7 +20,9 @@ import org.springframework.test.web.servlet.MockMvc;
  * codebase has no other MockMvc precedent besides OpenApiSpecTest, see its own note on
  * why - PermissionInterceptorTest tests the interceptor's logic at the unit level
  * instead, but nothing had exercised the allowlist itself through the real filter chain
- * until now).
+ * until now). Also covers every other public endpoint added to the same allowlist since
+ * (claim-staff-invite, password-reset request/confirm, verify-email) - each is exactly
+ * as easy to forget as claim-invite was.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -38,5 +40,39 @@ class ClaimInvitePublicAccessTest {
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("{\"organisationSlug\":\"no-such-org\",\"token\":\"bogus\",\"password\":\"whatever123\"}"))
 				.andExpect(status().isUnauthorized());
+	}
+
+	@Test
+	void claimStaffInviteIsReachableWithoutABearerToken() throws Exception {
+		mockMvc.perform(post("/api/v1/auth/claim-staff-invite")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{\"organisationSlug\":\"no-such-org\",\"token\":\"bogus\",\"password\":\"whatever123\"}"))
+				.andExpect(status().isUnauthorized());
+	}
+
+	@Test
+	void passwordResetConfirmIsReachableWithoutABearerToken() throws Exception {
+		mockMvc.perform(post("/api/v1/auth/password-reset/confirm")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{\"organisationSlug\":\"no-such-org\",\"token\":\"bogus\",\"newPassword\":\"whatever123\"}"))
+				.andExpect(status().isUnauthorized());
+	}
+
+	@Test
+	void verifyEmailIsReachableWithoutABearerToken() throws Exception {
+		mockMvc.perform(post("/api/v1/auth/verify-email")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{\"organisationSlug\":\"no-such-org\",\"token\":\"bogus\"}"))
+				.andExpect(status().isUnauthorized());
+	}
+
+	@Test
+	void passwordResetRequestIsReachableWithoutABearerTokenAndAlwaysSucceeds() throws Exception {
+		// requestReset() never throws (see PasswordResetService) - a 200 here proves the
+		// interceptor let it through rather than dying as a silent 401 beforehand.
+		mockMvc.perform(post("/api/v1/auth/password-reset/request")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{\"organisationSlug\":\"no-such-org\",\"email\":\"nobody@example.com\"}"))
+				.andExpect(status().isOk());
 	}
 }

@@ -3,6 +3,8 @@ package com.operion.identity.auth;
 import com.operion.common.TenantContext;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpMethod;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
@@ -16,6 +18,7 @@ import org.springframework.web.servlet.HandlerInterceptor;
 public class JwtAuthenticationInterceptor implements HandlerInterceptor {
 
 	private static final String BEARER_PREFIX = "Bearer ";
+	private static final Logger log = LoggerFactory.getLogger(JwtAuthenticationInterceptor.class);
 
 	private final JwtService jwtService;
 
@@ -35,6 +38,7 @@ public class JwtAuthenticationInterceptor implements HandlerInterceptor {
 
 		String header = request.getHeader("Authorization");
 		if (header == null || !header.startsWith(BEARER_PREFIX)) {
+			log.warn("Rejected request with no bearer token: {} {}", request.getMethod(), request.getRequestURI());
 			response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
 			return false;
 		}
@@ -44,6 +48,7 @@ public class JwtAuthenticationInterceptor implements HandlerInterceptor {
 			TenantContext.set(principal.organisationId(), principal.userId());
 			return true;
 		} catch (InvalidTokenException ex) {
+			log.warn("Rejected request with invalid/expired token: {} {} ({})", request.getMethod(), request.getRequestURI(), ex.getMessage());
 			response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
 			return false;
 		}
@@ -51,6 +56,10 @@ public class JwtAuthenticationInterceptor implements HandlerInterceptor {
 
 	@Override
 	public void afterCompletion(HttpServletRequest request, HttpServletResponse response, Object handler, Exception ex) {
+		// Stashed as a request attribute (not read straight from TenantContext) because
+		// RequestLoggingFilter's own post-chain code runs after this method - by then
+		// TenantContext.clear() below has already wiped the ThreadLocal.
+		request.setAttribute("operion.actorUserId", TenantContext.getActorId());
 		TenantContext.clear();
 	}
 
@@ -58,8 +67,11 @@ public class JwtAuthenticationInterceptor implements HandlerInterceptor {
 	// org (and its first admin login) exists yet, so it alone stays unauthenticated.
 	// claim-invite is the same shape of bootstrap for a Guardian: PortalInviteService
 	// resolves the org from the request body's slug itself, exactly like login() does,
-	// since there is no token yet to carry it. Payment links are the same shape again,
-	// but with the org slug carried in the URL path instead (see
+	// since there is no token yet to carry it. claim-staff-invite is the identical shape for
+	// StaffInviteService. password-reset/request+confirm and verify-email are the same
+	// again - a caller who forgot their password or is confirming their email by definition
+	// has no valid access token either. Payment links are the same shape again, but with the
+	// org slug carried in the URL path instead (see
 	// FeePaymentGatewayService.getLinkStatus/initiateCheckout) - a parent opening a
 	// "pay this invoice" link has no login at all, by design. The Razorpay webhook is a
 	// different kind of public: it trusts an HMAC signature instead of a slug+token,
@@ -67,7 +79,9 @@ public class JwtAuthenticationInterceptor implements HandlerInterceptor {
 	// since the caller is Razorpay's own servers, not a browser.
 	private boolean isPublic(HttpServletRequest request) {
 		String path = request.getRequestURI();
-		if (path.equals("/api/v1/auth/login") || path.equals("/api/v1/auth/claim-invite")) {
+		if (path.equals("/api/v1/auth/login") || path.equals("/api/v1/auth/claim-invite") || path.equals("/api/v1/auth/refresh")
+				|| path.equals("/api/v1/auth/claim-staff-invite") || path.equals("/api/v1/auth/password-reset/request")
+				|| path.equals("/api/v1/auth/password-reset/confirm") || path.equals("/api/v1/auth/verify-email")) {
 			return true;
 		}
 		if (path.startsWith("/api/v1/fees/payment-links/") || path.equals("/api/v1/webhooks/razorpay")) {
