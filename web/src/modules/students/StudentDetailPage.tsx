@@ -14,6 +14,7 @@ import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { ApiError } from "../../api/client";
 import { getPerson, type PersonResponse } from "../../api/persons";
 import { getStudent, type StudentResponse } from "../../api/students";
+import { StudentGuardiansPanel } from "./StudentGuardiansPanel";
 
 function Field({ label, value }: { label: string; value: string | number | null | undefined }) {
 	return (
@@ -127,6 +128,8 @@ export function StudentDetailPage() {
 					</Grid>
 				</Stack>
 			</Paper>
+
+			<StudentGuardiansPanel studentId={student.id} />
 		</Stack>
 	);
 }

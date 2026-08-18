@@ -10,8 +10,10 @@ import MenuItem from "@mui/material/MenuItem";
 import Stack from "@mui/material/Stack";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
+import KeyIcon from "@mui/icons-material/Key";
 import LogoutIcon from "@mui/icons-material/Logout";
 import { useAuth } from "../auth/AuthContext";
+import { ChangePasswordDialog } from "./ChangePasswordDialog";
 import { colors, fontDisplay } from "../theme";
 
 function initials(name: string | null): string {
@@ -30,6 +32,12 @@ function initials(name: string | null): string {
 export function ProfileMenu() {
 	const { profile, logout } = useAuth();
 	const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
+	const [changePasswordOpen, setChangePasswordOpen] = useState(false);
+
+	function openChangePassword() {
+		setAnchorEl(null);
+		setChangePasswordOpen(true);
+	}
 
 	return (
 		<>
@@ -60,6 +68,12 @@ export function ProfileMenu() {
 					)}
 				</Box>
 				<Divider />
+				<MenuItem onClick={openChangePassword}>
+					<ListItemIcon>
+						<KeyIcon fontSize="small" />
+					</ListItemIcon>
+					Change password
+				</MenuItem>
 				<MenuItem onClick={logout}>
 					<ListItemIcon>
 						<LogoutIcon fontSize="small" />
@@ -67,6 +81,7 @@ export function ProfileMenu() {
 					Sign out
 				</MenuItem>
 			</Menu>
+			<ChangePasswordDialog open={changePasswordOpen} onClose={() => setChangePasswordOpen(false)} />
 		</>
 	);
 }

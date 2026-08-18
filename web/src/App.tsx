@@ -1,7 +1,11 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { AuthProvider } from "./auth/AuthContext";
+import { ClaimInvitePage } from "./auth/ClaimInvitePage";
+import { ClaimStaffInvitePage } from "./auth/ClaimStaffInvitePage";
+import { ForgotPasswordPage } from "./auth/ForgotPasswordPage";
 import { LoginPage } from "./auth/LoginPage";
 import { ProtectedRoute } from "./auth/ProtectedRoute";
+import { ResetPasswordPage } from "./auth/ResetPasswordPage";
 import { AppLayout } from "./layout/AppLayout";
 import { AcademicsPage } from "./modules/academics/AcademicsPage";
 import { SchoolClassSectionsPage } from "./modules/academics/SchoolClassSectionsPage";
@@ -43,6 +47,10 @@ function App() {
 				<Routes>
 					<Route path="/welcome" element={<MarketingPage />} />
 					<Route path="/login" element={<LoginPage />} />
+					<Route path="/claim-invite" element={<ClaimInvitePage />} />
+					<Route path="/claim-staff-invite" element={<ClaimStaffInvitePage />} />
+					<Route path="/forgot-password" element={<ForgotPasswordPage />} />
+					<Route path="/reset-password" element={<ResetPasswordPage />} />
 					<Route element={<ProtectedRoute />}>
 						<Route element={<AppLayout />}>
 							<Route index element={<Navigate to="/students" replace />} />

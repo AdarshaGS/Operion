@@ -10,6 +10,16 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8080
  * hand-typed interface when something looks off, or adopt it directly in new code.
  */
 
+/** Mirrors the backend's PageResponse<T> (com.operion.common.api.PageResponse) - the
+ * standard envelope for any list endpoint that opts into pagination. */
+export interface PageResponse<T> {
+	content: T[];
+	page: number;
+	size: number;
+	totalElements: number;
+	totalPages: number;
+}
+
 export class ApiError extends Error {
 	status: number;
 

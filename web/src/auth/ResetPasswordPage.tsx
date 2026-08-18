@@ -1,46 +1,43 @@
 import { useState, type FormEvent } from "react";
-import { Link as RouterLink, Navigate, useLocation, useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
-import Link from "@mui/material/Link";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
+import { confirmPasswordReset } from "../api/auth";
 import { ApiError } from "../api/client";
 import { Wordmark } from "../branding/Wordmark";
 import { colors } from "../theme";
-import { useAuth } from "./AuthContext";
 
-export function LoginPage() {
-	const { isAuthenticated, login } = useAuth();
+/** Public, unauthenticated. Reached via the link ForgotPasswordPage's request triggers -
+ * see PasswordResetService.confirmReset(). */
+export function ResetPasswordPage() {
 	const navigate = useNavigate();
-	const location = useLocation();
+	const [searchParams] = useSearchParams();
 
-	const [organisationSlug, setOrganisationSlug] = useState("");
-	const [email, setEmail] = useState("");
-	const [password, setPassword] = useState("");
+	const [organisationSlug, setOrganisationSlug] = useState(searchParams.get("org") ?? "");
+	const [token, setToken] = useState(searchParams.get("token") ?? "");
+	const [newPassword, setNewPassword] = useState("");
+	const [confirmNewPassword, setConfirmNewPassword] = useState("");
 	const [error, setError] = useState<string | null>(null);
 	const [submitting, setSubmitting] = useState(false);
-
-	if (isAuthenticated) {
-		const redirectTo = (location.state as { from?: string } | null)?.from ?? "/students";
-		return <Navigate to={redirectTo} replace />;
-	}
 
 	async function handleSubmit(event: FormEvent) {
 		event.preventDefault();
 		setError(null);
+		if (newPassword !== confirmNewPassword) {
+			setError("Passwords don't match");
+			return;
+		}
 		setSubmitting(true);
 		try {
-			// Mobile keyboards routinely append a trailing space when a predictive-text
-			// suggestion is tapped (seen on org slug in the wild) - trim defensively rather
-			// than trust every mobile browser/keyboard combination to behave.
-			await login(organisationSlug.trim(), email.trim(), password);
-			navigate("/students", { replace: true });
+			await confirmPasswordReset({ organisationSlug: organisationSlug.trim(), token: token.trim(), newPassword });
+			navigate("/login", { replace: true });
 		} catch (err) {
-			setError(err instanceof ApiError ? err.message : "Login failed - please try again");
+			setError(err instanceof ApiError ? err.message : "Couldn't reset your password - the link may have expired");
 		} finally {
 			setSubmitting(false);
 		}
@@ -52,14 +49,14 @@ export function LoginPage() {
 				component="form"
 				onSubmit={handleSubmit}
 				variant="outlined"
-				sx={{ p: 4, width: 360, borderColor: colors.rule, boxShadow: "0 1px 2px rgba(22,35,58,0.09)" }}
+				sx={{ p: 4, width: 380, borderColor: colors.rule, boxShadow: "0 1px 2px rgba(22,35,58,0.09)" }}
 			>
 				<Stack spacing={2}>
 					<Box sx={{ mb: 0.5 }}>
-						<Wordmark tagline="School Administration" />
+						<Wordmark tagline="Reset your password" />
 					</Box>
 					<Typography variant="body2" color="text.secondary">
-						Sign in to your school's admin portal
+						Choose a new password using the reset link's token
 					</Typography>
 					{error && <Alert severity="error">{error}</Alert>}
 					<TextField
@@ -74,33 +71,34 @@ export function LoginPage() {
 						spellCheck={false}
 					/>
 					<TextField
-						label="Email"
-						type="email"
-						value={email}
-						onChange={(e) => setEmail(e.target.value)}
+						label="Reset token"
+						value={token}
+						onChange={(e) => setToken(e.target.value)}
 						required
-						autoComplete="username"
+						autoComplete="off"
 						autoCapitalize="off"
 						autoCorrect="off"
 						spellCheck={false}
 					/>
 					<TextField
-						label="Password"
+						label="New password"
 						type="password"
-						value={password}
-						onChange={(e) => setPassword(e.target.value)}
+						value={newPassword}
+						onChange={(e) => setNewPassword(e.target.value)}
 						required
-						autoComplete="current-password"
-						autoCapitalize="off"
-						autoCorrect="off"
-						spellCheck={false}
+						autoComplete="new-password"
+					/>
+					<TextField
+						label="Confirm new password"
+						type="password"
+						value={confirmNewPassword}
+						onChange={(e) => setConfirmNewPassword(e.target.value)}
+						required
+						autoComplete="new-password"
 					/>
 					<Button type="submit" variant="contained" disabled={submitting}>
-						{submitting ? "Signing in..." : "Sign in"}
+						{submitting ? "Resetting..." : "Reset password"}
 					</Button>
-					<Link component={RouterLink} to="/forgot-password" variant="body2" sx={{ alignSelf: "center" }}>
-						Forgot password?
-					</Link>
 				</Stack>
 			</Paper>
 		</Box>

@@ -1,5 +1,11 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { login as loginRequest, me as meRequest } from "../api/auth";
+import {
+	claimInvite as claimInviteRequest,
+	claimStaffInvite as claimStaffInviteRequest,
+	login as loginRequest,
+	logout as logoutRequest,
+	me as meRequest,
+} from "../api/auth";
 import { clearSession, getSession, setSession, type StoredSession } from "../api/tokenStore";
 
 export interface Profile {
@@ -19,7 +25,9 @@ interface AuthContextValue {
 	hasPermission: (code: string) => boolean;
 	hasAnyPermission: (codes: string[]) => boolean;
 	login: (organisationSlug: string, email: string, password: string) => Promise<void>;
-	logout: () => void;
+	claimInvite: (organisationSlug: string, token: string, password: string) => Promise<void>;
+	claimStaffInvite: (organisationSlug: string, token: string, password: string) => Promise<void>;
+	logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -52,8 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 			.finally(() => setPermissionsLoaded(true));
 	}, [session]);
 
-	const login = useCallback(async (organisationSlug: string, email: string, password: string) => {
-		const response = await loginRequest({ organisationSlug, email, password });
+	const applySession = useCallback((response: { token: string; expiresAt: string; userId: number; organisationId: number }) => {
 		const newSession: StoredSession = {
 			token: response.token,
 			expiresAt: response.expiresAt,
@@ -64,7 +71,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 		setSessionState(newSession);
 	}, []);
 
-	const logout = useCallback(() => {
+	const login = useCallback(
+		async (organisationSlug: string, email: string, password: string) => {
+			applySession(await loginRequest({ organisationSlug, email, password }));
+		},
+		[applySession],
+	);
+
+	const claimInvite = useCallback(
+		async (organisationSlug: string, token: string, password: string) => {
+			applySession(await claimInviteRequest({ organisationSlug, token, password }));
+		},
+		[applySession],
+	);
+
+	const claimStaffInvite = useCallback(
+		async (organisationSlug: string, token: string, password: string) => {
+			applySession(await claimStaffInviteRequest({ organisationSlug, token, password }));
+		},
+		[applySession],
+	);
+
+	/** Best-effort - the local session is cleared either way, even if the backend call
+	 * fails (network down, token already expired), same tolerance client.ts already has
+	 * for a 401 clearing the session rather than surfacing an error. */
+	const logout = useCallback(async () => {
+		try {
+			await logoutRequest();
+		} catch {
+			// Local session is still cleared below - see comment above.
+		}
 		clearSession();
 		setSessionState(null);
 	}, []);
@@ -81,9 +117,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 			hasPermission,
 			hasAnyPermission,
 			login,
+			claimInvite,
+			claimStaffInvite,
 			logout,
 		}),
-		[session, permissionsLoaded, profile, hasPermission, hasAnyPermission, login, logout],
+		[session, permissionsLoaded, profile, hasPermission, hasAnyPermission, login, claimInvite, claimStaffInvite, logout],
 	);
 
 	return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
