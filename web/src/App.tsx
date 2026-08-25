@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { AuthProvider } from "./auth/AuthContext";
 import { ClaimInvitePage } from "./auth/ClaimInvitePage";
 import { ClaimStaffInvitePage } from "./auth/ClaimStaffInvitePage";
+import { EmailVerifyPage } from "./auth/EmailVerifyPage";
 import { ForgotPasswordPage } from "./auth/ForgotPasswordPage";
 import { LoginPage } from "./auth/LoginPage";
 import { ProtectedRoute } from "./auth/ProtectedRoute";
@@ -51,6 +52,7 @@ function App() {
 					<Route path="/claim-staff-invite" element={<ClaimStaffInvitePage />} />
 					<Route path="/forgot-password" element={<ForgotPasswordPage />} />
 					<Route path="/reset-password" element={<ResetPasswordPage />} />
+					<Route path="/verify-email" element={<EmailVerifyPage />} />
 					<Route element={<ProtectedRoute />}>
 						<Route element={<AppLayout />}>
 							<Route index element={<Navigate to="/students" replace />} />

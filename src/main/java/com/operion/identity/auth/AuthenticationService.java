@@ -87,11 +87,22 @@ public class AuthenticationService {
 
 	/** Authenticated - caller already holds a valid access token for this exact userId, so
 	 * (unlike login()) the "current password is wrong" message can be specific: there's no
-	 * enumeration risk in telling someone their own password back to themselves. */
+	 * enumeration risk in telling someone their own password back to themselves.
+	 *
+	 * Deliberately IllegalStateException (-> 409, see ApiExceptionHandler), not
+	 * AuthenticationFailedException (-> 401) - this is a business-rule rejection by an
+	 * already-authenticated caller, the same shape as RoleService.changeStatus's
+	 * "can't deactivate the system-default role" or PortalInvite.claim()'s
+	 * "already claimed", not an authentication failure. web/src/api/client.ts treats *any*
+	 * 401 on a request carrying a session as "the session itself is invalid" and clears it
+	 * - a 401 here for a simple wrong-current-password typo would silently log the caller
+	 * out and show a generic "session expired" instead of the real message, which is
+	 * exactly the bug this codebase's own ApiExceptionHandler javadoc warns never to cause
+	 * ("never issues one for a business rule"). */
 	public void changePassword(Long userId, String currentPassword, String newPassword) {
 		User user = userRepository.findById(userId).orElseThrow(() -> new IllegalArgumentException("No user with id " + userId));
 		if (!passwordEncoder.matches(currentPassword, user.getPasswordHash())) {
-			throw new AuthenticationFailedException("Current password is incorrect");
+			throw new IllegalStateException("Current password is incorrect");
 		}
 		user.setPasswordHash(passwordEncoder.encode(newPassword));
 		userRepository.save(user);

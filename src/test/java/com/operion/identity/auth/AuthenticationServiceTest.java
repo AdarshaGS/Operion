@@ -152,8 +152,10 @@ class AuthenticationServiceTest {
 		User user = userRepository.findByEmail("change-pw@auth-svc.test").orElseThrow();
 		AuthenticationService service = authenticationService(new LoginAttemptService(5, 15));
 
+		// IllegalStateException (-> 409), not AuthenticationFailedException (-> 401) - see
+		// changePassword()'s own javadoc for why a 401 here would be a real client-side bug.
 		assertThatThrownBy(() -> service.changePassword(user.getId(), "WrongCurrent!", "NewPass123!"))
-				.isInstanceOf(AuthenticationFailedException.class);
+				.isInstanceOf(IllegalStateException.class);
 
 		service.changePassword(user.getId(), "OldPass123!", "NewPass123!");
 		User reloaded = userRepository.findById(user.getId()).orElseThrow();

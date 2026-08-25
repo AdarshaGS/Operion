@@ -68,10 +68,14 @@ public class UserController {
 	}
 
 	/** Preferred path for onboarding a new staff login - see StaffInviteService. Unlike
-	 * create() above, the admin never sees or sets the real password. */
+	 * create() above, the admin never sees or sets the real password. Also issues an email
+	 * verification token, same as create() - this is the primary user-creation path now
+	 * that it exists, so #48's "on create" trigger has to fire here too, not just from the
+	 * older direct-password endpoint. */
 	@PostMapping("/invite")
 	public StaffInviteResponse invite(@RequestBody InviteUserRequest request) {
 		StaffInviteService.IssuedInvite invite = staffInviteService.issue(request.email(), request.phone());
+		emailVerificationService.issue(invite.userId());
 		return new StaffInviteResponse(invite.userId(), invite.inviteId(), invite.rawToken(), invite.expiresAt());
 	}
 

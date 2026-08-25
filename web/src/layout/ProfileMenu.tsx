@@ -42,7 +42,12 @@ export function ProfileMenu() {
 	return (
 		<>
 			<Tooltip title={profile?.personName ?? "Account"}>
-				<IconButton onClick={(event: MouseEvent<HTMLElement>) => setAnchorEl(event.currentTarget)} color="inherit">
+				<IconButton
+					onClick={(event: MouseEvent<HTMLElement>) => setAnchorEl(event.currentTarget)}
+					color="inherit"
+					aria-label="Account menu"
+					aria-haspopup="true"
+				>
 					<Avatar
 						sx={{ width: 32, height: 32, fontSize: 13, fontFamily: fontDisplay, bgcolor: colors.ruleStrong, color: colors.accentInk }}
 					>

@@ -50,8 +50,14 @@ public class EmailVerificationService {
 		String rawToken = generateToken();
 		EmailVerificationToken token = emailVerificationTokenRepository
 				.save(new EmailVerificationToken(userId, passwordEncoder.encode(rawToken), Instant.now().plus(VERIFICATION_TOKEN_VALIDITY)));
-		log.info("Email verification issued: userId={} link=/verify-email?token={} expiresAt={}", userId, rawToken,
-				token.getExpiresAt());
+		// organisationSlug isn't passed in - only TenantContext's organisationId is
+		// available to an admin-authenticated caller like UserController.create() - so it's
+		// looked up here purely for the log link, same shape as PasswordResetService's.
+		String organisationSlug = organisationRepository.findById(TenantContext.getOrganisationId())
+				.map(Organisation::getSlug)
+				.orElse(null);
+		log.info("Email verification issued: org={} userId={} link=/verify-email?org={}&token={} expiresAt={}", organisationSlug,
+				userId, organisationSlug, rawToken, token.getExpiresAt());
 	}
 
 	public void confirm(String organisationSlug, String rawToken) {
