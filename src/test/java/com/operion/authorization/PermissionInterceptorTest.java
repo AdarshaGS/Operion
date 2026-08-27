@@ -145,6 +145,25 @@ class PermissionInterceptorTest {
 	}
 
 	@Test
+	void allowsAGatedEndpointForAnOwnerRegardlessOfGrantedPermissions() throws NoSuchMethodException {
+		Organisation org = organisationRepository.save(new Organisation("Test School", "Test School Trust", "pi-owner-bypass"));
+		User user = userRepository.save(new User("interceptor-owner@example.com", null, "hash"));
+		TenantContext.set(org.getId(), user.getId());
+
+		Role role = roleRepository.save(new Role("Owner", "system default", true));
+		Person person = personRepository.save(new Person("Owner", "Person"));
+		membershipRepository.save(new OrganisationMembership(user, person, role, null, null, true));
+
+		HandlerMethod handlerMethod = new HandlerMethod(new MethodLevelGatedController(),
+				MethodLevelGatedController.class.getMethod("gatedMethod"));
+
+		boolean allowed = interceptor.preHandle(new MockHttpServletRequest("GET", "/api/v1/gated"), new MockHttpServletResponse(),
+				handlerMethod);
+
+		assertThat(allowed).isTrue();
+	}
+
+	@Test
 	void deniesWhenThereIsNoAuthenticatedCallerAtAll() throws NoSuchMethodException {
 		HandlerMethod handlerMethod = new HandlerMethod(new ClassLevelGatedController(), ClassLevelGatedController.class.getMethod("anyMethod"));
 

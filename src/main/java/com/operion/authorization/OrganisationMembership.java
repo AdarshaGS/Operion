@@ -57,16 +57,28 @@ public class OrganisationMembership extends TenantScopedEntity {
 	@Column(nullable = false, length = 20)
 	private MembershipStatus status;
 
+	/** Exactly one true row per organisation - the member who provisioned it, or whoever
+	 * holds that status now. Distinct from {@link Role#isSystemDefault()}: the role is a
+	 * per-org fallback permission bundle (NOT NULL FK filler), this is the actual protected
+	 * identity {@link PermissionInterceptor} and {@link MembershipService#revoke} key off. */
+	@Column(name = "is_owner", nullable = false)
+	private boolean owner;
+
 	public OrganisationMembership(User user, Person person, Role role, Campus campus) {
 		this(user, person, role, campus, null);
 	}
 
 	public OrganisationMembership(User user, Person person, Role role, Campus campus, Department department) {
+		this(user, person, role, campus, department, false);
+	}
+
+	public OrganisationMembership(User user, Person person, Role role, Campus campus, Department department, boolean owner) {
 		this.user = user;
 		this.person = person;
 		this.role = role;
 		this.campus = campus;
 		this.department = department;
+		this.owner = owner;
 		this.status = MembershipStatus.ACTIVE;
 	}
 }

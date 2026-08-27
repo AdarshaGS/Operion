@@ -95,7 +95,7 @@ public class OrganisationService {
 		Person person = new Person(admin.firstName(), admin.lastName());
 		person.setUser(user);
 		person = personRepository.save(person);
-		membershipRepository.save(new OrganisationMembership(user, person, adminRole, null));
+		membershipRepository.save(new OrganisationMembership(user, person, adminRole, null, null, true));
 	}
 
 	@Transactional
@@ -114,7 +114,7 @@ public class OrganisationService {
 		Map<String, Permission> permissionsByCode = permissionRepository.findAll().stream()
 				.collect(Collectors.toMap(Permission::getCode, Function.identity()));
 
-		Role admin = new Role(DefaultRoles.ORG_ADMIN, "Full access - system default, cannot be locked out", true);
+		Role admin = new Role(DefaultRoles.OWNER, "Full access - system default, cannot be locked out", true);
 		permissionsByCode.values().forEach(admin::grant);
 		admin = roleRepository.save(admin);
 

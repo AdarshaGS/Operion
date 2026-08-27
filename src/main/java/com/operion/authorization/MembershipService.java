@@ -63,14 +63,20 @@ public class MembershipService {
 	/** Takes an id and loads internally rather than accepting a controller-loaded
 	 * membership - a detached entity's setter call never reaches the database on its own,
 	 * it needs an explicit save() within this method's own transaction. Blocks revoking the
-	 * org's last active system-default (Org Admin) membership - the same "cannot be locked
-	 * out" invariant Role.revoke already protects at the permission level, applied here at
-	 * the membership level. */
+	 * Owner's membership outright - ownership transfer isn't supported yet, so there is no
+	 * way to designate a replacement Owner, and letting anyone (even another admin-tier
+	 * holder) revoke it would strand the org with no Owner at all. Also keeps the older
+	 * "last active system-default role" guard for any other systemDefault-role holder,
+	 * the same "cannot be locked out" invariant Role.revoke already protects at the
+	 * permission level, applied here at the membership level. */
 	@Transactional
 	public OrganisationMembership revoke(Long membershipId) {
 		OrganisationMembership membership = membershipRepository.findById(membershipId)
 				.orElseThrow(() -> new IllegalArgumentException("No membership with id " + membershipId));
 
+		if (membership.isOwner()) {
+			throw new IllegalStateException("Cannot revoke the organisation Owner's membership");
+		}
 		if (membership.getRole().isSystemDefault()) {
 			boolean anotherActiveAdmin = membershipRepository.findByStatus(MembershipStatus.ACTIVE).stream()
 					.anyMatch(other -> !other.getId().equals(membership.getId()) && other.getRole().isSystemDefault());

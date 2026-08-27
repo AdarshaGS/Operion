@@ -10,7 +10,7 @@ import java.util.Set;
  */
 final class DefaultRoles {
 
-	static final String ORG_ADMIN = "Org Admin";
+	static final String OWNER = "Owner";
 
 	/** PortalInviteService (com.operion.parent) looks this role up by the same literal
 	 * name - package-private here, so it can't share this constant directly, but a fresh

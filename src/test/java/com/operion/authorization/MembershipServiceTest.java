@@ -155,4 +155,20 @@ class MembershipServiceTest {
 
 		assertThat(revoked.getStatus()).isEqualTo(MembershipStatus.INACTIVE);
 	}
+
+	@Test
+	void cannotRevokeTheOwnerMembershipEvenWithAnotherActiveAdminPresent() {
+		Role adminRole = roleRepository.save(new Role("Owner", "system default", true));
+
+		User ownerUser = userRepository.save(new User("owner@example.com", null, "hash"));
+		Person ownerPerson = personRepository.save(new Person("The", "Owner"));
+		Long ownerMembershipId = membershipRepository
+				.save(new OrganisationMembership(ownerUser, ownerPerson, adminRole, null, null, true)).getId();
+
+		User secondAdminUser = userRepository.save(new User("second-admin@example.com", null, "hash"));
+		Person secondAdminPerson = personRepository.save(new Person("Second", "Admin"));
+		membershipService.grant(secondAdminUser.getId(), secondAdminPerson.getId(), adminRole.getId(), null, null);
+
+		assertThatThrownBy(() -> membershipService.revoke(ownerMembershipId)).isInstanceOf(IllegalStateException.class);
+	}
 }

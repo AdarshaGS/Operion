@@ -45,6 +45,14 @@ public class PermissionInterceptor implements HandlerInterceptor {
 			throw new AuthorizationDeniedException("No authenticated caller for a permission-gated endpoint");
 		}
 
+		// The Owner's membership is the org's "*" capability - bypassing the granular check
+		// entirely (rather than enumerating every catalog code onto their role) means a
+		// permission added to the catalog tomorrow automatically covers every existing
+		// Owner with no data backfill.
+		if (membershipRepository.existsByUserIdAndStatusAndOwner(actorId, MembershipStatus.ACTIVE, true)) {
+			return true;
+		}
+
 		Set<String> grantedCodes = membershipRepository.findActivePermissionCodesForUser(actorId);
 		if (!grantedCodes.contains(required.value())) {
 			throw new AuthorizationDeniedException("Missing required permission: " + required.value());
