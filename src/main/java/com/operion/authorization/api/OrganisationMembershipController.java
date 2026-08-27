@@ -28,6 +28,7 @@ public class OrganisationMembershipController {
 	}
 
 	@GetMapping
+	@RequirePermission("MEMBERSHIP_VIEW")
 	public List<MembershipResponse> list() {
 		return membershipRepository.findAll().stream().map(MembershipResponse::from).toList();
 	}
