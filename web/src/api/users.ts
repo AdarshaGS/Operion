@@ -21,6 +21,9 @@ export interface StaffInviteResponse {
 	inviteId: number;
 	claimToken: string;
 	expiresAt: string;
+	/** Whether the invite link was actually emailed (Brevo, falling back to Resend) - the
+	 * claim link/token below are still always shown as a manual fallback regardless. */
+	emailSent: boolean;
 }
 
 export interface UserResponse {

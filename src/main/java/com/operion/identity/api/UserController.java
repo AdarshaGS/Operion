@@ -76,7 +76,7 @@ public class UserController {
 	public StaffInviteResponse invite(@RequestBody InviteUserRequest request) {
 		StaffInviteService.IssuedInvite invite = staffInviteService.issue(request.email(), request.phone());
 		emailVerificationService.issue(invite.userId());
-		return new StaffInviteResponse(invite.userId(), invite.inviteId(), invite.rawToken(), invite.expiresAt());
+		return new StaffInviteResponse(invite.userId(), invite.inviteId(), invite.rawToken(), invite.expiresAt(), invite.emailSent());
 	}
 
 	@GetMapping

@@ -20,7 +20,7 @@ export function ClaimStaffInvitePage() {
 	const navigate = useNavigate();
 	const [searchParams] = useSearchParams();
 
-	const [organisationSlug, setOrganisationSlug] = useState("");
+	const [organisationSlug, setOrganisationSlug] = useState(searchParams.get("org") ?? "");
 	const [token, setToken] = useState(searchParams.get("token") ?? "");
 	const [password, setPassword] = useState("");
 	const [confirmPassword, setConfirmPassword] = useState("");

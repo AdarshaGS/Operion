@@ -29,6 +29,13 @@ export function StaffInviteDialog({ invite, onClose }: StaffInviteDialogProps) {
 			<DialogTitle>Staff invite issued</DialogTitle>
 			<DialogContent>
 				<Stack spacing={2} sx={{ mt: 1 }}>
+					{invite && (
+						<Alert severity={invite.emailSent ? "success" : "warning"}>
+							{invite.emailSent
+								? "An email with this invite link has been sent to the new hire."
+								: "Couldn't send the invite email (no provider configured or the send failed)."}
+						</Alert>
+					)}
 					<Alert severity="warning">
 						This token is shown once and never stored - copy it now. Share it with the new hire along with your organisation's
 						login slug; they'll set their own password on the sign-up page.

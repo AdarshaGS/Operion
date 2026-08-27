@@ -4,10 +4,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.Instant;
+import java.util.List;
 
 import com.operion.common.JpaConfig;
 import com.operion.common.MultiTenancyConfig;
 import com.operion.common.TenantContext;
+import com.operion.email.EmailDeliveryService;
+import com.operion.email.EmailOutboxRepository;
 import com.operion.identity.User;
 import com.operion.identity.UserRepository;
 import com.operion.organisation.Organisation;
@@ -39,8 +42,13 @@ class EmailVerificationLifecycleTest {
 	@Autowired
 	private EmailVerificationTokenRepository emailVerificationTokenRepository;
 
+	@Autowired
+	private EmailOutboxRepository emailOutboxRepository;
+
 	private EmailVerificationService emailVerificationService() {
-		return new EmailVerificationService(emailVerificationTokenRepository, userRepository, organisationRepository, ENCODER);
+		// No EmailSender configured - see StaffInviteLifecycleTest's identical reasoning.
+		return new EmailVerificationService(emailVerificationTokenRepository, userRepository, organisationRepository, ENCODER,
+				new EmailDeliveryService(List.of(), emailOutboxRepository), "http://localhost:5173");
 	}
 
 	private Organisation newOrg(String slugPrefix) {
