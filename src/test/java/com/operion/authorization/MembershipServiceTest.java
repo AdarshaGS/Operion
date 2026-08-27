@@ -87,6 +87,21 @@ class MembershipServiceTest {
 		OrganisationMembership membership = membershipService.grant(user.getId(), person.getId(), role.getId(), null, null);
 
 		assertThat(membership.getStatus()).isEqualTo(MembershipStatus.ACTIVE);
+		assertThat(membership.getMemberId()).isNull();
+		assertThat(membership.getJoiningDate()).isNull();
+	}
+
+	@Test
+	void grantStoresOptionalMemberIdAndJoiningDate() {
+		User user = userRepository.save(new User("grant-with-id@example.com", null, "hash"));
+		Person person = personRepository.save(new Person("Grant", "WithId"));
+		Role role = roleRepository.save(new Role("Teacher", "teaches", false));
+
+		OrganisationMembership membership = membershipService.grant(user.getId(), person.getId(), role.getId(), null, null,
+				"EMP-042", java.time.LocalDate.of(2026, 1, 15));
+
+		assertThat(membership.getMemberId()).isEqualTo("EMP-042");
+		assertThat(membership.getJoiningDate()).isEqualTo(java.time.LocalDate.of(2026, 1, 15));
 		assertThat(membership.getCampus()).isNull();
 	}
 

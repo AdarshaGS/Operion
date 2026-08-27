@@ -7,7 +7,6 @@ import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
-import MenuItem from "@mui/material/MenuItem";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Table from "@mui/material/Table";
@@ -16,18 +15,18 @@ import TableCell from "@mui/material/TableCell";
 import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
-import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import AddIcon from "@mui/icons-material/Add";
 import { Can } from "../../auth/Can";
+import { AddMemberFields, EMPTY_ADD_MEMBER_FORM, submitAddMember, type AddMemberFormState } from "../../components/AddMemberForm";
 import { MemberStatusChip } from "../../components/MemberStatusChip";
 import { StaffInviteDialog } from "../../components/StaffInviteDialog";
 import { ApiError } from "../../api/client";
 import { listCampuses, type CampusResponse } from "../../api/campuses";
-import { grantMembership, listMemberships, revokeMembership, type MembershipResponse } from "../../api/memberships";
-import { createPerson } from "../../api/persons";
+import { listDepartments, type DepartmentResponse } from "../../api/departments";
+import { listMemberships, revokeMembership, type MembershipResponse } from "../../api/memberships";
 import { listRoles, type RoleResponse } from "../../api/roles";
-import { inviteUser, type StaffInviteResponse } from "../../api/users";
+import type { StaffInviteResponse } from "../../api/users";
 
 /** One "Users" section rather than a separate plain login list and a separate "people
  * with access" list - this table is memberships (one row per person+role, same as
@@ -43,17 +42,12 @@ export function UsersPanel() {
 	const [memberships, setMemberships] = useState<MembershipResponse[]>([]);
 	const [roles, setRoles] = useState<RoleResponse[]>([]);
 	const [campuses, setCampuses] = useState<CampusResponse[]>([]);
+	const [departments, setDepartments] = useState<DepartmentResponse[]>([]);
 	const [error, setError] = useState<string | null>(null);
 	const [dialogOpen, setDialogOpen] = useState(false);
 	const [submitting, setSubmitting] = useState(false);
 
-	const [firstName, setFirstName] = useState("");
-	const [lastName, setLastName] = useState("");
-	const [email, setEmail] = useState("");
-	const [phone, setPhone] = useState("");
-	const [roleId, setRoleId] = useState<number | "">("");
-	const [campusId, setCampusId] = useState<number | "">("");
-
+	const [form, setForm] = useState<AddMemberFormState>(EMPTY_ADD_MEMBER_FORM);
 	const [invite, setInvite] = useState<StaffInviteResponse | null>(null);
 
 	function refresh() {
@@ -70,22 +64,17 @@ export function UsersPanel() {
 		listCampuses()
 			.then(setCampuses)
 			.catch(() => undefined);
+		listDepartments()
+			.then(setDepartments)
+			.catch(() => undefined);
 	}, []);
 
 	async function handleSubmit(event: FormEvent) {
 		event.preventDefault();
-		if (roleId === "") return;
 		setSubmitting(true);
 		try {
-			const person = await createPerson({ firstName, lastName });
-			const issuedInvite = await inviteUser({ email, phone: phone || null });
-			await grantMembership({ userId: issuedInvite.userId, personId: person.id, roleId, campusId: campusId === "" ? null : campusId });
-			setFirstName("");
-			setLastName("");
-			setEmail("");
-			setPhone("");
-			setRoleId("");
-			setCampusId("");
+			const { invite: issuedInvite } = await submitAddMember(form);
+			setForm(EMPTY_ADD_MEMBER_FORM);
 			setDialogOpen(false);
 			setInvite(issuedInvite);
 			refresh();
@@ -124,6 +113,7 @@ export function UsersPanel() {
 						<TableHead>
 							<TableRow>
 								<TableCell>Person</TableCell>
+								<TableCell>Member ID</TableCell>
 								<TableCell>Role</TableCell>
 								<TableCell>Campus</TableCell>
 								<TableCell>Status</TableCell>
@@ -139,6 +129,7 @@ export function UsersPanel() {
 									onClick={() => navigate(`/settings/users/${membership.userId}`)}
 								>
 									<TableCell>{membership.personName}</TableCell>
+									<TableCell>{membership.memberId ?? "—"}</TableCell>
 									<TableCell>{membership.roleName}</TableCell>
 									<TableCell>
 										{membership.campusId === null
@@ -170,44 +161,11 @@ export function UsersPanel() {
 				</TableContainer>
 			</Stack>
 
-			<Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} component="form" onSubmit={handleSubmit} fullWidth maxWidth="xs">
+			<Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} component="form" onSubmit={handleSubmit} fullWidth maxWidth="sm">
 				<DialogTitle>Add user</DialogTitle>
 				<DialogContent>
 					<Stack spacing={2} sx={{ mt: 1 }}>
-						<TextField label="First name" value={firstName} onChange={(e) => setFirstName(e.target.value)} required autoFocus fullWidth />
-						<TextField label="Last name" value={lastName} onChange={(e) => setLastName(e.target.value)} required fullWidth />
-						<TextField label="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required fullWidth />
-						<TextField label="Phone" value={phone} onChange={(e) => setPhone(e.target.value)} fullWidth />
-						<TextField
-							select
-							label="Role"
-							value={roleId}
-							onChange={(e) => setRoleId(e.target.value === "" ? "" : Number(e.target.value))}
-							required
-							fullWidth
-						>
-							{roles
-								.filter((role) => role.status === "ACTIVE")
-								.map((role) => (
-									<MenuItem key={role.id} value={role.id}>
-										{role.name}
-									</MenuItem>
-								))}
-						</TextField>
-						<TextField
-							select
-							label="Campus (optional — org-wide if left blank)"
-							value={campusId}
-							onChange={(e) => setCampusId(e.target.value === "" ? "" : Number(e.target.value))}
-							fullWidth
-						>
-							<MenuItem value="">Org-wide</MenuItem>
-							{campuses.map((campus) => (
-								<MenuItem key={campus.id} value={campus.id}>
-									{campus.name}
-								</MenuItem>
-							))}
-						</TextField>
+						<AddMemberFields value={form} onChange={setForm} campuses={campuses} departments={departments} roles={roles} />
 					</Stack>
 				</DialogContent>
 				<DialogActions>

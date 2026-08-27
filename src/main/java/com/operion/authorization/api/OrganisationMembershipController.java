@@ -35,8 +35,8 @@ public class OrganisationMembershipController {
 
 	@PostMapping
 	public MembershipResponse grant(@RequestBody GrantMembershipRequest request) {
-		return MembershipResponse.from(
-				membershipService.grant(request.userId(), request.personId(), request.roleId(), request.campusId(), request.departmentId()));
+		return MembershipResponse.from(membershipService.grant(request.userId(), request.personId(), request.roleId(), request.campusId(),
+				request.departmentId(), request.memberId(), request.joiningDate()));
 	}
 
 	@PostMapping("/{id}/revoke")

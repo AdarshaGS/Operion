@@ -1,5 +1,7 @@
 package com.operion.authorization;
 
+import java.time.LocalDate;
+
 import com.operion.audit.AuditLogService;
 import com.operion.identity.Person;
 import com.operion.identity.PersonRepository;
@@ -35,8 +37,13 @@ public class MembershipService {
 		this.auditLogService = auditLogService;
 	}
 
-	@Transactional
 	public OrganisationMembership grant(Long userId, Long personId, Long roleId, Long campusId, Long departmentId) {
+		return grant(userId, personId, roleId, campusId, departmentId, null, null);
+	}
+
+	@Transactional
+	public OrganisationMembership grant(Long userId, Long personId, Long roleId, Long campusId, Long departmentId, String memberId,
+			LocalDate joiningDate) {
 		User user = userRepository.findById(userId)
 				.orElseThrow(() -> new IllegalArgumentException("No user with id " + userId));
 		Person person = personRepository.findById(personId)
@@ -55,7 +62,10 @@ public class MembershipService {
 			throw new IllegalStateException("User already holds an active membership with this role");
 		}
 
-		OrganisationMembership membership = membershipRepository.save(new OrganisationMembership(user, person, role, campus, department));
+		OrganisationMembership membership = new OrganisationMembership(user, person, role, campus, department);
+		membership.setMemberId(memberId);
+		membership.setJoiningDate(joiningDate);
+		membership = membershipRepository.save(membership);
 		auditLogService.record("OrganisationMembership", membership.getId(), "GRANT", null, role.getName());
 		return membership;
 	}

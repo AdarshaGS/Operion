@@ -1,5 +1,7 @@
 package com.operion.authorization;
 
+import java.time.LocalDate;
+
 import com.operion.common.TenantScopedEntity;
 import com.operion.identity.Person;
 import com.operion.identity.User;
@@ -63,6 +65,19 @@ public class OrganisationMembership extends TenantScopedEntity {
 	 * identity {@link PermissionInterceptor} and {@link MembershipService#revoke} key off. */
 	@Column(name = "is_owner", nullable = false)
 	private boolean owner;
+
+	/** Optional, generic (org-defined free text, not a catalog) - available on any member
+	 * per GitHub #104, distinct from StaffProfile.employeeCode which stays HR-only,
+	 * required, and tied to designation/employmentType. */
+	@Setter
+	@Column(name = "member_id")
+	private String memberId;
+
+	/** Optional generic counterpart to StaffProfile.dateOfJoining, same reasoning as
+	 * memberId above. */
+	@Setter
+	@Column(name = "joining_date")
+	private LocalDate joiningDate;
 
 	public OrganisationMembership(User user, Person person, Role role, Campus campus) {
 		this(user, person, role, campus, null);

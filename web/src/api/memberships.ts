@@ -6,6 +6,8 @@ export interface GrantMembershipRequest {
 	roleId: number;
 	campusId?: number | null;
 	departmentId?: number | null;
+	memberId?: string | null;
+	joiningDate?: string | null;
 }
 
 export interface MembershipResponse {
@@ -23,6 +25,8 @@ export interface MembershipResponse {
 	 * (e.g. an invite that's never been claimed) - status above stays the raw membership
 	 * row status (ACTIVE/INACTIVE) revoke/grant act on. */
 	memberStatus: "INVITED" | "ACTIVE" | "INACTIVE";
+	memberId: string | null;
+	joiningDate: string | null;
 }
 
 export function listMemberships(): Promise<MembershipResponse[]> {
