@@ -1,13 +1,8 @@
 package com.operion.organisation;
 
-import java.util.Map;
-import java.util.function.Function;
-import java.util.stream.Collectors;
-
 import com.operion.audit.AuditLogService;
 import com.operion.authorization.OrganisationMembership;
 import com.operion.authorization.OrganisationMembershipRepository;
-import com.operion.authorization.Permission;
 import com.operion.authorization.PermissionRepository;
 import com.operion.authorization.Role;
 import com.operion.authorization.RoleRepository;
@@ -110,23 +105,12 @@ public class OrganisationService {
 		return organisation;
 	}
 
+	// No industry-specific roles (Teacher/Accountant/...) seeded here - a fresh org gets
+	// only its Owner, an otherwise-empty workspace, and creates its own roles afterwards via
+	// the already-fully-generic RoleController (see GitHub #92).
 	private Role seedDefaultRoles() {
-		Map<String, Permission> permissionsByCode = permissionRepository.findAll().stream()
-				.collect(Collectors.toMap(Permission::getCode, Function.identity()));
-
 		Role admin = new Role(DefaultRoles.OWNER, "Full access - system default, cannot be locked out", true);
-		permissionsByCode.values().forEach(admin::grant);
-		admin = roleRepository.save(admin);
-
-		DefaultRoles.NON_ADMIN_ROLES.forEach((roleName, permissionCodes) -> {
-			Role role = new Role(roleName, roleName + " (default)", false);
-			permissionCodes.stream()
-					.map(permissionsByCode::get)
-					.filter(permission -> permission != null)
-					.forEach(role::grant);
-			roleRepository.save(role);
-		});
-
-		return admin;
+		permissionRepository.findAll().forEach(admin::grant);
+		return roleRepository.save(admin);
 	}
 }
