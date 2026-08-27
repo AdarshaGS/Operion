@@ -59,6 +59,9 @@ public class RoleService {
 		if (role.isSystemDefault() && status == RoleStatus.INACTIVE) {
 			throw new IllegalStateException("Cannot deactivate the system-default admin role");
 		}
+		if (role.isManaged() && status == RoleStatus.INACTIVE) {
+			throw new IllegalStateException("Cannot deactivate a system-managed role");
+		}
 		RoleStatus previous = role.getStatus();
 		role.setStatus(status);
 		role = roleRepository.save(role);

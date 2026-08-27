@@ -6,6 +6,8 @@ import java.time.Instant;
 import java.util.Base64;
 
 import com.operion.authorization.MembershipService;
+import com.operion.authorization.Permission;
+import com.operion.authorization.PermissionRepository;
 import com.operion.authorization.Role;
 import com.operion.authorization.RoleRepository;
 import com.operion.common.TenantContext;
@@ -28,23 +30,25 @@ import org.springframework.transaction.annotation.Transactional;
  * (UserController's "Add user" flow), just starting from a Person that already exists
  * instead of a fresh one. See ai-context/mobile-app-context.md for why this needed a
  * real design pass before any portal/mobile screens could be built.
+ *
+ * <p>The Guardian role itself is provisioned lazily on first claim ({@link
+ * #createGuardianPortalRole()}), found again afterwards by {@link Role#isManaged()} rather
+ * than by name - keeps working for an org that has never created a single role of its own,
+ * unlike the earlier {@code roleRepository.findByName("Guardian")} lookup this replaced.
  */
 @Service
 public class PortalInviteService {
 
 	private static final Duration INVITE_VALIDITY = Duration.ofDays(7);
 
-	/** Matches DefaultRoles.GUARDIAN in com.operion.organisation - duplicated as a literal
-	 * rather than shared, since that class is deliberately package-private to its own
-	 * module (only OrganisationService uses it directly). An org provisioned before this
-	 * role existed has none by this name yet - claim() fails with a clear message rather
-	 * than silently doing nothing, see below. */
 	private static final String GUARDIAN_ROLE_NAME = "Guardian";
+	private static final String PARENT_PORTAL_ACCESS_CODE = "PARENT_PORTAL_ACCESS";
 
 	private final PortalInviteRepository portalInviteRepository;
 	private final GuardianRepository guardianRepository;
 	private final UserRepository userRepository;
 	private final RoleRepository roleRepository;
+	private final PermissionRepository permissionRepository;
 	private final OrganisationRepository organisationRepository;
 	private final MembershipService membershipService;
 	private final PasswordEncoder passwordEncoder;
@@ -53,13 +57,14 @@ public class PortalInviteService {
 	private final SecureRandom secureRandom = new SecureRandom();
 
 	public PortalInviteService(PortalInviteRepository portalInviteRepository, GuardianRepository guardianRepository,
-			UserRepository userRepository, RoleRepository roleRepository, OrganisationRepository organisationRepository,
-			MembershipService membershipService, PasswordEncoder passwordEncoder, JwtService jwtService,
-			RefreshTokenService refreshTokenService) {
+			UserRepository userRepository, RoleRepository roleRepository, PermissionRepository permissionRepository,
+			OrganisationRepository organisationRepository, MembershipService membershipService, PasswordEncoder passwordEncoder,
+			JwtService jwtService, RefreshTokenService refreshTokenService) {
 		this.portalInviteRepository = portalInviteRepository;
 		this.guardianRepository = guardianRepository;
 		this.userRepository = userRepository;
 		this.roleRepository = roleRepository;
+		this.permissionRepository = permissionRepository;
 		this.organisationRepository = organisationRepository;
 		this.membershipService = membershipService;
 		this.passwordEncoder = passwordEncoder;
@@ -109,9 +114,7 @@ public class PortalInviteService {
 			User user = userRepository.findByEmail(person.getEmail())
 					.orElseGet(() -> userRepository.save(new User(person.getEmail(), person.getPhone(), passwordEncoder.encode(password))));
 
-			Role guardianRole = roleRepository.findByName(GUARDIAN_ROLE_NAME)
-					.orElseThrow(() -> new IllegalStateException(
-							"No Guardian role configured for this organisation - ask an Org Admin to create one in Settings"));
+			Role guardianRole = roleRepository.findFirstByManaged(true).orElseGet(this::createGuardianPortalRole);
 			membershipService.grant(user.getId(), person.getId(), guardianRole.getId(), null, null);
 
 			invite.claim();
@@ -124,6 +127,18 @@ public class PortalInviteService {
 		} finally {
 			TenantContext.clear();
 		}
+	}
+
+	/** Lazily provisions the org's parent-portal role on first claim, rather than depending
+	 * on it having been seeded at org creation - see class javadoc. Called from within
+	 * claim()'s already-TenantContext-scoped try block, so this save lands in the right org
+	 * like every other repository call there. */
+	private Role createGuardianPortalRole() {
+		Permission portalAccess = permissionRepository.findByCode(PARENT_PORTAL_ACCESS_CODE)
+				.orElseThrow(() -> new IllegalStateException(PARENT_PORTAL_ACCESS_CODE + " permission is not seeded"));
+		Role role = new Role(GUARDIAN_ROLE_NAME, "Parent portal access - created automatically, system-managed", false, true);
+		role.grant(portalAccess);
+		return roleRepository.save(role);
 	}
 
 	private String generateToken() {

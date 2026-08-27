@@ -51,6 +51,15 @@ public class Role extends TenantScopedEntity {
 	@Column(name = "is_system_default", nullable = false)
 	private boolean systemDefault;
 
+	/** Auto-created by the platform to back a specific system flow (e.g. parent-portal
+	 * access) rather than something an Owner deliberately built via RoleController - the
+	 * flow that depends on it (PortalInviteService.claim()) would otherwise break silently
+	 * if an Owner deactivated it or stripped its one permission, with no obvious link back
+	 * to what broke. Distinct from {@link #systemDefault}: that's the org's fallback admin
+	 * role, this can be any single-purpose role the platform itself provisions on demand. */
+	@Column(name = "is_managed", nullable = false)
+	private boolean managed;
+
 	@Setter
 	@Enumerated(EnumType.STRING)
 	@Column(nullable = false, length = 20)
@@ -66,9 +75,14 @@ public class Role extends TenantScopedEntity {
 	private Set<Permission> permissions = new HashSet<>();
 
 	public Role(String name, String description, boolean systemDefault) {
+		this(name, description, systemDefault, false);
+	}
+
+	public Role(String name, String description, boolean systemDefault, boolean managed) {
 		this.name = name;
 		this.description = description;
 		this.systemDefault = systemDefault;
+		this.managed = managed;
 		this.status = RoleStatus.ACTIVE;
 	}
 
@@ -77,8 +91,8 @@ public class Role extends TenantScopedEntity {
 	}
 
 	public void revoke(Permission permission) {
-		if (systemDefault && permissions.size() <= 1) {
-			throw new IllegalStateException("Cannot strip the last permission from a system-default role");
+		if ((systemDefault || managed) && permissions.size() <= 1) {
+			throw new IllegalStateException("Cannot strip the last permission from a system-protected role");
 		}
 		if (systemDefault && LOCKOUT_PROTECTED_CODES.contains(permission.getCode())) {
 			throw new IllegalStateException("Cannot revoke " + permission.getCode() + " from a system-default role - "

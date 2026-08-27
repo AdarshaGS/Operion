@@ -9,6 +9,8 @@ import com.operion.audit.AuditLogRepository;
 import com.operion.audit.AuditLogService;
 import com.operion.authorization.MembershipService;
 import com.operion.authorization.OrganisationMembershipRepository;
+import com.operion.authorization.Permission;
+import com.operion.authorization.PermissionRepository;
 import com.operion.authorization.Role;
 import com.operion.authorization.RoleRepository;
 import com.operion.common.JpaConfig;
@@ -70,6 +72,9 @@ class PortalInviteLifecycleTest {
 	private RoleRepository roleRepository;
 
 	@Autowired
+	private PermissionRepository permissionRepository;
+
+	@Autowired
 	private CampusRepository campusRepository;
 
 	@Autowired
@@ -91,16 +96,28 @@ class PortalInviteLifecycleTest {
 		MembershipService membershipService = new MembershipService(membershipRepository, userRepository, personRepository,
 				roleRepository, campusRepository, departmentRepository, new AuditLogService(auditLogRepository, new ObjectMapper()));
 		return new PortalInviteService(portalInviteRepository, guardianRepository, userRepository, roleRepository,
-				organisationRepository, membershipService, ENCODER, new JwtService(TEST_SECRET, 480),
+				permissionRepository, organisationRepository, membershipService, ENCODER, new JwtService(TEST_SECRET, 480),
 				new RefreshTokenService(refreshTokenRepository, ENCODER));
 	}
 
-	private Organisation newOrgWithGuardianRole(String slugPrefix) {
+	/** No role seeded here deliberately - proves claim() still works for an org that has
+	 * never created a single role of its own (GitHub #91), unlike the old
+	 * roleRepository.findByName("Guardian") lookup this replaced. */
+	private Organisation newOrg(String slugPrefix) {
+		ensurePortalAccessPermissionExists();
 		Organisation organisation = organisationRepository.save(
 				new Organisation("Test School", "Test School Trust", slugPrefix + "-" + System.nanoTime()));
 		TenantContext.set(organisation.getId(), null);
-		roleRepository.save(new Role("Guardian", "Guardian (default)", false));
 		return organisation;
+	}
+
+	/** PARENT_PORTAL_ACCESS is a global (non-tenant-scoped) catalog row normally seeded by
+	 * Flyway, which intentionally doesn't run against the H2 test database - idempotent so
+	 * every test method (and every other test class sharing this cached Spring context) can
+	 * call it without tripping the permission code's unique constraint. */
+	private void ensurePortalAccessPermissionExists() {
+		permissionRepository.findByCode("PARENT_PORTAL_ACCESS")
+				.orElseGet(() -> permissionRepository.save(new Permission("PARENT_PORTAL_ACCESS", "parent", null)));
 	}
 
 	@AfterEach
@@ -110,7 +127,7 @@ class PortalInviteLifecycleTest {
 
 	@Test
 	void issuingAnInviteNeverStoresTheRawToken() {
-		newOrgWithGuardianRole("issue");
+		newOrg("issue");
 		Person person = personRepository.save(new Person("Priya", "Guardian"));
 		person.setEmail("priya@example.com");
 		personRepository.save(person);
@@ -126,7 +143,7 @@ class PortalInviteLifecycleTest {
 
 	@Test
 	void claimingCreatesAUserAndAnActiveGuardianMembership() {
-		Organisation organisation = newOrgWithGuardianRole("claim");
+		Organisation organisation = newOrg("claim");
 		Person person = personRepository.save(new Person("Rahul", "Guardian"));
 		person.setEmail("rahul-claim@example.com");
 		personRepository.save(person);
@@ -147,8 +164,51 @@ class PortalInviteLifecycleTest {
 	}
 
 	@Test
+	void claimingLazilyCreatesAManagedGuardianRoleWhenNoneExists() {
+		Organisation organisation = newOrg("lazy-role");
+		Person person = personRepository.save(new Person("Lazy", "Role"));
+		person.setEmail("lazy-role@example.com");
+		personRepository.save(person);
+		Guardian guardian = guardianRepository.save(new Guardian(person, null));
+		PortalInviteService.IssuedInvite issued = portalInviteService().issue(guardian.getId());
+		TenantContext.clear();
+
+		portalInviteService().claim(organisation.getSlug(), issued.rawToken(), "LazyRolePass1!");
+
+		TenantContext.set(organisation.getId(), null);
+		Role guardianRole = roleRepository.findFirstByManaged(true).orElseThrow();
+		assertThat(guardianRole.getName()).isEqualTo("Guardian");
+		assertThat(guardianRole.getPermissions()).extracting("code").containsExactly("PARENT_PORTAL_ACCESS");
+	}
+
+	@Test
+	void claimingTwiceInTheSameOrgReusesTheSameManagedRoleInsteadOfDuplicatingIt() {
+		Organisation organisation = newOrg("reuse-role");
+
+		Person firstPerson = personRepository.save(new Person("First", "Guardian"));
+		firstPerson.setEmail("first-guardian@example.com");
+		personRepository.save(firstPerson);
+		Guardian firstGuardian = guardianRepository.save(new Guardian(firstPerson, null));
+		PortalInviteService.IssuedInvite firstIssued = portalInviteService().issue(firstGuardian.getId());
+		portalInviteService().claim(organisation.getSlug(), firstIssued.rawToken(), "FirstGuardianPass1!");
+
+		// claim()'s finally block clears TenantContext - re-set it before the next staff-side
+		// action (issuing/creating for a second guardian), same as a real request would.
+		TenantContext.set(organisation.getId(), null);
+		Person secondPerson = personRepository.save(new Person("Second", "Guardian"));
+		secondPerson.setEmail("second-guardian@example.com");
+		personRepository.save(secondPerson);
+		Guardian secondGuardian = guardianRepository.save(new Guardian(secondPerson, null));
+		PortalInviteService.IssuedInvite secondIssued = portalInviteService().issue(secondGuardian.getId());
+		portalInviteService().claim(organisation.getSlug(), secondIssued.rawToken(), "SecondGuardianPass1!");
+
+		TenantContext.set(organisation.getId(), null);
+		assertThat(roleRepository.findAll().stream().filter(Role::isManaged)).hasSize(1);
+	}
+
+	@Test
 	void claimingReusesAnExistingUserWithoutOverwritingItsPassword() {
-		Organisation organisation = newOrgWithGuardianRole("reuse");
+		Organisation organisation = newOrg("reuse");
 		User existingUser = userRepository.save(new User("shared@example.com", null, ENCODER.encode("OriginalPass1!")));
 		Person person = personRepository.save(new Person("Shared", "Login"));
 		person.setEmail("shared@example.com");
@@ -166,7 +226,7 @@ class PortalInviteLifecycleTest {
 
 	@Test
 	void claimingRejectsAWrongToken() {
-		Organisation organisation = newOrgWithGuardianRole("wrong-token");
+		Organisation organisation = newOrg("wrong-token");
 		Person person = personRepository.save(new Person("Wrong", "Token"));
 		person.setEmail("wrong-token@example.com");
 		personRepository.save(person);
@@ -180,7 +240,7 @@ class PortalInviteLifecycleTest {
 
 	@Test
 	void claimingRejectsAnExpiredInvite() {
-		Organisation organisation = newOrgWithGuardianRole("expired");
+		Organisation organisation = newOrg("expired");
 		Person person = personRepository.save(new Person("Expired", "Invite"));
 		person.setEmail("expired@example.com");
 		personRepository.save(person);
@@ -194,7 +254,7 @@ class PortalInviteLifecycleTest {
 
 	@Test
 	void claimingTwiceWithTheSameTokenFailsTheSecondTime() {
-		Organisation organisation = newOrgWithGuardianRole("double-claim");
+		Organisation organisation = newOrg("double-claim");
 		Person person = personRepository.save(new Person("Double", "Claim"));
 		person.setEmail("double-claim@example.com");
 		personRepository.save(person);
@@ -210,7 +270,7 @@ class PortalInviteLifecycleTest {
 
 	@Test
 	void anInviteFromOneOrgCannotBeClaimedThroughAnotherOrgsSlug() {
-		newOrgWithGuardianRole("tenant-a");
+		newOrg("tenant-a");
 		Person person = personRepository.save(new Person("Cross", "Tenant"));
 		person.setEmail("cross-tenant@example.com");
 		personRepository.save(person);
@@ -218,7 +278,7 @@ class PortalInviteLifecycleTest {
 		PortalInviteService.IssuedInvite issued = portalInviteService().issue(guardian.getId());
 		TenantContext.clear();
 
-		Organisation orgB = newOrgWithGuardianRole("tenant-b");
+		Organisation orgB = newOrg("tenant-b");
 		TenantContext.clear();
 
 		assertThatThrownBy(() -> portalInviteService().claim(orgB.getSlug(), issued.rawToken(), "SomePass123!"))
