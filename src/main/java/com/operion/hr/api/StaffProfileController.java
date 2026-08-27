@@ -16,6 +16,10 @@ import com.operion.identity.Person;
 import com.operion.identity.PersonRepository;
 import com.operion.organisation.Campus;
 import com.operion.organisation.CampusRepository;
+import com.operion.organisation.Department;
+import com.operion.organisation.DepartmentRepository;
+import com.operion.organisation.Designation;
+import com.operion.organisation.DesignationRepository;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -34,14 +38,19 @@ public class StaffProfileController {
 	private final StaffDocumentRepository staffDocumentRepository;
 	private final PersonRepository personRepository;
 	private final CampusRepository campusRepository;
+	private final DesignationRepository designationRepository;
+	private final DepartmentRepository departmentRepository;
 
 	public StaffProfileController(HrService hrService, StaffProfileRepository staffProfileRepository,
-			StaffDocumentRepository staffDocumentRepository, PersonRepository personRepository, CampusRepository campusRepository) {
+			StaffDocumentRepository staffDocumentRepository, PersonRepository personRepository, CampusRepository campusRepository,
+			DesignationRepository designationRepository, DepartmentRepository departmentRepository) {
 		this.hrService = hrService;
 		this.staffProfileRepository = staffProfileRepository;
 		this.staffDocumentRepository = staffDocumentRepository;
 		this.personRepository = personRepository;
 		this.campusRepository = campusRepository;
+		this.designationRepository = designationRepository;
+		this.departmentRepository = departmentRepository;
 	}
 
 	@PostMapping
@@ -51,8 +60,12 @@ public class StaffProfileController {
 				.orElseThrow(() -> new IllegalArgumentException("No person with id " + request.personId()));
 		Campus campus = request.campusId() == null ? null : campusRepository.findById(request.campusId())
 				.orElseThrow(() -> new IllegalArgumentException("No campus with id " + request.campusId()));
-		StaffProfile staffProfile = hrService.createStaffProfile(person, campus, request.employeeCode(), request.designation(),
-				request.department(), request.dateOfJoining(), EmploymentType.valueOf(request.employmentType()));
+		Designation designation = designationRepository.findById(request.designationId())
+				.orElseThrow(() -> new IllegalArgumentException("No designation with id " + request.designationId()));
+		Department department = request.departmentId() == null ? null : departmentRepository.findById(request.departmentId())
+				.orElseThrow(() -> new IllegalArgumentException("No department with id " + request.departmentId()));
+		StaffProfile staffProfile = hrService.createStaffProfile(person, campus, request.employeeCode(), designation,
+				department, request.dateOfJoining(), EmploymentType.valueOf(request.employmentType()));
 		return StaffProfileResponse.from(staffProfile);
 	}
 

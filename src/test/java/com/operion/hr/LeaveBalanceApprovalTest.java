@@ -14,6 +14,10 @@ import com.operion.organisation.AcademicYear;
 import com.operion.organisation.AcademicYearRepository;
 import com.operion.organisation.Campus;
 import com.operion.organisation.CampusRepository;
+import com.operion.organisation.Department;
+import com.operion.organisation.DepartmentRepository;
+import com.operion.organisation.Designation;
+import com.operion.organisation.DesignationRepository;
 import com.operion.organisation.Organisation;
 import com.operion.organisation.OrganisationRepository;
 import org.junit.jupiter.api.AfterEach;
@@ -48,6 +52,12 @@ class LeaveBalanceApprovalTest {
 	private PersonRepository personRepository;
 
 	@Autowired
+	private DesignationRepository designationRepository;
+
+	@Autowired
+	private DepartmentRepository departmentRepository;
+
+	@Autowired
 	private HrService hrService;
 
 	@AfterEach
@@ -65,8 +75,10 @@ class LeaveBalanceApprovalTest {
 		Campus campus = campusRepository.save(new Campus("Main Campus", "MAIN"));
 		AcademicYear academicYear = academicYearRepository.save(new AcademicYear("2025-2026", LocalDate.of(2025, 6, 1), LocalDate.of(2026, 4, 30)));
 		Person person = personRepository.save(new Person("Ravi", "Menon"));
+		Designation designation = designationRepository.save(new Designation("Teacher"));
+		Department department = departmentRepository.save(new Department("Science"));
 		StaffProfile staffProfile = hrService.createStaffProfile(
-				person, campus, "EMP-001", "Teacher", "Science", LocalDate.of(2020, 6, 1), EmploymentType.PERMANENT);
+				person, campus, "EMP-001", designation, department, LocalDate.of(2020, 6, 1), EmploymentType.PERMANENT);
 		LeaveType leaveType = hrService.createLeaveType("CASUAL", "Casual Leave", 12.0);
 
 		return new Fixture(staffProfile, leaveType, academicYear);

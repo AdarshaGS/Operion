@@ -22,8 +22,12 @@ import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import AddIcon from "@mui/icons-material/Add";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import { Can } from "../../auth/Can";
+import { StaffInviteDialog } from "../../components/StaffInviteDialog";
 import { listAcademicYears, type AcademicYearResponse } from "../../api/academicYears";
 import { ApiError } from "../../api/client";
+import { listCampuses, type CampusResponse } from "../../api/campuses";
+import { listDepartments, type DepartmentResponse } from "../../api/departments";
 import { allocateLeaveBalance, getLeaveBalance, type LeaveBalanceResponse } from "../../api/leaveBalances";
 import {
 	approveLeaveRequest,
@@ -34,7 +38,9 @@ import {
 	type LeaveRequestResponse,
 } from "../../api/leaveRequests";
 import { listLeaveTypes, type LeaveTypeResponse } from "../../api/leaveTypes";
+import { grantMembership, listMemberships, type MembershipResponse } from "../../api/memberships";
 import { getPerson, type PersonResponse } from "../../api/persons";
+import { listRoles, type RoleResponse } from "../../api/roles";
 import {
 	addStaffDocument,
 	changeStaffStatus,
@@ -44,6 +50,7 @@ import {
 	type StaffDocumentResponse,
 	type StaffProfileResponse,
 } from "../../api/staffProfiles";
+import { inviteUser, type StaffInviteResponse } from "../../api/users";
 
 const STAFF_STATUSES = ["ACTIVE", "RESIGNED", "TERMINATED"];
 
@@ -68,6 +75,17 @@ export function StaffDetailPage() {
 	const [submitting, setSubmitting] = useState(false);
 
 	const [statusValue, setStatusValue] = useState("ACTIVE");
+
+	const [hasLoginAccess, setHasLoginAccess] = useState(false);
+	const [roles, setRoles] = useState<RoleResponse[]>([]);
+	const [campuses, setCampuses] = useState<CampusResponse[]>([]);
+	const [departments, setDepartments] = useState<DepartmentResponse[]>([]);
+	const [grantDialogOpen, setGrantDialogOpen] = useState(false);
+	const [grantRoleId, setGrantRoleId] = useState<number | "">("");
+	const [grantCampusId, setGrantCampusId] = useState<number | "">("");
+	const [grantDepartmentId, setGrantDepartmentId] = useState<number | "">("");
+	const [grantSubmitting, setGrantSubmitting] = useState(false);
+	const [issuedInvite, setIssuedInvite] = useState<StaffInviteResponse | null>(null);
 
 	const [documentDialogOpen, setDocumentDialogOpen] = useState(false);
 	const [documentType, setDocumentType] = useState("");
@@ -95,16 +113,53 @@ export function StaffDetailPage() {
 				setProfile(found ?? null);
 				if (found) {
 					setStatusValue(found.status);
-					setPerson(await getPerson(found.personId));
+					const fetchedPerson = await getPerson(found.personId);
+					setPerson(fetchedPerson);
+					refreshLoginAccess(fetchedPerson.id);
 				}
 			})
 			.catch((err) => setError(err instanceof ApiError ? err.message : "Failed to load staff profile"))
 			.finally(() => setLoading(false));
 		listLeaveTypes().then(setLeaveTypes).catch(() => {});
 		listAcademicYears().then(setAcademicYears).catch(() => {});
+		listRoles().then(setRoles).catch(() => {});
+		listCampuses().then(setCampuses).catch(() => {});
+		listDepartments().then(setDepartments).catch(() => {});
 		refreshDocuments();
 		refreshLeaveRequests();
 	}, [staffProfileId]);
+
+	function refreshLoginAccess(personId: number) {
+		listMemberships()
+			.then((memberships: MembershipResponse[]) => setHasLoginAccess(memberships.some((m) => m.personId === personId)))
+			.catch(() => {});
+	}
+
+	async function handleGrantLoginAccess(event: FormEvent) {
+		event.preventDefault();
+		if (!person || grantRoleId === "") return;
+		setGrantSubmitting(true);
+		try {
+			const invite = await inviteUser({ email: person.email ?? "", phone: person.phone });
+			await grantMembership({
+				userId: invite.userId,
+				personId: person.id,
+				roleId: grantRoleId,
+				campusId: grantCampusId === "" ? null : grantCampusId,
+				departmentId: grantDepartmentId === "" ? null : grantDepartmentId,
+			});
+			setGrantRoleId("");
+			setGrantCampusId("");
+			setGrantDepartmentId("");
+			setGrantDialogOpen(false);
+			setIssuedInvite(invite);
+			setHasLoginAccess(true);
+		} catch (err) {
+			setError(err instanceof ApiError ? err.message : "Failed to grant login access");
+		} finally {
+			setGrantSubmitting(false);
+		}
+	}
 
 	function refreshDocuments() {
 		if (!staffProfileId) return;
@@ -247,7 +302,7 @@ export function StaffDetailPage() {
 	}
 
 	return (
-		<Stack spacing={2} sx={{ maxWidth: 900 }}>
+		<Stack spacing={2}>
 			<Box>
 				<Button startIcon={<ArrowBackIcon />} onClick={() => navigate("/hr")}>
 					Back to HR
@@ -264,7 +319,7 @@ export function StaffDetailPage() {
 				<Stack spacing={2}>
 					<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
 						<Typography variant="body1">
-							{profile?.employeeCode} — {profile?.designation} {profile?.department ? `(${profile.department})` : ""}
+							{profile?.employeeCode} — {profile?.designationName} {profile?.departmentName ? `(${profile.departmentName})` : ""}
 						</Typography>
 						<Chip label={profile?.status} size="small" />
 					</Box>
@@ -281,6 +336,21 @@ export function StaffDetailPage() {
 						</Button>
 					</Box>
 				</Stack>
+			</Paper>
+
+			<Paper sx={{ p: 3 }}>
+				<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+					<Typography variant="body1">Login access</Typography>
+					{hasLoginAccess ? (
+						<Chip label="Has login access" color="success" size="small" />
+					) : (
+						<Can anyOf={["MEMBERSHIP_MANAGE"]}>
+							<Button size="small" variant="outlined" onClick={() => setGrantDialogOpen(true)}>
+								Grant login access
+							</Button>
+						</Can>
+					)}
+				</Box>
 			</Paper>
 
 			<Paper sx={{ p: 3 }}>
@@ -563,6 +633,67 @@ export function StaffDetailPage() {
 					</Button>
 				</DialogActions>
 			</Dialog>
+
+			<Dialog open={grantDialogOpen} onClose={() => setGrantDialogOpen(false)} component="form" onSubmit={handleGrantLoginAccess} fullWidth maxWidth="xs">
+				<DialogTitle>Grant login access</DialogTitle>
+				<DialogContent>
+					<Stack spacing={2} sx={{ mt: 1 }}>
+						<TextField label="Email" value={person?.email ?? ""} fullWidth disabled />
+						<TextField
+							select
+							label="Role"
+							value={grantRoleId}
+							onChange={(e) => setGrantRoleId(e.target.value === "" ? "" : Number(e.target.value))}
+							required
+							fullWidth
+						>
+							{roles
+								.filter((role) => role.status === "ACTIVE")
+								.map((role) => (
+									<MenuItem key={role.id} value={role.id}>
+										{role.name}
+									</MenuItem>
+								))}
+						</TextField>
+						<TextField
+							select
+							label="Campus (optional — org-wide if left blank)"
+							value={grantCampusId}
+							onChange={(e) => setGrantCampusId(e.target.value === "" ? "" : Number(e.target.value))}
+							fullWidth
+						>
+							<MenuItem value="">Org-wide</MenuItem>
+							{campuses.map((campus) => (
+								<MenuItem key={campus.id} value={campus.id}>
+									{campus.name}
+								</MenuItem>
+							))}
+						</TextField>
+						<TextField
+							select
+							label="Department (optional)"
+							value={grantDepartmentId}
+							onChange={(e) => setGrantDepartmentId(e.target.value === "" ? "" : Number(e.target.value))}
+							fullWidth
+						>
+							<MenuItem value="">No department</MenuItem>
+							{departments.map((department) => (
+								<MenuItem key={department.id} value={department.id}>
+									{department.name}
+								</MenuItem>
+							))}
+						</TextField>
+					</Stack>
+				</DialogContent>
+				<DialogActions>
+					<Button onClick={() => setGrantDialogOpen(false)}>Cancel</Button>
+					<Button type="submit" variant="contained" disabled={grantSubmitting}>
+						Grant access
+					</Button>
+				</DialogActions>
+			</Dialog>
+
+			<StaffInviteDialog invite={issuedInvite} onClose={() => setIssuedInvite(null)} />
 		</Stack>
 	);
 }

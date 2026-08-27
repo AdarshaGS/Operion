@@ -5,6 +5,7 @@ export interface GrantMembershipRequest {
 	personId: number;
 	roleId: number;
 	campusId?: number | null;
+	departmentId?: number | null;
 }
 
 export interface MembershipResponse {
@@ -15,6 +16,8 @@ export interface MembershipResponse {
 	roleId: number;
 	roleName: string;
 	campusId: number | null;
+	departmentId: number | null;
+	departmentName: string | null;
 	status: string;
 }
 

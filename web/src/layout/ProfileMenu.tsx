@@ -1,4 +1,5 @@
 import { useState, type MouseEvent } from "react";
+import { useNavigate } from "react-router-dom";
 import Avatar from "@mui/material/Avatar";
 import Box from "@mui/material/Box";
 import Chip from "@mui/material/Chip";
@@ -10,6 +11,7 @@ import MenuItem from "@mui/material/MenuItem";
 import Stack from "@mui/material/Stack";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
+import AccountCircleIcon from "@mui/icons-material/AccountCircle";
 import KeyIcon from "@mui/icons-material/Key";
 import LogoutIcon from "@mui/icons-material/Logout";
 import { useAuth } from "../auth/AuthContext";
@@ -31,12 +33,18 @@ function initials(name: string | null): string {
  * discoverable by finding your own row in Settings > People with access. */
 export function ProfileMenu() {
 	const { profile, logout } = useAuth();
+	const navigate = useNavigate();
 	const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
 	const [changePasswordOpen, setChangePasswordOpen] = useState(false);
 
 	function openChangePassword() {
 		setAnchorEl(null);
 		setChangePasswordOpen(true);
+	}
+
+	function openProfile() {
+		setAnchorEl(null);
+		navigate("/profile");
 	}
 
 	return (
@@ -73,6 +81,12 @@ export function ProfileMenu() {
 					)}
 				</Box>
 				<Divider />
+				<MenuItem onClick={openProfile}>
+					<ListItemIcon>
+						<AccountCircleIcon fontSize="small" />
+					</ListItemIcon>
+					My profile
+				</MenuItem>
 				<MenuItem onClick={openChangePassword}>
 					<ListItemIcon>
 						<KeyIcon fontSize="small" />

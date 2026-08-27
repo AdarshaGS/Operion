@@ -112,7 +112,7 @@ public class PortalInviteService {
 			Role guardianRole = roleRepository.findByName(GUARDIAN_ROLE_NAME)
 					.orElseThrow(() -> new IllegalStateException(
 							"No Guardian role configured for this organisation - ask an Org Admin to create one in Settings"));
-			membershipService.grant(user.getId(), person.getId(), guardianRole.getId(), null);
+			membershipService.grant(user.getId(), person.getId(), guardianRole.getId(), null, null);
 
 			invite.claim();
 			portalInviteRepository.save(invite);

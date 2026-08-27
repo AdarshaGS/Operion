@@ -71,7 +71,7 @@ export function StaffProfilesPanel() {
 										>
 											<TableCell>{profile.employeeCode}</TableCell>
 											<TableCell>{person ? `${person.firstName} ${person.lastName}` : "—"}</TableCell>
-											<TableCell>{profile.designation}</TableCell>
+											<TableCell>{profile.designationName}</TableCell>
 											<TableCell>{profile.employmentType}</TableCell>
 											<TableCell>
 												<Chip label={profile.status} size="small" />

@@ -14,6 +14,7 @@ import com.operion.identity.User;
 import com.operion.identity.UserRepository;
 import com.operion.organisation.Campus;
 import com.operion.organisation.CampusRepository;
+import com.operion.organisation.DepartmentRepository;
 import com.operion.organisation.Organisation;
 import com.operion.organisation.OrganisationRepository;
 import org.junit.jupiter.api.AfterEach;
@@ -49,6 +50,9 @@ class MembershipServiceTest {
 	private CampusRepository campusRepository;
 
 	@Autowired
+	private DepartmentRepository departmentRepository;
+
+	@Autowired
 	private OrganisationMembershipRepository membershipRepository;
 
 	@Autowired
@@ -59,7 +63,7 @@ class MembershipServiceTest {
 	@BeforeEach
 	void setUp() {
 		membershipService = new MembershipService(membershipRepository, userRepository, personRepository, roleRepository,
-				campusRepository, new AuditLogService(auditLogRepository, new ObjectMapper()));
+				campusRepository, departmentRepository, new AuditLogService(auditLogRepository, new ObjectMapper()));
 
 		// A fresh unique slug per test method - Propagation.NOT_SUPPORTED means nothing
 		// rolls back between methods in this class, so a fixed slug would collide on the
@@ -80,7 +84,7 @@ class MembershipServiceTest {
 		Person person = personRepository.save(new Person("Grant", "Ee"));
 		Role role = roleRepository.save(new Role("Teacher", "teaches", false));
 
-		OrganisationMembership membership = membershipService.grant(user.getId(), person.getId(), role.getId(), null);
+		OrganisationMembership membership = membershipService.grant(user.getId(), person.getId(), role.getId(), null, null);
 
 		assertThat(membership.getStatus()).isEqualTo(MembershipStatus.ACTIVE);
 		assertThat(membership.getCampus()).isNull();
@@ -93,7 +97,7 @@ class MembershipServiceTest {
 		Role role = roleRepository.save(new Role("Front Desk", "desk", false));
 		Campus campus = campusRepository.save(new Campus("Main Campus", "MAIN"));
 
-		OrganisationMembership membership = membershipService.grant(user.getId(), person.getId(), role.getId(), campus.getId());
+		OrganisationMembership membership = membershipService.grant(user.getId(), person.getId(), role.getId(), campus.getId(), null);
 
 		assertThat(membership.getCampus().getId()).isEqualTo(campus.getId());
 	}
@@ -104,9 +108,9 @@ class MembershipServiceTest {
 		Person person = personRepository.save(new Person("Dup", "Licate"));
 		Role role = roleRepository.save(new Role("Accountant", "money", false));
 
-		membershipService.grant(user.getId(), person.getId(), role.getId(), null);
+		membershipService.grant(user.getId(), person.getId(), role.getId(), null, null);
 
-		assertThatThrownBy(() -> membershipService.grant(user.getId(), person.getId(), role.getId(), null))
+		assertThatThrownBy(() -> membershipService.grant(user.getId(), person.getId(), role.getId(), null, null))
 				.isInstanceOf(IllegalStateException.class);
 	}
 
@@ -115,7 +119,7 @@ class MembershipServiceTest {
 		User user = userRepository.save(new User("revoke@example.com", null, "hash"));
 		Person person = personRepository.save(new Person("Revoke", "Ee"));
 		Role role = roleRepository.save(new Role("Teacher", "teaches", false));
-		Long membershipId = membershipService.grant(user.getId(), person.getId(), role.getId(), null).getId();
+		Long membershipId = membershipService.grant(user.getId(), person.getId(), role.getId(), null, null).getId();
 
 		OrganisationMembership revoked = membershipService.revoke(membershipId);
 		assertThat(revoked.getStatus()).isEqualTo(MembershipStatus.INACTIVE);
@@ -130,7 +134,7 @@ class MembershipServiceTest {
 		User user = userRepository.save(new User("last-admin@example.com", null, "hash"));
 		Person person = personRepository.save(new Person("Last", "Admin"));
 		Role adminRole = roleRepository.save(new Role("Org Admin", "system default", true));
-		Long membershipId = membershipService.grant(user.getId(), person.getId(), adminRole.getId(), null).getId();
+		Long membershipId = membershipService.grant(user.getId(), person.getId(), adminRole.getId(), null, null).getId();
 
 		assertThatThrownBy(() -> membershipService.revoke(membershipId)).isInstanceOf(IllegalStateException.class);
 	}
@@ -141,11 +145,11 @@ class MembershipServiceTest {
 
 		User firstAdminUser = userRepository.save(new User("admin1@example.com", null, "hash"));
 		Person firstAdminPerson = personRepository.save(new Person("First", "Admin"));
-		Long firstAdminMembershipId = membershipService.grant(firstAdminUser.getId(), firstAdminPerson.getId(), adminRole.getId(), null).getId();
+		Long firstAdminMembershipId = membershipService.grant(firstAdminUser.getId(), firstAdminPerson.getId(), adminRole.getId(), null, null).getId();
 
 		User secondAdminUser = userRepository.save(new User("admin2@example.com", null, "hash"));
 		Person secondAdminPerson = personRepository.save(new Person("Second", "Admin"));
-		membershipService.grant(secondAdminUser.getId(), secondAdminPerson.getId(), adminRole.getId(), null);
+		membershipService.grant(secondAdminUser.getId(), secondAdminPerson.getId(), adminRole.getId(), null, null);
 
 		OrganisationMembership revoked = membershipService.revoke(firstAdminMembershipId);
 

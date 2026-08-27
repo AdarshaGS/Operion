@@ -12,6 +12,8 @@ import com.operion.identity.Person;
 import com.operion.identity.PersonRepository;
 import com.operion.organisation.Campus;
 import com.operion.organisation.CampusRepository;
+import com.operion.organisation.Designation;
+import com.operion.organisation.DesignationRepository;
 import com.operion.organisation.Organisation;
 import com.operion.organisation.OrganisationRepository;
 import org.junit.jupiter.api.AfterEach;
@@ -44,6 +46,9 @@ class HrTenantIsolationTest {
 	private PersonRepository personRepository;
 
 	@Autowired
+	private DesignationRepository designationRepository;
+
+	@Autowired
 	private HrService hrService;
 
 	@Autowired
@@ -60,13 +65,15 @@ class HrTenantIsolationTest {
 		TenantContext.set(orgA.getId(), null);
 		Campus campusA = campusRepository.save(new Campus("Main Campus", "MAIN"));
 		Person personA = personRepository.save(new Person("Org A", "Staff"));
-		hrService.createStaffProfile(personA, campusA, "EMP-A-1", "Teacher", null, LocalDate.of(2021, 1, 1), EmploymentType.PERMANENT);
+		Designation designationA = designationRepository.save(new Designation("Teacher"));
+		hrService.createStaffProfile(personA, campusA, "EMP-A-1", designationA, null, LocalDate.of(2021, 1, 1), EmploymentType.PERMANENT);
 
 		Organisation orgB = organisationRepository.save(new Organisation("B School", "B School Trust", "hr-iso-b-school"));
 		TenantContext.set(orgB.getId(), null);
 		Campus campusB = campusRepository.save(new Campus("Main Campus", "MAIN"));
 		Person personB = personRepository.save(new Person("Org B", "Staff"));
-		hrService.createStaffProfile(personB, campusB, "EMP-B-1", "Teacher", null, LocalDate.of(2021, 1, 1), EmploymentType.PERMANENT);
+		Designation designationB = designationRepository.save(new Designation("Teacher"));
+		hrService.createStaffProfile(personB, campusB, "EMP-B-1", designationB, null, LocalDate.of(2021, 1, 1), EmploymentType.PERMANENT);
 
 		TenantContext.set(orgA.getId(), null);
 		List<StaffProfile> visibleToA = staffProfileRepository.findAll();

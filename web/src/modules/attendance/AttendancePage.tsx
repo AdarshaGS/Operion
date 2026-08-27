@@ -193,11 +193,7 @@ export function AttendancePage() {
 	}
 
 	return (
-		<Stack spacing={3} sx={{ maxWidth: 900 }}>
-			<Typography variant="h4" component="h1">
-				Attendance
-			</Typography>
-
+		<Stack spacing={3}>
 			<Paper sx={{ p: 3 }}>
 				<Stack spacing={2}>
 					<Typography variant="h6">Class register</Typography>

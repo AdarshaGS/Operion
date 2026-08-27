@@ -5,6 +5,8 @@ import java.time.LocalDate;
 import com.operion.common.TenantScopedEntity;
 import com.operion.identity.Person;
 import com.operion.organisation.Campus;
+import com.operion.organisation.Department;
+import com.operion.organisation.Designation;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -43,11 +45,14 @@ public class StaffProfile extends TenantScopedEntity {
 	@Column(name = "employee_code", nullable = false)
 	private String employeeCode;
 
-	@Column(nullable = false)
-	private String designation;
+	@ManyToOne(optional = false)
+	@JoinColumn(name = "designation_id")
+	private Designation designation;
 
-	/** Nullable. */
-	private String department;
+	/** Nullable - org-wide staff without a department assignment. */
+	@ManyToOne
+	@JoinColumn(name = "department_id")
+	private Department department;
 
 	@Column(name = "date_of_joining", nullable = false)
 	private LocalDate dateOfJoining;
@@ -60,7 +65,7 @@ public class StaffProfile extends TenantScopedEntity {
 	@Column(nullable = false, length = 20)
 	private StaffProfileStatus status;
 
-	public StaffProfile(Person person, Campus campus, String employeeCode, String designation, String department,
+	public StaffProfile(Person person, Campus campus, String employeeCode, Designation designation, Department department,
 			LocalDate dateOfJoining, EmploymentType employmentType) {
 		this.person = person;
 		this.campus = campus;

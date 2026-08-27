@@ -4,13 +4,16 @@ import java.time.LocalDate;
 
 import com.operion.hr.StaffProfile;
 
-public record StaffProfileResponse(Long id, Long personId, Long campusId, String employeeCode, String designation,
-		String department, LocalDate dateOfJoining, String employmentType, String status) {
+public record StaffProfileResponse(Long id, Long personId, Long campusId, String employeeCode, Long designationId,
+		String designationName, Long departmentId, String departmentName, LocalDate dateOfJoining, String employmentType,
+		String status) {
 
 	public static StaffProfileResponse from(StaffProfile staffProfile) {
 		return new StaffProfileResponse(staffProfile.getId(), staffProfile.getPerson().getId(),
 				staffProfile.getCampus() == null ? null : staffProfile.getCampus().getId(), staffProfile.getEmployeeCode(),
-				staffProfile.getDesignation(), staffProfile.getDepartment(), staffProfile.getDateOfJoining(),
-				staffProfile.getEmploymentType().name(), staffProfile.getStatus().name());
+				staffProfile.getDesignation().getId(), staffProfile.getDesignation().getName(),
+				staffProfile.getDepartment() == null ? null : staffProfile.getDepartment().getId(),
+				staffProfile.getDepartment() == null ? null : staffProfile.getDepartment().getName(),
+				staffProfile.getDateOfJoining(), staffProfile.getEmploymentType().name(), staffProfile.getStatus().name());
 	}
 }

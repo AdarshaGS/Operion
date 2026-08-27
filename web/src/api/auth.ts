@@ -50,6 +50,11 @@ export interface AckResponse {
 	message: string;
 }
 
+export interface RoleSummary {
+	name: string;
+	description: string | null;
+}
+
 export interface MeResponse {
 	userId: number;
 	organisationId: number;
@@ -57,7 +62,12 @@ export interface MeResponse {
 	email: string | null;
 	personId: number | null;
 	personName: string | null;
+	firstName: string | null;
+	lastName: string | null;
+	campusName: string | null;
+	status: string | null;
 	roleNames: string[];
+	roles: RoleSummary[];
 	permissions: string[];
 }
 

@@ -4,6 +4,7 @@ import { ClaimInvitePage } from "./auth/ClaimInvitePage";
 import { ClaimStaffInvitePage } from "./auth/ClaimStaffInvitePage";
 import { EmailVerifyPage } from "./auth/EmailVerifyPage";
 import { ForgotPasswordPage } from "./auth/ForgotPasswordPage";
+import { IndexRedirect } from "./auth/IndexRedirect";
 import { LoginPage } from "./auth/LoginPage";
 import { ProtectedRoute } from "./auth/ProtectedRoute";
 import { ResetPasswordPage } from "./auth/ResetPasswordPage";
@@ -25,14 +26,17 @@ import { InventoryPage } from "./modules/inventory/InventoryPage";
 import { BookDetailPage } from "./modules/library/BookDetailPage";
 import { LibraryPage } from "./modules/library/LibraryPage";
 import { MarketingPage } from "./marketing/MarketingPage";
+import { DashboardPage } from "./modules/dashboard/DashboardPage";
+import { ProfilePage } from "./modules/profile/ProfilePage";
 import { SettingsPage } from "./modules/settings/SettingsPage";
+import { SettingsSectionPage } from "./modules/settings/SettingsSectionPage";
 import { UserDetailPage } from "./modules/settings/UserDetailPage";
 import { RouteDetailPage } from "./modules/transport/RouteDetailPage";
 import { TransportPage } from "./modules/transport/TransportPage";
 import { StudentCreatePage } from "./modules/students/StudentCreatePage";
 import { StudentDetailPage } from "./modules/students/StudentDetailPage";
 import { StudentListPage } from "./modules/students/StudentListPage";
-import { DashboardPage } from "./platform/DashboardPage";
+import { DashboardPage as PlatformDashboardPage } from "./platform/DashboardPage";
 import { OrganisationDetailPage } from "./platform/OrganisationDetailPage";
 import { OrganisationsPage } from "./platform/OrganisationsPage";
 import { PlansPage } from "./platform/PlansPage";
@@ -55,7 +59,8 @@ function App() {
 					<Route path="/verify-email" element={<EmailVerifyPage />} />
 					<Route element={<ProtectedRoute />}>
 						<Route element={<AppLayout />}>
-							<Route index element={<Navigate to="/students" replace />} />
+							<Route index element={<IndexRedirect />} />
+							<Route path="/dashboard" element={<DashboardPage />} />
 							<Route path="/students" element={<StudentListPage />} />
 							<Route path="/students/new" element={<StudentCreatePage />} />
 							<Route path="/students/:studentId" element={<StudentDetailPage />} />
@@ -77,15 +82,17 @@ function App() {
 							<Route path="/hr" element={<HrPage />} />
 							<Route path="/hr/staff/new" element={<StaffCreatePage />} />
 							<Route path="/hr/staff/:staffProfileId" element={<StaffDetailPage />} />
+							<Route path="/profile" element={<ProfilePage />} />
 							<Route path="/settings" element={<SettingsPage />} />
 							<Route path="/settings/users/:userId" element={<UserDetailPage />} />
+							<Route path="/settings/:section" element={<SettingsSectionPage />} />
 						</Route>
 					</Route>
 					<Route path="/platform/login" element={<PlatformLoginPage />} />
 					<Route element={<PlatformProtectedRoute />}>
 						<Route element={<PlatformLayout />}>
 							<Route path="/platform" element={<Navigate to="/platform/dashboard" replace />} />
-							<Route path="/platform/dashboard" element={<DashboardPage />} />
+							<Route path="/platform/dashboard" element={<PlatformDashboardPage />} />
 							<Route path="/platform/organisations" element={<OrganisationsPage />} />
 							<Route path="/platform/organisations/:organisationId" element={<OrganisationDetailPage />} />
 							<Route path="/platform/plans" element={<PlansPage />} />

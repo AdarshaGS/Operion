@@ -167,7 +167,7 @@ export function RouteDetailPage() {
 	}
 
 	return (
-		<Stack spacing={2} sx={{ maxWidth: 900 }}>
+		<Stack spacing={2}>
 			<Box>
 				<Button startIcon={<ArrowBackIcon />} onClick={() => navigate("/transport")}>
 					Back to transport

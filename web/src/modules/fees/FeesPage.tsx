@@ -66,16 +66,7 @@ export function FeesPage() {
 	}
 
 	return (
-		<Stack spacing={3} sx={{ maxWidth: 1100 }}>
-			<Stack spacing={0.5}>
-				<Typography variant="overline" color="text.secondary">
-					Finance
-				</Typography>
-				<Typography variant="h4" component="h1">
-					Fees
-				</Typography>
-			</Stack>
-
+		<Stack spacing={3}>
 			<FeeCategoriesPanel />
 			<FeeStructuresPanel />
 

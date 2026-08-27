@@ -143,7 +143,7 @@ export function SchoolClassSectionsPage() {
 	const gradeLevelName = schoolClass ? gradeLevels.find((level) => level.id === schoolClass.gradeLevelId)?.name : undefined;
 
 	return (
-		<Stack spacing={2} sx={{ maxWidth: 700 }}>
+		<Stack spacing={2}>
 			<Box>
 				<Button startIcon={<ArrowBackIcon />} onClick={() => navigate("/academics")}>
 					Back to academics

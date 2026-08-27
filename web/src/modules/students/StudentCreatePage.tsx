@@ -88,7 +88,7 @@ export function StudentCreatePage() {
 	}
 
 	return (
-		<Stack spacing={2} sx={{ maxWidth: 640 }}>
+		<Stack spacing={2}>
 			<Typography variant="h4" component="h1">
 				Admit student
 			</Typography>

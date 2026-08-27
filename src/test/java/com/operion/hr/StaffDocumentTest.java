@@ -12,6 +12,10 @@ import com.operion.identity.Person;
 import com.operion.identity.PersonRepository;
 import com.operion.organisation.Campus;
 import com.operion.organisation.CampusRepository;
+import com.operion.organisation.Department;
+import com.operion.organisation.DepartmentRepository;
+import com.operion.organisation.Designation;
+import com.operion.organisation.DesignationRepository;
 import com.operion.organisation.Organisation;
 import com.operion.organisation.OrganisationRepository;
 import org.junit.jupiter.api.AfterEach;
@@ -41,6 +45,12 @@ class StaffDocumentTest {
 	private PersonRepository personRepository;
 
 	@Autowired
+	private DesignationRepository designationRepository;
+
+	@Autowired
+	private DepartmentRepository departmentRepository;
+
+	@Autowired
 	private HrService hrService;
 
 	@Autowired
@@ -57,7 +67,9 @@ class StaffDocumentTest {
 
 		Campus campus = campusRepository.save(new Campus("Main Campus", "MAIN"));
 		Person person = personRepository.save(new Person("Ravi", "Menon"));
-		return hrService.createStaffProfile(person, campus, "EMP-001", "Teacher", "Science", LocalDate.of(2020, 6, 1), EmploymentType.PERMANENT);
+		Designation designation = designationRepository.save(new Designation("Teacher"));
+		Department department = departmentRepository.save(new Department("Science"));
+		return hrService.createStaffProfile(person, campus, "EMP-001", designation, department, LocalDate.of(2020, 6, 1), EmploymentType.PERMANENT);
 	}
 
 	@Test

@@ -15,6 +15,8 @@ public interface OrganisationMembershipRepository extends JpaRepository<Organisa
 
 	List<OrganisationMembership> findByCampusIdAndStatus(Long campusId, MembershipStatus status);
 
+	long countByStatus(MembershipStatus status);
+
 	/**
 	 * Union of permission codes across every ACTIVE membership (a user can hold more than
 	 * one role at once, e.g. parent + teacher) with an ACTIVE role, scoped to the current

@@ -26,6 +26,7 @@ import EditIcon from "@mui/icons-material/Edit";
 import { Can } from "../../auth/Can";
 import { ApiError } from "../../api/client";
 import { listCampuses, type CampusResponse } from "../../api/campuses";
+import { listDepartments, type DepartmentResponse } from "../../api/departments";
 import { grantMembership, listMemberships, revokeMembership, type MembershipResponse } from "../../api/memberships";
 import { listPersons, type PersonResponse } from "../../api/persons";
 import { listRoles, type RoleResponse } from "../../api/roles";
@@ -61,6 +62,7 @@ export function UserDetailPage() {
 	const [persons, setPersons] = useState<PersonResponse[]>([]);
 	const [roles, setRoles] = useState<RoleResponse[]>([]);
 	const [campuses, setCampuses] = useState<CampusResponse[]>([]);
+	const [departments, setDepartments] = useState<DepartmentResponse[]>([]);
 	const [error, setError] = useState<string | null>(null);
 	const [loading, setLoading] = useState(true);
 
@@ -68,6 +70,7 @@ export function UserDetailPage() {
 	const [personId, setPersonId] = useState<number | "">("");
 	const [roleId, setRoleId] = useState<number | "">("");
 	const [campusId, setCampusId] = useState<number | "">("");
+	const [departmentId, setDepartmentId] = useState<number | "">("");
 	const [submitting, setSubmitting] = useState(false);
 
 	const [statusSubmitting, setStatusSubmitting] = useState(false);
@@ -85,6 +88,7 @@ export function UserDetailPage() {
 		listPersons().then(setPersons).catch(() => undefined);
 		listRoles().then(setRoles).catch(() => undefined);
 		listCampuses().then(setCampuses).catch(() => undefined);
+		listDepartments().then(setDepartments).catch(() => undefined);
 		refreshMemberships();
 	}, [userId]);
 
@@ -100,10 +104,17 @@ export function UserDetailPage() {
 		if (!userId || personId === "" || roleId === "") return;
 		setSubmitting(true);
 		try {
-			await grantMembership({ userId: Number(userId), personId, roleId, campusId: campusId === "" ? null : campusId });
+			await grantMembership({
+				userId: Number(userId),
+				personId,
+				roleId,
+				campusId: campusId === "" ? null : campusId,
+				departmentId: departmentId === "" ? null : departmentId,
+			});
 			setPersonId("");
 			setRoleId("");
 			setCampusId("");
+			setDepartmentId("");
 			setDialogOpen(false);
 			refreshMemberships();
 		} catch (err) {
@@ -163,7 +174,7 @@ export function UserDetailPage() {
 	}
 
 	return (
-		<Stack spacing={2} sx={{ maxWidth: 900 }}>
+		<Stack spacing={2}>
 			<Box>
 				<Button startIcon={<ArrowBackIcon />} onClick={() => navigate("/settings")}>
 					Back to settings
@@ -226,6 +237,7 @@ export function UserDetailPage() {
 										<TableCell>Person</TableCell>
 										<TableCell>Role</TableCell>
 										<TableCell>Campus</TableCell>
+										<TableCell>Department</TableCell>
 										<TableCell>Status</TableCell>
 										<TableCell align="right">Actions</TableCell>
 									</TableRow>
@@ -240,6 +252,7 @@ export function UserDetailPage() {
 													? "Org-wide"
 													: (campuses.find((c) => c.id === membership.campusId)?.name ?? membership.campusId)}
 											</TableCell>
+											<TableCell>{membership.departmentName ?? "—"}</TableCell>
 											<TableCell>
 												<Chip label={membership.status} size="small" />
 											</TableCell>
@@ -307,6 +320,20 @@ export function UserDetailPage() {
 							{campuses.map((campus) => (
 								<MenuItem key={campus.id} value={campus.id}>
 									{campus.name}
+								</MenuItem>
+							))}
+						</TextField>
+						<TextField
+							select
+							label="Department (optional)"
+							value={departmentId}
+							onChange={(e) => setDepartmentId(e.target.value === "" ? "" : Number(e.target.value))}
+							fullWidth
+						>
+							<MenuItem value="">No department</MenuItem>
+							{departments.map((department) => (
+								<MenuItem key={department.id} value={department.id}>
+									{department.name}
 								</MenuItem>
 							))}
 						</TextField>

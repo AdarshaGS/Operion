@@ -1,0 +1,78 @@
+import { api } from "./client";
+
+export interface EnrollmentSummary {
+	activeStudents: number;
+	campuses: number;
+}
+
+export interface AttendanceSummary {
+	present: number;
+	absent: number;
+	late: number;
+	halfDay: number;
+	marked: number;
+	attendanceRatePercent: number;
+}
+
+export interface FeeSummary {
+	totalInvoiced: number;
+	totalCollected: number;
+	collectionRatePercent: number;
+	outstanding: number;
+	overdueInvoices: number;
+}
+
+export interface StaffSummary {
+	activeStaff: number;
+	departments: number;
+	designations: number;
+}
+
+export interface ExaminationSummary {
+	activeExams: number;
+}
+
+export interface LibrarySummary {
+	activeBooks: number;
+	currentlyBorrowed: number;
+	overdueBorrows: number;
+}
+
+export interface TransportSummary {
+	activeVehicles: number;
+	activeRoutes: number;
+	studentsUsingTransport: number;
+}
+
+export interface InventorySummary {
+	activeItems: number;
+	categories: number;
+}
+
+export interface CommunicationSummary {
+	announcementsThisMonth: number;
+}
+
+export interface SetupChecklist {
+	structureConfigured: boolean;
+	rolesConfigured: boolean;
+	membersAdded: boolean;
+	industryDataAdded: boolean;
+}
+
+export interface DashboardSummaryResponse {
+	enrollment: EnrollmentSummary;
+	attendanceToday: AttendanceSummary;
+	fees: FeeSummary;
+	staff: StaffSummary;
+	examinations: ExaminationSummary;
+	library: LibrarySummary;
+	transport: TransportSummary;
+	inventory: InventorySummary;
+	communication: CommunicationSummary;
+	setupChecklist: SetupChecklist;
+}
+
+export function getDashboardSummary(): Promise<DashboardSummaryResponse> {
+	return api.get<DashboardSummaryResponse>("/api/v1/dashboard/summary");
+}

@@ -1,7 +1,6 @@
 package com.operion.organisation;
 
 import java.time.Instant;
-import java.time.LocalTime;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -51,12 +50,6 @@ public class OrganisationConfiguration {
 	/** Bit 0 = Monday .. bit 6 = Sunday. A plain int - not worth a child table or JSON for 7 static days. */
 	@Column(name = "working_days_mask", nullable = false)
 	private int workingDaysMask;
-
-	@Column(name = "school_start_time")
-	private LocalTime schoolStartTime;
-
-	@Column(name = "school_end_time")
-	private LocalTime schoolEndTime;
 
 	@Column(name = "logo_url")
 	private String logoUrl;

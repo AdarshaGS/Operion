@@ -24,6 +24,7 @@ import com.operion.identity.auth.LoginResult;
 import com.operion.identity.auth.RefreshTokenRepository;
 import com.operion.identity.auth.RefreshTokenService;
 import com.operion.organisation.CampusRepository;
+import com.operion.organisation.DepartmentRepository;
 import com.operion.organisation.Organisation;
 import com.operion.organisation.OrganisationRepository;
 import org.junit.jupiter.api.AfterEach;
@@ -72,6 +73,9 @@ class PortalInviteLifecycleTest {
 	private CampusRepository campusRepository;
 
 	@Autowired
+	private DepartmentRepository departmentRepository;
+
+	@Autowired
 	private OrganisationMembershipRepository membershipRepository;
 
 	@Autowired
@@ -85,7 +89,7 @@ class PortalInviteLifecycleTest {
 
 	private PortalInviteService portalInviteService() {
 		MembershipService membershipService = new MembershipService(membershipRepository, userRepository, personRepository,
-				roleRepository, campusRepository, new AuditLogService(auditLogRepository, new ObjectMapper()));
+				roleRepository, campusRepository, departmentRepository, new AuditLogService(auditLogRepository, new ObjectMapper()));
 		return new PortalInviteService(portalInviteRepository, guardianRepository, userRepository, roleRepository,
 				organisationRepository, membershipService, ENCODER, new JwtService(TEST_SECRET, 480),
 				new RefreshTokenService(refreshTokenRepository, ENCODER));

@@ -146,7 +146,7 @@ export function ExamDetailPage() {
 	}
 
 	return (
-		<Stack spacing={3} sx={{ maxWidth: 900 }}>
+		<Stack spacing={3}>
 			<Box>
 				<Button startIcon={<ArrowBackIcon />} onClick={() => navigate("/examinations")}>
 					Back to examinations

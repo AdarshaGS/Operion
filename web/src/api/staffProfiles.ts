@@ -4,8 +4,8 @@ export interface CreateStaffProfileRequest {
 	personId: number;
 	campusId?: number | null;
 	employeeCode: string;
-	designation: string;
-	department?: string | null;
+	designationId: number;
+	departmentId?: number | null;
 	dateOfJoining: string;
 	employmentType: string;
 }
@@ -15,8 +15,10 @@ export interface StaffProfileResponse {
 	personId: number;
 	campusId: number | null;
 	employeeCode: string;
-	designation: string;
-	department: string | null;
+	designationId: number;
+	designationName: string;
+	departmentId: number | null;
+	departmentName: string | null;
 	dateOfJoining: string;
 	employmentType: string;
 	status: string;

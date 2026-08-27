@@ -6,6 +6,8 @@ import java.time.LocalDate;
 import com.operion.identity.Person;
 import com.operion.organisation.AcademicYear;
 import com.operion.organisation.Campus;
+import com.operion.organisation.Department;
+import com.operion.organisation.Designation;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -36,8 +38,8 @@ public class HrService {
 		this.staffDocumentRepository = staffDocumentRepository;
 	}
 
-	public StaffProfile createStaffProfile(Person person, Campus campus, String employeeCode, String designation,
-			String department, LocalDate dateOfJoining, EmploymentType employmentType) {
+	public StaffProfile createStaffProfile(Person person, Campus campus, String employeeCode, Designation designation,
+			Department department, LocalDate dateOfJoining, EmploymentType employmentType) {
 		return staffProfileRepository.save(new StaffProfile(person, campus, employeeCode, designation, department, dateOfJoining, employmentType));
 	}
 

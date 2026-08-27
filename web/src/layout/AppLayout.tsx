@@ -1,17 +1,21 @@
+import { useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import AppBar from "@mui/material/AppBar";
 import Box from "@mui/material/Box";
+import ButtonBase from "@mui/material/ButtonBase";
 import Divider from "@mui/material/Divider";
 import Drawer from "@mui/material/Drawer";
+import IconButton from "@mui/material/IconButton";
 import List from "@mui/material/List";
 import ListItemButton from "@mui/material/ListItemButton";
 import ListItemIcon from "@mui/material/ListItemIcon";
 import ListItemText from "@mui/material/ListItemText";
 import Toolbar from "@mui/material/Toolbar";
 import Tooltip from "@mui/material/Tooltip";
-import Typography from "@mui/material/Typography";
 import { Wordmark } from "../branding/Wordmark";
-import { colors } from "../theme";
+import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
+import ChevronRightIcon from "@mui/icons-material/ChevronRight";
+import DashboardIcon from "@mui/icons-material/Dashboard";
 import SchoolIcon from "@mui/icons-material/School";
 import ClassIcon from "@mui/icons-material/Class";
 import EventAvailableIcon from "@mui/icons-material/EventAvailable";
@@ -27,6 +31,16 @@ import { useAuth } from "../auth/AuthContext";
 import { ProfileMenu } from "./ProfileMenu";
 
 const DRAWER_WIDTH = 240;
+const DRAWER_WIDTH_COLLAPSED = 72;
+const SIDEBAR_COLLAPSED_KEY = "operion.sidebarCollapsed";
+
+function readStoredCollapsed(): boolean {
+	try {
+		return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "1";
+	} catch {
+		return false;
+	}
+}
 
 interface NavItem {
 	label: string;
@@ -39,6 +53,7 @@ interface NavItem {
 }
 
 const NAV_ITEMS: NavItem[] = [
+	{ label: "Dashboard", path: "/dashboard", icon: <DashboardIcon />, built: true, requiredPermissions: ["ORGANISATION_MANAGE"] },
 	{ label: "Students", path: "/students", icon: <SchoolIcon />, built: true, requiredPermissions: ["STUDENT_VIEW"] },
 	{
 		label: "Academics",
@@ -72,25 +87,34 @@ const SETTINGS_ITEM: NavItem = { label: "Settings", path: "/settings", icon: <Se
 export function AppLayout() {
 	const navigate = useNavigate();
 	const location = useLocation();
-	const { profile, hasAnyPermission, permissionsLoaded } = useAuth();
+	const { hasAnyPermission, permissionsLoaded } = useAuth();
+	const [collapsed, setCollapsed] = useState(readStoredCollapsed);
 
 	// While permissions are still loading, don't gate on them - enforcement is backend-side
 	// regardless, this is UX sugar to avoid a flash of every nav item looking unauthorized.
 	const isPermitted = (item: NavItem) => item.requiredPermissions.length === 0 || !permissionsLoaded || hasAnyPermission(item.requiredPermissions);
 
+	function toggleCollapsed() {
+		setCollapsed((prev) => {
+			const next = !prev;
+			try {
+				localStorage.setItem(SIDEBAR_COLLAPSED_KEY, next ? "1" : "0");
+			} catch {
+				// per-viewer convenience only - fine to no-op when storage is unavailable
+			}
+			return next;
+		});
+	}
+
+	const drawerWidth = collapsed ? DRAWER_WIDTH_COLLAPSED : DRAWER_WIDTH;
+
 	return (
 		<Box sx={{ display: "flex" }}>
 			<AppBar position="fixed" sx={{ zIndex: (theme) => theme.zIndex.drawer + 1 }}>
 				<Toolbar sx={{ gap: 2 }}>
-					<Wordmark size="small" />
-					{profile?.organisationName && (
-						<Typography
-							variant="body2"
-							sx={{ color: colors.inkSoft, pl: 1.5, ml: 0.5, borderLeft: `1px solid ${colors.rule}` }}
-						>
-							{profile.organisationName}
-						</Typography>
-					)}
+					<ButtonBase onClick={() => navigate("/")} disableRipple sx={{ borderRadius: 1 }} aria-label="Go to home">
+						<Wordmark size="small" />
+					</ButtonBase>
 					<Box sx={{ flexGrow: 1 }} />
 					<ProfileMenu />
 				</Toolbar>
@@ -98,18 +122,32 @@ export function AppLayout() {
 			<Drawer
 				variant="permanent"
 				sx={{
-					width: DRAWER_WIDTH,
+					width: drawerWidth,
 					flexShrink: 0,
-					[`& .MuiDrawer-paper`]: { width: DRAWER_WIDTH, boxSizing: "border-box" },
+					transition: (theme) => theme.transitions.create("width", { duration: theme.transitions.duration.shortest }),
+					[`& .MuiDrawer-paper`]: {
+						width: drawerWidth,
+						boxSizing: "border-box",
+						overflowX: "hidden",
+						transition: (theme) => theme.transitions.create("width", { duration: theme.transitions.duration.shortest }),
+					},
 				}}
 			>
 				<Toolbar />
+				<Box sx={{ display: "flex", justifyContent: collapsed ? "center" : "flex-end", px: 1, py: 0.5 }}>
+					<Tooltip title={collapsed ? "Expand sidebar" : "Collapse sidebar"} placement="right">
+						<IconButton size="small" onClick={toggleCollapsed} aria-label="Toggle sidebar">
+							{collapsed ? <ChevronRightIcon fontSize="small" /> : <ChevronLeftIcon fontSize="small" />}
+						</IconButton>
+					</Tooltip>
+				</Box>
 				<Divider />
 				<List>
 					{NAV_ITEMS.map((item) => {
 						const permitted = isPermitted(item);
 						const enabled = item.built && permitted;
-						const tooltip = !item.built ? "Coming soon" : !permitted ? "You don't have permission to view this" : "";
+						const reason = !item.built ? "Coming soon" : !permitted ? "You don't have permission to view this" : "";
+						const tooltip = collapsed ? (reason ? `${item.label} — ${reason}` : item.label) : reason;
 						return (
 							<Tooltip key={item.path} title={tooltip} placement="right">
 								<span>
@@ -117,9 +155,10 @@ export function AppLayout() {
 										selected={location.pathname.startsWith(item.path)}
 										disabled={!enabled}
 										onClick={() => navigate(item.path)}
+										sx={{ justifyContent: collapsed ? "center" : "flex-start", px: collapsed ? 1.5 : 2 }}
 									>
-										<ListItemIcon>{item.icon}</ListItemIcon>
-										<ListItemText primary={item.label} />
+										<ListItemIcon sx={{ minWidth: collapsed ? 0 : 40, justifyContent: "center" }}>{item.icon}</ListItemIcon>
+										{!collapsed && <ListItemText primary={item.label} />}
 									</ListItemButton>
 								</span>
 							</Tooltip>
@@ -128,10 +167,18 @@ export function AppLayout() {
 				</List>
 				<Divider />
 				<List>
-					<ListItemButton selected={location.pathname.startsWith(SETTINGS_ITEM.path)} onClick={() => navigate(SETTINGS_ITEM.path)}>
-						<ListItemIcon>{SETTINGS_ITEM.icon}</ListItemIcon>
-						<ListItemText primary={SETTINGS_ITEM.label} />
-					</ListItemButton>
+					<Tooltip title={collapsed ? SETTINGS_ITEM.label : ""} placement="right">
+						<span>
+							<ListItemButton
+								selected={location.pathname.startsWith(SETTINGS_ITEM.path)}
+								onClick={() => navigate(SETTINGS_ITEM.path)}
+								sx={{ justifyContent: collapsed ? "center" : "flex-start", px: collapsed ? 1.5 : 2 }}
+							>
+								<ListItemIcon sx={{ minWidth: collapsed ? 0 : 40, justifyContent: "center" }}>{SETTINGS_ITEM.icon}</ListItemIcon>
+								{!collapsed && <ListItemText primary={SETTINGS_ITEM.label} />}
+							</ListItemButton>
+						</span>
+					</Tooltip>
 				</List>
 			</Drawer>
 			<Box component="main" sx={{ flexGrow: 1, p: { xs: 2, md: 4 } }}>

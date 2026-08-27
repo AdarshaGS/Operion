@@ -38,6 +38,9 @@ Billing seam: no `Subscription`/`Plan` columns on this table now — future `sub
 **Campus** — physical branch/location, org-level, 1:many from Organisation.
 Fields: `id`, `organisation_id`, `name`, `code`, address fields, `timezone` (nullable, inherits org default), `status`. Never deleted (historical student/staff records reference it).
 
+**Department** / **Designation** — org-defined structural catalogs, part of "Organisation Structure" alongside Campus (see #93/#94). Minimal shape (name + status only, no industry-specific fields), same pattern as GradeLevel/ItemCategory. `StaffProfile.designation`/`department` FK into these instead of free text.
+Fields (each): `id`, `organisation_id`, `name`, `status`.
+
 **AcademicYear** (foundation-owned shape; consumption by grades/sections designed in §2) — org-level, 1:many.
 Fields: `id`, `organisation_id`, `name` (e.g. "2025-2026"), `start_date`, `end_date`, `is_current`, `status` (`DRAFT → ACTIVE → CLOSED`). Past years never deleted.
 
@@ -60,8 +63,11 @@ Fields: `id`, `organisation_id`, `user_id`, `person_id`, `role_id`, `campus_id` 
 Append-only. Fields: `id`, `organisation_id` (nullable only for pre-org/platform events), `actor_user_id` (nullable), `entity_type` + `entity_id` (polymorphic, no FK by design — audit must survive independent of each module's schema evolving), `action` (free-form code string, not a rigid enum), `before_value`/`after_value` (JSON — the one legitimate JSON use in this module: immutable audit snapshots, not queryable business data), `occurred_at`, `ip_address` (nullable), `metadata` (small JSON, optional).
 Events captured here: org status transitions, campus create/status-change, academic year open/close, role/permission changes, membership grant/revoke, login success/failure.
 
-**OrganisationConfiguration** — rarely-changing org settings, split out so the hot-path `organisations` table (looked up on every request by slug) stays narrow. 1:1 with Organisation.
-Fields: `organisation_id` (PK/FK), `timezone`, `default_currency`, `date_format`, `working_days_mask` (bitmask int — not JSON, not a child table, for 7 static days), `school_start_time`, `school_end_time`, `logo_url`, `primary_color`.
+**OrganisationConfiguration** — rarely-changing org settings, split out so the hot-path `organisations` table (looked up on every request by slug) stays narrow. 1:1 with Organisation. Core/generic only — see the platform boundary contract (`ai-context/platform-boundaries.md`).
+Fields: `organisation_id` (PK/FK), `timezone`, `default_currency`, `date_format`, `working_days_mask` (bitmask int — not JSON, not a child table, for 7 static days), `logo_url`, `primary_color`.
+
+**AcademicConfiguration** (`com.operion.academic`) — School-vertical settings split out from `OrganisationConfiguration` (`school_start_time`/`school_end_time` are School vocabulary, not core). Same 1:1-keyed-by-organisation-id shape.
+Fields: `organisation_id` (PK/FK), `school_start_time`, `school_end_time`, `updated_at`, `updated_by`.
 
 ### 1.2 Relationships
 
@@ -85,7 +91,9 @@ Fields: `organisation_id` (PK/FK), `timezone`, `default_currency`, `date_format`
 organisations(id PK, name, slug UNIQUE, status, created_at, updated_at, created_by, updated_by)
 
 organisation_configurations(organisation_id PK/FK, timezone, default_currency, date_format,
-  working_days_mask, school_start_time, school_end_time, logo_url, primary_color, updated_at, updated_by)
+  working_days_mask, logo_url, primary_color, updated_at, updated_by)
+
+academic_configurations(organisation_id PK/FK, school_start_time, school_end_time, updated_at, updated_by)
 
 campuses(id PK, organisation_id FK, name, code, address_line1, address_line2, city, state, pincode,
   timezone NULL, status, audit fields)

@@ -1,10 +1,13 @@
 package com.operion.identity.auth.api;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import com.operion.authorization.MembershipStatus;
 import com.operion.authorization.OrganisationMembership;
 import com.operion.authorization.OrganisationMembershipRepository;
+import com.operion.authorization.Role;
 import com.operion.common.TenantContext;
 import com.operion.identity.User;
 import com.operion.identity.UserRepository;
@@ -13,9 +16,9 @@ import com.operion.identity.auth.EmailVerificationService;
 import com.operion.identity.auth.PasswordResetService;
 import com.operion.identity.auth.RefreshTokenService;
 import com.operion.identity.auth.StaffInviteService;
+import com.operion.organisation.Campus;
 import com.operion.organisation.Organisation;
 import com.operion.organisation.OrganisationRepository;
-import com.operion.parent.PortalInviteService;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -31,21 +34,19 @@ public class AuthController {
 	private final OrganisationMembershipRepository membershipRepository;
 	private final UserRepository userRepository;
 	private final OrganisationRepository organisationRepository;
-	private final PortalInviteService portalInviteService;
 	private final StaffInviteService staffInviteService;
 	private final RefreshTokenService refreshTokenService;
 	private final PasswordResetService passwordResetService;
 	private final EmailVerificationService emailVerificationService;
 
 	public AuthController(AuthenticationService authenticationService, OrganisationMembershipRepository membershipRepository,
-			UserRepository userRepository, OrganisationRepository organisationRepository, PortalInviteService portalInviteService,
+			UserRepository userRepository, OrganisationRepository organisationRepository,
 			StaffInviteService staffInviteService, RefreshTokenService refreshTokenService, PasswordResetService passwordResetService,
 			EmailVerificationService emailVerificationService) {
 		this.authenticationService = authenticationService;
 		this.membershipRepository = membershipRepository;
 		this.userRepository = userRepository;
 		this.organisationRepository = organisationRepository;
-		this.portalInviteService = portalInviteService;
 		this.staffInviteService = staffInviteService;
 		this.refreshTokenService = refreshTokenService;
 		this.passwordResetService = passwordResetService;
@@ -55,12 +56,6 @@ public class AuthController {
 	@PostMapping("/login")
 	public LoginResponse login(@RequestBody LoginRequest request) {
 		return LoginResponse.from(authenticationService.login(request.organisationSlug(), request.email(), request.password()));
-	}
-
-	/** Public, unauthenticated - same trust tier as /login, see PortalInviteService.claim(). */
-	@PostMapping("/claim-invite")
-	public LoginResponse claimInvite(@RequestBody ClaimInviteRequest request) {
-		return LoginResponse.from(portalInviteService.claim(request.organisationSlug(), request.token(), request.password()));
 	}
 
 	/** Public, unauthenticated - the whole point is exchanging a refresh token for a new
@@ -142,11 +137,27 @@ public class AuthController {
 				.map(membership -> membership.getPerson().getFirstName() + " " + membership.getPerson().getLastName())
 				.orElse(null);
 		List<String> roleNames = activeMemberships.stream().map(membership -> membership.getRole().getName()).distinct().toList();
+		List<RoleSummary> roles = activeMemberships.stream()
+				.map(OrganisationMembership::getRole)
+				.collect(Collectors.toMap(Role::getId, role -> new RoleSummary(role.getName(), role.getDescription()), (a, b) -> a,
+						LinkedHashMap::new))
+				.values()
+				.stream()
+				.toList();
+
+		String firstName = activeMemberships.stream().findFirst().map(membership -> membership.getPerson().getFirstName()).orElse(null);
+		String lastName = activeMemberships.stream().findFirst().map(membership -> membership.getPerson().getLastName()).orElse(null);
+		String campusName = activeMemberships.stream()
+				.findFirst()
+				.map(OrganisationMembership::getCampus)
+				.map(Campus::getName)
+				.orElse(null);
+		String status = activeMemberships.stream().findFirst().map(membership -> membership.getStatus().name()).orElse(null);
 
 		String email = userRepository.findById(userId).map(User::getEmail).orElse(null);
 		String organisationName = organisationRepository.findById(organisationId).map(Organisation::getName).orElse(null);
 
-		return new MeResponse(userId, organisationId, organisationName, email, personId, personName, roleNames,
-				membershipRepository.findActivePermissionCodesForUser(userId));
+		return new MeResponse(userId, organisationId, organisationName, email, personId, personName, firstName, lastName,
+				campusName, status, roleNames, roles, membershipRepository.findActivePermissionCodesForUser(userId));
 	}
 }

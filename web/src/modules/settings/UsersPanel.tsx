@@ -8,7 +8,6 @@ import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
-import IconButton from "@mui/material/IconButton";
 import MenuItem from "@mui/material/MenuItem";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
@@ -19,11 +18,10 @@ import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
-import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import AddIcon from "@mui/icons-material/Add";
-import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import { Can } from "../../auth/Can";
+import { StaffInviteDialog } from "../../components/StaffInviteDialog";
 import { ApiError } from "../../api/client";
 import { listCampuses, type CampusResponse } from "../../api/campuses";
 import { grantMembership, listMemberships, revokeMembership, type MembershipResponse } from "../../api/memberships";
@@ -220,42 +218,7 @@ export function UsersPanel() {
 				</DialogActions>
 			</Dialog>
 
-			{/* Staff invite (shown once) */}
-			<Dialog open={invite !== null} onClose={() => setInvite(null)} fullWidth maxWidth="sm">
-				<DialogTitle>Staff invite issued</DialogTitle>
-				<DialogContent>
-					<Stack spacing={2} sx={{ mt: 1 }}>
-						<Alert severity="warning">
-							This token is shown once and never stored - copy it now. Share it with the new hire along with your organisation's
-							login slug; they'll set their own password on the sign-up page.
-						</Alert>
-						{invite && (
-							<>
-								<TextField
-									label="Claim link"
-									value={`${window.location.origin}/claim-staff-invite?token=${encodeURIComponent(invite.claimToken)}`}
-									fullWidth
-									slotProps={{ input: { readOnly: true } }}
-								/>
-								<Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
-									<TextField label="Raw token" value={invite.claimToken} fullWidth slotProps={{ input: { readOnly: true } }} />
-									<Tooltip title="Copy token">
-										<IconButton onClick={() => navigator.clipboard.writeText(invite.claimToken)}>
-											<ContentCopyIcon fontSize="small" />
-										</IconButton>
-									</Tooltip>
-								</Box>
-								<Typography variant="caption" color="text.secondary">
-									Expires {new Date(invite.expiresAt).toLocaleString()}
-								</Typography>
-							</>
-						)}
-					</Stack>
-				</DialogContent>
-				<DialogActions>
-					<Button onClick={() => setInvite(null)}>Close</Button>
-				</DialogActions>
-			</Dialog>
+			<StaffInviteDialog invite={invite} onClose={() => setInvite(null)} />
 		</Paper>
 	);
 }

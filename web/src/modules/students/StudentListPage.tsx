@@ -13,7 +13,6 @@ import TableCell from "@mui/material/TableCell";
 import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
-import Typography from "@mui/material/Typography";
 import AddIcon from "@mui/icons-material/Add";
 import { ApiError } from "../../api/client";
 import { listPersons, type PersonResponse } from "../../api/persons";
@@ -43,11 +42,8 @@ export function StudentListPage() {
 	}, []);
 
 	return (
-		<Stack spacing={2} sx={{ maxWidth: 1000 }}>
-			<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-				<Typography variant="h4" component="h1">
-					Students
-				</Typography>
+		<Stack spacing={2}>
+			<Box sx={{ display: "flex", justifyContent: "flex-end" }}>
 				<Button variant="contained" startIcon={<AddIcon />} onClick={() => navigate("/students/new")}>
 					Admit student
 				</Button>

@@ -1,4 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
+import Accordion from "@mui/material/Accordion";
+import AccordionDetails from "@mui/material/AccordionDetails";
+import AccordionSummary from "@mui/material/AccordionSummary";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -21,6 +24,7 @@ import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import AddIcon from "@mui/icons-material/Add";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import { Can } from "../../auth/Can";
 import { ApiError } from "../../api/client";
 import { listPermissions, type PermissionResponse } from "../../api/permissions";
@@ -47,24 +51,66 @@ function PermissionCheckboxes({
 }) {
 	const grouped = useMemo(() => groupByModule(permissions), [permissions]);
 
+	// Auto-expand only modules that already have a permission checked when the dialog
+	// opens (63 permissions across 15 modules is too many to show fully expanded) -
+	// captured once on mount, not re-derived as the user toggles checkboxes, so a
+	// section doesn't jump shut/open under their cursor while they're working in it.
+	const [expanded, setExpanded] = useState<Set<string>>(() => {
+		const initial = new Set<string>();
+		for (const [module, modulePermissions] of grouped) {
+			if (modulePermissions.some((permission) => selected.has(permission.code))) {
+				initial.add(module);
+			}
+		}
+		return initial;
+	});
+
+	function toggleExpanded(module: string) {
+		setExpanded((prev) => {
+			const next = new Set(prev);
+			if (next.has(module)) next.delete(module);
+			else next.add(module);
+			return next;
+		});
+	}
+
 	return (
-		<Stack spacing={1.5}>
-			{[...grouped.entries()].map(([module, modulePermissions]) => (
-				<Box key={module}>
-					<Typography variant="subtitle2" sx={{ textTransform: "capitalize" }}>
-						{module}
-					</Typography>
-					<FormGroup>
-						{modulePermissions.map((permission) => (
-							<FormControlLabel
-								key={permission.code}
-								control={<Checkbox checked={selected.has(permission.code)} onChange={() => onToggle(permission.code)} size="small" />}
-								label={`${permission.code} — ${permission.description}`}
-							/>
-						))}
-					</FormGroup>
-				</Box>
-			))}
+		<Stack spacing={1}>
+			{[...grouped.entries()].map(([module, modulePermissions]) => {
+				const selectedCount = modulePermissions.filter((permission) => selected.has(permission.code)).length;
+				return (
+					<Accordion
+						key={module}
+						expanded={expanded.has(module)}
+						onChange={() => toggleExpanded(module)}
+						disableGutters
+						variant="outlined"
+						sx={{ "&:before": { display: "none" } }}
+					>
+						<AccordionSummary expandIcon={<ExpandMoreIcon />}>
+							<Box sx={{ display: "flex", alignItems: "center", gap: 1, width: "100%", pr: 1 }}>
+								<Typography variant="subtitle2" sx={{ textTransform: "capitalize", flexGrow: 1 }}>
+									{module}
+								</Typography>
+								{selectedCount > 0 && <Chip label={`${selectedCount} selected`} size="small" />}
+							</Box>
+						</AccordionSummary>
+						<AccordionDetails>
+							<FormGroup>
+								{modulePermissions.map((permission) => (
+									<FormControlLabel
+										key={permission.code}
+										control={
+											<Checkbox checked={selected.has(permission.code)} onChange={() => onToggle(permission.code)} size="small" />
+										}
+										label={`${permission.code} — ${permission.description}`}
+									/>
+								))}
+							</FormGroup>
+						</AccordionDetails>
+					</Accordion>
+				);
+			})}
 		</Stack>
 	);
 }

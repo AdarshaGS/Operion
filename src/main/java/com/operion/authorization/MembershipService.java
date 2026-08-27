@@ -7,6 +7,8 @@ import com.operion.identity.User;
 import com.operion.identity.UserRepository;
 import com.operion.organisation.Campus;
 import com.operion.organisation.CampusRepository;
+import com.operion.organisation.Department;
+import com.operion.organisation.DepartmentRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,21 +20,23 @@ public class MembershipService {
 	private final PersonRepository personRepository;
 	private final RoleRepository roleRepository;
 	private final CampusRepository campusRepository;
+	private final DepartmentRepository departmentRepository;
 	private final AuditLogService auditLogService;
 
 	public MembershipService(OrganisationMembershipRepository membershipRepository, UserRepository userRepository,
 			PersonRepository personRepository, RoleRepository roleRepository, CampusRepository campusRepository,
-			AuditLogService auditLogService) {
+			DepartmentRepository departmentRepository, AuditLogService auditLogService) {
 		this.membershipRepository = membershipRepository;
 		this.userRepository = userRepository;
 		this.personRepository = personRepository;
 		this.roleRepository = roleRepository;
 		this.campusRepository = campusRepository;
+		this.departmentRepository = departmentRepository;
 		this.auditLogService = auditLogService;
 	}
 
 	@Transactional
-	public OrganisationMembership grant(Long userId, Long personId, Long roleId, Long campusId) {
+	public OrganisationMembership grant(Long userId, Long personId, Long roleId, Long campusId, Long departmentId) {
 		User user = userRepository.findById(userId)
 				.orElseThrow(() -> new IllegalArgumentException("No user with id " + userId));
 		Person person = personRepository.findById(personId)
@@ -41,6 +45,8 @@ public class MembershipService {
 				.orElseThrow(() -> new IllegalArgumentException("No role with id " + roleId));
 		Campus campus = campusId == null ? null : campusRepository.findById(campusId)
 				.orElseThrow(() -> new IllegalArgumentException("No campus with id " + campusId));
+		Department department = departmentId == null ? null : departmentRepository.findById(departmentId)
+				.orElseThrow(() -> new IllegalArgumentException("No department with id " + departmentId));
 
 		boolean alreadyActive = membershipRepository.findByUserId(userId).stream()
 				.anyMatch(membership -> membership.getStatus() == MembershipStatus.ACTIVE
@@ -49,7 +55,7 @@ public class MembershipService {
 			throw new IllegalStateException("User already holds an active membership with this role");
 		}
 
-		OrganisationMembership membership = membershipRepository.save(new OrganisationMembership(user, person, role, campus));
+		OrganisationMembership membership = membershipRepository.save(new OrganisationMembership(user, person, role, campus, department));
 		auditLogService.record("OrganisationMembership", membership.getId(), "GRANT", null, role.getName());
 		return membership;
 	}
