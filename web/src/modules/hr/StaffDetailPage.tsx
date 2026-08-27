@@ -23,6 +23,7 @@ import Typography from "@mui/material/Typography";
 import AddIcon from "@mui/icons-material/Add";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { Can } from "../../auth/Can";
+import { MemberStatusChip } from "../../components/MemberStatusChip";
 import { StaffInviteDialog } from "../../components/StaffInviteDialog";
 import { listAcademicYears, type AcademicYearResponse } from "../../api/academicYears";
 import { ApiError } from "../../api/client";
@@ -76,7 +77,7 @@ export function StaffDetailPage() {
 
 	const [statusValue, setStatusValue] = useState("ACTIVE");
 
-	const [hasLoginAccess, setHasLoginAccess] = useState(false);
+	const [memberStatus, setMemberStatus] = useState<string | null>(null);
 	const [roles, setRoles] = useState<RoleResponse[]>([]);
 	const [campuses, setCampuses] = useState<CampusResponse[]>([]);
 	const [departments, setDepartments] = useState<DepartmentResponse[]>([]);
@@ -131,7 +132,7 @@ export function StaffDetailPage() {
 
 	function refreshLoginAccess(personId: number) {
 		listMemberships()
-			.then((memberships: MembershipResponse[]) => setHasLoginAccess(memberships.some((m) => m.personId === personId)))
+			.then((memberships: MembershipResponse[]) => setMemberStatus(memberships.find((m) => m.personId === personId)?.memberStatus ?? null))
 			.catch(() => {});
 	}
 
@@ -153,7 +154,7 @@ export function StaffDetailPage() {
 			setGrantDepartmentId("");
 			setGrantDialogOpen(false);
 			setIssuedInvite(invite);
-			setHasLoginAccess(true);
+			refreshLoginAccess(person.id);
 		} catch (err) {
 			setError(err instanceof ApiError ? err.message : "Failed to grant login access");
 		} finally {
@@ -341,8 +342,8 @@ export function StaffDetailPage() {
 			<Paper sx={{ p: 3 }}>
 				<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
 					<Typography variant="body1">Login access</Typography>
-					{hasLoginAccess ? (
-						<Chip label="Has login access" color="success" size="small" />
+					{memberStatus ? (
+						<MemberStatusChip status={memberStatus} />
 					) : (
 						<Can anyOf={["MEMBERSHIP_MANAGE"]}>
 							<Button size="small" variant="outlined" onClick={() => setGrantDialogOpen(true)}>

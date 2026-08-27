@@ -19,6 +19,10 @@ export interface MembershipResponse {
 	departmentId: number | null;
 	departmentName: string | null;
 	status: string;
+	/** Unified Invited/Active/Inactive status folding in the underlying User's status
+	 * (e.g. an invite that's never been claimed) - status above stays the raw membership
+	 * row status (ACTIVE/INACTIVE) revoke/grant act on. */
+	memberStatus: "INVITED" | "ACTIVE" | "INACTIVE";
 }
 
 export function listMemberships(): Promise<MembershipResponse[]> {

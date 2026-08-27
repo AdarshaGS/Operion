@@ -24,6 +24,7 @@ import AddIcon from "@mui/icons-material/Add";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import EditIcon from "@mui/icons-material/Edit";
 import { Can } from "../../auth/Can";
+import { MemberStatusChip } from "../../components/MemberStatusChip";
 import { ApiError } from "../../api/client";
 import { listCampuses, type CampusResponse } from "../../api/campuses";
 import { listDepartments, type DepartmentResponse } from "../../api/departments";
@@ -254,7 +255,7 @@ export function UserDetailPage() {
 											</TableCell>
 											<TableCell>{membership.departmentName ?? "—"}</TableCell>
 											<TableCell>
-												<Chip label={membership.status} size="small" />
+												<MemberStatusChip status={membership.memberStatus} />
 											</TableCell>
 											<TableCell align="right">
 												<Can anyOf={["MEMBERSHIP_MANAGE"]}>

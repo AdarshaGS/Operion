@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
-import Chip from "@mui/material/Chip";
 import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
@@ -21,6 +20,7 @@ import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import AddIcon from "@mui/icons-material/Add";
 import { Can } from "../../auth/Can";
+import { MemberStatusChip } from "../../components/MemberStatusChip";
 import { StaffInviteDialog } from "../../components/StaffInviteDialog";
 import { ApiError } from "../../api/client";
 import { listCampuses, type CampusResponse } from "../../api/campuses";
@@ -146,7 +146,7 @@ export function UsersPanel() {
 											: (campuses.find((c) => c.id === membership.campusId)?.name ?? membership.campusId)}
 									</TableCell>
 									<TableCell>
-										<Chip label={membership.status} size="small" />
+										<MemberStatusChip status={membership.memberStatus} />
 									</TableCell>
 									<TableCell align="right">
 										<Can anyOf={["MEMBERSHIP_MANAGE"]}>
