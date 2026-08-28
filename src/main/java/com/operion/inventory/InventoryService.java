@@ -37,12 +37,19 @@ public class InventoryService {
 		return itemCategoryRepository.save(new ItemCategory(code, name, description));
 	}
 
-	public Item createItem(ItemCategory category, String code, String name, String unit, String description) {
-		return itemRepository.save(new Item(category, code, name, unit, description));
+	public Item createItem(ItemCategory category, String code, String name, String unit, String description, Integer reorderLevel) {
+		Item item = new Item(category, code, name, unit, description);
+		item.setReorderLevel(reorderLevel);
+		return itemRepository.save(item);
 	}
 
 	public Item discontinueItem(Item item) {
 		item.discontinue();
+		return itemRepository.save(item);
+	}
+
+	public Item updateReorderLevel(Item item, Integer reorderLevel) {
+		item.setReorderLevel(reorderLevel);
 		return itemRepository.save(item);
 	}
 

@@ -42,7 +42,8 @@ public class ItemController {
 	public ItemResponse create(@RequestBody CreateItemRequest request) {
 		ItemCategory category = itemCategoryRepository.findById(request.categoryId())
 				.orElseThrow(() -> new IllegalArgumentException("No item category with id " + request.categoryId()));
-		Item item = inventoryService.createItem(category, request.code(), request.name(), request.unit(), request.description());
+		Item item = inventoryService.createItem(category, request.code(), request.name(), request.unit(), request.description(),
+				request.reorderLevel());
 		return ItemResponse.from(item);
 	}
 
@@ -55,6 +56,12 @@ public class ItemController {
 	@RequirePermission("INVENTORY_CATALOG_MANAGE")
 	public ItemResponse discontinue(@PathVariable Long id) {
 		return ItemResponse.from(inventoryService.discontinueItem(findItem(id)));
+	}
+
+	@PostMapping("/{id}/reorder-level")
+	@RequirePermission("INVENTORY_CATALOG_MANAGE")
+	public ItemResponse updateReorderLevel(@PathVariable Long id, @RequestBody UpdateItemReorderLevelRequest request) {
+		return ItemResponse.from(inventoryService.updateReorderLevel(findItem(id), request.reorderLevel()));
 	}
 
 	@GetMapping("/{id}/balance")

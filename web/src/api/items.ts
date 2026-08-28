@@ -6,6 +6,7 @@ export interface CreateItemRequest {
 	name: string;
 	unit: string;
 	description?: string | null;
+	reorderLevel?: number | null;
 }
 
 export interface ItemResponse {
@@ -15,6 +16,7 @@ export interface ItemResponse {
 	name: string;
 	unit: string;
 	description: string | null;
+	reorderLevel: number | null;
 	status: string;
 }
 
@@ -34,4 +36,8 @@ export function listItems(): Promise<ItemResponse[]> {
 
 export function getItemBalance(itemId: number, campusId: number): Promise<BalanceResponse> {
 	return api.get<BalanceResponse>(`/api/v1/inventory/items/${itemId}/balance?campusId=${campusId}`);
+}
+
+export function updateItemReorderLevel(itemId: number, reorderLevel: number | null): Promise<ItemResponse> {
+	return api.post<ItemResponse>(`/api/v1/inventory/items/${itemId}/reorder-level`, { reorderLevel });
 }

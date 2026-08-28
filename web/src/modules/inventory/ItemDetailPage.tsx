@@ -24,7 +24,7 @@ import AddIcon from "@mui/icons-material/Add";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { listCampuses, type CampusResponse } from "../../api/campuses";
 import { ApiError } from "../../api/client";
-import { getItemBalance, listItems, type BalanceResponse, type ItemResponse } from "../../api/items";
+import { getItemBalance, listItems, updateItemReorderLevel, type BalanceResponse, type ItemResponse } from "../../api/items";
 import { recordStockAdjustment, listStockAdjustments, type StockAdjustmentResponse } from "../../api/stockAdjustments";
 import { recordStockEntry, listStockEntries, type StockEntryResponse } from "../../api/stockEntries";
 import { recordStockIssue, listStockIssues, type StockIssueResponse } from "../../api/stockIssues";
@@ -51,6 +51,8 @@ export function ItemDetailPage() {
 	const [error, setError] = useState<string | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [submitting, setSubmitting] = useState(false);
+	const [reorderLevelInput, setReorderLevelInput] = useState("");
+	const [reorderLevelSubmitting, setReorderLevelSubmitting] = useState(false);
 
 	const [entryDialogOpen, setEntryDialogOpen] = useState(false);
 	const [entryQuantity, setEntryQuantity] = useState("");
@@ -75,6 +77,7 @@ export function ItemDetailPage() {
 			.then((items) => {
 				const found = items.find((i) => i.id === Number(itemId));
 				setItem(found ?? null);
+				setReorderLevelInput(found?.reorderLevel != null ? String(found.reorderLevel) : "");
 			})
 			.catch((err) => setError(err instanceof ApiError ? err.message : "Failed to load item"))
 			.finally(() => setLoading(false));
@@ -165,6 +168,19 @@ export function ItemDetailPage() {
 		}
 	}
 
+	async function handleUpdateReorderLevel() {
+		if (!itemId) return;
+		setReorderLevelSubmitting(true);
+		try {
+			const updated = await updateItemReorderLevel(Number(itemId), reorderLevelInput ? Number(reorderLevelInput) : null);
+			setItem(updated);
+		} catch (err) {
+			setError(err instanceof ApiError ? err.message : "Failed to update reorder level");
+		} finally {
+			setReorderLevelSubmitting(false);
+		}
+	}
+
 	if (loading) {
 		return (
 			<Box sx={{ display: "flex", justifyContent: "center", p: 4 }}>
@@ -205,6 +221,25 @@ export function ItemDetailPage() {
 					</Box>
 
 					{!campusId && <Alert severity="info">Pick a campus to view balance and stock activity.</Alert>}
+
+					<Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
+						<TextField
+							label="Reorder level (optional)"
+							type="number"
+							value={reorderLevelInput}
+							onChange={(e) => setReorderLevelInput(e.target.value)}
+							size="small"
+							sx={{ maxWidth: 220 }}
+						/>
+						<Button
+							size="small"
+							variant="outlined"
+							onClick={handleUpdateReorderLevel}
+							disabled={reorderLevelSubmitting || (item?.reorderLevel ?? null) === (reorderLevelInput ? Number(reorderLevelInput) : null)}
+						>
+							Update
+						</Button>
+					</Box>
 				</Stack>
 			</Paper>
 

@@ -35,6 +35,7 @@ export function ItemsPanel() {
 	const [name, setName] = useState("");
 	const [unit, setUnit] = useState("");
 	const [description, setDescription] = useState("");
+	const [reorderLevel, setReorderLevel] = useState("");
 	const [submitting, setSubmitting] = useState(false);
 
 	function refresh() {
@@ -61,12 +62,20 @@ export function ItemsPanel() {
 		event.preventDefault();
 		setSubmitting(true);
 		try {
-			await createItem({ categoryId: Number(categoryId), code, name, unit, description: description || null });
+			await createItem({
+				categoryId: Number(categoryId),
+				code,
+				name,
+				unit,
+				description: description || null,
+				reorderLevel: reorderLevel ? Number(reorderLevel) : null,
+			});
 			setCategoryId("");
 			setCode("");
 			setName("");
 			setUnit("");
 			setDescription("");
+			setReorderLevel("");
 			setDialogOpen(false);
 			refresh();
 		} catch (err) {
@@ -96,6 +105,7 @@ export function ItemsPanel() {
 								<TableCell>Name</TableCell>
 								<TableCell>Category</TableCell>
 								<TableCell>Unit</TableCell>
+								<TableCell>Reorder level</TableCell>
 								<TableCell>Status</TableCell>
 							</TableRow>
 						</TableHead>
@@ -106,6 +116,7 @@ export function ItemsPanel() {
 									<TableCell>{item.name}</TableCell>
 									<TableCell>{categoryLabel(item.categoryId)}</TableCell>
 									<TableCell>{item.unit}</TableCell>
+									<TableCell>{item.reorderLevel ?? "—"}</TableCell>
 									<TableCell>
 										<Chip label={item.status} size="small" />
 									</TableCell>
@@ -131,6 +142,13 @@ export function ItemsPanel() {
 						<TextField label="Name" placeholder="A4 Paper Ream" value={name} onChange={(e) => setName(e.target.value)} required fullWidth />
 						<TextField label="Unit" placeholder="PCS" value={unit} onChange={(e) => setUnit(e.target.value)} required fullWidth />
 						<TextField label="Description" value={description} onChange={(e) => setDescription(e.target.value)} fullWidth />
+						<TextField
+							label="Reorder level (optional)"
+							type="number"
+							value={reorderLevel}
+							onChange={(e) => setReorderLevel(e.target.value)}
+							fullWidth
+						/>
 					</Stack>
 				</DialogContent>
 				<DialogActions>

@@ -11,6 +11,7 @@ import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 /**
  * Org-wide catalog entry, not campus-scoped - same catalog-vs-ledger split as
@@ -40,6 +41,12 @@ public class Item extends TenantScopedEntity {
 
 	/** Nullable. */
 	private String description;
+
+	/** Nullable - no threshold set by default. Purely a stored value today; low-stock
+	 * reporting/auto-suggestion against it is Milestone 8/6 scope, not this one. */
+	@Setter
+	@Column(name = "reorder_level")
+	private Integer reorderLevel;
 
 	@Enumerated(EnumType.STRING)
 	@Column(nullable = false, length = 20)

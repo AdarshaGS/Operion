@@ -55,7 +55,7 @@ class StockIssueLimitTest {
 
 		Campus campus = campusRepository.save(new Campus("Main Campus", "MAIN"));
 		ItemCategory category = itemCategoryRepository.save(new ItemCategory("STATIONERY", "Stationery", null));
-		Item item = inventoryService.createItem(category, "ITEM-001", "A4 Paper Ream", "REAM", null);
+		Item item = inventoryService.createItem(category, "ITEM-001", "A4 Paper Ream", "REAM", null, null);
 
 		return new Fixture(item, campus);
 	}
