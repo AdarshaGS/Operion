@@ -56,6 +56,7 @@ public class OrganisationProfileController {
 		configuration.setAddressLine2(request.addressLine2());
 		configuration.setCity(request.city());
 		configuration.setState(request.state());
+		configuration.setCountry(request.country());
 		configuration.setPincode(request.pincode());
 		configuration.setTaxIdentifier(request.taxIdentifier());
 		configurationRepository.save(configuration);

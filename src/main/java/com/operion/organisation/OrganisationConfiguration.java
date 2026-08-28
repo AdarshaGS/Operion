@@ -76,6 +76,8 @@ public class OrganisationConfiguration {
 
 	private String state;
 
+	private String country;
+
 	private String pincode;
 
 	@Column(name = "tax_identifier")
@@ -89,9 +91,10 @@ public class OrganisationConfiguration {
 	@Column(name = "updated_by")
 	private Long updatedBy;
 
-	public OrganisationConfiguration(Organisation organisation) {
+	/** {@code timezone} falls back to "Asia/Kolkata" when not supplied at provisioning time. */
+	public OrganisationConfiguration(Organisation organisation, String timezone) {
 		this.organisation = organisation;
-		this.timezone = "Asia/Kolkata";
+		this.timezone = timezone != null ? timezone : "Asia/Kolkata";
 		this.defaultCurrency = "INR";
 		this.dateFormat = "dd-MM-yyyy";
 		this.workingDaysMask = 0b0111111; // Monday-Saturday

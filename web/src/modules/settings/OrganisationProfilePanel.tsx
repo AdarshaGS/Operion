@@ -24,6 +24,7 @@ export function OrganisationProfilePanel() {
 	const [addressLine2, setAddressLine2] = useState("");
 	const [city, setCity] = useState("");
 	const [state, setState] = useState("");
+	const [country, setCountry] = useState("");
 	const [pincode, setPincode] = useState("");
 	const [taxIdentifier, setTaxIdentifier] = useState("");
 	const [error, setError] = useState<string | null>(null);
@@ -44,6 +45,7 @@ export function OrganisationProfilePanel() {
 				setAddressLine2(profile.addressLine2 ?? "");
 				setCity(profile.city ?? "");
 				setState(profile.state ?? "");
+				setCountry(profile.country ?? "");
 				setPincode(profile.pincode ?? "");
 				setTaxIdentifier(profile.taxIdentifier ?? "");
 			})
@@ -67,6 +69,7 @@ export function OrganisationProfilePanel() {
 				addressLine2: addressLine2 || null,
 				city: city || null,
 				state: state || null,
+				country: country || null,
 				pincode: pincode || null,
 				taxIdentifier: taxIdentifier || null,
 			});
@@ -119,6 +122,7 @@ export function OrganisationProfilePanel() {
 				<Box sx={{ display: "flex", gap: 2 }}>
 					<TextField label="City" value={city} onChange={(e) => setCity(e.target.value)} fullWidth />
 					<TextField label="State" value={state} onChange={(e) => setState(e.target.value)} fullWidth />
+					<TextField label="Country" value={country} onChange={(e) => setCountry(e.target.value)} fullWidth />
 					<TextField label="Pincode" value={pincode} onChange={(e) => setPincode(e.target.value)} fullWidth />
 				</Box>
 

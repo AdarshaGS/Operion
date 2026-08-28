@@ -6,6 +6,7 @@ import com.operion.authorization.OrganisationMembershipRepository;
 import com.operion.authorization.PermissionRepository;
 import com.operion.authorization.Role;
 import com.operion.authorization.RoleRepository;
+import com.operion.billing.BillingService;
 import com.operion.common.TenantContext;
 import com.operion.identity.Person;
 import com.operion.identity.PersonRepository;
@@ -29,6 +30,7 @@ public class OrganisationService {
 	private final CampusRepository campusRepository;
 	private final OrganisationConfigurationRepository configurationRepository;
 	private final OrganisationBrandingRepository brandingRepository;
+	private final AcademicYearRepository academicYearRepository;
 	private final RoleRepository roleRepository;
 	private final PermissionRepository permissionRepository;
 	private final UserRepository userRepository;
@@ -36,16 +38,19 @@ public class OrganisationService {
 	private final OrganisationMembershipRepository membershipRepository;
 	private final PasswordEncoder passwordEncoder;
 	private final AuditLogService auditLogService;
+	private final BillingService billingService;
 
 	public OrganisationService(OrganisationRepository organisationRepository, CampusRepository campusRepository,
 			OrganisationConfigurationRepository configurationRepository, OrganisationBrandingRepository brandingRepository,
-			RoleRepository roleRepository, PermissionRepository permissionRepository, UserRepository userRepository,
-			PersonRepository personRepository, OrganisationMembershipRepository membershipRepository,
-			PasswordEncoder passwordEncoder, AuditLogService auditLogService) {
+			AcademicYearRepository academicYearRepository, RoleRepository roleRepository,
+			PermissionRepository permissionRepository, UserRepository userRepository, PersonRepository personRepository,
+			OrganisationMembershipRepository membershipRepository, PasswordEncoder passwordEncoder,
+			AuditLogService auditLogService, BillingService billingService) {
 		this.organisationRepository = organisationRepository;
 		this.campusRepository = campusRepository;
 		this.configurationRepository = configurationRepository;
 		this.brandingRepository = brandingRepository;
+		this.academicYearRepository = academicYearRepository;
 		this.roleRepository = roleRepository;
 		this.permissionRepository = permissionRepository;
 		this.userRepository = userRepository;
@@ -53,6 +58,7 @@ public class OrganisationService {
 		this.membershipRepository = membershipRepository;
 		this.passwordEncoder = passwordEncoder;
 		this.auditLogService = auditLogService;
+		this.billingService = billingService;
 	}
 
 	// ponytail: not wrapped in one @Transactional - Hibernate resolves the tenant identifier
@@ -64,19 +70,49 @@ public class OrganisationService {
 	// correctly. Trade-off: provisioning isn't atomic across campus/config/roles - if that
 	// ever needs to be all-or-nothing, wrap phase two in its own @Transactional called through
 	// a self-injected proxy (or move it behind a queue/compensation step).
-	public Organisation provision(String name, String legalName, String slug, NewAdminAccount admin) {
-		Organisation organisation = organisationRepository.save(new Organisation(name, legalName, slug));
+	public Organisation provision(Organisation organisation, ProvisioningProfile profile, NewAdminAccount admin,
+			AcademicYearDetails academicYear, PlanSelection plan) {
+		organisation = organisationRepository.save(organisation);
 
 		TenantContext.set(organisation.getId(), null);
 		try {
-			campusRepository.save(new Campus(DEFAULT_CAMPUS_NAME, DEFAULT_CAMPUS_CODE));
-			configurationRepository.save(new OrganisationConfiguration(organisation));
+			Campus campus = new Campus(DEFAULT_CAMPUS_NAME, DEFAULT_CAMPUS_CODE);
+			campus.setAddressLine1(profile.addressLine1());
+			campus.setAddressLine2(profile.addressLine2());
+			campus.setCity(profile.city());
+			campus.setState(profile.state());
+			campus.setPincode(profile.pincode());
+			campusRepository.save(campus);
+
+			OrganisationConfiguration configuration = new OrganisationConfiguration(organisation, profile.timezone());
+			configuration.setPrimaryContactName(profile.primaryContactName());
+			configuration.setPrimaryContactEmail(profile.primaryContactEmail());
+			configuration.setPrimaryContactPhone(profile.primaryContactPhone());
+			configuration.setAddressLine1(profile.addressLine1());
+			configuration.setAddressLine2(profile.addressLine2());
+			configuration.setCity(profile.city());
+			configuration.setState(profile.state());
+			configuration.setCountry(profile.country());
+			configuration.setPincode(profile.pincode());
+			configurationRepository.save(configuration);
+
 			brandingRepository.save(new OrganisationBranding(organisation));
 			Role adminRole = seedDefaultRoles();
 			createAdminMembership(admin, adminRole);
+
+			if (academicYear != null) {
+				AcademicYear year = new AcademicYear(academicYear.name(), academicYear.startDate(), academicYear.endDate());
+				year.markCurrent();
+				academicYearRepository.save(year);
+			}
+
 			auditLogService.record("Organisation", organisation.getId(), "CREATE", null, organisation.getStatus());
 		} finally {
 			TenantContext.clear();
+		}
+
+		if (plan != null) {
+			billingService.subscribe(organisation.getId(), plan.planId(), plan.startDate());
 		}
 
 		return organisation;

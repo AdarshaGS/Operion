@@ -11,6 +11,7 @@ export interface OrganisationProfileResponse {
 	addressLine2: string | null;
 	city: string | null;
 	state: string | null;
+	country: string | null;
 	pincode: string | null;
 	taxIdentifier: string | null;
 }
