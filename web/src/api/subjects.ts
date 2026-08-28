@@ -3,14 +3,12 @@ import { api } from "./client";
 export interface CreateSubjectRequest {
 	name: string;
 	code: string;
-	elective: boolean;
 }
 
 export interface SubjectResponse {
 	id: number;
 	name: string;
 	code: string;
-	elective: boolean;
 	status: string;
 }
 

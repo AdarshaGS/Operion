@@ -10,7 +10,9 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-/** Catalog of subjects a school teaches, org-scoped, not year-scoped. */
+/** Catalog of subjects a school teaches, org-scoped, not year-scoped. Mandatory/elective
+ * is a per-class fact (see {@link ClassSubject#isMandatory()}), not a catalog one - a
+ * subject can be mandatory in one grade and elective in another - so it doesn't live here. */
 @Getter
 @Entity
 @Table(name = "subjects")
@@ -23,17 +25,13 @@ public class Subject extends TenantScopedEntity {
 	/** Nullable - short code like "MATH", not every school uses one. */
 	private String code;
 
-	@Column(name = "is_elective", nullable = false)
-	private boolean elective;
-
 	@Enumerated(EnumType.STRING)
 	@Column(nullable = false, length = 20)
 	private SubjectStatus status;
 
-	public Subject(String name, String code, boolean elective) {
+	public Subject(String name, String code) {
 		this.name = name;
 		this.code = code;
-		this.elective = elective;
 		this.status = SubjectStatus.ACTIVE;
 	}
 

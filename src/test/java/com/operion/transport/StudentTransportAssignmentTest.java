@@ -22,16 +22,24 @@ import com.operion.organisation.Campus;
 import com.operion.organisation.CampusRepository;
 import com.operion.organisation.Organisation;
 import com.operion.organisation.OrganisationRepository;
+import com.operion.audit.AuditLogRepository;
+import com.operion.audit.AuditLogService;
 import com.operion.student.Student;
+import com.operion.student.StudentDocumentRepository;
 import com.operion.student.StudentEnrollment;
+import com.operion.student.StudentEnrollmentRepository;
+import com.operion.student.StudentExitRepository;
+import com.operion.student.StudentRepository;
 import com.operion.student.StudentService;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * Proves TransportService's assignment rules: one ACTIVE StudentTransportAssignment
@@ -41,9 +49,11 @@ import org.springframework.transaction.annotation.Transactional;
  * enrollment up for a fresh assignment.
  */
 @DataJpaTest
-@Import({ MultiTenancyConfig.class, JpaConfig.class, StudentService.class, TransportService.class })
+@Import({ MultiTenancyConfig.class, JpaConfig.class, TransportService.class })
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class StudentTransportAssignmentTest {
+
+	private StudentService studentService;
 
 	@Autowired
 	private OrganisationRepository organisationRepository;
@@ -67,7 +77,19 @@ class StudentTransportAssignmentTest {
 	private PersonRepository personRepository;
 
 	@Autowired
-	private StudentService studentService;
+	private StudentRepository studentRepository;
+
+	@Autowired
+	private StudentEnrollmentRepository studentEnrollmentRepository;
+
+	@Autowired
+	private StudentDocumentRepository studentDocumentRepository;
+
+	@Autowired
+	private StudentExitRepository studentExitRepository;
+
+	@Autowired
+	private AuditLogRepository auditLogRepository;
 
 	@Autowired
 	private TransportService transportService;
@@ -77,6 +99,12 @@ class StudentTransportAssignmentTest {
 
 	@Autowired
 	private RouteStopRepository routeStopRepository;
+
+	@BeforeEach
+	void setUpStudentService() {
+		studentService = new StudentService(studentRepository, studentEnrollmentRepository, studentDocumentRepository,
+				studentExitRepository, new AuditLogService(auditLogRepository, new ObjectMapper()));
+	}
 
 	@AfterEach
 	void clearTenant() {

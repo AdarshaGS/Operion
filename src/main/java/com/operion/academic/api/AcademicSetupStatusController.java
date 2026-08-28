@@ -26,7 +26,7 @@ public class AcademicSetupStatusController {
 
 	@GetMapping
 	public AcademicSetupStatusResponse get() {
-		boolean configured = academicYearRepository.count() > 0 && schoolClassRepository.count() > 0;
+		boolean configured = academicYearRepository.existsByCurrentTrue() && schoolClassRepository.count() > 0;
 		return new AcademicSetupStatusResponse(configured);
 	}
 }

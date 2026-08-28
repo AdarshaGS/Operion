@@ -2,13 +2,11 @@ import { useEffect, useState, type FormEvent } from "react";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
-import Checkbox from "@mui/material/Checkbox";
 import Chip from "@mui/material/Chip";
 import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
-import FormControlLabel from "@mui/material/FormControlLabel";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Table from "@mui/material/Table";
@@ -29,7 +27,6 @@ export function SubjectsPanel() {
 	const [dialogOpen, setDialogOpen] = useState(false);
 	const [name, setName] = useState("");
 	const [code, setCode] = useState("");
-	const [elective, setElective] = useState(false);
 	const [submitting, setSubmitting] = useState(false);
 
 	function refresh() {
@@ -53,10 +50,9 @@ export function SubjectsPanel() {
 		event.preventDefault();
 		setSubmitting(true);
 		try {
-			await createSubject({ name, code, elective });
+			await createSubject({ name, code });
 			setName("");
 			setCode("");
-			setElective(false);
 			setDialogOpen(false);
 			refresh();
 		} catch (err) {
@@ -84,7 +80,6 @@ export function SubjectsPanel() {
 							<TableRow>
 								<TableCell>Name</TableCell>
 								<TableCell>Code</TableCell>
-								<TableCell>Elective</TableCell>
 								<TableCell>Status</TableCell>
 								<TableCell />
 							</TableRow>
@@ -94,7 +89,6 @@ export function SubjectsPanel() {
 								<TableRow key={subject.id}>
 									<TableCell>{subject.name}</TableCell>
 									<TableCell>{subject.code}</TableCell>
-									<TableCell>{subject.elective ? "Yes" : "No"}</TableCell>
 									<TableCell>
 										<Chip label={subject.status} size="small" />
 									</TableCell>
@@ -116,10 +110,6 @@ export function SubjectsPanel() {
 					<Stack spacing={2} sx={{ mt: 1 }}>
 						<TextField label="Name" placeholder="Mathematics" value={name} onChange={(e) => setName(e.target.value)} required autoFocus fullWidth />
 						<TextField label="Code" placeholder="MATH" value={code} onChange={(e) => setCode(e.target.value)} required fullWidth />
-						<FormControlLabel
-							control={<Checkbox checked={elective} onChange={(e) => setElective(e.target.checked)} />}
-							label="Elective"
-						/>
 					</Stack>
 				</DialogContent>
 				<DialogActions>
