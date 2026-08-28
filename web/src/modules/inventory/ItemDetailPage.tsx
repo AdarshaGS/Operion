@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
@@ -95,6 +95,41 @@ export function ItemDetailPage() {
 	}
 
 	useEffect(refreshAll, [itemId, campusId]);
+
+	type LedgerRow = { key: string; date: string; type: "ENTRY" | "ISSUE" | "ADJUSTMENT"; quantity: number; detail: string };
+
+	const ledger: LedgerRow[] = useMemo(() => {
+		const rows: LedgerRow[] = [
+			...entries.map((entry) => ({
+				key: `entry-${entry.id}`,
+				date: entry.entryDate,
+				type: "ENTRY" as const,
+				quantity: entry.quantity,
+				detail: entry.source ?? "—",
+			})),
+			...issues.map((issue) => ({
+				key: `issue-${issue.id}`,
+				date: issue.issuedDate,
+				type: "ISSUE" as const,
+				quantity: -issue.quantity,
+				detail: issue.issuedTo,
+			})),
+			...adjustments.map((adjustment) => ({
+				key: `adjustment-${adjustment.id}`,
+				date: adjustment.adjustmentDate,
+				type: "ADJUSTMENT" as const,
+				quantity: adjustment.quantityDelta,
+				detail: adjustment.reason,
+			})),
+		];
+		return rows.sort((a, b) => b.date.localeCompare(a.date));
+	}, [entries, issues, adjustments]);
+
+	const LEDGER_TYPE_COLOR: Record<LedgerRow["type"], "success" | "error" | "default"> = {
+		ENTRY: "success",
+		ISSUE: "error",
+		ADJUSTMENT: "default",
+	};
 
 	async function handleRecordEntry(event: FormEvent) {
 		event.preventDefault();
@@ -244,119 +279,53 @@ export function ItemDetailPage() {
 			</Paper>
 
 			{campusId && (
-				<>
-					<Paper sx={{ p: 3 }}>
-						<Stack spacing={2}>
-							<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-								<Typography variant="h6">Stock entries (receipts)</Typography>
+				<Paper sx={{ p: 3 }}>
+					<Stack spacing={2}>
+						<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 1 }}>
+							<Typography variant="h6">Stock ledger</Typography>
+							<Stack direction="row" spacing={1}>
 								<Button size="small" startIcon={<AddIcon />} onClick={() => setEntryDialogOpen(true)}>
 									Record entry
 								</Button>
-							</Box>
-
-							{entries.length === 0 && <Alert severity="info">No entries recorded.</Alert>}
-
-							{entries.length > 0 && (
-								<TableContainer>
-									<Table size="small">
-										<TableHead>
-											<TableRow>
-												<TableCell>Date</TableCell>
-												<TableCell>Quantity</TableCell>
-												<TableCell>Unit cost</TableCell>
-												<TableCell>Source</TableCell>
-											</TableRow>
-										</TableHead>
-										<TableBody>
-											{entries.map((entry) => (
-												<TableRow key={entry.id}>
-													<TableCell>{entry.entryDate}</TableCell>
-													<TableCell>{entry.quantity}</TableCell>
-													<TableCell>{entry.unitCost ?? "—"}</TableCell>
-													<TableCell>{entry.source ?? "—"}</TableCell>
-												</TableRow>
-											))}
-										</TableBody>
-									</Table>
-								</TableContainer>
-							)}
-						</Stack>
-					</Paper>
-
-					<Paper sx={{ p: 3 }}>
-						<Stack spacing={2}>
-							<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-								<Typography variant="h6">Stock issues</Typography>
 								<Button size="small" startIcon={<AddIcon />} onClick={() => setIssueDialogOpen(true)}>
 									Record issue
 								</Button>
-							</Box>
-
-							{issues.length === 0 && <Alert severity="info">No issues recorded.</Alert>}
-
-							{issues.length > 0 && (
-								<TableContainer>
-									<Table size="small">
-										<TableHead>
-											<TableRow>
-												<TableCell>Date</TableCell>
-												<TableCell>Quantity</TableCell>
-												<TableCell>Issued to</TableCell>
-												<TableCell>Purpose</TableCell>
-											</TableRow>
-										</TableHead>
-										<TableBody>
-											{issues.map((issue) => (
-												<TableRow key={issue.id}>
-													<TableCell>{issue.issuedDate}</TableCell>
-													<TableCell>{issue.quantity}</TableCell>
-													<TableCell>{issue.issuedTo}</TableCell>
-													<TableCell>{issue.purpose ?? "—"}</TableCell>
-												</TableRow>
-											))}
-										</TableBody>
-									</Table>
-								</TableContainer>
-							)}
-						</Stack>
-					</Paper>
-
-					<Paper sx={{ p: 3 }}>
-						<Stack spacing={2}>
-							<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-								<Typography variant="h6">Stock adjustments</Typography>
 								<Button size="small" startIcon={<AddIcon />} onClick={() => setAdjustmentDialogOpen(true)}>
 									Record adjustment
 								</Button>
-							</Box>
+							</Stack>
+						</Box>
 
-							{adjustments.length === 0 && <Alert severity="info">No adjustments recorded.</Alert>}
+						{ledger.length === 0 && <Alert severity="info">No stock movements recorded.</Alert>}
 
-							{adjustments.length > 0 && (
-								<TableContainer>
-									<Table size="small">
-										<TableHead>
-											<TableRow>
-												<TableCell>Date</TableCell>
-												<TableCell>Delta</TableCell>
-												<TableCell>Reason</TableCell>
+						{ledger.length > 0 && (
+							<TableContainer>
+								<Table size="small">
+									<TableHead>
+										<TableRow>
+											<TableCell>Date</TableCell>
+											<TableCell>Type</TableCell>
+											<TableCell>Quantity</TableCell>
+											<TableCell>Detail</TableCell>
+										</TableRow>
+									</TableHead>
+									<TableBody>
+										{ledger.map((row) => (
+											<TableRow key={row.key}>
+												<TableCell>{row.date}</TableCell>
+												<TableCell>
+													<Chip label={row.type} size="small" color={LEDGER_TYPE_COLOR[row.type]} />
+												</TableCell>
+												<TableCell>{row.quantity > 0 ? `+${row.quantity}` : row.quantity}</TableCell>
+												<TableCell>{row.detail}</TableCell>
 											</TableRow>
-										</TableHead>
-										<TableBody>
-											{adjustments.map((adjustment) => (
-												<TableRow key={adjustment.id}>
-													<TableCell>{adjustment.adjustmentDate}</TableCell>
-													<TableCell>{adjustment.quantityDelta}</TableCell>
-													<TableCell>{adjustment.reason}</TableCell>
-												</TableRow>
-											))}
-										</TableBody>
-									</Table>
-								</TableContainer>
-							)}
-						</Stack>
-					</Paper>
-				</>
+										))}
+									</TableBody>
+								</Table>
+							</TableContainer>
+						)}
+					</Stack>
+				</Paper>
 			)}
 
 			<Dialog open={entryDialogOpen} onClose={() => setEntryDialogOpen(false)} component="form" onSubmit={handleRecordEntry} fullWidth maxWidth="xs">

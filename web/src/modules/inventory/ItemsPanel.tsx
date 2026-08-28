@@ -1,13 +1,15 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
+import Checkbox from "@mui/material/Checkbox";
 import Chip from "@mui/material/Chip";
 import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
+import FormControlLabel from "@mui/material/FormControlLabel";
 import MenuItem from "@mui/material/MenuItem";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
@@ -20,14 +22,19 @@ import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import AddIcon from "@mui/icons-material/Add";
+import { listCampuses, type CampusResponse } from "../../api/campuses";
 import { ApiError } from "../../api/client";
 import { listItemCategories, type ItemCategoryResponse } from "../../api/itemCategories";
-import { createItem, listItems, type ItemResponse } from "../../api/items";
+import { createItem, listItems, listLowStockItems, type ItemResponse } from "../../api/items";
 
 export function ItemsPanel() {
 	const navigate = useNavigate();
 	const [items, setItems] = useState<ItemResponse[]>([]);
 	const [categories, setCategories] = useState<ItemCategoryResponse[]>([]);
+	const [campuses, setCampuses] = useState<CampusResponse[]>([]);
+	const [campusId, setCampusId] = useState("");
+	const [lowStockIds, setLowStockIds] = useState<Set<number>>(new Set());
+	const [showLowStockOnly, setShowLowStockOnly] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [dialogOpen, setDialogOpen] = useState(false);
 	const [categoryId, setCategoryId] = useState("");
@@ -48,6 +55,23 @@ export function ItemsPanel() {
 	useEffect(() => {
 		listItemCategories().then(setCategories).catch(() => {});
 	}, []);
+	useEffect(() => {
+		listCampuses().then(setCampuses).catch(() => {});
+	}, []);
+	useEffect(() => {
+		if (!campusId) {
+			setLowStockIds(new Set());
+			return;
+		}
+		listLowStockItems(Number(campusId))
+			.then((lowStock) => setLowStockIds(new Set(lowStock.map((item) => item.id))))
+			.catch(() => setLowStockIds(new Set()));
+	}, [campusId]);
+
+	const visibleItems = useMemo(
+		() => (showLowStockOnly ? items.filter((item) => lowStockIds.has(item.id)) : items),
+		[items, showLowStockOnly, lowStockIds],
+	);
 
 	function categoryLabel(id: number): string {
 		return categories.find((c) => c.id === id)?.name ?? `Category #${id}`;
@@ -97,6 +121,34 @@ export function ItemsPanel() {
 
 				{error && <Alert severity="error">{error}</Alert>}
 
+				<Box sx={{ display: "flex", gap: 2, alignItems: "center", flexWrap: "wrap" }}>
+					<TextField
+						select
+						label="Campus (for low-stock check)"
+						value={campusId}
+						onChange={(e) => setCampusId(e.target.value)}
+						size="small"
+						sx={{ minWidth: 250 }}
+					>
+						<MenuItem value="">None</MenuItem>
+						{campuses.map((campus) => (
+							<MenuItem key={campus.id} value={campus.id}>
+								{campus.name}
+							</MenuItem>
+						))}
+					</TextField>
+					<FormControlLabel
+						control={
+							<Checkbox
+								checked={showLowStockOnly}
+								onChange={(e) => setShowLowStockOnly(e.target.checked)}
+								disabled={!campusId}
+							/>
+						}
+						label="Low stock only"
+					/>
+				</Box>
+
 				<TableContainer>
 					<Table size="small">
 						<TableHead>
@@ -110,7 +162,7 @@ export function ItemsPanel() {
 							</TableRow>
 						</TableHead>
 						<TableBody>
-							{items.map((item) => (
+							{visibleItems.map((item) => (
 								<TableRow key={item.id} hover onClick={() => navigate(`/inventory/items/${item.id}`)} sx={{ cursor: "pointer" }}>
 									<TableCell>{item.code}</TableCell>
 									<TableCell>{item.name}</TableCell>
@@ -118,7 +170,10 @@ export function ItemsPanel() {
 									<TableCell>{item.unit}</TableCell>
 									<TableCell>{item.reorderLevel ?? "—"}</TableCell>
 									<TableCell>
-										<Chip label={item.status} size="small" />
+										<Stack direction="row" spacing={1}>
+											<Chip label={item.status} size="small" />
+											{lowStockIds.has(item.id) && <Chip label="Low stock" color="warning" size="small" />}
+										</Stack>
 									</TableCell>
 								</TableRow>
 							))}

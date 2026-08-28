@@ -2,6 +2,9 @@ package com.operion.inventory;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 import com.operion.organisation.Campus;
 import org.springframework.stereotype.Service;
@@ -58,6 +61,36 @@ public class InventoryService {
 		int issued = stockIssueRepository.sumQuantityByItemIdAndCampusId(item.getId(), campus.getId());
 		int adjusted = stockAdjustmentRepository.sumQuantityDeltaByItemIdAndCampusId(item.getId(), campus.getId());
 		return received - issued + adjusted;
+	}
+
+	/**
+	 * Items with a reorder level set whose computed balance at the campus is at or
+	 * below it. Balances for every active item are computed from three grouped-sum
+	 * queries (one per stock table) rather than per-item lookups, so this stays a
+	 * fixed number of queries regardless of catalog size.
+	 */
+	public List<LowStockItem> getLowStockItems(Campus campus) {
+		Map<Long, Integer> received = sumsByItemId(stockEntryRepository.sumQuantityByCampusIdGroupedByItem(campus.getId()));
+		Map<Long, Integer> issued = sumsByItemId(stockIssueRepository.sumQuantityByCampusIdGroupedByItem(campus.getId()));
+		Map<Long, Integer> adjusted = sumsByItemId(stockAdjustmentRepository.sumQuantityDeltaByCampusIdGroupedByItem(campus.getId()));
+
+		return itemRepository.findByStatus(ItemStatus.ACTIVE).stream()
+				.filter(item -> item.getReorderLevel() != null)
+				.map(item -> {
+					int balance = received.getOrDefault(item.getId(), 0) - issued.getOrDefault(item.getId(), 0)
+							+ adjusted.getOrDefault(item.getId(), 0);
+					return new LowStockItem(item, balance);
+				})
+				.filter(lowStockItem -> lowStockItem.balance() <= lowStockItem.item().getReorderLevel())
+				.toList();
+	}
+
+	private Map<Long, Integer> sumsByItemId(List<Object[]> rows) {
+		Map<Long, Integer> sums = new HashMap<>();
+		for (Object[] row : rows) {
+			sums.put((Long) row[0], ((Number) row[1]).intValue());
+		}
+		return sums;
 	}
 
 	public StockEntry recordEntry(Item item, Campus campus, int quantity, BigDecimal unitCost, LocalDate entryDate, String source, String remarks) {

@@ -26,6 +26,16 @@ export interface BalanceResponse {
 	balance: number;
 }
 
+export interface LowStockItemResponse {
+	id: number;
+	categoryId: number;
+	code: string;
+	name: string;
+	unit: string;
+	reorderLevel: number | null;
+	balance: number;
+}
+
 export function createItem(request: CreateItemRequest): Promise<ItemResponse> {
 	return api.post<ItemResponse>("/api/v1/inventory/items", request);
 }
@@ -40,4 +50,8 @@ export function getItemBalance(itemId: number, campusId: number): Promise<Balanc
 
 export function updateItemReorderLevel(itemId: number, reorderLevel: number | null): Promise<ItemResponse> {
 	return api.post<ItemResponse>(`/api/v1/inventory/items/${itemId}/reorder-level`, { reorderLevel });
+}
+
+export function listLowStockItems(campusId: number): Promise<LowStockItemResponse[]> {
+	return api.get<LowStockItemResponse[]>(`/api/v1/inventory/items/low-stock?campusId=${campusId}`);
 }

@@ -12,4 +12,7 @@ public interface StockAdjustmentRepository extends JpaRepository<StockAdjustment
 
 	@Query("SELECT COALESCE(SUM(a.quantityDelta), 0) FROM StockAdjustment a WHERE a.item.id = :itemId AND a.campus.id = :campusId")
 	int sumQuantityDeltaByItemIdAndCampusId(@Param("itemId") Long itemId, @Param("campusId") Long campusId);
+
+	@Query("SELECT a.item.id, COALESCE(SUM(a.quantityDelta), 0) FROM StockAdjustment a WHERE a.campus.id = :campusId GROUP BY a.item.id")
+	List<Object[]> sumQuantityDeltaByCampusIdGroupedByItem(@Param("campusId") Long campusId);
 }

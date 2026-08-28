@@ -64,6 +64,12 @@ public class ItemController {
 		return ItemResponse.from(inventoryService.updateReorderLevel(findItem(id), request.reorderLevel()));
 	}
 
+	@GetMapping("/low-stock")
+	public List<LowStockItemResponse> lowStock(@RequestParam Long campusId) {
+		Campus campus = campusRepository.findById(campusId).orElseThrow(() -> new IllegalArgumentException("No campus with id " + campusId));
+		return inventoryService.getLowStockItems(campus).stream().map(LowStockItemResponse::from).toList();
+	}
+
 	@GetMapping("/{id}/balance")
 	public BalanceResponse balance(@PathVariable Long id, @RequestParam Long campusId) {
 		Item item = findItem(id);

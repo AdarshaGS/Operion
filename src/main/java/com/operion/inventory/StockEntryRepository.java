@@ -12,4 +12,7 @@ public interface StockEntryRepository extends JpaRepository<StockEntry, Long> {
 
 	@Query("SELECT COALESCE(SUM(e.quantity), 0) FROM StockEntry e WHERE e.item.id = :itemId AND e.campus.id = :campusId")
 	int sumQuantityByItemIdAndCampusId(@Param("itemId") Long itemId, @Param("campusId") Long campusId);
+
+	@Query("SELECT e.item.id, COALESCE(SUM(e.quantity), 0) FROM StockEntry e WHERE e.campus.id = :campusId GROUP BY e.item.id")
+	List<Object[]> sumQuantityByCampusIdGroupedByItem(@Param("campusId") Long campusId);
 }
