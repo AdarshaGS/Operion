@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
+import java.util.List;
 
 import com.operion.attendance.AttendanceStatus;
 import com.operion.attendance.StudentAttendanceRepository;
@@ -19,6 +20,7 @@ import com.operion.finance.InvoiceRepository;
 import com.operion.finance.InvoiceStatus;
 import com.operion.hr.StaffProfileRepository;
 import com.operion.hr.StaffProfileStatus;
+import com.operion.inventory.InventoryService;
 import com.operion.inventory.ItemCategoryRepository;
 import com.operion.inventory.ItemRepository;
 import com.operion.inventory.ItemStatus;
@@ -29,6 +31,9 @@ import com.operion.library.BorrowStatus;
 import com.operion.organisation.CampusRepository;
 import com.operion.organisation.DepartmentRepository;
 import com.operion.organisation.DesignationRepository;
+import com.operion.purchase.PurchaseOrderRepository;
+import com.operion.purchase.PurchaseOrderStatus;
+import com.operion.sales.SaleRepository;
 import com.operion.student.StudentRepository;
 import com.operion.student.StudentStatus;
 import com.operion.transport.RouteRepository;
@@ -74,6 +79,9 @@ public class DashboardController {
 	private final AnnouncementRepository announcementRepository;
 	private final RoleRepository roleRepository;
 	private final OrganisationMembershipRepository membershipRepository;
+	private final SaleRepository saleRepository;
+	private final PurchaseOrderRepository purchaseOrderRepository;
+	private final InventoryService inventoryService;
 
 	public DashboardController(StudentRepository studentRepository, CampusRepository campusRepository,
 			StudentAttendanceRepository studentAttendanceRepository, InvoiceRepository invoiceRepository,
@@ -82,7 +90,8 @@ public class DashboardController {
 			BorrowRecordRepository borrowRecordRepository, VehicleRepository vehicleRepository, RouteRepository routeRepository,
 			StudentTransportAssignmentRepository studentTransportAssignmentRepository, ItemRepository itemRepository,
 			ItemCategoryRepository itemCategoryRepository, AnnouncementRepository announcementRepository,
-			RoleRepository roleRepository, OrganisationMembershipRepository membershipRepository) {
+			RoleRepository roleRepository, OrganisationMembershipRepository membershipRepository, SaleRepository saleRepository,
+			PurchaseOrderRepository purchaseOrderRepository, InventoryService inventoryService) {
 		this.studentRepository = studentRepository;
 		this.campusRepository = campusRepository;
 		this.studentAttendanceRepository = studentAttendanceRepository;
@@ -101,6 +110,9 @@ public class DashboardController {
 		this.announcementRepository = announcementRepository;
 		this.roleRepository = roleRepository;
 		this.membershipRepository = membershipRepository;
+		this.saleRepository = saleRepository;
+		this.purchaseOrderRepository = purchaseOrderRepository;
+		this.inventoryService = inventoryService;
 	}
 
 	@GetMapping("/summary")
@@ -119,9 +131,11 @@ public class DashboardController {
 				new ExaminationSummary(examRepository.countByStatus(ExamStatus.ACTIVE)),
 				library(),
 				transport(),
-				new InventorySummary(itemRepository.countByStatus(ItemStatus.ACTIVE), itemCategoryRepository.count()),
+				new InventorySummary(itemRepository.countByStatus(ItemStatus.ACTIVE), itemCategoryRepository.count(), lowStockItemCount()),
 				new CommunicationSummary(announcementRepository.countByStatusAndPublishedAtAfter(
 						AnnouncementStatus.PUBLISHED, startOfThisMonth())),
+				sales(),
+				purchase(),
 				new SetupChecklist(departments > 0 && designations > 0, totalRoles > DEFAULT_ROLE_COUNT, activeMembers > 1,
 						activeStudents > 0));
 	}
@@ -157,6 +171,24 @@ public class DashboardController {
 		return new TransportSummary(vehicleRepository.countByStatus(VehicleStatus.ACTIVE),
 				routeRepository.countByStatus(RouteStatus.ACTIVE),
 				studentTransportAssignmentRepository.countByStatus(TransportAssignmentStatus.ACTIVE));
+	}
+
+	private SalesSummary sales() {
+		LocalDate today = LocalDate.now();
+		return new SalesSummary(saleRepository.sumTotalAmountBySaleDate(today),
+				saleRepository.sumTotalAmountBySaleDateGreaterThanEqual(today.withDayOfMonth(1)));
+	}
+
+	private PurchaseSummary purchase() {
+		return new PurchaseSummary(
+				purchaseOrderRepository.countByStatusNotIn(List.of(PurchaseOrderStatus.RECEIVED, PurchaseOrderStatus.CANCELLED)));
+	}
+
+	/** Reuses InventoryService.getLowStockItems() (the real balance/reorder-level logic) per active
+	 * campus rather than re-deriving the same arithmetic here - campus counts are small enough that
+	 * looping is cheaper than maintaining a second copy of that calculation. */
+	private long lowStockItemCount() {
+		return campusRepository.findAll().stream().mapToLong(campus -> inventoryService.getLowStockItems(campus).size()).sum();
 	}
 
 	private static Instant startOfThisMonth() {

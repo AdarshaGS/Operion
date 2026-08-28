@@ -28,6 +28,7 @@ import Inventory2Icon from "@mui/icons-material/Inventory2";
 import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
 import PointOfSaleIcon from "@mui/icons-material/PointOfSale";
 import BadgeIcon from "@mui/icons-material/Badge";
+import AssessmentIcon from "@mui/icons-material/Assessment";
 import SettingsIcon from "@mui/icons-material/Settings";
 import { useAuth } from "../auth/AuthContext";
 import { ProfileMenu } from "./ProfileMenu";
@@ -80,6 +81,7 @@ const NAV_ITEMS: NavItem[] = [
 	{ label: "Purchase", path: "/purchase", icon: <ShoppingCartIcon />, built: true, requiredPermissions: ["PURCHASE_VIEW"] },
 	{ label: "Sales", path: "/sales", icon: <PointOfSaleIcon />, built: true, requiredPermissions: ["SALES_VIEW"] },
 	{ label: "HR", path: "/hr", icon: <BadgeIcon />, built: true, requiredPermissions: ["HR_VIEW"] },
+	{ label: "Reports", path: "/reports", icon: <AssessmentIcon />, built: true, requiredPermissions: ["REPORT_CREATE", "REPORT_MANAGE"] },
 ];
 
 /** Foundation-owned config (Campus/AcademicYear), not a domain module - kept in its own

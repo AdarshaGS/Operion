@@ -53,7 +53,13 @@ public class PermissionInterceptor implements HandlerInterceptor {
 			return true;
 		}
 
+		// ALL_FUNCTIONS (GitHub #200) is the assignable-to-any-role equivalent of the Owner
+		// bypass above - lets an org grant a *custom* role blanket admin access via the
+		// normal Role -> Permission chain, without needing to be the fixed Owner membership.
 		Set<String> grantedCodes = membershipRepository.findActivePermissionCodesForUser(actorId);
+		if (grantedCodes.contains("ALL_FUNCTIONS")) {
+			return true;
+		}
 		if (!grantedCodes.contains(required.value())) {
 			throw new AuthorizationDeniedException("Missing required permission: " + required.value());
 		}

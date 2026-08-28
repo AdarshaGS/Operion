@@ -27,6 +27,8 @@ import { BookDetailPage } from "./modules/library/BookDetailPage";
 import { LibraryPage } from "./modules/library/LibraryPage";
 import { PurchaseOrderDetailPage } from "./modules/purchase/PurchaseOrderDetailPage";
 import { PurchasePage } from "./modules/purchase/PurchasePage";
+import { ReportDetailPage } from "./modules/reporting/ReportDetailPage";
+import { ReportsPage } from "./modules/reporting/ReportsPage";
 import { CustomerHistoryPage } from "./modules/sales/CustomerHistoryPage";
 import { SaleDetailPage } from "./modules/sales/SaleDetailPage";
 import { SalesPage } from "./modules/sales/SalesPage";
@@ -86,6 +88,8 @@ function App() {
 							<Route path="/inventory/items/:itemId" element={<ItemDetailPage />} />
 							<Route path="/purchase" element={<PurchasePage />} />
 							<Route path="/purchase/orders/:orderId" element={<PurchaseOrderDetailPage />} />
+							<Route path="/reports" element={<ReportsPage />} />
+							<Route path="/reports/:reportId" element={<ReportDetailPage />} />
 							<Route path="/sales" element={<SalesPage />} />
 							<Route path="/sales/:saleId" element={<SaleDetailPage />} />
 							<Route path="/sales/customers/:customerId" element={<CustomerHistoryPage />} />

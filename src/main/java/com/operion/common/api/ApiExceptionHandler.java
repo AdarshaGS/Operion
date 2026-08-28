@@ -7,6 +7,7 @@ import com.operion.finance.PaymentGatewayException;
 import com.operion.finance.WebhookVerificationException;
 import com.operion.identity.auth.AuthenticationFailedException;
 import com.operion.platform.auth.PlatformAuthenticationFailedException;
+import com.operion.reporting.ReportExecutionException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -73,6 +74,11 @@ class ApiExceptionHandler {
 	@ExceptionHandler(AuthorizationDeniedException.class)
 	ResponseEntity<Map<String, String>> forbidden(AuthorizationDeniedException ex) {
 		return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", ex.getMessage()));
+	}
+
+	@ExceptionHandler(ReportExecutionException.class)
+	ResponseEntity<Map<String, String>> reportExecutionFailed(ReportExecutionException ex) {
+		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", ex.getMessage()));
 	}
 
 	/** Catch-all for anything not mapped above - an uncaught bug must still return the
