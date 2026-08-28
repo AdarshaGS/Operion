@@ -25,7 +25,9 @@ export function LoginPage() {
 	const [submitting, setSubmitting] = useState(false);
 
 	if (isAuthenticated) {
-		const redirectTo = (location.state as { from?: string } | null)?.from ?? "/students";
+		// "/" (not a hardcoded module) so IndexRedirect's own ORGANISATION_MANAGE-aware
+		// logic decides Dashboard vs Students - see the comment on the navigate() call below.
+		const redirectTo = (location.state as { from?: string } | null)?.from ?? "/";
 		return <Navigate to={redirectTo} replace />;
 	}
 
@@ -38,7 +40,9 @@ export function LoginPage() {
 			// suggestion is tapped (seen on org slug in the wild) - trim defensively rather
 			// than trust every mobile browser/keyboard combination to behave.
 			await login(organisationSlug.trim(), email.trim(), password);
-			navigate("/students", { replace: true });
+			// "/" rather than a hardcoded module - IndexRedirect decides Dashboard (anyone
+			// with ORGANISATION_MANAGE) vs Students (everyone else), see IndexRedirect.tsx.
+			navigate("/", { replace: true });
 		} catch (err) {
 			setError(err instanceof ApiError ? err.message : "Login failed - please try again");
 		} finally {
