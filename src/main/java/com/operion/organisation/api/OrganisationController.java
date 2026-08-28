@@ -1,7 +1,6 @@
 package com.operion.organisation.api;
 
 import com.operion.authorization.RequirePermission;
-import com.operion.organisation.NewAdminAccount;
 import com.operion.organisation.Organisation;
 import com.operion.organisation.OrganisationService;
 import com.operion.organisation.OrganisationStatus;
@@ -36,9 +35,8 @@ public class OrganisationController {
 
 	@PostMapping
 	public OrganisationResponse create(@RequestBody CreateOrganisationRequest request) {
-		NewAdminAccount admin = new NewAdminAccount(
-				request.adminEmail(), request.adminPassword(), request.adminFirstName(), request.adminLastName());
-		Organisation organisation = organisationService.provision(request.name(), request.legalName(), request.slug(), admin);
+		Organisation organisation = organisationService.provision(request.toOrganisation(), request.toProfile(),
+				request.toAdminAccount(), request.toAcademicYearDetails(), request.toPlanSelection());
 		return OrganisationResponse.from(organisation);
 	}
 

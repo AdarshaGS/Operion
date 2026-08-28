@@ -6,6 +6,9 @@ export interface OrganisationResponse {
 	legalName: string;
 	slug: string;
 	status: string;
+	organisationType: string;
+	board: string | null;
+	schoolCode: string | null;
 }
 
 export interface CreateOrganisationRequest {
@@ -16,6 +19,24 @@ export interface CreateOrganisationRequest {
 	adminPassword: string;
 	adminFirstName: string;
 	adminLastName: string;
+	organisationType?: string | null;
+	board?: string | null;
+	schoolCode?: string | null;
+	primaryContactName?: string | null;
+	primaryContactEmail?: string | null;
+	primaryContactPhone?: string | null;
+	addressLine1?: string | null;
+	addressLine2?: string | null;
+	city?: string | null;
+	state?: string | null;
+	country?: string | null;
+	pincode?: string | null;
+	timezone?: string | null;
+	academicYearName?: string | null;
+	academicYearStartDate?: string | null;
+	academicYearEndDate?: string | null;
+	planId?: number | null;
+	planStartDate?: string | null;
 }
 
 export function listOrganisations(): Promise<OrganisationResponse[]> {

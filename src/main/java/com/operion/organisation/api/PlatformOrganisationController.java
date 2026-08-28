@@ -2,7 +2,6 @@ package com.operion.organisation.api;
 
 import java.util.List;
 
-import com.operion.organisation.NewAdminAccount;
 import com.operion.organisation.Organisation;
 import com.operion.organisation.OrganisationRepository;
 import com.operion.organisation.OrganisationService;
@@ -49,9 +48,8 @@ public class PlatformOrganisationController {
 
 	@PostMapping
 	public OrganisationResponse create(@RequestBody CreateOrganisationRequest request) {
-		NewAdminAccount admin = new NewAdminAccount(
-				request.adminEmail(), request.adminPassword(), request.adminFirstName(), request.adminLastName());
-		Organisation organisation = organisationService.provision(request.name(), request.legalName(), request.slug(), admin);
+		Organisation organisation = organisationService.provision(request.toOrganisation(), request.toProfile(),
+				request.toAdminAccount(), request.toAcademicYearDetails(), request.toPlanSelection());
 		return OrganisationResponse.from(organisation);
 	}
 

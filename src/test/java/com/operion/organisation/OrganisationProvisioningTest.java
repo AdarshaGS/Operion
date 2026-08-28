@@ -7,6 +7,7 @@ import com.operion.audit.AuditLogService;
 import com.operion.authorization.OrganisationMembershipRepository;
 import com.operion.authorization.PermissionRepository;
 import com.operion.authorization.RoleRepository;
+import com.operion.billing.BillingService;
 import com.operion.common.JpaConfig;
 import com.operion.common.MultiTenancyConfig;
 import com.operion.common.TenantContext;
@@ -33,7 +34,7 @@ import tools.jackson.databind.ObjectMapper;
  * OrganisationService is constructed by hand rather than pulled in via @Import.
  */
 @DataJpaTest
-@Import({ MultiTenancyConfig.class, JpaConfig.class })
+@Import({ MultiTenancyConfig.class, JpaConfig.class, BillingService.class })
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class OrganisationProvisioningTest {
 
@@ -46,6 +47,8 @@ class OrganisationProvisioningTest {
 	@Autowired
 	private OrganisationBrandingRepository brandingRepository;
 	@Autowired
+	private AcademicYearRepository academicYearRepository;
+	@Autowired
 	private RoleRepository roleRepository;
 	@Autowired
 	private PermissionRepository permissionRepository;
@@ -57,12 +60,17 @@ class OrganisationProvisioningTest {
 	private OrganisationMembershipRepository membershipRepository;
 	@Autowired
 	private AuditLogRepository auditLogRepository;
+	@Autowired
+	private BillingService billingService;
+
+	static final ProvisioningProfile NO_PROFILE =
+			new ProvisioningProfile(null, null, null, null, null, null, null, null, null, null);
 
 	private OrganisationService organisationService() {
 		AuditLogService auditLogService = new AuditLogService(auditLogRepository, new ObjectMapper());
 		return new OrganisationService(organisationRepository, campusRepository, configurationRepository, brandingRepository,
-				roleRepository, permissionRepository, userRepository, personRepository, membershipRepository,
-				new BCryptPasswordEncoder(), auditLogService);
+				academicYearRepository, roleRepository, permissionRepository, userRepository, personRepository, membershipRepository,
+				new BCryptPasswordEncoder(), auditLogService, billingService);
 	}
 
 	@AfterEach
@@ -80,8 +88,10 @@ class OrganisationProvisioningTest {
 		String adminEmail = "shared-admin-" + System.nanoTime() + "@example.com";
 		NewAdminAccount admin = new NewAdminAccount(adminEmail, "Password123!", "Adarsha", "GS");
 
-		Organisation orgA = organisationService.provision("School A", "School A Trust", "school-a-" + System.nanoTime(), admin);
-		Organisation orgB = organisationService.provision("School B", "School B Trust", "school-b-" + System.nanoTime(), admin);
+		Organisation orgA = organisationService.provision(
+				new Organisation("School A", "School A Trust", "school-a-" + System.nanoTime()), NO_PROFILE, admin, null, null);
+		Organisation orgB = organisationService.provision(
+				new Organisation("School B", "School B Trust", "school-b-" + System.nanoTime()), NO_PROFILE, admin, null, null);
 
 		assertThat(orgA.getId()).isNotEqualTo(orgB.getId());
 

@@ -37,11 +37,27 @@ public class Organisation extends BaseEntity {
 	@Column(nullable = false, length = 20)
 	private OrganisationStatus status;
 
+	@Setter
+	@Enumerated(EnumType.STRING)
+	@Column(name = "organisation_type", nullable = false, length = 20)
+	private OrganisationType organisationType;
+
+	@Setter
+	@Enumerated(EnumType.STRING)
+	@Column(length = 20)
+	private SchoolBoard board;
+
+	/** Official registration/affiliation number - distinct from {@link #slug}, a URL identifier. */
+	@Setter
+	@Column(name = "school_code", unique = true)
+	private String schoolCode;
+
 	public Organisation(String name, String legalName, String slug) {
 		this.name = name;
 		this.legalName = legalName;
 		this.slug = slug;
 		this.status = OrganisationStatus.TRIAL;
+		this.organisationType = OrganisationType.SCHOOL;
 	}
 
 	/** Only path by which status changes - no restricted transition map, any status can move to any other. */
