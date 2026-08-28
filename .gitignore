@@ -39,6 +39,11 @@ out/
 ### graphify ###
 graphify-out/
 
+### Local asset storage (LocalDiskAssetStorageService default dir) ###
+/data/uploads/
+
 ### macOS ###
 .DS_Store
 .claude/
+/node_modules/
+/e2e/node_modules/

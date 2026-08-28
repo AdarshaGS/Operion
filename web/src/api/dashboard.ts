@@ -57,7 +57,9 @@ export interface SetupChecklist {
 	structureConfigured: boolean;
 	rolesConfigured: boolean;
 	membersAdded: boolean;
-	industryDataAdded: boolean;
+	academicSetupConfigured: boolean;
+	studentsAdded: boolean;
+	feesConfigured: boolean;
 }
 
 export interface DashboardSummaryResponse {

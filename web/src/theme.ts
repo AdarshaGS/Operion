@@ -1,33 +1,33 @@
 import { createTheme } from "@mui/material/styles";
 
 /**
- * Design language: the school register — ruled ledger paper, fountain-pen ink, a
- * stamp-crimson accent used sparingly. Headings and anything tabular (money, roll
- * numbers, dates) use a monospace face, echoing a ledger's ruled columns; running text
- * stays on a plain sans for legibility in dense forms and tables.
+ * Design language: clean SaaS card UI — light neutral background, white surfaces,
+ * navy-ink text, a single crimson accent used for primary actions and active state.
+ * One sans face throughout; no monospace ledger styling.
  */
 export const colors = {
-	paper: "#EEEFE7",
-	paperRaised: "#F8F8F3",
-	paperSunken: "#E3E5DA",
+	paper: "#F4F5F8",
+	paperRaised: "#FFFFFF",
+	paperSunken: "#EEF0F4",
 	ink: "#16233A",
 	inkSoft: "#4B5A6E",
 	inkFaint: "#8B97A0",
-	rule: "#C9D0C7",
+	rule: "#E3E6EC",
 	ruleStrong: "#5C7A99",
 	accent: "#A32638",
 	accentStrong: "#7E1E2B",
-	accentInk: "#FFF7F2",
+	accentSoft: "rgba(163,38,56,0.08)",
+	accentInk: "#FFFFFF",
 	ok: "#2F7A4F",
-	okBg: "rgba(47,122,79,0.13)",
+	okBg: "rgba(47,122,79,0.12)",
 	warn: "#97661B",
-	warnBg: "rgba(151,102,27,0.15)",
+	warnBg: "rgba(151,102,27,0.14)",
 	bad: "#A32638",
-	badBg: "rgba(163,38,56,0.12)",
+	badBg: "rgba(163,38,56,0.10)",
 };
 
-export const fontDisplay = 'ui-monospace, "SF Mono", "Cascadia Code", "Courier New", monospace';
 export const fontBody = '-apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
+export const fontDisplay = fontBody;
 
 export const theme = createTheme({
 	palette: {
@@ -41,19 +41,19 @@ export const theme = createTheme({
 		text: { primary: colors.ink, secondary: colors.inkSoft, disabled: colors.inkFaint },
 		divider: colors.rule,
 	},
-	shape: { borderRadius: 5 },
+	shape: { borderRadius: 10 },
 	typography: {
 		fontFamily: fontBody,
-		h1: { fontFamily: fontDisplay, fontWeight: 700, letterSpacing: "-0.01em" },
-		h2: { fontFamily: fontDisplay, fontWeight: 700, letterSpacing: "-0.01em" },
-		h3: { fontFamily: fontDisplay, fontWeight: 700 },
-		h4: { fontFamily: fontDisplay, fontWeight: 700 },
-		h5: { fontFamily: fontDisplay, fontWeight: 700 },
-		h6: { fontFamily: fontDisplay, fontWeight: 700, fontSize: "1.05rem" },
-		subtitle1: { fontFamily: fontDisplay, fontWeight: 600 },
-		subtitle2: { fontFamily: fontDisplay, fontWeight: 600, fontSize: "0.8rem", letterSpacing: "0.02em" },
-		button: { fontFamily: fontBody, fontWeight: 600, textTransform: "none" },
-		overline: { fontFamily: fontDisplay, letterSpacing: "0.12em" },
+		h1: { fontWeight: 700, letterSpacing: "-0.01em" },
+		h2: { fontWeight: 700, letterSpacing: "-0.01em" },
+		h3: { fontWeight: 700 },
+		h4: { fontWeight: 700 },
+		h5: { fontWeight: 700 },
+		h6: { fontWeight: 700, fontSize: "1.05rem" },
+		subtitle1: { fontWeight: 600 },
+		subtitle2: { fontWeight: 600, fontSize: "0.8rem", letterSpacing: "0.02em" },
+		button: { fontWeight: 600, textTransform: "none" },
+		overline: { letterSpacing: "0.12em" },
 	},
 	components: {
 		MuiCssBaseline: {
@@ -85,10 +85,11 @@ export const theme = createTheme({
 			styleOverrides: {
 				root: {
 					borderLeft: "3px solid transparent",
+					borderRadius: 8,
 					"&.Mui-selected": {
 						borderLeftColor: colors.accent,
-						backgroundColor: colors.paperSunken,
-						"&:hover": { backgroundColor: colors.paperSunken },
+						backgroundColor: colors.accentSoft,
+						"&:hover": { backgroundColor: colors.accentSoft },
 					},
 				},
 			},
@@ -96,14 +97,14 @@ export const theme = createTheme({
 		MuiPaper: {
 			styleOverrides: {
 				root: { backgroundImage: "none" },
-				elevation1: { boxShadow: "0 1px 2px rgba(22,35,58,0.09), 0 1px 1px rgba(22,35,58,0.05)" },
+				elevation1: { boxShadow: "0 1px 2px rgba(16,24,40,0.04), 0 1px 3px rgba(16,24,40,0.06)" },
 				outlined: { borderColor: colors.rule },
 			},
 		},
 		MuiButton: {
 			defaultProps: { disableElevation: true },
 			styleOverrides: {
-				root: { borderRadius: 4 },
+				root: { borderRadius: 8 },
 				outlined: { borderColor: colors.ruleStrong },
 			},
 		},
@@ -115,10 +116,10 @@ export const theme = createTheme({
 		MuiTableCell: {
 			styleOverrides: {
 				head: {
-					fontFamily: fontDisplay,
 					fontSize: "0.68rem",
 					letterSpacing: "0.04em",
 					textTransform: "uppercase",
+					fontWeight: 700,
 					color: colors.inkFaint,
 					backgroundColor: colors.paperSunken,
 				},
@@ -127,7 +128,7 @@ export const theme = createTheme({
 		MuiOutlinedInput: {
 			styleOverrides: {
 				root: {
-					borderRadius: 4,
+					borderRadius: 8,
 					"&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: colors.accent },
 				},
 			},

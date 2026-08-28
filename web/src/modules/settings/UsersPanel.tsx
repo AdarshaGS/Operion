@@ -37,14 +37,20 @@ import type { StaffInviteResponse } from "../../api/users";
  * additional role to someone who already has a Person/User record lives on
  * UserDetailPage instead (reachable by clicking a row here), since the userId is already
  * fixed from that page and only a Person needs picking there. */
-export function UsersPanel() {
+interface UsersPanelProps {
+	/** /members/invite lands here with the Add-user dialog already open, instead of the
+	 * caller having to land on a plain list and hunt for the button themselves. */
+	autoOpenInvite?: boolean;
+}
+
+export function UsersPanel({ autoOpenInvite = false }: UsersPanelProps = {}) {
 	const navigate = useNavigate();
 	const [memberships, setMemberships] = useState<MembershipResponse[]>([]);
 	const [roles, setRoles] = useState<RoleResponse[]>([]);
 	const [campuses, setCampuses] = useState<CampusResponse[]>([]);
 	const [departments, setDepartments] = useState<DepartmentResponse[]>([]);
 	const [error, setError] = useState<string | null>(null);
-	const [dialogOpen, setDialogOpen] = useState(false);
+	const [dialogOpen, setDialogOpen] = useState(autoOpenInvite);
 	const [submitting, setSubmitting] = useState(false);
 
 	const [form, setForm] = useState<AddMemberFormState>(EMPTY_ADD_MEMBER_FORM);

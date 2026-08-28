@@ -44,6 +44,8 @@ class OrganisationProvisioningTest {
 	@Autowired
 	private OrganisationConfigurationRepository configurationRepository;
 	@Autowired
+	private OrganisationBrandingRepository brandingRepository;
+	@Autowired
 	private RoleRepository roleRepository;
 	@Autowired
 	private PermissionRepository permissionRepository;
@@ -58,7 +60,7 @@ class OrganisationProvisioningTest {
 
 	private OrganisationService organisationService() {
 		AuditLogService auditLogService = new AuditLogService(auditLogRepository, new ObjectMapper());
-		return new OrganisationService(organisationRepository, campusRepository, configurationRepository,
+		return new OrganisationService(organisationRepository, campusRepository, configurationRepository, brandingRepository,
 				roleRepository, permissionRepository, userRepository, personRepository, membershipRepository,
 				new BCryptPasswordEncoder(), auditLogService);
 	}
@@ -88,6 +90,7 @@ class OrganisationProvisioningTest {
 		TenantContext.set(orgA.getId(), null);
 		assertThat(membershipRepository.findAll()).hasSize(1);
 		assertThat(membershipRepository.findAll().get(0).getUser().getId()).isEqualTo(user.getId());
+		assertThat(brandingRepository.findById(orgA.getId())).isPresent();
 
 		TenantContext.set(orgB.getId(), null);
 		assertThat(membershipRepository.findAll()).hasSize(1);

@@ -34,6 +34,8 @@ import { SaleDetailPage } from "./modules/sales/SaleDetailPage";
 import { SalesPage } from "./modules/sales/SalesPage";
 import { MarketingPage } from "./marketing/MarketingPage";
 import { DashboardPage } from "./modules/dashboard/DashboardPage";
+import { MembersPage } from "./modules/members/MembersPage";
+import { StructureSetupPage } from "./modules/setup/StructureSetupPage";
 import { ProfilePage } from "./modules/profile/ProfilePage";
 import { SettingsPage } from "./modules/settings/SettingsPage";
 import { SettingsSectionPage } from "./modules/settings/SettingsSectionPage";
@@ -72,10 +74,14 @@ function App() {
 							<Route path="/students/new" element={<StudentCreatePage />} />
 							<Route path="/students/:studentId" element={<StudentDetailPage />} />
 							<Route path="/academics" element={<AcademicsPage />} />
+							<Route path="/academics/setup" element={<AcademicsPage />} />
 							<Route path="/academics/classes/:classId" element={<SchoolClassSectionsPage />} />
 							<Route path="/academics/classes/:classId/sections/:sectionId" element={<SectionDetailPage />} />
 							<Route path="/attendance" element={<AttendancePage />} />
+							<Route path="/attendance/mark" element={<AttendancePage />} />
 							<Route path="/fees" element={<FeesPage />} />
+							<Route path="/fees/setup" element={<FeesPage />} />
+							<Route path="/fees/collect" element={<FeesPage />} />
 							<Route path="/examinations" element={<ExaminationsPage />} />
 							<Route path="/examinations/exams/:examId" element={<ExamDetailPage />} />
 							<Route path="/examinations/exams/:examId/schedules/:scheduleId" element={<MarksEntryPage />} />
@@ -96,6 +102,9 @@ function App() {
 							<Route path="/hr" element={<HrPage />} />
 							<Route path="/hr/staff/new" element={<StaffCreatePage />} />
 							<Route path="/hr/staff/:staffProfileId" element={<StaffDetailPage />} />
+							<Route path="/members" element={<MembersPage />} />
+							<Route path="/members/invite" element={<MembersPage autoOpenInvite />} />
+							<Route path="/setup/structure" element={<StructureSetupPage />} />
 							<Route path="/profile" element={<ProfilePage />} />
 							<Route path="/settings" element={<SettingsPage />} />
 							<Route path="/settings/users/:userId" element={<UserDetailPage />} />

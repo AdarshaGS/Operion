@@ -49,10 +49,11 @@ public class BorrowRecordController {
 	}
 
 	@GetMapping
-	public List<BorrowRecordResponse> byBorrower(@RequestParam Long borrowerPersonId) {
-		return borrowRecordRepository.findByBorrowerIdAndStatus(borrowerPersonId, BorrowStatus.BORROWED).stream()
-				.map(BorrowRecordResponse::from)
-				.toList();
+	public List<BorrowRecordResponse> activeBorrows(@RequestParam(required = false) Long borrowerPersonId) {
+		List<BorrowRecord> records = borrowerPersonId != null
+				? borrowRecordRepository.findByBorrowerIdAndStatus(borrowerPersonId, BorrowStatus.BORROWED)
+				: borrowRecordRepository.findByStatusOrderByDueDateAsc(BorrowStatus.BORROWED);
+		return records.stream().map(BorrowRecordResponse::from).toList();
 	}
 
 	@PostMapping("/{id}/return")

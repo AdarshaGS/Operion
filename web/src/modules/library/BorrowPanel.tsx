@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -24,7 +24,7 @@ import { type BookCopyResponse, type BookResponse, listBookCopies, listBooks } f
 import { useAuth } from "../../auth/AuthContext";
 import {
 	issueBook,
-	listActiveBorrowsByBorrower,
+	listActiveBorrows,
 	markBookLost,
 	returnBook,
 	type BorrowRecordResponse,
@@ -42,12 +42,13 @@ function todayIso(): string {
 export function BorrowPanel() {
 	const { profile } = useAuth();
 	const [persons, setPersons] = useState<PersonResponse[]>([]);
-	const [borrowerId, setBorrowerId] = useState("");
 	const [activeBorrows, setActiveBorrows] = useState<BorrowRecordResponse[]>([]);
 	const [books, setBooks] = useState<BookResponse[]>([]);
+	const [search, setSearch] = useState("");
 	const [error, setError] = useState<string | null>(null);
 
 	const [issueDialogOpen, setIssueDialogOpen] = useState(false);
+	const [issueBorrowerId, setIssueBorrowerId] = useState("");
 	const [bookId, setBookId] = useState("");
 	const [availableCopies, setAvailableCopies] = useState<BookCopyResponse[]>([]);
 	const [bookCopyId, setBookCopyId] = useState("");
@@ -63,34 +64,29 @@ export function BorrowPanel() {
 	useEffect(() => {
 		listPersons().then(setPersons).catch(() => {});
 		listBooks().then(setBooks).catch(() => {});
+		refreshBorrows();
 	}, []);
 
 	function refreshBorrows() {
-		if (!borrowerId) return;
-		listActiveBorrowsByBorrower(Number(borrowerId))
+		listActiveBorrows()
 			.then(setActiveBorrows)
 			.catch((err) => setError(err instanceof ApiError ? err.message : "Failed to load borrows"));
 	}
 
-	useEffect(() => {
-		setLastRecord(null);
-		setFines([]);
-		refreshBorrows();
-	}, [borrowerId]);
-
-	// BorrowRecordResponse only carries bookCopyId, and there's no "get copy by id"
-	// endpoint - resolving to an accession number/title would mean fetching every book's
-	// copies just to build a lookup map. Left as a plain id for this first cut.
-	function copyLabel(copyId: number): string {
-		return `Copy #${copyId}`;
-	}
+	const visibleBorrows = useMemo(() => {
+		const term = search.trim().toLowerCase();
+		if (!term) return activeBorrows;
+		return activeBorrows.filter(
+			(record) => record.borrowerName.toLowerCase().includes(term) || record.bookTitle.toLowerCase().includes(term),
+		);
+	}, [activeBorrows, search]);
 
 	async function openIssueDialog() {
+		setIssueBorrowerId("");
 		setBookId("");
 		setBookCopyId("");
 		setAvailableCopies([]);
 		setDueDate("");
-		listBooks().then(setBooks).catch(() => {});
 		setIssueDialogOpen(true);
 	}
 
@@ -111,7 +107,7 @@ export function BorrowPanel() {
 		try {
 			await issueBook({
 				bookCopyId: Number(bookCopyId),
-				borrowerPersonId: Number(borrowerId),
+				borrowerPersonId: Number(issueBorrowerId),
 				borrowedDate: todayIso(),
 				dueDate,
 			});
@@ -177,33 +173,41 @@ export function BorrowPanel() {
 		}
 	}
 
+	const today = todayIso();
+
 	return (
 		<Paper sx={{ p: 3 }}>
 			<Stack spacing={2}>
 				<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
 					<Typography variant="h6">Borrow / return</Typography>
-					<Button size="small" startIcon={<AddIcon />} onClick={openIssueDialog} disabled={!borrowerId}>
+					<Button size="small" startIcon={<AddIcon />} onClick={openIssueDialog}>
 						Issue book
 					</Button>
 				</Box>
 
-				<TextField select label="Borrower" value={borrowerId} onChange={(e) => setBorrowerId(e.target.value)} sx={{ maxWidth: 400 }}>
-					{persons.map((person) => (
-						<MenuItem key={person.id} value={person.id}>
-							{person.firstName} {person.lastName}
-						</MenuItem>
-					))}
-				</TextField>
+				<TextField
+					label="Search borrower or book"
+					size="small"
+					value={search}
+					onChange={(e) => setSearch(e.target.value)}
+					sx={{ maxWidth: 400 }}
+				/>
 
 				{error && <Alert severity="error">{error}</Alert>}
 
-				{borrowerId && activeBorrows.length === 0 && <Alert severity="info">No active borrows.</Alert>}
+				{activeBorrows.length === 0 && <Alert severity="info">No active borrows.</Alert>}
 
-				{activeBorrows.length > 0 && (
+				{activeBorrows.length > 0 && visibleBorrows.length === 0 && (
+					<Alert severity="info">No active borrows match "{search}".</Alert>
+				)}
+
+				{visibleBorrows.length > 0 && (
 					<TableContainer>
 						<Table size="small">
 							<TableHead>
 								<TableRow>
+									<TableCell>Borrower</TableCell>
+									<TableCell>Book</TableCell>
 									<TableCell>Copy</TableCell>
 									<TableCell>Borrowed</TableCell>
 									<TableCell>Due</TableCell>
@@ -211,11 +215,16 @@ export function BorrowPanel() {
 								</TableRow>
 							</TableHead>
 							<TableBody>
-								{activeBorrows.map((record) => (
+								{visibleBorrows.map((record) => (
 									<TableRow key={record.id}>
-										<TableCell>{copyLabel(record.bookCopyId)}</TableCell>
+										<TableCell>{record.borrowerName}</TableCell>
+										<TableCell>{record.bookTitle}</TableCell>
+										<TableCell>{record.accessionNumber}</TableCell>
 										<TableCell>{record.borrowedDate}</TableCell>
-										<TableCell>{record.dueDate}</TableCell>
+										<TableCell>
+											{record.dueDate}
+											{record.dueDate < today && <Chip label="Overdue" size="small" color="error" sx={{ ml: 1 }} />}
+										</TableCell>
 										<TableCell>
 											<Button size="small" onClick={() => handleReturn(record.id)}>
 												Return
@@ -297,6 +306,13 @@ export function BorrowPanel() {
 				<DialogTitle>Issue book</DialogTitle>
 				<DialogContent>
 					<Stack spacing={2} sx={{ mt: 1 }}>
+						<TextField select label="Borrower" value={issueBorrowerId} onChange={(e) => setIssueBorrowerId(e.target.value)} required fullWidth>
+							{persons.map((person) => (
+								<MenuItem key={person.id} value={person.id}>
+									{person.firstName} {person.lastName}
+								</MenuItem>
+							))}
+						</TextField>
 						<TextField select label="Book" value={bookId} onChange={(e) => handleBookChange(e.target.value)} required fullWidth>
 							{books.map((book) => (
 								<MenuItem key={book.id} value={book.id}>
@@ -333,7 +349,7 @@ export function BorrowPanel() {
 				</DialogContent>
 				<DialogActions>
 					<Button onClick={() => setIssueDialogOpen(false)}>Cancel</Button>
-					<Button type="submit" variant="contained" disabled={submitting || !bookCopyId}>
+					<Button type="submit" variant="contained" disabled={submitting || !issueBorrowerId || !bookCopyId}>
 						Issue
 					</Button>
 				</DialogActions>

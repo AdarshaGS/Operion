@@ -1,16 +1,20 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
+import CircularProgress from "@mui/material/CircularProgress";
 import Divider from "@mui/material/Divider";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
+import { getAcademicSetupStatus } from "../../api/academicSetupStatus";
 import { ApiError } from "../../api/client";
 import { createPerson } from "../../api/persons";
 import { admitStudent } from "../../api/students";
+
+const ACADEMIC_SETUP_REQUIRED_MESSAGE = "Complete Academic Setup before adding a student.";
 
 interface FormState {
 	firstName: string;
@@ -52,6 +56,21 @@ export function StudentCreatePage() {
 	const [form, setForm] = useState<FormState>(EMPTY_FORM);
 	const [error, setError] = useState<string | null>(null);
 	const [submitting, setSubmitting] = useState(false);
+	const [checkingPrerequisite, setCheckingPrerequisite] = useState(true);
+
+	useEffect(() => {
+		getAcademicSetupStatus()
+			.then((status) => {
+				if (!status.configured) {
+					navigate("/academics/setup", { replace: true, state: { blockedMessage: ACADEMIC_SETUP_REQUIRED_MESSAGE } });
+					return;
+				}
+				setCheckingPrerequisite(false);
+			})
+			// Fail open on a check-status error - don't block admission on the prerequisite
+			// check itself being unreachable, the admit call will fail on its own merits.
+			.catch(() => setCheckingPrerequisite(false));
+	}, [navigate]);
 
 	function set<K extends keyof FormState>(key: K) {
 		return (event: React.ChangeEvent<HTMLInputElement>) => setForm((prev) => ({ ...prev, [key]: event.target.value }));
@@ -85,6 +104,10 @@ export function StudentCreatePage() {
 			setError(err instanceof ApiError ? err.message : "Failed to admit student");
 			setSubmitting(false);
 		}
+	}
+
+	if (checkingPrerequisite) {
+		return <CircularProgress size={28} />;
 	}
 
 	return (

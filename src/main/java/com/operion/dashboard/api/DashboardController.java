@@ -6,6 +6,7 @@ import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.List;
 
+import com.operion.academic.SchoolClassRepository;
 import com.operion.attendance.AttendanceStatus;
 import com.operion.attendance.StudentAttendanceRepository;
 import com.operion.authorization.MembershipStatus;
@@ -16,6 +17,7 @@ import com.operion.communication.AnnouncementRepository;
 import com.operion.communication.AnnouncementStatus;
 import com.operion.examination.ExamRepository;
 import com.operion.examination.ExamStatus;
+import com.operion.finance.FeeStructureRepository;
 import com.operion.finance.InvoiceRepository;
 import com.operion.finance.InvoiceStatus;
 import com.operion.hr.StaffProfileRepository;
@@ -28,9 +30,14 @@ import com.operion.library.BookRepository;
 import com.operion.library.BookStatus;
 import com.operion.library.BorrowRecordRepository;
 import com.operion.library.BorrowStatus;
+import com.operion.common.TenantContext;
+import com.operion.organisation.AcademicYearRepository;
 import com.operion.organisation.CampusRepository;
+import com.operion.organisation.CampusStatus;
 import com.operion.organisation.DepartmentRepository;
 import com.operion.organisation.DesignationRepository;
+import com.operion.organisation.OrganisationConfiguration;
+import com.operion.organisation.OrganisationConfigurationRepository;
 import com.operion.purchase.PurchaseOrderRepository;
 import com.operion.purchase.PurchaseOrderStatus;
 import com.operion.sales.SaleRepository;
@@ -82,6 +89,10 @@ public class DashboardController {
 	private final SaleRepository saleRepository;
 	private final PurchaseOrderRepository purchaseOrderRepository;
 	private final InventoryService inventoryService;
+	private final SchoolClassRepository schoolClassRepository;
+	private final AcademicYearRepository academicYearRepository;
+	private final FeeStructureRepository feeStructureRepository;
+	private final OrganisationConfigurationRepository organisationConfigurationRepository;
 
 	public DashboardController(StudentRepository studentRepository, CampusRepository campusRepository,
 			StudentAttendanceRepository studentAttendanceRepository, InvoiceRepository invoiceRepository,
@@ -91,7 +102,9 @@ public class DashboardController {
 			StudentTransportAssignmentRepository studentTransportAssignmentRepository, ItemRepository itemRepository,
 			ItemCategoryRepository itemCategoryRepository, AnnouncementRepository announcementRepository,
 			RoleRepository roleRepository, OrganisationMembershipRepository membershipRepository, SaleRepository saleRepository,
-			PurchaseOrderRepository purchaseOrderRepository, InventoryService inventoryService) {
+			PurchaseOrderRepository purchaseOrderRepository, InventoryService inventoryService,
+			SchoolClassRepository schoolClassRepository, AcademicYearRepository academicYearRepository,
+			FeeStructureRepository feeStructureRepository, OrganisationConfigurationRepository organisationConfigurationRepository) {
 		this.studentRepository = studentRepository;
 		this.campusRepository = campusRepository;
 		this.studentAttendanceRepository = studentAttendanceRepository;
@@ -113,6 +126,10 @@ public class DashboardController {
 		this.saleRepository = saleRepository;
 		this.purchaseOrderRepository = purchaseOrderRepository;
 		this.inventoryService = inventoryService;
+		this.schoolClassRepository = schoolClassRepository;
+		this.academicYearRepository = academicYearRepository;
+		this.feeStructureRepository = feeStructureRepository;
+		this.organisationConfigurationRepository = organisationConfigurationRepository;
 	}
 
 	@GetMapping("/summary")
@@ -136,8 +153,24 @@ public class DashboardController {
 						AnnouncementStatus.PUBLISHED, startOfThisMonth())),
 				sales(),
 				purchase(),
-				new SetupChecklist(departments > 0 && designations > 0, totalRoles > DEFAULT_ROLE_COUNT, activeMembers > 1,
-						activeStudents > 0));
+				new SetupChecklist(structureConfigured(), totalRoles > DEFAULT_ROLE_COUNT, activeMembers > 1,
+						academicYearRepository.count() > 0 && schoolClassRepository.count() > 0, activeStudents > 0,
+						feeStructureRepository.count() > 0));
+	}
+
+	// Departments/designations are optional and deliberately not part of this signal
+	// (GitHub #141/Structure Setup workflow) - only the organisation profile, business
+	// settings, and at least one active campus are required for Structure to read complete.
+	private boolean structureConfigured() {
+		OrganisationConfiguration configuration = organisationConfigurationRepository.findById(TenantContext.getOrganisationId())
+				.orElse(null);
+		if (configuration == null) {
+			return false;
+		}
+		boolean organisationProfileConfigured = configuration.getPrimaryContactName() != null && configuration.getPrimaryContactEmail() != null;
+		boolean businessSettingsConfigured = configuration.getTimezone() != null;
+		boolean hasActiveCampus = campusRepository.countByStatus(CampusStatus.ACTIVE) > 0;
+		return organisationProfileConfigured && businessSettingsConfigured && hasActiveCampus;
 	}
 
 	private AttendanceSummary attendanceToday() {

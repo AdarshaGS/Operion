@@ -28,6 +28,7 @@ public class OrganisationService {
 	private final OrganisationRepository organisationRepository;
 	private final CampusRepository campusRepository;
 	private final OrganisationConfigurationRepository configurationRepository;
+	private final OrganisationBrandingRepository brandingRepository;
 	private final RoleRepository roleRepository;
 	private final PermissionRepository permissionRepository;
 	private final UserRepository userRepository;
@@ -37,13 +38,14 @@ public class OrganisationService {
 	private final AuditLogService auditLogService;
 
 	public OrganisationService(OrganisationRepository organisationRepository, CampusRepository campusRepository,
-			OrganisationConfigurationRepository configurationRepository, RoleRepository roleRepository,
-			PermissionRepository permissionRepository, UserRepository userRepository, PersonRepository personRepository,
-			OrganisationMembershipRepository membershipRepository, PasswordEncoder passwordEncoder,
-			AuditLogService auditLogService) {
+			OrganisationConfigurationRepository configurationRepository, OrganisationBrandingRepository brandingRepository,
+			RoleRepository roleRepository, PermissionRepository permissionRepository, UserRepository userRepository,
+			PersonRepository personRepository, OrganisationMembershipRepository membershipRepository,
+			PasswordEncoder passwordEncoder, AuditLogService auditLogService) {
 		this.organisationRepository = organisationRepository;
 		this.campusRepository = campusRepository;
 		this.configurationRepository = configurationRepository;
+		this.brandingRepository = brandingRepository;
 		this.roleRepository = roleRepository;
 		this.permissionRepository = permissionRepository;
 		this.userRepository = userRepository;
@@ -69,6 +71,7 @@ public class OrganisationService {
 		try {
 			campusRepository.save(new Campus(DEFAULT_CAMPUS_NAME, DEFAULT_CAMPUS_CODE));
 			configurationRepository.save(new OrganisationConfiguration(organisation));
+			brandingRepository.save(new OrganisationBranding(organisation));
 			Role adminRole = seedDefaultRoles();
 			createAdminMembership(admin, adminRole);
 			auditLogService.record("Organisation", organisation.getId(), "CREATE", null, organisation.getStatus());

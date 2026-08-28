@@ -40,10 +40,15 @@ export function Seal({ size = 34 }: SealProps) {
 interface WordmarkProps {
 	size?: "small" | "medium";
 	tagline?: string;
+	/** Overrides the "OPERION" text - the authenticated app shell passes the signed-in
+	 * organisation's own name here, so the product reads as the school's own system
+	 * rather than a third-party tool wearing their data. Login/marketing/platform-admin
+	 * contexts have no organisation in scope and keep the default. */
+	text?: string;
 }
 
-/** OPERION wordmark + seal, shared by the top bar, login screen, and marketing page. */
-export function Wordmark({ size = "medium", tagline }: WordmarkProps) {
+/** Seal + wordmark text, shared by the top bar, login screen, and marketing page. */
+export function Wordmark({ size = "medium", tagline, text = "OPERION" }: WordmarkProps) {
 	const sealSize = size === "small" ? 24 : 34;
 	return (
 		<Box sx={{ display: "flex", alignItems: "center", gap: size === "small" ? 0.85 : 1.1 }}>
@@ -61,7 +66,7 @@ export function Wordmark({ size = "medium", tagline }: WordmarkProps) {
 						lineHeight: 1.1,
 					}}
 				>
-					OPERION
+					{text}
 				</Box>
 				{tagline && (
 					<Box

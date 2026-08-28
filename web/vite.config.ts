@@ -21,6 +21,12 @@ export default defineConfig({
         target: 'http://localhost:8080',
         changeOrigin: true,
       },
+      // Asset uploads (#25) are served from a separate "/uploads/**" static path, not
+      // under "/api" - needs its own proxy entry for the same same-origin reasoning.
+      '/uploads': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+      },
     },
   },
 })

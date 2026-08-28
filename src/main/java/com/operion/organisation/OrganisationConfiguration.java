@@ -57,6 +57,30 @@ public class OrganisationConfiguration {
 	@Column(name = "primary_color")
 	private String primaryColor;
 
+	@Column(name = "primary_contact_name")
+	private String primaryContactName;
+
+	@Column(name = "primary_contact_email")
+	private String primaryContactEmail;
+
+	@Column(name = "primary_contact_phone")
+	private String primaryContactPhone;
+
+	@Column(name = "address_line1")
+	private String addressLine1;
+
+	@Column(name = "address_line2")
+	private String addressLine2;
+
+	private String city;
+
+	private String state;
+
+	private String pincode;
+
+	@Column(name = "tax_identifier")
+	private String taxIdentifier;
+
 	@LastModifiedDate
 	@Column(name = "updated_at", nullable = false)
 	private Instant updatedAt;

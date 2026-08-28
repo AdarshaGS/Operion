@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
+import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 @Configuration
@@ -21,6 +22,10 @@ public class WebConfig implements WebMvcConfigurer {
 	/** Defaults to the Vite dev server - the React admin portal calls the API directly, no BFF, per erp-system-plan.md §4. */
 	@Value("${app.cors.allowed-origins:http://localhost:5173}")
 	private String[] allowedOrigins;
+
+	/** Same default as LocalDiskAssetStorageService - must point at the same directory it writes into. */
+	@Value("${app.storage.local.base-dir:./data/uploads}")
+	private String assetStorageBaseDir;
 
 	public WebConfig(JwtAuthenticationInterceptor jwtAuthenticationInterceptor, PermissionInterceptor permissionInterceptor,
 			PlatformAuthenticationInterceptor platformAuthenticationInterceptor) {
@@ -40,6 +45,16 @@ public class WebConfig implements WebMvcConfigurer {
 		registry.addInterceptor(jwtAuthenticationInterceptor).addPathPatterns("/api/v1/**").excludePathPatterns(PLATFORM_PATH_PATTERN);
 		registry.addInterceptor(permissionInterceptor).addPathPatterns("/api/v1/**").excludePathPatterns(PLATFORM_PATH_PATTERN);
 		registry.addInterceptor(platformAuthenticationInterceptor).addPathPatterns(PLATFORM_PATH_PATTERN);
+	}
+
+	/** Deliberately public and outside "/api/v1/**" (so neither auth interceptor applies) -
+	 * an <img> tag on a receipt or letterhead can't send an Authorization header. Safe
+	 * because references are random UUIDs (see LocalDiskAssetStorageService), not
+	 * sequential ids - unauthenticated but not enumerable. */
+	@Override
+	public void addResourceHandlers(ResourceHandlerRegistry registry) {
+		String location = assetStorageBaseDir.endsWith("/") ? assetStorageBaseDir : assetStorageBaseDir + "/";
+		registry.addResourceHandler("/uploads/**").addResourceLocations("file:" + location);
 	}
 
 	@Override

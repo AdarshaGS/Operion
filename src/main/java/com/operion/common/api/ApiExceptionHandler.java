@@ -8,6 +8,7 @@ import com.operion.finance.WebhookVerificationException;
 import com.operion.identity.auth.AuthenticationFailedException;
 import com.operion.platform.auth.PlatformAuthenticationFailedException;
 import com.operion.reporting.ReportExecutionException;
+import com.operion.storage.AssetStorageException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -16,6 +17,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 /** Applies application-wide, not just to one module's controllers. */
 @RestControllerAdvice
@@ -79,6 +81,18 @@ class ApiExceptionHandler {
 	@ExceptionHandler(ReportExecutionException.class)
 	ResponseEntity<Map<String, String>> reportExecutionFailed(ReportExecutionException ex) {
 		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", ex.getMessage()));
+	}
+
+	@ExceptionHandler(AssetStorageException.class)
+	ResponseEntity<Map<String, String>> assetStorageFailed(AssetStorageException ex) {
+		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", ex.getMessage()));
+	}
+
+	/** Spring rejects an oversized multipart body before the controller (and so
+	 * AssetStorageService's own size check) ever runs - same 400 shape either way. */
+	@ExceptionHandler(MaxUploadSizeExceededException.class)
+	ResponseEntity<Map<String, String>> uploadTooLarge(MaxUploadSizeExceededException ex) {
+		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", "File exceeds the 5MB size limit"));
 	}
 
 	/** Catch-all for anything not mapped above - an uncaught bug must still return the
