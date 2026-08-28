@@ -25,6 +25,8 @@ import { ItemDetailPage } from "./modules/inventory/ItemDetailPage";
 import { InventoryPage } from "./modules/inventory/InventoryPage";
 import { BookDetailPage } from "./modules/library/BookDetailPage";
 import { LibraryPage } from "./modules/library/LibraryPage";
+import { PurchaseOrderDetailPage } from "./modules/purchase/PurchaseOrderDetailPage";
+import { PurchasePage } from "./modules/purchase/PurchasePage";
 import { MarketingPage } from "./marketing/MarketingPage";
 import { DashboardPage } from "./modules/dashboard/DashboardPage";
 import { ProfilePage } from "./modules/profile/ProfilePage";
@@ -79,6 +81,8 @@ function App() {
 							<Route path="/library/books/:bookId" element={<BookDetailPage />} />
 							<Route path="/inventory" element={<InventoryPage />} />
 							<Route path="/inventory/items/:itemId" element={<ItemDetailPage />} />
+							<Route path="/purchase" element={<PurchasePage />} />
+							<Route path="/purchase/orders/:orderId" element={<PurchaseOrderDetailPage />} />
 							<Route path="/hr" element={<HrPage />} />
 							<Route path="/hr/staff/new" element={<StaffCreatePage />} />
 							<Route path="/hr/staff/:staffProfileId" element={<StaffDetailPage />} />
