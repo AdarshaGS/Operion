@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
+import { useNavigate } from "react-router-dom";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -30,6 +31,7 @@ import { listStudents, type StudentResponse } from "../../api/students";
  * guardians endpoint to pick from (guardians are only reachable per-student today, see
  * ai-context/load-context.md's Parent Portal section). */
 export function CustomersPanel() {
+	const navigate = useNavigate();
 	const [customers, setCustomers] = useState<CustomerResponse[]>([]);
 	const [students, setStudents] = useState<StudentResponse[]>([]);
 	const [persons, setPersons] = useState<PersonResponse[]>([]);
@@ -127,6 +129,9 @@ export function CustomersPanel() {
 										<Chip label={customer.status} size="small" />
 									</TableCell>
 									<TableCell>
+										<Button size="small" onClick={() => navigate(`/sales/customers/${customer.id}`)}>
+											History
+										</Button>
 										<Button size="small" onClick={() => handleToggleStatus(customer)}>
 											{customer.status === "ACTIVE" ? "Deactivate" : "Reactivate"}
 										</Button>

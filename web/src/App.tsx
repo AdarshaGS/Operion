@@ -27,6 +27,9 @@ import { BookDetailPage } from "./modules/library/BookDetailPage";
 import { LibraryPage } from "./modules/library/LibraryPage";
 import { PurchaseOrderDetailPage } from "./modules/purchase/PurchaseOrderDetailPage";
 import { PurchasePage } from "./modules/purchase/PurchasePage";
+import { CustomerHistoryPage } from "./modules/sales/CustomerHistoryPage";
+import { SaleDetailPage } from "./modules/sales/SaleDetailPage";
+import { SalesPage } from "./modules/sales/SalesPage";
 import { MarketingPage } from "./marketing/MarketingPage";
 import { DashboardPage } from "./modules/dashboard/DashboardPage";
 import { ProfilePage } from "./modules/profile/ProfilePage";
@@ -83,6 +86,9 @@ function App() {
 							<Route path="/inventory/items/:itemId" element={<ItemDetailPage />} />
 							<Route path="/purchase" element={<PurchasePage />} />
 							<Route path="/purchase/orders/:orderId" element={<PurchaseOrderDetailPage />} />
+							<Route path="/sales" element={<SalesPage />} />
+							<Route path="/sales/:saleId" element={<SaleDetailPage />} />
+							<Route path="/sales/customers/:customerId" element={<CustomerHistoryPage />} />
 							<Route path="/hr" element={<HrPage />} />
 							<Route path="/hr/staff/new" element={<StaffCreatePage />} />
 							<Route path="/hr/staff/:staffProfileId" element={<StaffDetailPage />} />

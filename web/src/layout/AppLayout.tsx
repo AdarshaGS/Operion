@@ -26,6 +26,7 @@ import DirectionsBusIcon from "@mui/icons-material/DirectionsBus";
 import MenuBookIcon from "@mui/icons-material/MenuBook";
 import Inventory2Icon from "@mui/icons-material/Inventory2";
 import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
+import PointOfSaleIcon from "@mui/icons-material/PointOfSale";
 import BadgeIcon from "@mui/icons-material/Badge";
 import SettingsIcon from "@mui/icons-material/Settings";
 import { useAuth } from "../auth/AuthContext";
@@ -77,6 +78,7 @@ const NAV_ITEMS: NavItem[] = [
 	{ label: "Library", path: "/library", icon: <MenuBookIcon />, built: true, requiredPermissions: ["LIBRARY_VIEW"] },
 	{ label: "Inventory", path: "/inventory", icon: <Inventory2Icon />, built: true, requiredPermissions: ["INVENTORY_VIEW"] },
 	{ label: "Purchase", path: "/purchase", icon: <ShoppingCartIcon />, built: true, requiredPermissions: ["PURCHASE_VIEW"] },
+	{ label: "Sales", path: "/sales", icon: <PointOfSaleIcon />, built: true, requiredPermissions: ["SALES_VIEW"] },
 	{ label: "HR", path: "/hr", icon: <BadgeIcon />, built: true, requiredPermissions: ["HR_VIEW"] },
 ];
 
