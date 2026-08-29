@@ -59,7 +59,7 @@ class StudentGuardianPrimaryTest {
 
 		Person studentPerson = personRepository.save(new Person("Ira", "Shah"));
 		Student student = studentRepository.save(
-				new Student(studentPerson, "ADM-010", LocalDate.of(2025, 5, 1), null, null, null, null, null, null, null, null));
+				new Student(studentPerson, "STU-ADM-010", "ADM-010", LocalDate.of(2025, 5, 1), null, null, null, null, null, null, null, null, null, null, null));
 
 		Person fatherPerson = personRepository.save(new Person("Vikram", "Shah"));
 		Person motherPerson = personRepository.save(new Person("Anita", "Shah"));

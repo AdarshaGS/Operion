@@ -24,23 +24,28 @@ public class StudentService {
 	private final StudentEnrollmentRepository studentEnrollmentRepository;
 	private final StudentDocumentRepository studentDocumentRepository;
 	private final StudentExitRepository studentExitRepository;
+	private final StudentIdGenerator studentIdGenerator;
 	private final AuditLogService auditLogService;
 
 	public StudentService(StudentRepository studentRepository, StudentEnrollmentRepository studentEnrollmentRepository,
 			StudentDocumentRepository studentDocumentRepository, StudentExitRepository studentExitRepository,
-			AuditLogService auditLogService) {
+			StudentIdGenerator studentIdGenerator, AuditLogService auditLogService) {
 		this.studentRepository = studentRepository;
 		this.studentEnrollmentRepository = studentEnrollmentRepository;
 		this.studentDocumentRepository = studentDocumentRepository;
 		this.studentExitRepository = studentExitRepository;
+		this.studentIdGenerator = studentIdGenerator;
 		this.auditLogService = auditLogService;
 	}
 
 	public Student admit(Person person, String admissionNumber, LocalDate admissionDate, String admissionSource,
 			String previousSchool, String tcNumber, Double entranceScore, String bloodGroup, String category,
-			String nationality, String remarks) {
-		Student student = studentRepository.save(new Student(person, admissionNumber, admissionDate, admissionSource,
-				previousSchool, tcNumber, entranceScore, bloodGroup, category, nationality, remarks));
+			String nationality, String remarks, String medicalAlerts, String emergencyContactName,
+			String emergencyContactPhone) {
+		String studentId = studentIdGenerator.next(admissionDate);
+		Student student = studentRepository.save(new Student(person, studentId, admissionNumber, admissionDate,
+				admissionSource, previousSchool, tcNumber, entranceScore, bloodGroup, category, nationality, remarks,
+				medicalAlerts, emergencyContactName, emergencyContactPhone));
 		auditLogService.record("Student", student.getId(), "STUDENT_ADMITTED", null, student.getStatus());
 		return student;
 	}

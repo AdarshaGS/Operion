@@ -34,6 +34,7 @@ import com.operion.student.StudentDocumentRepository;
 import com.operion.student.StudentEnrollment;
 import com.operion.student.StudentEnrollmentRepository;
 import com.operion.student.StudentExitRepository;
+import com.operion.student.StudentIdGenerator;
 import com.operion.student.StudentRepository;
 import com.operion.student.StudentService;
 import org.junit.jupiter.api.AfterEach;
@@ -56,7 +57,7 @@ import tools.jackson.databind.ObjectMapper;
  * PaymentGatewayOrderRepository.findOrganisationIdByGatewayOrderId).
  */
 @DataJpaTest
-@Import({ MultiTenancyConfig.class, JpaConfig.class, FeeService.class })
+@Import({ MultiTenancyConfig.class, JpaConfig.class, FeeService.class, StudentIdGenerator.class })
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class FeePaymentGatewayServiceTest {
 
@@ -108,6 +109,9 @@ class FeePaymentGatewayServiceTest {
 	private StudentExitRepository studentExitRepository;
 
 	@Autowired
+	private StudentIdGenerator studentIdGenerator;
+
+	@Autowired
 	private AuditLogRepository auditLogRepository;
 
 	private final StubRazorpayGateway gateway = new StubRazorpayGateway();
@@ -115,7 +119,7 @@ class FeePaymentGatewayServiceTest {
 	@BeforeEach
 	void setUpStudentService() {
 		studentService = new StudentService(studentRepository, studentEnrollmentRepository, studentDocumentRepository,
-				studentExitRepository, new AuditLogService(auditLogRepository, new ObjectMapper()));
+				studentExitRepository, studentIdGenerator, new AuditLogService(auditLogRepository, new ObjectMapper()));
 	}
 
 	private FeePaymentGatewayService gatewayService() {
@@ -146,7 +150,7 @@ class FeePaymentGatewayServiceTest {
 		Person person = personRepository.save(new Person("Arjun", "Rao"));
 
 		Student student = studentService.admit(
-				person, admissionNumber, LocalDate.of(2025, 5, 1), null, null, null, null, null, null, "Indian", null);
+				person, admissionNumber, LocalDate.of(2025, 5, 1), null, null, null, null, null, null, "Indian", null, null, null, null);
 		StudentEnrollment enrollment = studentService.enroll(student, academicYear, section, 7, LocalDate.of(2025, 6, 1));
 
 		FeeCategory feeCategory = feeService.createCategory("TUITION", "Tuition Fee", null);

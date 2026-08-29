@@ -31,6 +31,7 @@ import com.operion.student.StudentDocumentRepository;
 import com.operion.student.StudentEnrollment;
 import com.operion.student.StudentEnrollmentRepository;
 import com.operion.student.StudentExitRepository;
+import com.operion.student.StudentIdGenerator;
 import com.operion.student.StudentRepository;
 import com.operion.student.StudentService;
 import org.junit.jupiter.api.AfterEach;
@@ -55,7 +56,7 @@ import tools.jackson.databind.ObjectMapper;
  * autoconfiguration just to unit-test this service.
  */
 @DataJpaTest
-@Import({ MultiTenancyConfig.class, JpaConfig.class })
+@Import({ MultiTenancyConfig.class, JpaConfig.class, StudentIdGenerator.class })
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class StudentAttendanceLifecycleTest {
 
@@ -96,6 +97,9 @@ class StudentAttendanceLifecycleTest {
 	private StudentExitRepository studentExitRepository;
 
 	@Autowired
+	private StudentIdGenerator studentIdGenerator;
+
+	@Autowired
 	private StudentAttendanceRepository studentAttendanceRepository;
 
 	@Autowired
@@ -115,7 +119,7 @@ class StudentAttendanceLifecycleTest {
 		attendanceService = new AttendanceService(studentAttendanceRepository, classAttendanceRegisterRepository,
 				attendanceCorrectionRepository, staffAttendanceRepository, new AuditLogService(auditLogRepository, new ObjectMapper()));
 		studentService = new StudentService(studentRepository, studentEnrollmentRepository, studentDocumentRepository,
-				studentExitRepository, new AuditLogService(auditLogRepository, new ObjectMapper()));
+				studentExitRepository, studentIdGenerator, new AuditLogService(auditLogRepository, new ObjectMapper()));
 	}
 
 	@AfterEach
@@ -140,7 +144,7 @@ class StudentAttendanceLifecycleTest {
 		Person person = personRepository.save(new Person("Meera", "Nair"));
 
 		Student student = studentService.admit(
-				person, admissionNumber, LocalDate.of(2025, 5, 1), null, null, null, null, null, null, "Indian", null);
+				person, admissionNumber, LocalDate.of(2025, 5, 1), null, null, null, null, null, null, "Indian", null, null, null, null);
 		StudentEnrollment enrollment = studentService.enroll(student, academicYear, section, 12, LocalDate.of(2025, 6, 1));
 
 		return new Fixture(academicYear, section, enrollment);

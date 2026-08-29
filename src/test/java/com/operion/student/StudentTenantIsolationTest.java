@@ -52,12 +52,12 @@ class StudentTenantIsolationTest {
 		TenantContext.set(orgA.getId(), null);
 		Person personA = personRepository.save(new Person("Aditi", "Kumar"));
 		studentRepository.save(
-				new Student(personA, "A-001", LocalDate.of(2025, 5, 1), null, null, null, null, null, null, null, null));
+				new Student(personA, "STU-A-001", "A-001", LocalDate.of(2025, 5, 1), null, null, null, null, null, null, null, null, null, null, null));
 
 		TenantContext.set(orgB.getId(), null);
 		Person personB = personRepository.save(new Person("Baldev", "Singh"));
 		studentRepository.save(
-				new Student(personB, "B-001", LocalDate.of(2025, 5, 1), null, null, null, null, null, null, null, null));
+				new Student(personB, "STU-B-001", "B-001", LocalDate.of(2025, 5, 1), null, null, null, null, null, null, null, null, null, null, null));
 
 		TenantContext.set(orgA.getId(), null);
 		List<Student> visibleToA = studentRepository.findAll();

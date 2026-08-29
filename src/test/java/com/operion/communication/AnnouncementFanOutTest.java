@@ -123,7 +123,7 @@ class AnnouncementFanOutTest {
 
 		Person studentPerson = personRepository.save(new Person("Ira", "Shah"));
 		Student student = studentRepository.save(
-				new Student(studentPerson, "ADM-100", LocalDate.of(2025, 5, 1), null, null, null, null, null, null, null, null));
+				new Student(studentPerson, "STU-ADM-100", "ADM-100", LocalDate.of(2025, 5, 1), null, null, null, null, null, null, null, null, null, null, null));
 		studentEnrollmentRepository.save(new StudentEnrollment(student, year, section, 1, LocalDate.of(2025, 6, 1)));
 
 		Person guardianPerson = personRepository.save(new Person("Vikram", "Shah"));

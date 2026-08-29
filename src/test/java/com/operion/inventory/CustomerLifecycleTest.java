@@ -75,7 +75,7 @@ class CustomerLifecycleTest {
 		newTenant("student-link");
 		Person person = personRepository.save(new Person("Riya", "Sharma"));
 		Student student = studentRepository
-				.save(new Student(person, "ADM-001", LocalDate.now(), null, null, null, null, null, null, null, null));
+				.save(new Student(person, "STU-ADM-001", "ADM-001", LocalDate.now(), null, null, null, null, null, null, null, null, null, null, null));
 
 		Customer customer = customerRepository.save(new Customer(student, null, "Riya Sharma", null));
 

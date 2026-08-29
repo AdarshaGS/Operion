@@ -42,7 +42,7 @@ import tools.jackson.databind.ObjectMapper;
  * ai-context/erp-system-plan.md §2.2.
  */
 @DataJpaTest
-@Import({ MultiTenancyConfig.class, JpaConfig.class })
+@Import({ MultiTenancyConfig.class, JpaConfig.class, StudentIdGenerator.class })
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class StudentEnrollmentLifecycleTest {
 
@@ -82,12 +82,15 @@ class StudentEnrollmentLifecycleTest {
 	private StudentExitRepository studentExitRepository;
 
 	@Autowired
+	private StudentIdGenerator studentIdGenerator;
+
+	@Autowired
 	private AuditLogRepository auditLogRepository;
 
 	@BeforeEach
 	void setUpStudentService() {
 		studentService = new StudentService(studentRepository, studentEnrollmentRepository, studentDocumentRepository,
-				studentExitRepository, new AuditLogService(auditLogRepository, new ObjectMapper()));
+				studentExitRepository, studentIdGenerator, new AuditLogService(auditLogRepository, new ObjectMapper()));
 	}
 
 	@AfterEach
@@ -115,7 +118,7 @@ class StudentEnrollmentLifecycleTest {
 		Person person = personRepository.save(new Person("Meera", "Nair"));
 
 		Student student = studentService.admit(
-				person, "ADM-001", LocalDate.of(2025, 5, 1), "WALK_IN", null, null, null, null, null, "Indian", null);
+				person, "ADM-001", LocalDate.of(2025, 5, 1), "WALK_IN", null, null, null, null, null, "Indian", null, null, null, null);
 		assertThat(student.getStatus()).isEqualTo(StudentStatus.ADMITTED);
 
 		StudentEnrollment firstEnrollment =
@@ -161,7 +164,7 @@ class StudentEnrollmentLifecycleTest {
 		Person person = personRepository.save(new Person("Rohan", "Das"));
 
 		Student student = studentService.admit(
-				person, "ADM-002", LocalDate.of(2025, 5, 1), null, null, null, null, null, null, null, null);
+				person, "ADM-002", LocalDate.of(2025, 5, 1), null, null, null, null, null, null, null, null, null, null, null);
 		StudentEnrollment enrollment = studentService.enroll(student, academicYear, section, 1, LocalDate.of(2025, 6, 1));
 
 		studentService.recordExit(

@@ -65,7 +65,7 @@ class BillingCrossOrgVisibilityTest {
 		TenantContext.set(organisation.getId(), null);
 		for (int i = 0; i < studentCount; i++) {
 			Person person = personRepository.save(new Person(slug, "Student-" + i));
-			Student student = new Student(person, slug + "-" + i, LocalDate.of(2024, 6, 1), null, null, null, null, null, null, null, null);
+			Student student = new Student(person, "STU-" + slug + "-" + i, slug + "-" + i, LocalDate.of(2024, 6, 1), null, null, null, null, null, null, null, null, null, null, null);
 			student.activate();
 			studentRepository.save(student);
 		}

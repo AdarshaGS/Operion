@@ -40,7 +40,7 @@ import tools.jackson.databind.ObjectMapper;
  * previously claimed by Section's own Javadoc but never actually implemented.
  */
 @DataJpaTest
-@Import({ MultiTenancyConfig.class, JpaConfig.class })
+@Import({ MultiTenancyConfig.class, JpaConfig.class, StudentIdGenerator.class })
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class SectionCapacityTest {
 
@@ -80,12 +80,15 @@ class SectionCapacityTest {
 	private StudentExitRepository studentExitRepository;
 
 	@Autowired
+	private StudentIdGenerator studentIdGenerator;
+
+	@Autowired
 	private AuditLogRepository auditLogRepository;
 
 	@BeforeEach
 	void setUpStudentService() {
 		studentService = new StudentService(studentRepository, studentEnrollmentRepository, studentDocumentRepository,
-				studentExitRepository, new AuditLogService(auditLogRepository, new ObjectMapper()));
+				studentExitRepository, studentIdGenerator, new AuditLogService(auditLogRepository, new ObjectMapper()));
 	}
 
 	@AfterEach
@@ -97,7 +100,7 @@ class SectionCapacityTest {
 		TenantContext.set(organisation.getId(), null);
 		Person person = personRepository.save(new Person(firstName, "Test"));
 		return studentService.admit(
-				person, admissionNumber, LocalDate.of(2025, 5, 1), null, null, null, null, null, null, null, null);
+				person, admissionNumber, LocalDate.of(2025, 5, 1), null, null, null, null, null, null, null, null, null, null, null);
 	}
 
 	@Test

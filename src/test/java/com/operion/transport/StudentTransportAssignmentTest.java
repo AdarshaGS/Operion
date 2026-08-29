@@ -29,6 +29,7 @@ import com.operion.student.StudentDocumentRepository;
 import com.operion.student.StudentEnrollment;
 import com.operion.student.StudentEnrollmentRepository;
 import com.operion.student.StudentExitRepository;
+import com.operion.student.StudentIdGenerator;
 import com.operion.student.StudentRepository;
 import com.operion.student.StudentService;
 import org.junit.jupiter.api.AfterEach;
@@ -49,7 +50,7 @@ import tools.jackson.databind.ObjectMapper;
  * enrollment up for a fresh assignment.
  */
 @DataJpaTest
-@Import({ MultiTenancyConfig.class, JpaConfig.class, TransportService.class })
+@Import({ MultiTenancyConfig.class, JpaConfig.class, TransportService.class, StudentIdGenerator.class })
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class StudentTransportAssignmentTest {
 
@@ -89,6 +90,9 @@ class StudentTransportAssignmentTest {
 	private StudentExitRepository studentExitRepository;
 
 	@Autowired
+	private StudentIdGenerator studentIdGenerator;
+
+	@Autowired
 	private AuditLogRepository auditLogRepository;
 
 	@Autowired
@@ -103,7 +107,7 @@ class StudentTransportAssignmentTest {
 	@BeforeEach
 	void setUpStudentService() {
 		studentService = new StudentService(studentRepository, studentEnrollmentRepository, studentDocumentRepository,
-				studentExitRepository, new AuditLogService(auditLogRepository, new ObjectMapper()));
+				studentExitRepository, studentIdGenerator, new AuditLogService(auditLogRepository, new ObjectMapper()));
 	}
 
 	@AfterEach
@@ -126,7 +130,7 @@ class StudentTransportAssignmentTest {
 		Section section = sectionRepository.save(new Section(schoolClass, "A", 40, null));
 
 		Person person = personRepository.save(new Person("Ira", "Shah"));
-		Student student = studentService.admit(person, "ADM-100", LocalDate.of(2025, 5, 1), null, null, null, null, null, null, null, null);
+		Student student = studentService.admit(person, "ADM-100", LocalDate.of(2025, 5, 1), null, null, null, null, null, null, null, null, null, null, null);
 		StudentEnrollment enrollment = studentService.enroll(student, year, section, 1, LocalDate.of(2025, 6, 1));
 
 		Route route = routeRepository.save(new Route(campus, "Route 12", "R12", null));

@@ -32,6 +32,11 @@ public class Student extends TenantScopedEntity {
 	@JoinColumn(name = "person_id")
 	private Person person;
 
+	/** System-generated (e.g. STU-2026-00042, see StudentIdCounter) - immutable, distinct
+	 * from the user-typed {@link #admissionNumber}. */
+	@Column(name = "student_id", nullable = false)
+	private String studentId;
+
 	@Column(name = "admission_number", nullable = false)
 	private String admissionNumber;
 
@@ -67,14 +72,27 @@ public class Student extends TenantScopedEntity {
 	/** Nullable. */
 	private String remarks;
 
+	/** Nullable free-text - allergies, conditions, medication. Same access-control note as {@link #category}. */
+	@Column(name = "medical_alerts")
+	private String medicalAlerts;
+
+	/** Nullable - a contact who isn't necessarily one of the student's linked guardians (see StudentGuardian). */
+	@Column(name = "emergency_contact_name")
+	private String emergencyContactName;
+
+	@Column(name = "emergency_contact_phone")
+	private String emergencyContactPhone;
+
 	@Enumerated(EnumType.STRING)
 	@Column(nullable = false, length = 20)
 	private StudentStatus status;
 
-	public Student(Person person, String admissionNumber, LocalDate admissionDate, String admissionSource,
-			String previousSchool, String tcNumber, Double entranceScore, String bloodGroup, String category,
-			String nationality, String remarks) {
+	public Student(Person person, String studentId, String admissionNumber, LocalDate admissionDate,
+			String admissionSource, String previousSchool, String tcNumber, Double entranceScore, String bloodGroup,
+			String category, String nationality, String remarks, String medicalAlerts, String emergencyContactName,
+			String emergencyContactPhone) {
 		this.person = person;
+		this.studentId = studentId;
 		this.admissionNumber = admissionNumber;
 		this.admissionDate = admissionDate;
 		this.admissionSource = admissionSource;
@@ -85,6 +103,9 @@ public class Student extends TenantScopedEntity {
 		this.category = category;
 		this.nationality = nationality;
 		this.remarks = remarks;
+		this.medicalAlerts = medicalAlerts;
+		this.emergencyContactName = emergencyContactName;
+		this.emergencyContactPhone = emergencyContactPhone;
 		this.status = StudentStatus.ADMITTED;
 	}
 
