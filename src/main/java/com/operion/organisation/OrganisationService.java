@@ -132,6 +132,17 @@ public class OrganisationService {
 		membershipRepository.save(new OrganisationMembership(user, person, adminRole, null, null, true));
 	}
 
+	/**
+	 * Called from both the tenant plane (OrganisationController, where TenantContext
+	 * already carries this organisationId) and the platform plane (PlatformOrganisationController,
+	 * where PlatformAuthenticationInterceptor sets TenantContext.set(null, platformAdminId) -
+	 * no tenant to inherit). AuditLogService.record() stamps organisation_id from
+	 * TenantContext, so without this, a platform-triggered status change writes its audit
+	 * row with a null organisation_id - saved correctly, but unattributed and unfindable via
+	 * AuditLogController's findByOrganisationId(). Same save/restore-around-the-call pattern
+	 * as BillingService.countActiveStudents() - a no-op on the tenant plane, the actual fix
+	 * on the platform plane.
+	 */
 	@Transactional
 	public Organisation changeStatus(Long organisationId, OrganisationStatus target) {
 		Organisation organisation = organisationRepository.findById(organisationId)
@@ -139,7 +150,15 @@ public class OrganisationService {
 
 		OrganisationStatus previous = organisation.getStatus();
 		organisation.changeStatus(target);
-		auditLogService.record("Organisation", organisationId, "STATUS_CHANGE", previous, target);
+
+		Long previousOrganisationId = TenantContext.getOrganisationId();
+		Long previousActorId = TenantContext.getActorId();
+		try {
+			TenantContext.set(organisationId, previousActorId);
+			auditLogService.record("Organisation", organisationId, "STATUS_CHANGE", previous, target);
+		} finally {
+			TenantContext.set(previousOrganisationId, previousActorId);
+		}
 
 		return organisation;
 	}

@@ -7,6 +7,7 @@ import Typography from "@mui/material/Typography";
 import ApartmentIcon from "@mui/icons-material/Apartment";
 import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
 import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
+import TodayIcon from "@mui/icons-material/Today";
 import { listAcademicYears, type AcademicYearResponse } from "../api/academicYears";
 import { listCampuses, type CampusResponse } from "../api/campuses";
 import { colors } from "../theme";
@@ -30,6 +31,8 @@ function writeStored(key: string, id: number) {
 		// per-viewer convenience only - fine to no-op when storage is unavailable
 	}
 }
+
+const TODAY_FORMATTER = new Intl.DateTimeFormat("en-IN", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
 
 interface PillSelectProps {
 	icon: ReactNode;
@@ -118,7 +121,7 @@ export function ContextSelectors() {
 	const academicYearOptions = useMemo(() => academicYears.map((y) => ({ id: y.id, label: y.name })), [academicYears]);
 
 	return (
-		<Stack direction="row" spacing={1.5}>
+		<Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}>
 			<PillSelect
 				icon={<ApartmentIcon fontSize="small" />}
 				label="Campus"
@@ -139,6 +142,12 @@ export function ContextSelectors() {
 					writeStored(ACADEMIC_YEAR_KEY, id);
 				}}
 			/>
+			<Stack direction="row" spacing={0.75} sx={{ alignItems: "center", color: colors.inkFaint, px: 0.5 }}>
+				<TodayIcon fontSize="small" />
+				<Typography variant="body2" sx={{ fontWeight: 600 }}>
+					{TODAY_FORMATTER.format(new Date())}
+				</Typography>
+			</Stack>
 		</Stack>
 	);
 }

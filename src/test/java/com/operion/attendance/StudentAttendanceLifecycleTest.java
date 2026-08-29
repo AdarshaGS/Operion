@@ -119,7 +119,7 @@ class StudentAttendanceLifecycleTest {
 		attendanceService = new AttendanceService(studentAttendanceRepository, classAttendanceRegisterRepository,
 				attendanceCorrectionRepository, staffAttendanceRepository, new AuditLogService(auditLogRepository, new ObjectMapper()));
 		studentService = new StudentService(studentRepository, studentEnrollmentRepository, studentDocumentRepository,
-				studentExitRepository, studentIdGenerator, new AuditLogService(auditLogRepository, new ObjectMapper()));
+			studentExitRepository, null, null, studentIdGenerator, new AuditLogService(auditLogRepository, new ObjectMapper()));
 	}
 
 	@AfterEach

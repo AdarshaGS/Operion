@@ -41,21 +41,11 @@ import {
 	type ReportResultResponse,
 	type SavedReportResponse,
 } from "../../api/reports";
+import { downloadCsvFile, toCsv } from "../../utils/csv";
 import { REPORT_STATUS_COLOR } from "./ReportsPanel";
 
 function downloadCsv(filename: string, result: ReportResultResponse) {
-	const escape = (value: unknown) => `"${String(value ?? "").replace(/"/g, '""')}"`;
-	const lines = [
-		result.columns.map(escape).join(","),
-		...result.rows.map((row) => result.columns.map((column) => escape(row[column])).join(",")),
-	];
-	const blob = new Blob([lines.join("\n")], { type: "text/csv" });
-	const url = URL.createObjectURL(blob);
-	const link = document.createElement("a");
-	link.href = url;
-	link.download = filename;
-	link.click();
-	URL.revokeObjectURL(url);
+	downloadCsvFile(filename, toCsv(result.columns, result.rows));
 }
 
 export function ReportDetailPage() {

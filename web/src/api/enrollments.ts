@@ -1,5 +1,12 @@
 import { api } from "./client";
 
+export interface CreateEnrollmentRequest {
+	academicYearId: number;
+	sectionId: number;
+	rollNumber: number | null;
+	enrolledDate: string;
+}
+
 export interface StudentEnrollmentResponse {
 	id: number;
 	studentId: number;
@@ -10,6 +17,10 @@ export interface StudentEnrollmentResponse {
 	current: boolean;
 	enrolledDate: string;
 	exitDate: string | null;
+}
+
+export function createEnrollment(studentId: number, request: CreateEnrollmentRequest): Promise<StudentEnrollmentResponse> {
+	return api.post<StudentEnrollmentResponse>(`/api/v1/students/${studentId}/enrollments`, request);
 }
 
 export function listSectionEnrollments(sectionId: number): Promise<StudentEnrollmentResponse[]> {

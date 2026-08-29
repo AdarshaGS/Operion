@@ -1,8 +1,11 @@
 package com.operion.transport.api;
 
+import java.util.Comparator;
 import java.util.List;
 
 import com.operion.authorization.RequirePermission;
+import com.operion.finance.FeeStructure;
+import com.operion.finance.FeeStructureRepository;
 import com.operion.student.StudentEnrollment;
 import com.operion.student.StudentEnrollmentRepository;
 import com.operion.transport.Route;
@@ -31,16 +34,18 @@ public class StudentTransportAssignmentController {
 	private final StudentEnrollmentRepository studentEnrollmentRepository;
 	private final RouteRepository routeRepository;
 	private final RouteStopRepository routeStopRepository;
+	private final FeeStructureRepository feeStructureRepository;
 
 	public StudentTransportAssignmentController(TransportService transportService,
 			StudentTransportAssignmentRepository studentTransportAssignmentRepository,
 			StudentEnrollmentRepository studentEnrollmentRepository, RouteRepository routeRepository,
-			RouteStopRepository routeStopRepository) {
+			RouteStopRepository routeStopRepository, FeeStructureRepository feeStructureRepository) {
 		this.transportService = transportService;
 		this.studentTransportAssignmentRepository = studentTransportAssignmentRepository;
 		this.studentEnrollmentRepository = studentEnrollmentRepository;
 		this.routeRepository = routeRepository;
 		this.routeStopRepository = routeStopRepository;
+		this.feeStructureRepository = feeStructureRepository;
 	}
 
 	@PostMapping
@@ -49,8 +54,9 @@ public class StudentTransportAssignmentController {
 		StudentEnrollment enrollment = findEnrollment(request.studentEnrollmentId());
 		Route route = findRoute(request.routeId());
 		RouteStop routeStop = findRouteStop(request.routeStopId());
+		FeeStructure feeStructure = request.feeStructureId() == null ? null : findFeeStructure(request.feeStructureId());
 		StudentTransportAssignment assignment = transportService.assignStudent(
-				enrollment, route, routeStop, request.usesPickup(), request.usesDrop(), request.effectiveFrom());
+				enrollment, route, routeStop, request.usesPickup(), request.usesDrop(), request.effectiveFrom(), feeStructure);
 		return StudentTransportAssignmentResponse.from(assignment);
 	}
 
@@ -69,12 +75,20 @@ public class StudentTransportAssignmentController {
 				.toList();
 	}
 
+	@GetMapping("/by-route")
+	public List<RouteRosterEntryResponse> byRoute(@RequestParam Long routeId) {
+		return studentTransportAssignmentRepository.findByRouteIdAndStatus(routeId, TransportAssignmentStatus.ACTIVE).stream()
+				.map(RouteRosterEntryResponse::from)
+				.sorted(Comparator.comparingInt(RouteRosterEntryResponse::sequenceNumber).thenComparing(RouteRosterEntryResponse::studentName))
+				.toList();
+	}
+
 	@PostMapping("/{id}/reassign")
 	@RequirePermission("TRANSPORT_ASSIGNMENT_MANAGE")
 	public StudentTransportAssignmentResponse reassignRoute(@PathVariable Long id, @RequestBody ReassignRouteRequest request) {
 		StudentTransportAssignment assignment = findAssignment(id);
-		return StudentTransportAssignmentResponse.from(
-				transportService.reassignRoute(assignment, findRoute(request.routeId()), findRouteStop(request.routeStopId())));
+		return StudentTransportAssignmentResponse.from(transportService.reassignRoute(
+				assignment, findRoute(request.routeId()), findRouteStop(request.routeStopId()), request.effectiveFrom()));
 	}
 
 	@PostMapping("/{id}/legs")
@@ -107,5 +121,9 @@ public class StudentTransportAssignmentController {
 
 	private RouteStop findRouteStop(Long id) {
 		return routeStopRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("No route stop with id " + id));
+	}
+
+	private FeeStructure findFeeStructure(Long id) {
+		return feeStructureRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("No fee structure with id " + id));
 	}
 }

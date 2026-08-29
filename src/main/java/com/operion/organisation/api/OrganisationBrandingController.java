@@ -5,6 +5,7 @@ import com.operion.common.TenantContext;
 import com.operion.organisation.OrganisationBranding;
 import com.operion.organisation.OrganisationBrandingRepository;
 import com.operion.storage.AssetStorageService;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -36,7 +37,7 @@ public class OrganisationBrandingController {
 
 	@PutMapping
 	@RequirePermission("ORGANISATION_MANAGE")
-	public OrganisationBrandingResponse update(@RequestBody UpdateOrganisationBrandingRequest request) {
+	public OrganisationBrandingResponse update(@Valid @RequestBody UpdateOrganisationBrandingRequest request) {
 		OrganisationBranding branding = currentBranding();
 		branding.setLogoRef(request.logoRef());
 		branding.setStampRef(request.stampRef());
@@ -44,6 +45,10 @@ public class OrganisationBrandingController {
 		branding.setSchoolNameOverride(request.schoolNameOverride());
 		branding.setAddressLine(request.addressLine());
 		branding.setAffiliationText(request.affiliationText());
+		branding.setFooterText(request.footerText());
+		branding.setAdmissionNumberFormat(request.admissionNumberFormat());
+		branding.setInvoiceNumberFormat(request.invoiceNumberFormat());
+		branding.setReceiptNumberFormat(request.receiptNumberFormat());
 		return OrganisationBrandingResponse.from(brandingRepository.save(branding), assetStorageService);
 	}
 

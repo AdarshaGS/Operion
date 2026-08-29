@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import AppBar from "@mui/material/AppBar";
 import Box from "@mui/material/Box";
 import ButtonBase from "@mui/material/ButtonBase";
+import Collapse from "@mui/material/Collapse";
 import Divider from "@mui/material/Divider";
 import Drawer from "@mui/material/Drawer";
 import IconButton from "@mui/material/IconButton";
@@ -17,6 +18,7 @@ import Tooltip from "@mui/material/Tooltip";
 import { Wordmark } from "../branding/Wordmark";
 import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import DashboardIcon from "@mui/icons-material/Dashboard";
 import SchoolIcon from "@mui/icons-material/School";
 import ClassIcon from "@mui/icons-material/Class";
@@ -33,6 +35,7 @@ import BadgeIcon from "@mui/icons-material/Badge";
 import AssessmentIcon from "@mui/icons-material/Assessment";
 import SettingsIcon from "@mui/icons-material/Settings";
 import { useAuth } from "../auth/AuthContext";
+import { getDashboardSummary, type SetupChecklist } from "../api/dashboard";
 import { ContextSelectors } from "./ContextSelectors";
 import { NotificationBell } from "./NotificationBell";
 import { ProfileMenu } from "./ProfileMenu";
@@ -41,12 +44,30 @@ import { colors } from "../theme";
 const DRAWER_WIDTH = 240;
 const DRAWER_WIDTH_COLLAPSED = 72;
 const SIDEBAR_COLLAPSED_KEY = "operion.sidebarCollapsed";
+const NAV_GROUPS_COLLAPSED_KEY = "operion.navGroupsCollapsed";
 
 function readStoredCollapsed(): boolean {
 	try {
 		return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "1";
 	} catch {
 		return false;
+	}
+}
+
+function readStoredGroupsCollapsed(): Record<string, boolean> {
+	try {
+		const raw = localStorage.getItem(NAV_GROUPS_COLLAPSED_KEY);
+		return raw ? (JSON.parse(raw) as Record<string, boolean>) : {};
+	} catch {
+		return {};
+	}
+}
+
+function writeStoredGroupsCollapsed(value: Record<string, boolean>) {
+	try {
+		localStorage.setItem(NAV_GROUPS_COLLAPSED_KEY, JSON.stringify(value));
+	} catch {
+		// per-viewer convenience only - fine to no-op when storage is unavailable
 	}
 }
 
@@ -58,6 +79,10 @@ interface NavItem {
 	built: boolean;
 	/** Visible/enabled if the caller holds ANY of these view permissions. Empty = no gate (ungated backend endpoints, e.g. Settings). */
 	requiredPermissions: string[];
+	/** Disabled with a "what to do first" tooltip, distinct from "no permission"/"coming
+	 * soon", until this SetupChecklist field is true (#127) - guidance, not a hard block
+	 * elsewhere in the app; only set on items with a genuine prerequisite. */
+	setupGate?: { field: keyof SetupChecklist; message: string };
 }
 
 interface NavGroup {
@@ -84,6 +109,7 @@ const NAV_GROUPS: NavGroup[] = [
 				icon: <EventAvailableIcon />,
 				built: true,
 				requiredPermissions: ["ATTENDANCE_VIEW", "STAFF_ATTENDANCE_VIEW"],
+				setupGate: { field: "studentsAdded", message: "Add students first" },
 			},
 			{ label: "Examinations", path: "/examinations", icon: <AssignmentIcon />, built: true, requiredPermissions: ["EXAM_VIEW"] },
 			{ label: "Library", path: "/library", icon: <MenuBookIcon />, built: true, requiredPermissions: ["LIBRARY_VIEW"] },
@@ -92,7 +118,14 @@ const NAV_GROUPS: NavGroup[] = [
 	{
 		label: "Operations",
 		items: [
-			{ label: "Fees", path: "/fees", icon: <PaymentsIcon />, built: true, requiredPermissions: ["FEE_VIEW"] },
+			{
+				label: "Fees",
+				path: "/fees",
+				icon: <PaymentsIcon />,
+				built: true,
+				requiredPermissions: ["FEE_VIEW"],
+				setupGate: { field: "studentsAdded", message: "Add students first" },
+			},
 			{ label: "Transport", path: "/transport", icon: <DirectionsBusIcon />, built: true, requiredPermissions: ["TRANSPORT_VIEW"] },
 			{ label: "Communication", path: "/communication", icon: <CampaignIcon />, built: true, requiredPermissions: ["COMMUNICATION_VIEW"] },
 			{ label: "Inventory", path: "/inventory", icon: <Inventory2Icon />, built: true, requiredPermissions: ["INVENTORY_VIEW"] },
@@ -118,10 +151,25 @@ export function AppLayout() {
 	const location = useLocation();
 	const { hasAnyPermission, permissionsLoaded, profile } = useAuth();
 	const [collapsed, setCollapsed] = useState(readStoredCollapsed);
+	const [collapsedGroups, setCollapsedGroups] = useState(readStoredGroupsCollapsed);
+	const [checklist, setChecklist] = useState<SetupChecklist | null>(null);
+
+	// The summary endpoint is ORGANISATION_MANAGE-gated backend-side - only fetch it for
+	// callers who'd actually get a 200, so everyone else just keeps today's two-reason
+	// disabled state (permission/coming-soon) with no extra "setup incomplete" gate.
+	useEffect(() => {
+		if (!permissionsLoaded || !hasAnyPermission(["ORGANISATION_MANAGE"])) {
+			return;
+		}
+		getDashboardSummary()
+			.then((summary) => setChecklist(summary.setupChecklist))
+			.catch(() => {});
+	}, [permissionsLoaded, hasAnyPermission]);
 
 	// While permissions are still loading, don't gate on them - enforcement is backend-side
 	// regardless, this is UX sugar to avoid a flash of every nav item looking unauthorized.
 	const isPermitted = (item: NavItem) => item.requiredPermissions.length === 0 || !permissionsLoaded || hasAnyPermission(item.requiredPermissions);
+	const setupBlocked = (item: NavItem) => item.setupGate !== undefined && checklist !== null && !checklist[item.setupGate.field];
 
 	function toggleCollapsed() {
 		setCollapsed((prev) => {
@@ -131,6 +179,14 @@ export function AppLayout() {
 			} catch {
 				// per-viewer convenience only - fine to no-op when storage is unavailable
 			}
+			return next;
+		});
+	}
+
+	function toggleGroup(label: string) {
+		setCollapsedGroups((prev) => {
+			const next = { ...prev, [label]: !prev[label] };
+			writeStoredGroupsCollapsed(next);
 			return next;
 		});
 	}
@@ -175,32 +231,52 @@ export function AppLayout() {
 					</Tooltip>
 				</Box>
 				<Box sx={{ overflowY: "auto" }}>
-					{NAV_GROUPS.map((group, groupIndex) => (
+					{NAV_GROUPS.map((group, groupIndex) => {
+						const groupOpen = collapsed || !collapsedGroups[group.label];
+						return (
 						<Box key={group.label}>
 							{groupIndex > 0 && <Divider sx={{ my: 0.5 }} />}
-							<List
-								subheader={
-									!collapsed ? (
-										<ListSubheader
-											disableSticky
-											sx={{
-												lineHeight: "2rem",
-												fontSize: "0.68rem",
-												fontWeight: 700,
-												letterSpacing: "0.08em",
-												color: colors.inkFaint,
-												backgroundColor: "transparent",
-											}}
-										>
-											{group.label.toUpperCase()}
-										</ListSubheader>
-									) : undefined
-								}
-							>
+							{!collapsed && (
+								<ListSubheader
+									component="div"
+									disableSticky
+									onClick={() => toggleGroup(group.label)}
+									sx={{
+										display: "flex",
+										alignItems: "center",
+										justifyContent: "space-between",
+										cursor: "pointer",
+										lineHeight: "2rem",
+										fontSize: "0.68rem",
+										fontWeight: 700,
+										letterSpacing: "0.08em",
+										color: colors.inkFaint,
+										backgroundColor: "transparent",
+									}}
+								>
+									{group.label.toUpperCase()}
+									<ExpandMoreIcon
+										fontSize="small"
+										sx={{
+											transition: (theme) => theme.transitions.create("transform", { duration: theme.transitions.duration.shortest }),
+											transform: groupOpen ? "rotate(0deg)" : "rotate(-90deg)",
+										}}
+									/>
+								</ListSubheader>
+							)}
+							<Collapse in={groupOpen} timeout="auto">
+							<List>
 								{group.items.map((item) => {
 									const permitted = isPermitted(item);
-									const enabled = item.built && permitted;
-									const reason = !item.built ? "Coming soon" : !permitted ? "You don't have permission to view this" : "";
+									const blocked = permitted && setupBlocked(item);
+									const enabled = item.built && permitted && !blocked;
+									const reason = !item.built
+										? "Coming soon"
+										: !permitted
+											? "You don't have permission to view this"
+											: blocked
+												? (item.setupGate as NonNullable<NavItem["setupGate"]>).message
+												: "";
 									const tooltip = collapsed ? (reason ? `${item.label} — ${reason}` : item.label) : reason;
 									return (
 										<Tooltip key={item.path} title={tooltip} placement="right">
@@ -219,8 +295,10 @@ export function AppLayout() {
 									);
 								})}
 							</List>
+							</Collapse>
 						</Box>
-					))}
+						);
+					})}
 				</Box>
 			</Drawer>
 			<Box component="main" sx={{ flexGrow: 1, p: { xs: 2, md: 4 } }}>

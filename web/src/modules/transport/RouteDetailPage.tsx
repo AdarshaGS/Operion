@@ -24,6 +24,7 @@ import AddIcon from "@mui/icons-material/Add";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { ApiError } from "../../api/client";
 import { addRouteStop, listRoutes, listRouteStops, type RouteResponse, type RouteStopResponse } from "../../api/transportRoutes";
+import { listRouteRoster, type RouteRosterEntryResponse } from "../../api/transportAssignments";
 import { cancelTrip, completeTrip, listTripLogs, scheduleTrip, startTrip, type TripLogResponse } from "../../api/tripLogs";
 import { listVehicles, type VehicleResponse } from "../../api/vehicles";
 
@@ -41,6 +42,7 @@ export function RouteDetailPage() {
 
 	const [route, setRoute] = useState<RouteResponse | null>(null);
 	const [stops, setStops] = useState<RouteStopResponse[]>([]);
+	const [roster, setRoster] = useState<RouteRosterEntryResponse[]>([]);
 	const [vehicles, setVehicles] = useState<VehicleResponse[]>([]);
 	const [error, setError] = useState<string | null>(null);
 	const [loading, setLoading] = useState(true);
@@ -70,6 +72,7 @@ export function RouteDetailPage() {
 			.finally(() => setLoading(false));
 		listVehicles().then(setVehicles).catch(() => {});
 		refreshStops();
+		refreshRoster();
 	}, [routeId]);
 
 	useEffect(refreshTrips, [routeId, tripDate]);
@@ -79,6 +82,13 @@ export function RouteDetailPage() {
 		listRouteStops(Number(routeId))
 			.then(setStops)
 			.catch((err) => setError(err instanceof ApiError ? err.message : "Failed to load stops"));
+	}
+
+	function refreshRoster() {
+		if (!routeId) return;
+		listRouteRoster(Number(routeId))
+			.then(setRoster)
+			.catch((err) => setError(err instanceof ApiError ? err.message : "Failed to load student roster"));
 	}
 
 	function refreshTrips() {
@@ -209,6 +219,45 @@ export function RouteDetailPage() {
 											<TableCell>{stop.stopName}</TableCell>
 											<TableCell>{stop.pickupTime ?? "—"}</TableCell>
 											<TableCell>{stop.dropTime ?? "—"}</TableCell>
+										</TableRow>
+									))}
+								</TableBody>
+							</Table>
+						</TableContainer>
+					)}
+				</Stack>
+			</Paper>
+
+			<Paper sx={{ p: 3 }}>
+				<Stack spacing={2}>
+					<Typography variant="h6">Students</Typography>
+
+					{roster.length === 0 && <Alert severity="info">No students assigned to this route.</Alert>}
+
+					{roster.length > 0 && (
+						<TableContainer>
+							<Table size="small">
+								<TableHead>
+									<TableRow>
+										<TableCell>#</TableCell>
+										<TableCell>Stop</TableCell>
+										<TableCell>Student</TableCell>
+										<TableCell>Admission #</TableCell>
+										<TableCell>Legs</TableCell>
+									</TableRow>
+								</TableHead>
+								<TableBody>
+									{roster.map((entry) => (
+										<TableRow key={entry.assignmentId}>
+											<TableCell>{entry.sequenceNumber}</TableCell>
+											<TableCell>{entry.stopName}</TableCell>
+											<TableCell>{entry.studentName}</TableCell>
+											<TableCell>{entry.admissionNumber}</TableCell>
+											<TableCell>
+												{entry.usesPickup ? "Pickup" : ""}
+												{entry.usesPickup && entry.usesDrop ? " & " : ""}
+												{entry.usesDrop ? "Drop" : ""}
+											</TableCell>
 										</TableRow>
 									))}
 								</TableBody>

@@ -119,7 +119,7 @@ class FeePaymentGatewayServiceTest {
 	@BeforeEach
 	void setUpStudentService() {
 		studentService = new StudentService(studentRepository, studentEnrollmentRepository, studentDocumentRepository,
-				studentExitRepository, studentIdGenerator, new AuditLogService(auditLogRepository, new ObjectMapper()));
+			studentExitRepository, null, null, studentIdGenerator, new AuditLogService(auditLogRepository, new ObjectMapper()));
 	}
 
 	private FeePaymentGatewayService gatewayService() {
