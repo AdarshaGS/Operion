@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import ApartmentIcon from "@mui/icons-material/Apartment";
 import BadgeIcon from "@mui/icons-material/Badge";
 import BrushIcon from "@mui/icons-material/Brush";
+import CableIcon from "@mui/icons-material/Cable";
 import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
 import CreditCardIcon from "@mui/icons-material/CreditCard";
 import DescriptionIcon from "@mui/icons-material/Description";
@@ -9,6 +10,7 @@ import GroupIcon from "@mui/icons-material/Group";
 import HistoryIcon from "@mui/icons-material/History";
 import ImportExportIcon from "@mui/icons-material/ImportExport";
 import LocationCityIcon from "@mui/icons-material/LocationCity";
+import RuleIcon from "@mui/icons-material/Rule";
 import SecurityIcon from "@mui/icons-material/Security";
 import TuneIcon from "@mui/icons-material/Tune";
 import WorkIcon from "@mui/icons-material/Work";
@@ -18,11 +20,13 @@ import { BusinessSettingsPanel } from "./BusinessSettingsPanel";
 import { CampusesPanel } from "./CampusesPanel";
 import { DepartmentsPanel } from "./DepartmentsPanel";
 import { DesignationsPanel } from "./DesignationsPanel";
+import { ExternalServicesPanel } from "./ExternalServicesPanel";
 import { IdCardStudioPanel } from "./IdCardStudioPanel";
 import { ImportsExportsPanel } from "./ImportsExportsPanel";
 import { LetterFormatsPanel } from "./LetterFormatsPanel";
 import { OrganisationBrandingPanel } from "./OrganisationBrandingPanel";
 import { OrganisationProfilePanel } from "./OrganisationProfilePanel";
+import { ProfileChangeRequestsPanel } from "./ProfileChangeRequestsPanel";
 import { RolesPanel } from "./RolesPanel";
 import { UsersPanel } from "./UsersPanel";
 
@@ -128,5 +132,19 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
 		description: "Bulk import students from CSV, or export existing records",
 		icon: <ImportExportIcon />,
 		panel: <ImportsExportsPanel />,
+	},
+	{
+		key: "integrations",
+		label: "Integrations",
+		description: "Connect your own accounts for 3rd-party services like email and SMS delivery",
+		icon: <CableIcon />,
+		panel: <ExternalServicesPanel />,
+	},
+	{
+		key: "profile-change-requests",
+		label: "Profile change requests",
+		description: "Review self-service phone/email/photo change requests from staff and guardians",
+		icon: <RuleIcon />,
+		panel: <ProfileChangeRequestsPanel />,
 	},
 ];
