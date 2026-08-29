@@ -26,16 +26,24 @@ import com.operion.organisation.Campus;
 import com.operion.organisation.CampusRepository;
 import com.operion.organisation.Organisation;
 import com.operion.organisation.OrganisationRepository;
+import com.operion.audit.AuditLogRepository;
+import com.operion.audit.AuditLogService;
 import com.operion.student.Student;
+import com.operion.student.StudentDocumentRepository;
 import com.operion.student.StudentEnrollment;
+import com.operion.student.StudentEnrollmentRepository;
+import com.operion.student.StudentExitRepository;
+import com.operion.student.StudentRepository;
 import com.operion.student.StudentService;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * Proves the invoice/payment ledger: proportional discount at generation time, duplicate
@@ -44,15 +52,14 @@ import org.springframework.transaction.annotation.Transactional;
  * original Payment or PaymentAllocation rows. Per ai-context/erp-system-plan.md §3.2.
  */
 @DataJpaTest
-@Import({ MultiTenancyConfig.class, JpaConfig.class, FeeService.class, StudentService.class })
+@Import({ MultiTenancyConfig.class, JpaConfig.class, FeeService.class })
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class InvoiceAndPaymentTest {
 
-	@Autowired
-	private FeeService feeService;
+	private StudentService studentService;
 
 	@Autowired
-	private StudentService studentService;
+	private FeeService feeService;
 
 	@Autowired
 	private OrganisationRepository organisationRepository;
@@ -83,6 +90,27 @@ class InvoiceAndPaymentTest {
 
 	@Autowired
 	private PaymentAllocationRepository paymentAllocationRepository;
+
+	@Autowired
+	private StudentRepository studentRepository;
+
+	@Autowired
+	private StudentEnrollmentRepository studentEnrollmentRepository;
+
+	@Autowired
+	private StudentDocumentRepository studentDocumentRepository;
+
+	@Autowired
+	private StudentExitRepository studentExitRepository;
+
+	@Autowired
+	private AuditLogRepository auditLogRepository;
+
+	@BeforeEach
+	void setUpStudentService() {
+		studentService = new StudentService(studentRepository, studentEnrollmentRepository, studentDocumentRepository,
+				studentExitRepository, new AuditLogService(auditLogRepository, new ObjectMapper()));
+	}
 
 	@AfterEach
 	void clearTenant() {

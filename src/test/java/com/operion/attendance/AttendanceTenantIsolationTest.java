@@ -11,6 +11,8 @@ import com.operion.academic.Section;
 import com.operion.academic.SectionRepository;
 import com.operion.academic.SchoolClass;
 import com.operion.academic.SchoolClassRepository;
+import com.operion.audit.AuditLogRepository;
+import com.operion.audit.AuditLogService;
 import com.operion.common.JpaConfig;
 import com.operion.common.MultiTenancyConfig;
 import com.operion.common.TenantContext;
@@ -23,24 +25,32 @@ import com.operion.organisation.CampusRepository;
 import com.operion.organisation.Organisation;
 import com.operion.organisation.OrganisationRepository;
 import com.operion.student.Student;
+import com.operion.student.StudentDocumentRepository;
 import com.operion.student.StudentEnrollment;
+import com.operion.student.StudentEnrollmentRepository;
+import com.operion.student.StudentExitRepository;
+import com.operion.student.StudentRepository;
 import com.operion.student.StudentService;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * Extends the tenant-isolation proof from OrganisationTenantIsolationTest /
  * StudentTenantIsolationTest to the Attendance tables.
  */
 @DataJpaTest
-@Import({ MultiTenancyConfig.class, JpaConfig.class, StudentService.class })
+@Import({ MultiTenancyConfig.class, JpaConfig.class })
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class AttendanceTenantIsolationTest {
+
+	private StudentService studentService;
 
 	@Autowired
 	private OrganisationRepository organisationRepository;
@@ -64,10 +74,28 @@ class AttendanceTenantIsolationTest {
 	private SectionRepository sectionRepository;
 
 	@Autowired
-	private StudentService studentService;
+	private StudentRepository studentRepository;
+
+	@Autowired
+	private StudentEnrollmentRepository studentEnrollmentRepository;
+
+	@Autowired
+	private StudentDocumentRepository studentDocumentRepository;
+
+	@Autowired
+	private StudentExitRepository studentExitRepository;
+
+	@Autowired
+	private AuditLogRepository auditLogRepository;
 
 	@Autowired
 	private StudentAttendanceRepository studentAttendanceRepository;
+
+	@BeforeEach
+	void setUpStudentService() {
+		studentService = new StudentService(studentRepository, studentEnrollmentRepository, studentDocumentRepository,
+				studentExitRepository, new AuditLogService(auditLogRepository, new ObjectMapper()));
+	}
 
 	@AfterEach
 	void clearTenant() {

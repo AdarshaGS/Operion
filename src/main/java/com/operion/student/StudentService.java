@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 
 import com.operion.academic.Section;
+import com.operion.audit.AuditLogService;
 import com.operion.identity.Person;
 import com.operion.organisation.AcademicYear;
 import org.springframework.stereotype.Service;
@@ -23,20 +24,25 @@ public class StudentService {
 	private final StudentEnrollmentRepository studentEnrollmentRepository;
 	private final StudentDocumentRepository studentDocumentRepository;
 	private final StudentExitRepository studentExitRepository;
+	private final AuditLogService auditLogService;
 
 	public StudentService(StudentRepository studentRepository, StudentEnrollmentRepository studentEnrollmentRepository,
-			StudentDocumentRepository studentDocumentRepository, StudentExitRepository studentExitRepository) {
+			StudentDocumentRepository studentDocumentRepository, StudentExitRepository studentExitRepository,
+			AuditLogService auditLogService) {
 		this.studentRepository = studentRepository;
 		this.studentEnrollmentRepository = studentEnrollmentRepository;
 		this.studentDocumentRepository = studentDocumentRepository;
 		this.studentExitRepository = studentExitRepository;
+		this.auditLogService = auditLogService;
 	}
 
 	public Student admit(Person person, String admissionNumber, LocalDate admissionDate, String admissionSource,
 			String previousSchool, String tcNumber, Double entranceScore, String bloodGroup, String category,
 			String nationality, String remarks) {
-		return studentRepository.save(new Student(person, admissionNumber, admissionDate, admissionSource,
+		Student student = studentRepository.save(new Student(person, admissionNumber, admissionDate, admissionSource,
 				previousSchool, tcNumber, entranceScore, bloodGroup, category, nationality, remarks));
+		auditLogService.record("Student", student.getId(), "STUDENT_ADMITTED", null, student.getStatus());
+		return student;
 	}
 
 	/**
@@ -54,7 +60,10 @@ public class StudentService {
 			student.activate();
 			studentRepository.save(student);
 		}
-		return studentEnrollmentRepository.save(new StudentEnrollment(student, academicYear, section, rollNumber, enrolledDate));
+		StudentEnrollment enrollment =
+				studentEnrollmentRepository.save(new StudentEnrollment(student, academicYear, section, rollNumber, enrolledDate));
+		auditLogService.record("StudentEnrollment", enrollment.getId(), "STUDENT_ENROLLED", null, enrollment.getEnrollmentStatus());
+		return enrollment;
 	}
 
 	/**
@@ -67,9 +76,14 @@ public class StudentService {
 			Integer rollNumber, LocalDate promotionDate, boolean repeated) {
 		StudentEnrollment current = studentEnrollmentRepository.findByStudentIdAndCurrentTrue(student.getId())
 				.orElseThrow(() -> new IllegalStateException("Student " + student.getId() + " has no current enrollment to promote from"));
+		StudentEnrollmentStatus previousStatus = current.getEnrollmentStatus();
 		current.close(repeated ? StudentEnrollmentStatus.REPEATED : StudentEnrollmentStatus.PROMOTED, promotionDate);
+		studentEnrollmentRepository.save(current);
 		assertCapacityAvailable(newSection);
-		return studentEnrollmentRepository.save(new StudentEnrollment(student, newAcademicYear, newSection, rollNumber, promotionDate));
+		StudentEnrollment enrollment =
+				studentEnrollmentRepository.save(new StudentEnrollment(student, newAcademicYear, newSection, rollNumber, promotionDate));
+		auditLogService.record("StudentEnrollment", enrollment.getId(), "STUDENT_PROMOTED", previousStatus, current.getEnrollmentStatus());
+		return enrollment;
 	}
 
 	/** Mid-year section move only - mutates the current row in place, per the class-level note on StudentEnrollment. */
@@ -107,11 +121,15 @@ public class StudentService {
 			String destinationSchool, Long initiatedBy) {
 		StudentExit exit = studentExitRepository.save(new StudentExit(student, exitType, exitDate, reason, destinationSchool, initiatedBy));
 
-		studentEnrollmentRepository.findByStudentIdAndCurrentTrue(student.getId())
-				.ifPresent(enrollment -> enrollment.close(toEnrollmentExitStatus(exitType), exitDate));
+		studentEnrollmentRepository.findByStudentIdAndCurrentTrue(student.getId()).ifPresent(enrollment -> {
+			enrollment.close(toEnrollmentExitStatus(exitType), exitDate);
+			studentEnrollmentRepository.save(enrollment);
+		});
 
+		StudentStatus previousStatus = student.getStatus();
 		student.exit(toStudentExitStatus(exitType));
 		studentRepository.save(student);
+		auditLogService.record("Student", student.getId(), "STUDENT_EXITED", previousStatus, student.getStatus());
 		return exit;
 	}
 
@@ -119,7 +137,10 @@ public class StudentService {
 	@Transactional
 	public StudentDocument addDocument(Student student, String documentType, String fileReference, String fileName, String mimeType) {
 		studentDocumentRepository.findByStudentIdAndDocumentTypeAndStatus(student.getId(), documentType, StudentDocumentStatus.ACTIVE)
-				.ifPresent(StudentDocument::supersede);
+				.ifPresent(existing -> {
+					existing.supersede();
+					studentDocumentRepository.save(existing);
+				});
 		return studentDocumentRepository.save(new StudentDocument(student, documentType, fileReference, fileName, mimeType));
 	}
 

@@ -154,7 +154,7 @@ public class DashboardController {
 				sales(),
 				purchase(),
 				new SetupChecklist(structureConfigured(), totalRoles > DEFAULT_ROLE_COUNT, activeMembers > 1,
-						academicYearRepository.count() > 0 && schoolClassRepository.count() > 0, activeStudents > 0,
+						academicYearRepository.existsByCurrentTrue() && schoolClassRepository.count() > 0, activeStudents > 0,
 						feeStructureRepository.count() > 0, studentAttendanceRepository.count() > 0));
 	}
 

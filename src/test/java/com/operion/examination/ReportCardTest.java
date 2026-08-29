@@ -31,6 +31,10 @@ import com.operion.organisation.Organisation;
 import com.operion.organisation.OrganisationRepository;
 import com.operion.student.Student;
 import com.operion.student.StudentEnrollment;
+import com.operion.student.StudentDocumentRepository;
+import com.operion.student.StudentEnrollmentRepository;
+import com.operion.student.StudentExitRepository;
+import com.operion.student.StudentRepository;
 import com.operion.student.StudentService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -48,13 +52,12 @@ import tools.jackson.databind.ObjectMapper;
  * and rejects a duplicate publish. Per ai-context/erp-system-plan.md §3.3.
  */
 @DataJpaTest
-@Import({ MultiTenancyConfig.class, JpaConfig.class, StudentService.class })
+@Import({ MultiTenancyConfig.class, JpaConfig.class })
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class ReportCardTest {
 
 	private ExaminationService examinationService;
 
-	@Autowired
 	private StudentService studentService;
 
 	@Autowired
@@ -102,10 +105,24 @@ class ReportCardTest {
 	@Autowired
 	private AuditLogRepository auditLogRepository;
 
+	@Autowired
+	private StudentRepository studentRepository;
+
+	@Autowired
+	private StudentEnrollmentRepository studentEnrollmentRepository;
+
+	@Autowired
+	private StudentDocumentRepository studentDocumentRepository;
+
+	@Autowired
+	private StudentExitRepository studentExitRepository;
+
 	@BeforeEach
 	void setUpExaminationService() {
 		examinationService = new ExaminationService(examRepository, examScheduleRepository, gradingScaleRepository,
 				gradingScaleBandRepository, marksEntryRepository, reportCardRepository, new AuditLogService(auditLogRepository, new ObjectMapper()));
+		studentService = new StudentService(studentRepository, studentEnrollmentRepository, studentDocumentRepository,
+				studentExitRepository, new AuditLogService(auditLogRepository, new ObjectMapper()));
 	}
 
 	@AfterEach
@@ -127,8 +144,8 @@ class ReportCardTest {
 		GradeLevel grade5 = gradeLevelRepository.save(new GradeLevel("Grade 5", 5, null));
 		SchoolClass schoolClass = schoolClassRepository.save(new SchoolClass(academicYear, campus, grade5, null));
 		Section section = sectionRepository.save(new Section(schoolClass, "A", 40, null));
-		Subject maths = subjectRepository.save(new Subject("Mathematics", "MATH", false));
-		Subject science = subjectRepository.save(new Subject("Science", "SCI", false));
+		Subject maths = subjectRepository.save(new Subject("Mathematics", "MATH"));
+		Subject science = subjectRepository.save(new Subject("Science", "SCI"));
 		Person person = personRepository.save(new Person("Meera", "Nair"));
 
 		Student student = studentService.admit(

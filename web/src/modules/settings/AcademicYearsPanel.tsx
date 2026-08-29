@@ -19,7 +19,13 @@ import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import AddIcon from "@mui/icons-material/Add";
 import { ApiError } from "../../api/client";
-import { createAcademicYear, listAcademicYears, type AcademicYearResponse } from "../../api/academicYears";
+import {
+	closeAcademicYear,
+	createAcademicYear,
+	listAcademicYears,
+	markAcademicYearCurrent,
+	type AcademicYearResponse,
+} from "../../api/academicYears";
 
 export function AcademicYearsPanel() {
 	const [years, setYears] = useState<AcademicYearResponse[]>([]);
@@ -37,6 +43,24 @@ export function AcademicYearsPanel() {
 	}
 
 	useEffect(refresh, []);
+
+	async function handleMarkCurrent(id: number) {
+		try {
+			await markAcademicYearCurrent(id);
+			refresh();
+		} catch (err) {
+			setError(err instanceof ApiError ? err.message : "Failed to mark academic year current");
+		}
+	}
+
+	async function handleClose(id: number) {
+		try {
+			await closeAcademicYear(id);
+			refresh();
+		} catch (err) {
+			setError(err instanceof ApiError ? err.message : "Failed to close academic year");
+		}
+	}
 
 	async function handleSubmit(event: FormEvent) {
 		event.preventDefault();
@@ -76,6 +100,7 @@ export function AcademicYearsPanel() {
 								<TableCell>End date</TableCell>
 								<TableCell>Current</TableCell>
 								<TableCell>Status</TableCell>
+								<TableCell />
 							</TableRow>
 						</TableHead>
 						<TableBody>
@@ -87,6 +112,18 @@ export function AcademicYearsPanel() {
 									<TableCell>{year.current ? <Chip label="Current" color="primary" size="small" /> : "—"}</TableCell>
 									<TableCell>
 										<Chip label={year.status} size="small" />
+									</TableCell>
+									<TableCell>
+										{year.status !== "CLOSED" && !year.current && (
+											<Button size="small" onClick={() => handleMarkCurrent(year.id)}>
+												Mark current
+											</Button>
+										)}
+										{year.status !== "CLOSED" && (
+											<Button size="small" color="error" onClick={() => handleClose(year.id)}>
+												Close
+											</Button>
+										)}
 									</TableCell>
 								</TableRow>
 							))}

@@ -51,6 +51,12 @@ public class AcademicYear extends TenantScopedEntity {
 		this.status = AcademicYearStatus.ACTIVE;
 	}
 
+	/** Used when a different year is marked current - leaves status untouched, since
+	 * ceasing to be "the" current year isn't the same event as this year being done. */
+	public void unmarkCurrent() {
+		this.current = false;
+	}
+
 	public void close() {
 		if (status == AcademicYearStatus.CLOSED) {
 			throw new IllegalStateException("Academic year is already closed");

@@ -11,6 +11,8 @@ import com.operion.academic.Section;
 import com.operion.academic.SectionRepository;
 import com.operion.academic.SchoolClass;
 import com.operion.academic.SchoolClassRepository;
+import com.operion.audit.AuditLogRepository;
+import com.operion.audit.AuditLogService;
 import com.operion.common.JpaConfig;
 import com.operion.common.MultiTenancyConfig;
 import com.operion.common.TenantContext;
@@ -23,12 +25,14 @@ import com.operion.organisation.CampusRepository;
 import com.operion.organisation.Organisation;
 import com.operion.organisation.OrganisationRepository;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * Proves StudentService's insert-only enrollment history (mirrors
@@ -38,11 +42,10 @@ import org.springframework.transaction.annotation.Transactional;
  * ai-context/erp-system-plan.md §2.2.
  */
 @DataJpaTest
-@Import({ MultiTenancyConfig.class, JpaConfig.class, StudentService.class })
+@Import({ MultiTenancyConfig.class, JpaConfig.class })
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class StudentEnrollmentLifecycleTest {
 
-	@Autowired
 	private StudentService studentService;
 
 	@Autowired
@@ -71,6 +74,21 @@ class StudentEnrollmentLifecycleTest {
 
 	@Autowired
 	private StudentEnrollmentRepository studentEnrollmentRepository;
+
+	@Autowired
+	private StudentDocumentRepository studentDocumentRepository;
+
+	@Autowired
+	private StudentExitRepository studentExitRepository;
+
+	@Autowired
+	private AuditLogRepository auditLogRepository;
+
+	@BeforeEach
+	void setUpStudentService() {
+		studentService = new StudentService(studentRepository, studentEnrollmentRepository, studentDocumentRepository,
+				studentExitRepository, new AuditLogService(auditLogRepository, new ObjectMapper()));
+	}
 
 	@AfterEach
 	void clearTenant() {

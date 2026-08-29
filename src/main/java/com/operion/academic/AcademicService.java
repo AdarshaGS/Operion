@@ -45,8 +45,8 @@ public class AcademicService {
 		return gradeLevelRepository.save(gradeLevel);
 	}
 
-	public Subject createSubject(String name, String code, boolean elective) {
-		return subjectRepository.save(new Subject(name, code, elective));
+	public Subject createSubject(String name, String code) {
+		return subjectRepository.save(new Subject(name, code));
 	}
 
 	public Subject changeSubjectStatus(Subject subject, SubjectStatus status) {

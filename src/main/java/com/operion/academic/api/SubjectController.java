@@ -30,7 +30,7 @@ public class SubjectController {
 	@PostMapping
 	@RequirePermission("SUBJECT_MANAGE")
 	public SubjectResponse create(@RequestBody CreateSubjectRequest request) {
-		return SubjectResponse.from(academicService.createSubject(request.name(), request.code(), request.elective()));
+		return SubjectResponse.from(academicService.createSubject(request.name(), request.code()));
 	}
 
 	@GetMapping
