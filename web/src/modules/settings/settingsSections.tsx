@@ -4,15 +4,19 @@ import BadgeIcon from "@mui/icons-material/Badge";
 import BrushIcon from "@mui/icons-material/Brush";
 import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
 import GroupIcon from "@mui/icons-material/Group";
+import HistoryIcon from "@mui/icons-material/History";
+import ImportExportIcon from "@mui/icons-material/ImportExport";
 import LocationCityIcon from "@mui/icons-material/LocationCity";
 import SecurityIcon from "@mui/icons-material/Security";
 import TuneIcon from "@mui/icons-material/Tune";
 import WorkIcon from "@mui/icons-material/Work";
 import { AcademicYearsPanel } from "./AcademicYearsPanel";
+import { AuditLogsPanel } from "./AuditLogsPanel";
 import { BusinessSettingsPanel } from "./BusinessSettingsPanel";
 import { CampusesPanel } from "./CampusesPanel";
 import { DepartmentsPanel } from "./DepartmentsPanel";
 import { DesignationsPanel } from "./DesignationsPanel";
+import { ImportsExportsPanel } from "./ImportsExportsPanel";
 import { OrganisationBrandingPanel } from "./OrganisationBrandingPanel";
 import { OrganisationProfilePanel } from "./OrganisationProfilePanel";
 import { RolesPanel } from "./RolesPanel";
@@ -92,5 +96,19 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
 		description: "Manage user accounts and role assignments",
 		icon: <GroupIcon />,
 		panel: <UsersPanel />,
+	},
+	{
+		key: "audit-logs",
+		label: "Audit logs",
+		description: "Who changed roles, fee records, marks, student data, and settings",
+		icon: <HistoryIcon />,
+		panel: <AuditLogsPanel />,
+	},
+	{
+		key: "imports-exports",
+		label: "Imports & exports",
+		description: "Bulk import students from CSV, or export existing records",
+		icon: <ImportExportIcon />,
+		panel: <ImportsExportsPanel />,
 	},
 ];

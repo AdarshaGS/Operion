@@ -60,6 +60,7 @@ export interface SetupChecklist {
 	academicSetupConfigured: boolean;
 	studentsAdded: boolean;
 	feesConfigured: boolean;
+	attendanceStarted: boolean;
 }
 
 export interface DashboardSummaryResponse {

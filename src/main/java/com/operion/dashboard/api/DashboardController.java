@@ -155,7 +155,7 @@ public class DashboardController {
 				purchase(),
 				new SetupChecklist(structureConfigured(), totalRoles > DEFAULT_ROLE_COUNT, activeMembers > 1,
 						academicYearRepository.count() > 0 && schoolClassRepository.count() > 0, activeStudents > 0,
-						feeStructureRepository.count() > 0));
+						feeStructureRepository.count() > 0, studentAttendanceRepository.count() > 0));
 	}
 
 	// Departments/designations are optional and deliberately not part of this signal

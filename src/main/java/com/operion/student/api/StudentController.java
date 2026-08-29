@@ -6,6 +6,7 @@ import com.operion.authorization.RequirePermission;
 import com.operion.identity.Person;
 import com.operion.identity.PersonRepository;
 import com.operion.student.Student;
+import com.operion.student.StudentImportService;
 import com.operion.student.StudentRepository;
 import com.operion.student.StudentService;
 import jakarta.validation.Valid;
@@ -14,7 +15,9 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/v1/students")
@@ -24,12 +27,14 @@ public class StudentController {
 	private final StudentService studentService;
 	private final StudentRepository studentRepository;
 	private final PersonRepository personRepository;
+	private final StudentImportService studentImportService;
 
 	public StudentController(StudentService studentService, StudentRepository studentRepository,
-			PersonRepository personRepository) {
+			PersonRepository personRepository, StudentImportService studentImportService) {
 		this.studentService = studentService;
 		this.studentRepository = studentRepository;
 		this.personRepository = personRepository;
+		this.studentImportService = studentImportService;
 	}
 
 	@PostMapping
@@ -54,5 +59,21 @@ public class StudentController {
 		Student student = studentRepository.findById(studentId)
 				.orElseThrow(() -> new IllegalArgumentException("No student with id " + studentId));
 		return StudentResponse.from(student);
+	}
+
+	/** Bulk CSV admission (#28) - reuses the same Person+Student write path as admit()
+	 * above, one row at a time; see StudentImportService/StudentRowImportService for the
+	 * per-row transaction isolation that makes a partial import safe. */
+	@PostMapping("/import")
+	@RequirePermission("STUDENT_MANAGE")
+	public List<StudentImportRowResult> importCsv(@RequestParam("file") MultipartFile file) {
+		return studentImportService.importCsv(file);
+	}
+
+	/** Inherits this controller's class-level STUDENT_VIEW gate (#147's "permission-
+	 * gated export path", reusing RequirePermission rather than adding a new permission). */
+	@GetMapping("/export")
+	public List<StudentExportResponse> export() {
+		return studentRepository.findAll().stream().map(StudentExportResponse::from).toList();
 	}
 }

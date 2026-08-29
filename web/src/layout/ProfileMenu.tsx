@@ -9,14 +9,20 @@ import ListItemIcon from "@mui/material/ListItemIcon";
 import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
 import Stack from "@mui/material/Stack";
+import ToggleButton from "@mui/material/ToggleButton";
+import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import AccountCircleIcon from "@mui/icons-material/AccountCircle";
+import DarkModeIcon from "@mui/icons-material/DarkMode";
 import KeyIcon from "@mui/icons-material/Key";
+import LightModeIcon from "@mui/icons-material/LightMode";
 import LogoutIcon from "@mui/icons-material/Logout";
+import SettingsBrightnessIcon from "@mui/icons-material/SettingsBrightness";
 import { useAuth } from "../auth/AuthContext";
 import { ChangePasswordDialog } from "./ChangePasswordDialog";
 import { colors, fontDisplay } from "../theme";
+import { useThemeMode, type ThemePreference } from "../theme-mode";
 
 function initials(name: string | null): string {
 	if (!name) return "?";
@@ -33,6 +39,7 @@ function initials(name: string | null): string {
  * discoverable by finding your own row in Settings > People with access. */
 export function ProfileMenu() {
 	const { profile, logout } = useAuth();
+	const { preference, setPreference } = useThemeMode();
 	const navigate = useNavigate();
 	const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
 	const [changePasswordOpen, setChangePasswordOpen] = useState(false);
@@ -79,6 +86,41 @@ export function ProfileMenu() {
 							))}
 						</Stack>
 					)}
+				</Box>
+				<Divider />
+				<Box sx={{ px: 2, py: 1 }}>
+					<Typography
+						variant="caption"
+						sx={{ display: "block", mb: 0.75, fontWeight: 700, letterSpacing: "0.06em", color: colors.inkFaint }}
+					>
+						THEME
+					</Typography>
+					<ToggleButtonGroup
+						value={preference}
+						exclusive
+						size="small"
+						fullWidth
+						onChange={(_, next: ThemePreference | null) => {
+							if (next) setPreference(next);
+						}}
+						aria-label="Theme preference"
+					>
+						<ToggleButton value="light" aria-label="Light theme">
+							<Tooltip title="Light">
+								<LightModeIcon fontSize="small" />
+							</Tooltip>
+						</ToggleButton>
+						<ToggleButton value="system" aria-label="Match system theme">
+							<Tooltip title="System">
+								<SettingsBrightnessIcon fontSize="small" />
+							</Tooltip>
+						</ToggleButton>
+						<ToggleButton value="dark" aria-label="Dark theme">
+							<Tooltip title="Dark">
+								<DarkModeIcon fontSize="small" />
+							</Tooltip>
+						</ToggleButton>
+					</ToggleButtonGroup>
 				</Box>
 				<Divider />
 				<MenuItem onClick={openProfile}>
