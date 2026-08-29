@@ -49,6 +49,9 @@ dependencies {
 
 tasks.named('test') {
 	useJUnitPlatform()
+	// The suite now caches many distinct @DataJpaTest Spring contexts (one per unique
+	// @Import combination) - default heap started OOM-ing partway through the run.
+	maxHeapSize = '2g'
 }
 
 // Retains parameter names in bytecode so @PathVariable/@RequestParam can match by

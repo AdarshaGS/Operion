@@ -64,7 +64,7 @@ class StudentIdAndApplicantTest {
 	@BeforeEach
 	void setUp() {
 		studentService = new StudentService(studentRepository, studentEnrollmentRepository, studentDocumentRepository,
-				studentExitRepository, studentIdGenerator, new AuditLogService(auditLogRepository, new ObjectMapper()));
+				studentExitRepository, null, null, studentIdGenerator, new AuditLogService(auditLogRepository, new ObjectMapper()));
 		applicantService = new ApplicantService(applicantRepository, studentService);
 	}
 
