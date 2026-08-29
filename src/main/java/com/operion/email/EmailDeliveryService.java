@@ -1,6 +1,7 @@
 package com.operion.email;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -47,22 +48,37 @@ public class EmailDeliveryService {
 			return false;
 		}
 
-		EmailMessage message = new EmailMessage(to, subject, htmlBody);
 		EmailOutbox outbox = emailOutboxRepository.save(new EmailOutbox(to, subject));
-
-		for (EmailSender sender : senders) {
-			try {
-				sender.send(message);
-				outbox.markSent(sender.providerName());
-				emailOutboxRepository.save(outbox);
-				return true;
-			} catch (EmailSendException ex) {
-				log.warn("Email delivery via {} failed for {}: {}", sender.providerName(), to, ex.getMessage());
-			}
+		Optional<SendResult> result = trySend(to, subject, htmlBody);
+		if (result.isPresent()) {
+			outbox.markSent(result.get().provider());
+			emailOutboxRepository.save(outbox);
+			return true;
 		}
 
 		outbox.markFailed("All configured email providers failed or are unconfigured");
 		emailOutboxRepository.save(outbox);
 		return false;
+	}
+
+	/** For a caller (e.g. Communication's NotificationDispatchService) that records its
+	 * own outcome/status rather than a generic EmailOutbox row - see EmailOutbox's class
+	 * doc for why audience fan-out email doesn't get logged there too. Tries each
+	 * configured sender in turn; returns the provider name and message id for the one that
+	 * accepted it, or empty if every sender failed or none are configured. Never throws. */
+	public Optional<SendResult> trySend(String to, String subject, String htmlBody) {
+		EmailMessage message = new EmailMessage(to, subject, htmlBody);
+		for (EmailSender sender : senders) {
+			try {
+				String messageId = sender.send(message);
+				return Optional.of(new SendResult(sender.providerName(), messageId));
+			} catch (EmailSendException ex) {
+				log.warn("Email delivery via {} failed for {}: {}", sender.providerName(), to, ex.getMessage());
+			}
+		}
+		return Optional.empty();
+	}
+
+	public record SendResult(String provider, String messageId) {
 	}
 }

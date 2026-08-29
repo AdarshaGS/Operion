@@ -1,5 +1,7 @@
 package com.operion.communication;
 
+import java.time.Instant;
+import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -11,6 +13,9 @@ import com.operion.academic.SectionRepository;
 import com.operion.authorization.MembershipStatus;
 import com.operion.authorization.OrganisationMembership;
 import com.operion.authorization.OrganisationMembershipRepository;
+import com.operion.hr.StaffProfile;
+import com.operion.hr.StaffProfileRepository;
+import com.operion.hr.StaffProfileStatus;
 import com.operion.identity.Person;
 import com.operion.organisation.Campus;
 import com.operion.parent.StudentGuardianRepository;
@@ -40,6 +45,8 @@ public class CommunicationService {
 	private final StudentEnrollmentRepository studentEnrollmentRepository;
 	private final StudentRepository studentRepository;
 	private final StudentGuardianRepository studentGuardianRepository;
+	private final StaffProfileRepository staffProfileRepository;
+	private final AnnouncementAudienceMemberRepository announcementAudienceMemberRepository;
 
 	public CommunicationService(AnnouncementRepository announcementRepository,
 			NotificationTemplateRepository notificationTemplateRepository,
@@ -49,7 +56,9 @@ public class CommunicationService {
 			SectionRepository sectionRepository,
 			StudentEnrollmentRepository studentEnrollmentRepository,
 			StudentRepository studentRepository,
-			StudentGuardianRepository studentGuardianRepository) {
+			StudentGuardianRepository studentGuardianRepository,
+			StaffProfileRepository staffProfileRepository,
+			AnnouncementAudienceMemberRepository announcementAudienceMemberRepository) {
 		this.announcementRepository = announcementRepository;
 		this.notificationTemplateRepository = notificationTemplateRepository;
 		this.notificationRecipientRepository = notificationRecipientRepository;
@@ -59,24 +68,75 @@ public class CommunicationService {
 		this.studentEnrollmentRepository = studentEnrollmentRepository;
 		this.studentRepository = studentRepository;
 		this.studentGuardianRepository = studentGuardianRepository;
+		this.staffProfileRepository = staffProfileRepository;
+		this.announcementAudienceMemberRepository = announcementAudienceMemberRepository;
 	}
 
 	public Announcement createAnnouncement(Campus campus, String title, String body, AudienceType audienceType, Long audienceRefId) {
-		return announcementRepository.save(new Announcement(campus, title, body, audienceType, audienceRefId));
+		return createAnnouncement(campus, title, body, audienceType, audienceRefId, List.of(), null);
 	}
 
-	/** Resolves the audience once, filters by preference, and writes the recipient snapshot - see class doc. */
+	/** SELECTED_GROUP variant - persons is the ad-hoc audience, written as
+	 * AnnouncementAudienceMember rows once the announcement has an id. */
+	@Transactional
+	public Announcement createAnnouncement(Campus campus, String title, String body, AudienceType audienceType, Long audienceRefId,
+			List<Person> selectedGroupPersons) {
+		return createAnnouncement(campus, title, body, audienceType, audienceRefId, selectedGroupPersons, null);
+	}
+
+	/** scheduledAt variant - a non-null value skips the manual publish step; see
+	 * ScheduledAnnouncementPublisher, which auto-publishes once it's in the past. */
+	@Transactional
+	public Announcement createAnnouncement(Campus campus, String title, String body, AudienceType audienceType, Long audienceRefId,
+			List<Person> selectedGroupPersons, Instant scheduledAt) {
+		Announcement announcement = announcementRepository.save(new Announcement(campus, title, body, audienceType, audienceRefId, scheduledAt));
+		for (Person person : selectedGroupPersons) {
+			announcementAudienceMemberRepository.save(new AnnouncementAudienceMember(announcement, person));
+		}
+		return announcement;
+	}
+
+	/** Resolves the audience once, filters by preference, and fans out across every usable
+	 * channel - IN_APP lands SENT immediately (row creation is delivery for it); an
+	 * EMAIL/SMS row is only created when the person actually has that contact info, and
+	 * starts PENDING for NotificationDispatchWorker/Service to actually deliver. */
 	@Transactional
 	public Announcement publishAnnouncement(Announcement announcement) {
 		announcement.publish();
 		Announcement published = announcementRepository.save(announcement);
 
 		for (Person person : resolveAudience(published)) {
-			if (isChannelEnabled(person, NotificationChannel.IN_APP)) {
-				notificationRecipientRepository.save(new NotificationRecipient(published, person, NotificationChannel.IN_APP));
-			}
+			fanOutToPerson(published, person);
 		}
 		return published;
+	}
+
+	private void fanOutToPerson(Announcement announcement, Person person) {
+		for (NotificationChannel channel : NotificationChannel.values()) {
+			if (shouldFanOut(person, channel)) {
+				String subject = channel == NotificationChannel.SMS ? null : announcement.getTitle();
+				notificationRecipientRepository.save(
+						new NotificationRecipient(announcement, person, channel, subject, announcement.getBody()));
+			}
+		}
+	}
+
+	/** Preview for the compose screen, before an Announcement is even saved - see
+	 * AnnouncementController's preview-audience endpoint. audienceSize is everyone the
+	 * audience selection resolves to; notifiableCount is the subset who'd actually get at
+	 * least one NotificationRecipient row, i.e. the same per-channel preference-and-usable
+	 * check publishAnnouncement/fanOutToPerson applies. selectedGroupPersons is only read
+	 * for SELECTED_GROUP. */
+	@Transactional(readOnly = true)
+	public AudiencePreview previewAudience(Campus campus, AudienceType audienceType, Long audienceRefId, List<Person> selectedGroupPersons) {
+		Set<Person> resolved = resolveAudience(campus, audienceType, audienceRefId, selectedGroupPersons);
+		long notifiable = resolved.stream()
+				.filter(person -> Arrays.stream(NotificationChannel.values()).anyMatch(channel -> shouldFanOut(person, channel)))
+				.count();
+		return new AudiencePreview(resolved.size(), (int) notifiable);
+	}
+
+	public record AudiencePreview(int audienceSize, int notifiableCount) {
 	}
 
 	public Announcement cancelAnnouncement(Announcement announcement) {
@@ -92,8 +152,9 @@ public class CommunicationService {
 	@Transactional
 	public List<NotificationRecipient> sendTemplatedNotification(NotificationTemplate template, List<Person> recipients) {
 		return recipients.stream()
-				.filter(person -> isChannelEnabled(person, template.getChannel()))
-				.map(person -> notificationRecipientRepository.save(new NotificationRecipient(null, person, template.getChannel())))
+				.filter(person -> shouldFanOut(person, template.getChannel()))
+				.map(person -> notificationRecipientRepository.save(
+						new NotificationRecipient(null, person, template.getChannel(), template.getSubjectTemplate(), template.getBodyTemplate())))
 				.toList();
 	}
 
@@ -119,22 +180,56 @@ public class CommunicationService {
 				.orElse(true);
 	}
 
+	/** Whether a channel is even usable for this person - IN_APP always is; EMAIL/SMS need
+	 * the corresponding contact field actually on file, so a person with no email/phone
+	 * doesn't get a NotificationRecipient row that's a guaranteed dispatch failure. */
+	private boolean channelIsUsable(Person person, NotificationChannel channel) {
+		return switch (channel) {
+			case IN_APP -> true;
+			case EMAIL -> hasAddress(person.getEmail());
+			case SMS -> hasAddress(person.getPhone());
+		};
+	}
+
+	private boolean hasAddress(String value) {
+		return value != null && !value.isBlank();
+	}
+
+	private boolean shouldFanOut(Person person, NotificationChannel channel) {
+		return isChannelEnabled(person, channel) && channelIsUsable(person, channel);
+	}
+
 	private Set<Person> resolveAudience(Announcement announcement) {
-		return switch (announcement.getAudienceType()) {
+		List<Person> selectedGroupPersons = announcement.getAudienceType() != AudienceType.SELECTED_GROUP ? List.of()
+				: announcementAudienceMemberRepository.findByAnnouncementId(announcement.getId()).stream()
+						.map(AnnouncementAudienceMember::getPerson)
+						.toList();
+		return resolveAudience(announcement.getCampus(), announcement.getAudienceType(), announcement.getAudienceRefId(), selectedGroupPersons);
+	}
+
+	private Set<Person> resolveAudience(Campus campus, AudienceType audienceType, Long audienceRefId, List<Person> selectedGroupPersons) {
+		return switch (audienceType) {
 			case ORG -> membershipPersons(organisationMembershipRepository.findByStatus(MembershipStatus.ACTIVE));
 			case CAMPUS -> membershipPersons(
-					organisationMembershipRepository.findByCampusIdAndStatus(requireCampus(announcement).getId(), MembershipStatus.ACTIVE));
-			case CLASS -> sectionRepository.findBySchoolClassId(announcement.getAudienceRefId()).stream()
+					organisationMembershipRepository.findByCampusIdAndStatus(requireCampus(campus).getId(), MembershipStatus.ACTIVE));
+			case CLASS -> sectionRepository.findBySchoolClassId(audienceRefId).stream()
 					.map(Section::getId)
 					.flatMap(sectionId -> studentEnrollmentRepository.findBySectionIdAndCurrentTrue(sectionId).stream())
 					.collect(collectStudentAndGuardianPersons());
-			case SECTION -> studentEnrollmentRepository.findBySectionIdAndCurrentTrue(announcement.getAudienceRefId()).stream()
+			case SECTION -> studentEnrollmentRepository.findBySectionIdAndCurrentTrue(audienceRefId).stream()
 					.collect(collectStudentAndGuardianPersons());
 			case INDIVIDUAL -> {
-				Student student = studentRepository.findById(announcement.getAudienceRefId())
-						.orElseThrow(() -> new IllegalArgumentException("No student with id " + announcement.getAudienceRefId()));
+				Student student = studentRepository.findById(audienceRefId)
+						.orElseThrow(() -> new IllegalArgumentException("No student with id " + audienceRefId));
 				yield studentAndGuardianPersons(student);
 			}
+			case STAFF -> staffPersons(staffProfileRepository.findByStatus(StaffProfileStatus.ACTIVE));
+			case STAFF_MEMBER -> {
+				StaffProfile staffProfile = staffProfileRepository.findById(audienceRefId)
+						.orElseThrow(() -> new IllegalArgumentException("No staff profile with id " + audienceRefId));
+				yield Set.of(staffProfile.getPerson());
+			}
+			case SELECTED_GROUP -> new LinkedHashSet<>(selectedGroupPersons);
 		};
 	}
 
@@ -158,10 +253,16 @@ public class CommunicationService {
 		return persons;
 	}
 
-	private Campus requireCampus(Announcement announcement) {
-		if (announcement.getCampus() == null) {
-			throw new IllegalStateException("Announcement " + announcement.getId() + " has CAMPUS audience but no campus set");
+	private Set<Person> staffPersons(List<StaffProfile> staffProfiles) {
+		Set<Person> persons = new LinkedHashSet<>();
+		staffProfiles.forEach(staffProfile -> persons.add(staffProfile.getPerson()));
+		return persons;
+	}
+
+	private Campus requireCampus(Campus campus) {
+		if (campus == null) {
+			throw new IllegalStateException("CAMPUS audience requires a campus");
 		}
-		return announcement.getCampus();
+		return campus;
 	}
 }

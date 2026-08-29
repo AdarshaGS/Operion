@@ -55,12 +55,25 @@ public class Announcement extends TenantScopedEntity {
 	@Column(name = "published_at")
 	private Instant publishedAt;
 
+	/** Nullable - null means publish only happens on an explicit manual publish() call.
+	 * Set once at authoring time, same immutable-after-creation convention as
+	 * audienceType/audienceRefId; a scheduled time can't be edited after creation, only
+	 * cancelled (like the rest of a draft) and recreated. Read by
+	 * ScheduledAnnouncementPublisher, which auto-publishes once it's in the past. */
+	@Column(name = "scheduled_at")
+	private Instant scheduledAt;
+
 	public Announcement(Campus campus, String title, String body, AudienceType audienceType, Long audienceRefId) {
+		this(campus, title, body, audienceType, audienceRefId, null);
+	}
+
+	public Announcement(Campus campus, String title, String body, AudienceType audienceType, Long audienceRefId, Instant scheduledAt) {
 		this.campus = campus;
 		this.title = title;
 		this.body = body;
 		this.audienceType = audienceType;
 		this.audienceRefId = audienceRefId;
+		this.scheduledAt = scheduledAt;
 		this.status = AnnouncementStatus.DRAFT;
 	}
 

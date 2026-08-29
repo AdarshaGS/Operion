@@ -4,7 +4,7 @@ import java.util.Map;
 
 import com.operion.authorization.AuthorizationDeniedException;
 import com.operion.finance.PaymentGatewayException;
-import com.operion.finance.WebhookVerificationException;
+import com.operion.common.WebhookVerificationException;
 import com.operion.identity.auth.AuthenticationFailedException;
 import com.operion.platform.auth.PlatformAuthenticationFailedException;
 import com.operion.reporting.ReportExecutionException;

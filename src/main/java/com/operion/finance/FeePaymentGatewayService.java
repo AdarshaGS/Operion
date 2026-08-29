@@ -9,6 +9,7 @@ import java.util.Base64;
 import java.util.List;
 
 import com.operion.common.TenantContext;
+import com.operion.common.WebhookVerificationException;
 import com.operion.organisation.AcademicYear;
 import com.operion.organisation.Organisation;
 import com.operion.organisation.OrganisationRepository;

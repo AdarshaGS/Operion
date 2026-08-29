@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
@@ -34,12 +35,14 @@ class ResendEmailSender implements EmailSender {
 	}
 
 	@Override
-	public void send(EmailMessage message) {
+	public String send(EmailMessage message) {
 		if (apiKey.isBlank() || senderEmail.isBlank()) {
 			throw new EmailSendException("Resend is not configured (app.email.resend.api-key / sender-email)");
 		}
 		try {
-			restClient.post()
+			// id here is what NotificationDeliveryWebhookService later matches against
+			// "data.email_id" on Resend's Svix-signed delivery webhook payload.
+			Map<String, Object> response = restClient.post()
 					.uri("/emails")
 					.headers(headers -> headers.setBearerAuth(apiKey))
 					.contentType(MediaType.APPLICATION_JSON)
@@ -49,7 +52,9 @@ class ResendEmailSender implements EmailSender {
 							"subject", message.subject(),
 							"html", message.htmlBody()))
 					.retrieve()
-					.toBodilessEntity();
+					.body(new ParameterizedTypeReference<Map<String, Object>>() {
+					});
+			return response == null ? null : (String) response.get("id");
 		} catch (RestClientException ex) {
 			throw new EmailSendException("Resend request failed", ex);
 		}

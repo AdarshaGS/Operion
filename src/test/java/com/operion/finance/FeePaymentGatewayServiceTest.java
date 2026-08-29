@@ -18,6 +18,7 @@ import com.operion.academic.SectionRepository;
 import com.operion.common.JpaConfig;
 import com.operion.common.MultiTenancyConfig;
 import com.operion.common.TenantContext;
+import com.operion.common.WebhookVerificationException;
 import com.operion.finance.FeeService.InstallmentInput;
 import com.operion.identity.Person;
 import com.operion.identity.PersonRepository;

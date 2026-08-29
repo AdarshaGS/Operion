@@ -20,6 +20,10 @@ import com.operion.authorization.RoleRepository;
 import com.operion.common.JpaConfig;
 import com.operion.common.MultiTenancyConfig;
 import com.operion.common.TenantContext;
+import com.operion.hr.EmploymentType;
+import com.operion.hr.StaffProfile;
+import com.operion.hr.StaffProfileRepository;
+import com.operion.hr.StaffProfileStatus;
 import com.operion.identity.Person;
 import com.operion.identity.PersonRepository;
 import com.operion.identity.User;
@@ -28,6 +32,8 @@ import com.operion.organisation.AcademicYear;
 import com.operion.organisation.AcademicYearRepository;
 import com.operion.organisation.Campus;
 import com.operion.organisation.CampusRepository;
+import com.operion.organisation.Designation;
+import com.operion.organisation.DesignationRepository;
 import com.operion.organisation.Organisation;
 import com.operion.organisation.OrganisationRepository;
 import com.operion.parent.Guardian;
@@ -102,6 +108,12 @@ class AnnouncementFanOutTest {
 
 	@Autowired
 	private NotificationRecipientRepository notificationRecipientRepository;
+
+	@Autowired
+	private DesignationRepository designationRepository;
+
+	@Autowired
+	private StaffProfileRepository staffProfileRepository;
 
 	@AfterEach
 	void clearTenant() {
@@ -187,6 +199,116 @@ class AnnouncementFanOutTest {
 
 		List<NotificationRecipient> recipients = notificationRecipientRepository.findByAnnouncementId(announcement.getId());
 		assertThat(recipients).extracting(recipient -> recipient.getPerson().getId()).containsExactly(activePerson.getId());
+	}
+
+	@Test
+	void publishFansOutToEmailWhenThePersonHasAnAddress() {
+		Fixture fixture = setUpFixture("comm-email-fanout");
+		fixture.guardianPerson().setEmail("vikram@example.com");
+		personRepository.save(fixture.guardianPerson());
+
+		Announcement announcement = communicationService.createAnnouncement(
+				fixture.campus(), "PTM Reminder", "Meeting Friday 4pm", AudienceType.SECTION, fixture.section().getId());
+		communicationService.publishAnnouncement(announcement);
+
+		List<NotificationRecipient> recipients = notificationRecipientRepository.findByAnnouncementId(announcement.getId());
+		assertThat(recipients).hasSize(3); // student IN_APP, guardian IN_APP, guardian EMAIL - no phone on file for either
+
+		NotificationRecipient guardianEmail = recipients.stream()
+				.filter(r -> r.getChannel() == NotificationChannel.EMAIL)
+				.findFirst().orElseThrow();
+		assertThat(guardianEmail.getPerson().getId()).isEqualTo(fixture.guardianPerson().getId());
+		assertThat(guardianEmail.getDeliveryStatus()).isEqualTo(DeliveryStatus.PENDING);
+		assertThat(guardianEmail.getSubject()).isEqualTo("PTM Reminder");
+		assertThat(guardianEmail.getBody()).isEqualTo("Meeting Friday 4pm");
+	}
+
+	@Test
+	void publishSkipsEmailWhenTheChannelIsDisabledEvenWithAnAddressOnFile() {
+		Fixture fixture = setUpFixture("comm-email-disabled-fanout");
+		fixture.guardianPerson().setEmail("vikram@example.com");
+		personRepository.save(fixture.guardianPerson());
+		communicationService.setPreference(fixture.guardianPerson(), NotificationChannel.EMAIL, false);
+
+		Announcement announcement = communicationService.createAnnouncement(
+				fixture.campus(), "PTM Reminder", "Meeting Friday 4pm", AudienceType.SECTION, fixture.section().getId());
+		communicationService.publishAnnouncement(announcement);
+
+		List<NotificationRecipient> recipients = notificationRecipientRepository.findByAnnouncementId(announcement.getId());
+		assertThat(recipients).noneMatch(r -> r.getChannel() == NotificationChannel.EMAIL);
+	}
+
+	@Test
+	void staffAudiencePublishesToActiveStaffOnly() {
+		setUpFixture("comm-staff-fanout");
+		Designation designation = designationRepository.save(new Designation("Teacher"));
+
+		Person activeStaffPerson = personRepository.save(new Person("Meera", "Iyer"));
+		StaffProfile activeStaff = staffProfileRepository.save(new StaffProfile(
+				activeStaffPerson, null, "EMP-1", designation, null, LocalDate.of(2020, 6, 1), EmploymentType.PERMANENT));
+
+		Person inactiveStaffPerson = personRepository.save(new Person("Kabir", "Sen"));
+		StaffProfile inactiveStaff = staffProfileRepository.save(new StaffProfile(
+				inactiveStaffPerson, null, "EMP-2", designation, null, LocalDate.of(2020, 6, 1), EmploymentType.PERMANENT));
+		inactiveStaff.changeStatus(StaffProfileStatus.RESIGNED);
+		staffProfileRepository.save(inactiveStaff);
+
+		Announcement announcement = communicationService.createAnnouncement(null, "Staff Briefing", "Body", AudienceType.STAFF, null);
+		communicationService.publishAnnouncement(announcement);
+
+		List<NotificationRecipient> recipients = notificationRecipientRepository.findByAnnouncementId(announcement.getId());
+		assertThat(recipients).extracting(recipient -> recipient.getPerson().getId()).containsExactly(activeStaffPerson.getId());
+	}
+
+	@Test
+	void staffMemberAudiencePublishesToOneStaffPerson() {
+		setUpFixture("comm-staff-member-fanout");
+		Designation designation = designationRepository.save(new Designation("Teacher"));
+		Person staffPerson = personRepository.save(new Person("Nikhil", "Rao"));
+		StaffProfile staffProfile = staffProfileRepository.save(new StaffProfile(
+				staffPerson, null, "EMP-3", designation, null, LocalDate.of(2020, 6, 1), EmploymentType.PERMANENT));
+
+		Announcement announcement = communicationService.createAnnouncement(
+				null, "Performance Review", "Body", AudienceType.STAFF_MEMBER, staffProfile.getId());
+		communicationService.publishAnnouncement(announcement);
+
+		List<NotificationRecipient> recipients = notificationRecipientRepository.findByAnnouncementId(announcement.getId());
+		assertThat(recipients).extracting(recipient -> recipient.getPerson().getId()).containsExactly(staffPerson.getId());
+	}
+
+	@Test
+	void selectedGroupAudiencePublishesToChosenPersonsOnly() {
+		Fixture fixture = setUpFixture("comm-selected-group-fanout");
+		Person otherPerson = personRepository.save(new Person("Farah", "Khan"));
+
+		Announcement announcement = communicationService.createAnnouncement(fixture.campus(), "Committee Note", "Body",
+				AudienceType.SELECTED_GROUP, null, List.of(fixture.guardianPerson(), otherPerson));
+		communicationService.publishAnnouncement(announcement);
+
+		List<NotificationRecipient> recipients = notificationRecipientRepository.findByAnnouncementId(announcement.getId());
+		assertThat(recipients).extracting(recipient -> recipient.getPerson().getId())
+				.containsExactlyInAnyOrder(fixture.guardianPerson().getId(), otherPerson.getId());
+	}
+
+	@Test
+	void previewAudienceCountsMatchWhatPublishWouldFanOutTo() {
+		Fixture fixture = setUpFixture("comm-preview-audience");
+		communicationService.setPreference(fixture.guardianPerson(), NotificationChannel.IN_APP, false);
+
+		CommunicationService.AudiencePreview preview = communicationService.previewAudience(
+				fixture.campus(), AudienceType.SECTION, fixture.section().getId(), List.of());
+
+		assertThat(preview.audienceSize()).isEqualTo(2);
+		assertThat(preview.notifiableCount()).isEqualTo(1);
+	}
+
+	@Test
+	void previewAudienceDoesNotPersistAnything() {
+		Fixture fixture = setUpFixture("comm-preview-no-persist");
+
+		communicationService.previewAudience(fixture.campus(), AudienceType.SECTION, fixture.section().getId(), List.of());
+
+		assertThat(notificationRecipientRepository.findAll()).isEmpty();
 	}
 
 	@Test

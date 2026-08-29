@@ -57,11 +57,12 @@ class EmailDeliveryServiceTest {
 		}
 
 		@Override
-		public void send(EmailMessage message) {
+		public String send(EmailMessage message) {
 			received.add(message);
 			if (!succeeds) {
 				throw new EmailSendException(name + " is down");
 			}
+			return "msg-" + name;
 		}
 
 		@Override

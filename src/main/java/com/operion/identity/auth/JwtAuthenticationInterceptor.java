@@ -76,7 +76,10 @@ public class JwtAuthenticationInterceptor implements HandlerInterceptor {
 	// "pay this invoice" link has no login at all, by design. The Razorpay webhook is a
 	// different kind of public: it trusts an HMAC signature instead of a slug+token,
 	// verified inside FeePaymentGatewayService.handleWebhook - never a bearer token,
-	// since the caller is Razorpay's own servers, not a browser.
+	// since the caller is Razorpay's own servers, not a browser. The three
+	// /api/v1/webhooks/{resend,brevo}/... paths are the same shape of public, trusted
+	// only after NotificationDeliveryWebhookService verifies each provider's own
+	// signature/secret - see that class's doc.
 	private boolean isPublic(HttpServletRequest request) {
 		String path = request.getRequestURI();
 		if (path.equals("/api/v1/auth/login") || path.equals("/api/v1/auth/claim-invite") || path.equals("/api/v1/auth/refresh")
@@ -84,7 +87,7 @@ public class JwtAuthenticationInterceptor implements HandlerInterceptor {
 				|| path.equals("/api/v1/auth/password-reset/confirm") || path.equals("/api/v1/auth/verify-email")) {
 			return true;
 		}
-		if (path.startsWith("/api/v1/fees/payment-links/") || path.equals("/api/v1/webhooks/razorpay")) {
+		if (path.startsWith("/api/v1/fees/payment-links/") || path.startsWith("/api/v1/webhooks/")) {
 			return true;
 		}
 		return path.equals("/api/v1/organisations") && "POST".equalsIgnoreCase(request.getMethod());
