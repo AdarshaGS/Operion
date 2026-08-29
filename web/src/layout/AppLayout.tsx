@@ -26,6 +26,7 @@ import EventAvailableIcon from "@mui/icons-material/EventAvailable";
 import PaymentsIcon from "@mui/icons-material/Payments";
 import AssignmentIcon from "@mui/icons-material/Assignment";
 import CampaignIcon from "@mui/icons-material/Campaign";
+import ChatIcon from "@mui/icons-material/Chat";
 import DirectionsBusIcon from "@mui/icons-material/DirectionsBus";
 import MenuBookIcon from "@mui/icons-material/MenuBook";
 import Inventory2Icon from "@mui/icons-material/Inventory2";
@@ -128,6 +129,7 @@ const NAV_GROUPS: NavGroup[] = [
 			},
 			{ label: "Transport", path: "/transport", icon: <DirectionsBusIcon />, built: true, requiredPermissions: ["TRANSPORT_VIEW"] },
 			{ label: "Communication", path: "/communication", icon: <CampaignIcon />, built: true, requiredPermissions: ["COMMUNICATION_VIEW"] },
+			{ label: "Messaging", path: "/messaging", icon: <ChatIcon />, built: true, requiredPermissions: ["COMMUNICATION_VIEW"] },
 			{ label: "Inventory", path: "/inventory", icon: <Inventory2Icon />, built: true, requiredPermissions: ["INVENTORY_VIEW"] },
 			{ label: "Purchase", path: "/purchase", icon: <ShoppingCartIcon />, built: true, requiredPermissions: ["PURCHASE_VIEW"] },
 			{ label: "Sales", path: "/sales", icon: <PointOfSaleIcon />, built: true, requiredPermissions: ["SALES_VIEW"] },

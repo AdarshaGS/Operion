@@ -25,6 +25,7 @@ import { ItemDetailPage } from "./modules/inventory/ItemDetailPage";
 import { InventoryPage } from "./modules/inventory/InventoryPage";
 import { BookDetailPage } from "./modules/library/BookDetailPage";
 import { LibraryPage } from "./modules/library/LibraryPage";
+import { MessagingPage } from "./modules/messaging/MessagingPage";
 import { PurchaseOrderDetailPage } from "./modules/purchase/PurchaseOrderDetailPage";
 import { PurchasePage } from "./modules/purchase/PurchasePage";
 import { ReportDetailPage } from "./modules/reporting/ReportDetailPage";
@@ -86,6 +87,7 @@ function App() {
 							<Route path="/examinations/exams/:examId" element={<ExamDetailPage />} />
 							<Route path="/examinations/exams/:examId/schedules/:scheduleId" element={<MarksEntryPage />} />
 							<Route path="/communication" element={<CommunicationPage />} />
+							<Route path="/messaging" element={<MessagingPage />} />
 							<Route path="/transport" element={<TransportPage />} />
 							<Route path="/transport/routes/:routeId" element={<RouteDetailPage />} />
 							<Route path="/library" element={<LibraryPage />} />
