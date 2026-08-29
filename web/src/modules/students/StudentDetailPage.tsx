@@ -29,6 +29,7 @@ import { listSchoolClasses, type SchoolClassResponse } from "../../api/schoolCla
 import { listSections, type SectionResponse } from "../../api/sections";
 import { getStudent, type StudentResponse } from "../../api/students";
 import { StudentGuardiansPanel } from "./StudentGuardiansPanel";
+import { StudentTransferPanel } from "./StudentTransferPanel";
 
 function Field({ label, value }: { label: string; value: string | number | null | undefined }) {
 	return (
@@ -293,6 +294,8 @@ export function StudentDetailPage() {
 			</Paper>
 
 			<StudentGuardiansPanel studentId={student.id} />
+
+			<StudentTransferPanel studentId={student.id} />
 		</Stack>
 	);
 }
