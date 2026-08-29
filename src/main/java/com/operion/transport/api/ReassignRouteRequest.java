@@ -1,4 +1,6 @@
 package com.operion.transport.api;
 
-public record ReassignRouteRequest(Long routeId, Long routeStopId) {
+import java.time.LocalDate;
+
+public record ReassignRouteRequest(Long routeId, Long routeStopId, LocalDate effectiveFrom) {
 }

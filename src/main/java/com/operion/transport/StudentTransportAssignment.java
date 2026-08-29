@@ -3,6 +3,7 @@ package com.operion.transport;
 import java.time.LocalDate;
 
 import com.operion.common.TenantScopedEntity;
+import com.operion.finance.StudentFeeAssignment;
 import com.operion.student.StudentEnrollment;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -19,9 +20,13 @@ import lombok.NoArgsConstructor;
  * Ties a StudentEnrollment (not the bare Student - same history-per-year convention as
  * Attendance/Fees) to a route+stop. One ACTIVE row per enrollment is enforced in
  * TransportService, same pattern as StudentEnrollment.is_current /
- * StudentGuardian.is_primary_guardian. Route/stop changes mutate this row in place
- * (mirrors StudentEnrollment.reassignSection) rather than superseding - nothing here
- * triggers invoicing, unlike StudentFeeAssignment.
+ * StudentGuardian.is_primary_guardian. Route/stop changes end this row and insert a new
+ * one (same insert-only pattern as TeacherAssignment reassignment) so the prior
+ * route/stop stays queryable as its own historical record. studentFeeAssignment is
+ * nullable and optional - set only when the caller supplied a FeeStructure at assignment
+ * time (see TransportService.assignStudent); the transport fee then flows through the
+ * same invoice/payment/refund pipeline as every other fee, per
+ * ai-context/erp-system-plan.md §3.3.
  */
 @Getter
 @Entity
@@ -58,6 +63,11 @@ public class StudentTransportAssignment extends TenantScopedEntity {
 	@Column(name = "effective_to")
 	private LocalDate effectiveTo;
 
+	/** Nullable - see class doc. */
+	@ManyToOne
+	@JoinColumn(name = "student_fee_assignment_id")
+	private StudentFeeAssignment studentFeeAssignment;
+
 	public StudentTransportAssignment(StudentEnrollment studentEnrollment, Route route, RouteStop routeStop,
 			boolean usesPickup, boolean usesDrop, LocalDate effectiveFrom) {
 		if (!usesPickup && !usesDrop) {
@@ -70,15 +80,6 @@ public class StudentTransportAssignment extends TenantScopedEntity {
 		this.usesDrop = usesDrop;
 		this.status = TransportAssignmentStatus.ACTIVE;
 		this.effectiveFrom = effectiveFrom;
-	}
-
-	/** Mid-year route/stop change on an active assignment - see class doc. */
-	public void reassignRoute(Route route, RouteStop routeStop) {
-		if (status != TransportAssignmentStatus.ACTIVE) {
-			throw new IllegalStateException("Cannot reassign the route of an ended assignment");
-		}
-		this.route = route;
-		this.routeStop = routeStop;
 	}
 
 	public void updateLegs(boolean usesPickup, boolean usesDrop) {
@@ -98,5 +99,13 @@ public class StudentTransportAssignment extends TenantScopedEntity {
 		}
 		this.status = TransportAssignmentStatus.ENDED;
 		this.effectiveTo = effectiveTo;
+	}
+
+	/** Set at most once, at assignment time - see TransportService.assignStudent. */
+	public void linkFeeAssignment(StudentFeeAssignment studentFeeAssignment) {
+		if (this.studentFeeAssignment != null) {
+			throw new IllegalStateException("Transport assignment " + getId() + " is already linked to a fee assignment");
+		}
+		this.studentFeeAssignment = studentFeeAssignment;
 	}
 }

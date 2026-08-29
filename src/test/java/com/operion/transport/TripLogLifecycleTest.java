@@ -8,6 +8,7 @@ import java.time.LocalDate;
 import com.operion.common.JpaConfig;
 import com.operion.common.MultiTenancyConfig;
 import com.operion.common.TenantContext;
+import com.operion.finance.FeeService;
 import com.operion.identity.Person;
 import com.operion.identity.PersonRepository;
 import com.operion.organisation.Campus;
@@ -28,7 +29,7 @@ import org.springframework.transaction.annotation.Transactional;
  * creation (not re-read from the route's current default) - see TripLog's class doc.
  */
 @DataJpaTest
-@Import({ MultiTenancyConfig.class, JpaConfig.class, TransportService.class })
+@Import({ MultiTenancyConfig.class, JpaConfig.class, TransportService.class, FeeService.class })
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class TripLogLifecycleTest {
 
