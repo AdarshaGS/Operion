@@ -109,7 +109,7 @@ class InvoiceAndPaymentTest {
 	@BeforeEach
 	void setUpStudentService() {
 		studentService = new StudentService(studentRepository, studentEnrollmentRepository, studentDocumentRepository,
-				studentExitRepository, new AuditLogService(auditLogRepository, new ObjectMapper()));
+				studentExitRepository, null, null, new AuditLogService(auditLogRepository, new ObjectMapper()));
 	}
 
 	@AfterEach

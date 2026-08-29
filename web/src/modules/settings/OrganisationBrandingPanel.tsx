@@ -97,6 +97,10 @@ export function OrganisationBrandingPanel() {
 	const [schoolNameOverride, setSchoolNameOverride] = useState("");
 	const [addressLine, setAddressLine] = useState("");
 	const [affiliationText, setAffiliationText] = useState("");
+	const [footerText, setFooterText] = useState("");
+	const [admissionNumberFormat, setAdmissionNumberFormat] = useState("");
+	const [invoiceNumberFormat, setInvoiceNumberFormat] = useState("");
+	const [receiptNumberFormat, setReceiptNumberFormat] = useState("");
 
 	const [uploadingSlot, setUploadingSlot] = useState<AssetSlot | null>(null);
 	const [loading, setLoading] = useState(true);
@@ -116,6 +120,10 @@ export function OrganisationBrandingPanel() {
 				setSchoolNameOverride(branding.schoolNameOverride ?? "");
 				setAddressLine(branding.addressLine ?? "");
 				setAffiliationText(branding.affiliationText ?? "");
+				setFooterText(branding.footerText ?? "");
+				setAdmissionNumberFormat(branding.admissionNumberFormat);
+				setInvoiceNumberFormat(branding.invoiceNumberFormat);
+				setReceiptNumberFormat(branding.receiptNumberFormat);
 			})
 			.catch((err) => setError(err instanceof ApiError ? err.message : "Failed to load branding"))
 			.finally(() => setLoading(false));
@@ -156,6 +164,10 @@ export function OrganisationBrandingPanel() {
 				schoolNameOverride: schoolNameOverride || null,
 				addressLine: addressLine || null,
 				affiliationText: affiliationText || null,
+				footerText: footerText || null,
+				admissionNumberFormat,
+				invoiceNumberFormat,
+				receiptNumberFormat,
 			});
 			setLogoRef(branding.logoRef);
 			setLogoUrl(branding.logoUrl);
@@ -163,6 +175,9 @@ export function OrganisationBrandingPanel() {
 			setStampUrl(branding.stampUrl);
 			setSignatureRef(branding.signatureRef);
 			setSignatureUrl(branding.signatureUrl);
+			setAdmissionNumberFormat(branding.admissionNumberFormat);
+			setInvoiceNumberFormat(branding.invoiceNumberFormat);
+			setReceiptNumberFormat(branding.receiptNumberFormat);
 			setSaved(true);
 		} catch (err) {
 			setError(err instanceof ApiError ? err.message : "Failed to update branding");
@@ -178,9 +193,9 @@ export function OrganisationBrandingPanel() {
 	return (
 		<Paper component="form" onSubmit={handleSubmit} sx={{ p: 3 }}>
 			<Stack spacing={2}>
-				<Typography variant="h6">School branding</Typography>
+				<Typography variant="h6">Branding &amp; documents</Typography>
 				<Typography variant="body2" color="text.secondary">
-					These assets appear on fee receipts, certificates, and exports.
+					These assets and formats appear on fee receipts, certificates, and exports.
 				</Typography>
 
 				{error && <Alert severity="error">{error}</Alert>}
@@ -225,6 +240,48 @@ export function OrganisationBrandingPanel() {
 					value={affiliationText}
 					onChange={(e) => setAffiliationText(e.target.value)}
 					disabled={!canEdit}
+					fullWidth
+				/>
+				<TextField
+					label="Document footer"
+					helperText="Printed at the bottom of receipts, invoices, and report cards"
+					value={footerText}
+					onChange={(e) => setFooterText(e.target.value)}
+					disabled={!canEdit}
+					fullWidth
+					multiline
+					minRows={2}
+				/>
+
+				<Typography variant="subtitle2" sx={{ pt: 1 }}>
+					Numbering formats
+				</Typography>
+				<Typography variant="body2" color="text.secondary">
+					Tokens: <code>{"{SEQ}"}</code> or <code>{"{SEQ:4}"}</code> for a zero-padded sequence, <code>{"{AY}"}</code> for the
+					academic year, <code>{"{YYYY}"}</code> for the calendar year.
+				</Typography>
+				<TextField
+					label="Admission number format"
+					value={admissionNumberFormat}
+					onChange={(e) => setAdmissionNumberFormat(e.target.value)}
+					disabled={!canEdit}
+					required
+					fullWidth
+				/>
+				<TextField
+					label="Invoice number format"
+					value={invoiceNumberFormat}
+					onChange={(e) => setInvoiceNumberFormat(e.target.value)}
+					disabled={!canEdit}
+					required
+					fullWidth
+				/>
+				<TextField
+					label="Receipt number format"
+					value={receiptNumberFormat}
+					onChange={(e) => setReceiptNumberFormat(e.target.value)}
+					disabled={!canEdit}
+					required
 					fullWidth
 				/>
 

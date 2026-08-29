@@ -43,8 +43,8 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
 	},
 	{
 		key: "branding",
-		label: "School branding",
-		description: "Logo, official stamp, and authorized signature for printed documents",
+		label: "Branding & documents",
+		description: "Logo, stamp, signature, footer text, and numbering formats for printed documents",
 		icon: <BrushIcon />,
 		panel: <OrganisationBrandingPanel />,
 	},

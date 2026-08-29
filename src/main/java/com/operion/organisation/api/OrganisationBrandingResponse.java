@@ -10,13 +10,15 @@ import com.operion.storage.AssetStorageService;
  * back into one without the frontend assuming resolveUrl()'s path shape.
  */
 public record OrganisationBrandingResponse(String logoRef, String logoUrl, String stampRef, String stampUrl, String signatureRef,
-		String signatureUrl, String schoolNameOverride, String addressLine, String affiliationText) {
+		String signatureUrl, String schoolNameOverride, String addressLine, String affiliationText, String footerText,
+		String admissionNumberFormat, String invoiceNumberFormat, String receiptNumberFormat) {
 
 	public static OrganisationBrandingResponse from(OrganisationBranding branding, AssetStorageService assetStorageService) {
 		return new OrganisationBrandingResponse(branding.getLogoRef(), resolve(branding.getLogoRef(), assetStorageService),
 				branding.getStampRef(), resolve(branding.getStampRef(), assetStorageService), branding.getSignatureRef(),
 				resolve(branding.getSignatureRef(), assetStorageService), branding.getSchoolNameOverride(), branding.getAddressLine(),
-				branding.getAffiliationText());
+				branding.getAffiliationText(), branding.getFooterText(), branding.getAdmissionNumberFormat(),
+				branding.getInvoiceNumberFormat(), branding.getReceiptNumberFormat());
 	}
 
 	private static String resolve(String reference, AssetStorageService assetStorageService) {

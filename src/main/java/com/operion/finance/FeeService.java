@@ -4,9 +4,14 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 import com.operion.academic.SchoolClass;
+import com.operion.common.TenantContext;
 import com.operion.organisation.AcademicYear;
+import com.operion.organisation.DocumentNumberFormatter;
+import com.operion.organisation.OrganisationBranding;
+import com.operion.organisation.OrganisationBrandingRepository;
 import com.operion.student.StudentEnrollment;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,12 +35,14 @@ public class FeeService {
 	private final PaymentAllocationRepository paymentAllocationRepository;
 	private final RefundRepository refundRepository;
 	private final FeeDocumentCounterRepository feeDocumentCounterRepository;
+	private final OrganisationBrandingRepository organisationBrandingRepository;
 
 	public FeeService(FeeCategoryRepository feeCategoryRepository, FeeStructureRepository feeStructureRepository,
 			FeeStructureInstallmentRepository feeStructureInstallmentRepository,
 			StudentFeeAssignmentRepository studentFeeAssignmentRepository, InvoiceRepository invoiceRepository,
 			PaymentRepository paymentRepository, PaymentAllocationRepository paymentAllocationRepository,
-			RefundRepository refundRepository, FeeDocumentCounterRepository feeDocumentCounterRepository) {
+			RefundRepository refundRepository, FeeDocumentCounterRepository feeDocumentCounterRepository,
+			OrganisationBrandingRepository organisationBrandingRepository) {
 		this.feeCategoryRepository = feeCategoryRepository;
 		this.feeStructureRepository = feeStructureRepository;
 		this.feeStructureInstallmentRepository = feeStructureInstallmentRepository;
@@ -45,6 +52,7 @@ public class FeeService {
 		this.paymentAllocationRepository = paymentAllocationRepository;
 		this.refundRepository = refundRepository;
 		this.feeDocumentCounterRepository = feeDocumentCounterRepository;
+		this.organisationBrandingRepository = organisationBrandingRepository;
 	}
 
 	public FeeCategory createCategory(String code, String name, String description) {
@@ -173,15 +181,22 @@ public class FeeService {
 		return refundRepository.save(new Refund(payment, invoice, amount, reason, approvedBy, refundDate));
 	}
 
-	/** Atomic per-(organisation, academicYear, documentType) sequence - never SELECT MAX()+1. */
+	/** Atomic per-(organisation, academicYear, documentType) sequence - never SELECT MAX()+1.
+	 * Format is org-configurable (#142); see OrganisationBranding.invoiceNumberFormat/receiptNumberFormat. */
 	private String nextDocumentNumber(AcademicYear academicYear, FeeDocumentType documentType) {
 		FeeDocumentCounter counter = feeDocumentCounterRepository
 				.findByAcademicYearIdAndDocumentType(academicYear.getId(), documentType)
 				.orElseGet(() -> feeDocumentCounterRepository.save(new FeeDocumentCounter(academicYear, documentType)));
 		long number = counter.consumeNext();
 		feeDocumentCounterRepository.save(counter);
-		String prefix = documentType == FeeDocumentType.INVOICE ? "INV" : "RCT";
-		return prefix + "-" + academicYear.getName() + "-" + String.format("%06d", number);
+
+		Optional<OrganisationBranding> branding = organisationBrandingRepository.findById(TenantContext.getOrganisationId());
+		String defaultTemplate =
+				documentType == FeeDocumentType.INVOICE ? OrganisationBranding.DEFAULT_INVOICE_NUMBER_FORMAT : OrganisationBranding.DEFAULT_RECEIPT_NUMBER_FORMAT;
+		String template = branding
+				.map(b -> documentType == FeeDocumentType.INVOICE ? b.getInvoiceNumberFormat() : b.getReceiptNumberFormat())
+				.orElse(defaultTemplate);
+		return DocumentNumberFormatter.format(template, number, academicYear.getName(), academicYear.getStartDate().getYear());
 	}
 
 	private BigDecimal normalizeDiscount(BigDecimal discountAmount) {

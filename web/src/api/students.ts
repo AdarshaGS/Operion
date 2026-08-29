@@ -5,7 +5,8 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8080
 
 export interface CreateStudentRequest {
 	personId: number;
-	admissionNumber: string;
+	/** Optional - left null/blank, the backend auto-generates one from the org's numbering format. */
+	admissionNumber?: string | null;
 	admissionDate: string;
 	admissionSource?: string | null;
 	previousSchool?: string | null;

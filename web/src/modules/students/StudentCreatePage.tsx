@@ -91,7 +91,7 @@ export function StudentCreatePage() {
 			});
 			const student = await admitStudent({
 				personId: person.id,
-				admissionNumber: form.admissionNumber,
+				admissionNumber: form.admissionNumber || null,
 				admissionDate: form.admissionDate,
 				previousSchool: form.previousSchool || null,
 				bloodGroup: form.bloodGroup || null,
@@ -144,7 +144,13 @@ export function StudentCreatePage() {
 					<Divider />
 					<Typography variant="subtitle1">Admission details</Typography>
 					<Box sx={{ display: "flex", gap: 2 }}>
-						<TextField label="Admission number" value={form.admissionNumber} onChange={set("admissionNumber")} required fullWidth />
+						<TextField
+							label="Admission number"
+							helperText="Leave blank to auto-generate from the organisation's numbering format"
+							value={form.admissionNumber}
+							onChange={set("admissionNumber")}
+							fullWidth
+						/>
 						<TextField
 							label="Admission date"
 							type="date"

@@ -10,6 +10,10 @@ export interface OrganisationBrandingResponse {
 	schoolNameOverride: string | null;
 	addressLine: string | null;
 	affiliationText: string | null;
+	footerText: string | null;
+	admissionNumberFormat: string;
+	invoiceNumberFormat: string;
+	receiptNumberFormat: string;
 }
 
 export interface UpdateOrganisationBrandingRequest {
@@ -19,6 +23,10 @@ export interface UpdateOrganisationBrandingRequest {
 	schoolNameOverride: string | null;
 	addressLine: string | null;
 	affiliationText: string | null;
+	footerText: string | null;
+	admissionNumberFormat: string;
+	invoiceNumberFormat: string;
+	receiptNumberFormat: string;
 }
 
 export function getOrganisationBranding(): Promise<OrganisationBrandingResponse> {

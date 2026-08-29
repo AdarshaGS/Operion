@@ -44,7 +44,7 @@ public class StudentRowImportService {
 		person.setEmail(blankToNull(row.get("email")));
 		person = personRepository.save(person);
 
-		String admissionNumber = require(row, "admissionNumber");
+		String admissionNumber = blankToNull(row.get("admissionNumber"));
 		LocalDate admissionDate = parseDate(row.get("admissionDate"));
 		if (admissionDate == null) {
 			throw new IllegalArgumentException("admissionDate is required");

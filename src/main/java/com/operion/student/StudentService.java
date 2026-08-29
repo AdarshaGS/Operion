@@ -5,8 +5,12 @@ import java.time.LocalDate;
 
 import com.operion.academic.Section;
 import com.operion.audit.AuditLogService;
+import com.operion.common.TenantContext;
 import com.operion.identity.Person;
 import com.operion.organisation.AcademicYear;
+import com.operion.organisation.DocumentNumberFormatter;
+import com.operion.organisation.OrganisationBranding;
+import com.operion.organisation.OrganisationBrandingRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,25 +28,47 @@ public class StudentService {
 	private final StudentEnrollmentRepository studentEnrollmentRepository;
 	private final StudentDocumentRepository studentDocumentRepository;
 	private final StudentExitRepository studentExitRepository;
+	private final StudentAdmissionCounterRepository studentAdmissionCounterRepository;
+	private final OrganisationBrandingRepository organisationBrandingRepository;
 	private final AuditLogService auditLogService;
 
 	public StudentService(StudentRepository studentRepository, StudentEnrollmentRepository studentEnrollmentRepository,
 			StudentDocumentRepository studentDocumentRepository, StudentExitRepository studentExitRepository,
-			AuditLogService auditLogService) {
+			StudentAdmissionCounterRepository studentAdmissionCounterRepository,
+			OrganisationBrandingRepository organisationBrandingRepository, AuditLogService auditLogService) {
 		this.studentRepository = studentRepository;
 		this.studentEnrollmentRepository = studentEnrollmentRepository;
 		this.studentDocumentRepository = studentDocumentRepository;
 		this.studentExitRepository = studentExitRepository;
+		this.studentAdmissionCounterRepository = studentAdmissionCounterRepository;
+		this.organisationBrandingRepository = organisationBrandingRepository;
 		this.auditLogService = auditLogService;
 	}
 
+	/** {@code admissionNumber} is auto-generated from the org's configured format (#142) when null/blank. */
+	@Transactional
 	public Student admit(Person person, String admissionNumber, LocalDate admissionDate, String admissionSource,
 			String previousSchool, String tcNumber, Double entranceScore, String bloodGroup, String category,
 			String nationality, String remarks) {
-		Student student = studentRepository.save(new Student(person, admissionNumber, admissionDate, admissionSource,
+		String resolvedAdmissionNumber =
+				admissionNumber != null && !admissionNumber.isBlank() ? admissionNumber : nextAdmissionNumber(admissionDate);
+		Student student = studentRepository.save(new Student(person, resolvedAdmissionNumber, admissionDate, admissionSource,
 				previousSchool, tcNumber, entranceScore, bloodGroup, category, nationality, remarks));
 		auditLogService.record("Student", student.getId(), "STUDENT_ADMITTED", null, student.getStatus());
 		return student;
+	}
+
+	/** Atomic per-(organisation, calendar year) sequence - never SELECT MAX()+1, same pattern as FeeService. */
+	private String nextAdmissionNumber(LocalDate admissionDate) {
+		String template = organisationBrandingRepository.findById(TenantContext.getOrganisationId())
+				.map(OrganisationBranding::getAdmissionNumberFormat)
+				.orElse(OrganisationBranding.DEFAULT_ADMISSION_NUMBER_FORMAT);
+		int calendarYear = admissionDate.getYear();
+		StudentAdmissionCounter counter = studentAdmissionCounterRepository.findByCalendarYear(calendarYear)
+				.orElseGet(() -> studentAdmissionCounterRepository.save(new StudentAdmissionCounter(calendarYear)));
+		long number = counter.consumeNext();
+		studentAdmissionCounterRepository.save(counter);
+		return DocumentNumberFormatter.format(template, number, null, calendarYear);
 	}
 
 	/**

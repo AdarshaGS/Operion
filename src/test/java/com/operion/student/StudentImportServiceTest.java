@@ -5,6 +5,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 
+import com.operion.audit.AuditLogRepository;
+import com.operion.audit.AuditLogService;
 import com.operion.common.JpaConfig;
 import com.operion.common.MultiTenancyConfig;
 import com.operion.common.TenantContext;
@@ -16,10 +18,13 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * Proves the CSV batch is genuinely per-row (#28): valid rows persist and are reported,
@@ -29,9 +34,21 @@ import org.springframework.transaction.annotation.Transactional;
  * transaction per row rather than one transaction for the whole batch.
  */
 @DataJpaTest
-@Import({ MultiTenancyConfig.class, JpaConfig.class, StudentService.class, StudentRowImportService.class, StudentImportService.class })
+@Import({ MultiTenancyConfig.class, JpaConfig.class, StudentImportServiceTest.AuditLogServiceTestConfig.class, StudentService.class,
+		StudentRowImportService.class, StudentImportService.class })
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class StudentImportServiceTest {
+
+	/** AuditLogService.class alone can't be @Imported directly - its ObjectMapper param
+	 * isn't autoconfigured under @DataJpaTest, same reason other tests in this codebase
+	 * construct it manually rather than relying on Spring for it. */
+	@TestConfiguration
+	static class AuditLogServiceTestConfig {
+		@Bean
+		AuditLogService auditLogService(AuditLogRepository auditLogRepository) {
+			return new AuditLogService(auditLogRepository, new ObjectMapper());
+		}
+	}
 
 	@Autowired
 	private StudentImportService studentImportService;
@@ -69,7 +86,7 @@ class StudentImportServiceTest {
 		assertThat(results.get(0).row()).isEqualTo(2);
 		assertThat(results.get(1).success()).isFalse();
 		assertThat(results.get(1).row()).isEqualTo(3);
-		assertThat(results.get(1).message()).contains("admissionNumber");
+		assertThat(results.get(1).message()).contains("admissionDate");
 		assertThat(results.get(2).success()).isTrue();
 		assertThat(results.get(2).row()).isEqualTo(4);
 
@@ -77,5 +94,25 @@ class StudentImportServiceTest {
 		// The failed row's Person insert must not survive either - REQUIRES_NEW rolls
 		// back the whole row, not just the half that threw.
 		assertThat(personRepository.findAll()).extracting(p -> p.getFirstName()).containsExactlyInAnyOrder("Asha", "Ravi");
+	}
+
+	/** admissionNumber became optional in #142 - a blank cell auto-generates one via StudentService. */
+	@Test
+	void autoGeneratesAdmissionNumberWhenCsvCellIsBlank() {
+		Organisation organisation = organisationRepository.save(new Organisation("Test School", "Test Trust", "iso-test-import-auto"));
+		TenantContext.set(organisation.getId(), null);
+
+		String csv = String.join("\n",
+				"firstName,lastName,dateOfBirth,gender,email,phone,admissionNumber,admissionDate,admissionSource,previousSchool,tcNumber,entranceScore,bloodGroup,category,nationality,remarks",
+				"Zoya,Khan,2012-01-01,FEMALE,,,,2026-06-01,,,,,,,,");
+
+		MockMultipartFile file = new MockMultipartFile("file", "students.csv", "text/csv", csv.getBytes(StandardCharsets.UTF_8));
+
+		List<StudentImportRowResult> results = studentImportService.importCsv(file);
+
+		assertThat(results).hasSize(1);
+		assertThat(results.get(0).success()).isTrue();
+		assertThat(studentRepository.findAll()).singleElement().extracting(Student::getAdmissionNumber).satisfies(
+				admissionNumber -> assertThat((String) admissionNumber).startsWith("STU-2026-"));
 	}
 }

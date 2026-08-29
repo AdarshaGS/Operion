@@ -71,7 +71,8 @@ class OrganisationBrandingControllerTest {
 		newOrganisation();
 		OrganisationBrandingController controller = new OrganisationBrandingController(brandingRepository, fakeAssetStorageService);
 		UpdateOrganisationBrandingRequest request = new UpdateOrganisationBrandingRequest("logo.png", "stamp.png", "signature.png",
-				"ABC Public School", "12 Main Street", "Affiliated to XYZ Board");
+				"ABC Public School", "12 Main Street", "Affiliated to XYZ Board", "Thank you for choosing us", "STU-{YYYY}-{SEQ:4}",
+				"INV-{AY}-{SEQ:6}", "RCT-{AY}-{SEQ:6}");
 
 		OrganisationBrandingResponse response = controller.update(request);
 
@@ -82,6 +83,8 @@ class OrganisationBrandingControllerTest {
 		assertThat(response.schoolNameOverride()).isEqualTo("ABC Public School");
 		assertThat(response.addressLine()).isEqualTo("12 Main Street");
 		assertThat(response.affiliationText()).isEqualTo("Affiliated to XYZ Board");
+		assertThat(response.footerText()).isEqualTo("Thank you for choosing us");
+		assertThat(response.admissionNumberFormat()).isEqualTo("STU-{YYYY}-{SEQ:4}");
 
 		OrganisationBrandingResponse reread = controller.get();
 		assertThat(reread.logoUrl()).isEqualTo("/uploads/logo.png");
