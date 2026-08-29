@@ -3,6 +3,8 @@ import ApartmentIcon from "@mui/icons-material/Apartment";
 import BadgeIcon from "@mui/icons-material/Badge";
 import BrushIcon from "@mui/icons-material/Brush";
 import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
+import CreditCardIcon from "@mui/icons-material/CreditCard";
+import DescriptionIcon from "@mui/icons-material/Description";
 import GroupIcon from "@mui/icons-material/Group";
 import HistoryIcon from "@mui/icons-material/History";
 import ImportExportIcon from "@mui/icons-material/ImportExport";
@@ -16,7 +18,9 @@ import { BusinessSettingsPanel } from "./BusinessSettingsPanel";
 import { CampusesPanel } from "./CampusesPanel";
 import { DepartmentsPanel } from "./DepartmentsPanel";
 import { DesignationsPanel } from "./DesignationsPanel";
+import { IdCardStudioPanel } from "./IdCardStudioPanel";
 import { ImportsExportsPanel } from "./ImportsExportsPanel";
+import { LetterFormatsPanel } from "./LetterFormatsPanel";
 import { OrganisationBrandingPanel } from "./OrganisationBrandingPanel";
 import { OrganisationProfilePanel } from "./OrganisationProfilePanel";
 import { RolesPanel } from "./RolesPanel";
@@ -47,6 +51,20 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
 		description: "Logo, stamp, signature, footer text, and numbering formats for printed documents",
 		icon: <BrushIcon />,
 		panel: <OrganisationBrandingPanel />,
+	},
+	{
+		key: "letter-formats",
+		label: "Letter formats",
+		description: "Branded header/footer template for question papers and report cards",
+		icon: <DescriptionIcon />,
+		panel: <LetterFormatsPanel />,
+	},
+	{
+		key: "id-card-studio",
+		label: "ID Card Studio",
+		description: "Design ID card layouts bound to live student data",
+		icon: <CreditCardIcon />,
+		panel: <IdCardStudioPanel />,
 	},
 	{
 		key: "business",
