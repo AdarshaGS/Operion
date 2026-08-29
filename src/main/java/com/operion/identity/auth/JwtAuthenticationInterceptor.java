@@ -79,7 +79,11 @@ public class JwtAuthenticationInterceptor implements HandlerInterceptor {
 	// since the caller is Razorpay's own servers, not a browser. The three
 	// /api/v1/webhooks/{resend,brevo}/... paths are the same shape of public, trusted
 	// only after NotificationDeliveryWebhookService verifies each provider's own
-	// signature/secret - see that class's doc.
+	// signature/secret - see that class's doc. /api/v1/job-applications is the same
+	// shape again for a public "apply for this org's open role" form - the applicant has
+	// no login at all, and carries the org slug in the request body (JobApplication's
+	// own equivalent of ClaimInviteRequest.organisationSlug) since there is no token to
+	// resolve it from. Only POST is public - GET/approve/reject stay staff-only.
 	private boolean isPublic(HttpServletRequest request) {
 		String path = request.getRequestURI();
 		if (path.equals("/api/v1/auth/login") || path.equals("/api/v1/auth/claim-invite") || path.equals("/api/v1/auth/refresh")
@@ -90,6 +94,9 @@ public class JwtAuthenticationInterceptor implements HandlerInterceptor {
 		if (path.startsWith("/api/v1/fees/payment-links/") || path.startsWith("/api/v1/webhooks/")) {
 			return true;
 		}
-		return path.equals("/api/v1/organisations") && "POST".equalsIgnoreCase(request.getMethod());
+		if (path.equals("/api/v1/organisations") && "POST".equalsIgnoreCase(request.getMethod())) {
+			return true;
+		}
+		return path.equals("/api/v1/job-applications") && "POST".equalsIgnoreCase(request.getMethod());
 	}
 }

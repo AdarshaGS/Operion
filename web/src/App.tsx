@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { AuthProvider } from "./auth/AuthContext";
 import { ClaimInvitePage } from "./auth/ClaimInvitePage";
 import { ClaimStaffInvitePage } from "./auth/ClaimStaffInvitePage";
+import { JobApplicationPage } from "./careers/JobApplicationPage";
 import { EmailVerifyPage } from "./auth/EmailVerifyPage";
 import { ForgotPasswordPage } from "./auth/ForgotPasswordPage";
 import { IndexRedirect } from "./auth/IndexRedirect";
@@ -64,6 +65,7 @@ function App() {
 					<Route path="/login" element={<LoginPage />} />
 					<Route path="/claim-invite" element={<ClaimInvitePage />} />
 					<Route path="/claim-staff-invite" element={<ClaimStaffInvitePage />} />
+					<Route path="/careers" element={<JobApplicationPage />} />
 					<Route path="/forgot-password" element={<ForgotPasswordPage />} />
 					<Route path="/reset-password" element={<ResetPasswordPage />} />
 					<Route path="/verify-email" element={<EmailVerifyPage />} />

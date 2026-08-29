@@ -3,11 +3,14 @@ package com.operion.hr;
 import java.time.Instant;
 import java.time.LocalDate;
 
+import com.operion.common.TenantContext;
 import com.operion.identity.Person;
 import com.operion.organisation.AcademicYear;
 import com.operion.organisation.Campus;
 import com.operion.organisation.Department;
 import com.operion.organisation.Designation;
+import com.operion.organisation.Organisation;
+import com.operion.organisation.OrganisationRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,15 +30,20 @@ public class HrService {
 	private final LeaveBalanceRepository leaveBalanceRepository;
 	private final LeaveRequestRepository leaveRequestRepository;
 	private final StaffDocumentRepository staffDocumentRepository;
+	private final JobApplicationRepository jobApplicationRepository;
+	private final OrganisationRepository organisationRepository;
 
 	public HrService(StaffProfileRepository staffProfileRepository, LeaveTypeRepository leaveTypeRepository,
 			LeaveBalanceRepository leaveBalanceRepository, LeaveRequestRepository leaveRequestRepository,
-			StaffDocumentRepository staffDocumentRepository) {
+			StaffDocumentRepository staffDocumentRepository, JobApplicationRepository jobApplicationRepository,
+			OrganisationRepository organisationRepository) {
 		this.staffProfileRepository = staffProfileRepository;
 		this.leaveTypeRepository = leaveTypeRepository;
 		this.leaveBalanceRepository = leaveBalanceRepository;
 		this.leaveRequestRepository = leaveRequestRepository;
 		this.staffDocumentRepository = staffDocumentRepository;
+		this.jobApplicationRepository = jobApplicationRepository;
+		this.organisationRepository = organisationRepository;
 	}
 
 	public StaffProfile createStaffProfile(Person person, Campus campus, String employeeCode, Designation designation,
@@ -96,6 +104,28 @@ public class HrService {
 	public LeaveRequest cancel(LeaveRequest leaveRequest) {
 		leaveRequest.cancel();
 		return leaveRequestRepository.save(leaveRequest);
+	}
+
+	/** Public/unauthenticated entry point - resolves the org from its slug and sets
+	 * TenantContext itself, same bootstrap shape as PortalInviteService.claim() and
+	 * PasswordResetService, since there is no bearer token yet to carry tenant context. */
+	@Transactional
+	public JobApplication submitJobApplication(String organisationSlug, String applicantName, String email, String specialization,
+			Integer yearsExperience) {
+		Organisation organisation = organisationRepository.findBySlug(organisationSlug)
+				.orElseThrow(() -> new IllegalArgumentException("No organisation with slug " + organisationSlug));
+		TenantContext.set(organisation.getId(), null);
+		return jobApplicationRepository.save(new JobApplication(applicantName, email, specialization, yearsExperience));
+	}
+
+	public JobApplication approveJobApplication(JobApplication jobApplication, Long decidedBy) {
+		jobApplication.approve(decidedBy);
+		return jobApplicationRepository.save(jobApplication);
+	}
+
+	public JobApplication rejectJobApplication(JobApplication jobApplication, Long decidedBy) {
+		jobApplication.reject(decidedBy);
+		return jobApplicationRepository.save(jobApplication);
 	}
 
 	/** Re-upload supersedes any prior ACTIVE document of the same type, same pattern as StudentService.addDocument. */

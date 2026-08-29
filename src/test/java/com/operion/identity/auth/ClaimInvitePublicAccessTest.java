@@ -1,5 +1,6 @@
 package com.operion.identity.auth;
 
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -64,6 +65,25 @@ class ClaimInvitePublicAccessTest {
 						.contentType(MediaType.APPLICATION_JSON)
 						.content("{\"organisationSlug\":\"no-such-org\",\"token\":\"bogus\"}"))
 				.andExpect(status().isUnauthorized());
+	}
+
+	@Test
+	void jobApplicationSubmitIsReachableWithoutABearerToken() throws Exception {
+		// A bogus org slug still proves the point: reaching HrService.submitJobApplication()
+		// and getting its real 404 ("No organisation with slug ...", via
+		// ApiExceptionHandler's IllegalArgumentException -> 404 mapping) is the opposite
+		// of being rejected by the interceptor before the controller is ever invoked.
+		mockMvc.perform(post("/api/v1/job-applications")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{\"organisationSlug\":\"no-such-org\",\"applicantName\":\"Test\",\"email\":\"test@example.com\"}"))
+				.andExpect(status().isNotFound());
+	}
+
+	@Test
+	void jobApplicationListIsNotPublic() throws Exception {
+		// Only POST /api/v1/job-applications is whitelisted - GET must still 401 without
+		// a bearer token, proving the allowlist entry is method-scoped, not path-wide.
+		mockMvc.perform(get("/api/v1/job-applications")).andExpect(status().isUnauthorized());
 	}
 
 	@Test
