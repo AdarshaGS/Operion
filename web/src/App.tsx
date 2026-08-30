@@ -10,6 +10,7 @@ import { LoginPage } from "./auth/LoginPage";
 import { ProtectedRoute } from "./auth/ProtectedRoute";
 import { ResetPasswordPage } from "./auth/ResetPasswordPage";
 import { AppLayout } from "./layout/AppLayout";
+import { AcademicSetupPage } from "./modules/academics/AcademicSetupPage";
 import { AcademicsPage } from "./modules/academics/AcademicsPage";
 import { SchoolClassSectionsPage } from "./modules/academics/SchoolClassSectionsPage";
 import { SectionDetailPage } from "./modules/academics/SectionDetailPage";
@@ -77,7 +78,7 @@ function App() {
 							<Route path="/students/new" element={<StudentCreatePage />} />
 							<Route path="/students/:studentId" element={<StudentDetailPage />} />
 							<Route path="/academics" element={<AcademicsPage />} />
-							<Route path="/academics/setup" element={<AcademicsPage />} />
+							<Route path="/academics/setup" element={<AcademicSetupPage />} />
 							<Route path="/academics/classes/:classId" element={<SchoolClassSectionsPage />} />
 							<Route path="/academics/classes/:classId/sections/:sectionId" element={<SectionDetailPage />} />
 							<Route path="/attendance" element={<AttendancePage />} />
