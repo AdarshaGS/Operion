@@ -61,7 +61,8 @@ class TransferRequestLifecycleTest {
 		Campus mainCampus = campusRepository.save(new Campus("Main Campus", "MAIN"));
 		Campus branchCampus = campusRepository.save(new Campus("Branch Campus", "BRANCH"));
 		Person person = personRepository.save(new Person("Anaya", "Rao"));
-		Student student = studentRepository.save(new Student(person, "ADM-100", LocalDate.of(2025, 5, 1), null, null, null, null, null, null, null, null));
+		Student student = studentRepository.save(
+				new Student(person, "STU-100", "ADM-100", LocalDate.of(2025, 5, 1), null, null, null, null, null, null, null, null, null, null, null));
 
 		return new Fixture(student, mainCampus, branchCampus);
 	}
