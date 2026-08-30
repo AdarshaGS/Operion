@@ -5,13 +5,18 @@ import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import CircularProgress from "@mui/material/CircularProgress";
 import Divider from "@mui/material/Divider";
+import MenuItem from "@mui/material/MenuItem";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { getAcademicSetupStatus } from "../../api/academicSetupStatus";
+import { listAcademicYears, type AcademicYearResponse } from "../../api/academicYears";
 import { ApiError } from "../../api/client";
+import { createEnrollment } from "../../api/enrollments";
 import { createPerson } from "../../api/persons";
+import { listSchoolClasses, type SchoolClassResponse } from "../../api/schoolClasses";
+import { listSections, type SectionResponse } from "../../api/sections";
 import { admitStudent } from "../../api/students";
 
 const ACADEMIC_SETUP_REQUIRED_MESSAGE = "Complete Academic Setup before adding a student.";
@@ -33,6 +38,10 @@ interface FormState {
 	medicalAlerts: string;
 	emergencyContactName: string;
 	emergencyContactPhone: string;
+	academicYearId: string;
+	schoolClassId: string;
+	sectionId: string;
+	rollNumber: string;
 }
 
 const EMPTY_FORM: FormState = {
@@ -52,6 +61,10 @@ const EMPTY_FORM: FormState = {
 	medicalAlerts: "",
 	emergencyContactName: "",
 	emergencyContactPhone: "",
+	academicYearId: "",
+	schoolClassId: "",
+	sectionId: "",
+	rollNumber: "",
 };
 
 /** Person + Student are two backend entities (identity ≠ enrollment, per the project's
@@ -63,6 +76,9 @@ export function StudentCreatePage() {
 	const [error, setError] = useState<string | null>(null);
 	const [submitting, setSubmitting] = useState(false);
 	const [checkingPrerequisite, setCheckingPrerequisite] = useState(true);
+	const [academicYears, setAcademicYears] = useState<AcademicYearResponse[]>([]);
+	const [schoolClasses, setSchoolClasses] = useState<SchoolClassResponse[]>([]);
+	const [sections, setSections] = useState<SectionResponse[]>([]);
 
 	useEffect(() => {
 		getAcademicSetupStatus()
@@ -77,6 +93,26 @@ export function StudentCreatePage() {
 			// check itself being unreachable, the admit call will fail on its own merits.
 			.catch(() => setCheckingPrerequisite(false));
 	}, [navigate]);
+
+	useEffect(() => {
+		listAcademicYears().then(setAcademicYears).catch(() => {});
+	}, []);
+
+	useEffect(() => {
+		setForm((prev) => ({ ...prev, schoolClassId: "", sectionId: "" }));
+		setSchoolClasses([]);
+		if (!form.academicYearId) return;
+		listSchoolClasses(Number(form.academicYearId)).then(setSchoolClasses).catch(() => {});
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [form.academicYearId]);
+
+	useEffect(() => {
+		setForm((prev) => ({ ...prev, sectionId: "" }));
+		setSections([]);
+		if (!form.schoolClassId) return;
+		listSections(Number(form.schoolClassId)).then(setSections).catch(() => {});
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [form.schoolClassId]);
 
 	function set<K extends keyof FormState>(key: K) {
 		return (event: React.ChangeEvent<HTMLInputElement>) => setForm((prev) => ({ ...prev, [key]: event.target.value }));
@@ -107,6 +143,12 @@ export function StudentCreatePage() {
 				medicalAlerts: form.medicalAlerts || null,
 				emergencyContactName: form.emergencyContactName || null,
 				emergencyContactPhone: form.emergencyContactPhone || null,
+			});
+			await createEnrollment(student.id, {
+				academicYearId: Number(form.academicYearId),
+				sectionId: Number(form.sectionId),
+				rollNumber: form.rollNumber ? Number(form.rollNumber) : null,
+				enrolledDate: form.admissionDate,
 			});
 			navigate(`/students/${student.id}`, { replace: true });
 		} catch (err) {
@@ -169,6 +211,46 @@ export function StudentCreatePage() {
 							slotProps={{ inputLabel: { shrink: true } }}
 							fullWidth
 						/>
+					</Box>
+					<Box sx={{ display: "flex", gap: 2 }}>
+						<TextField select label="Academic year" value={form.academicYearId} onChange={set("academicYearId")} required fullWidth>
+							{academicYears.map((year) => (
+								<MenuItem key={year.id} value={year.id}>
+									{year.name}
+								</MenuItem>
+							))}
+						</TextField>
+						<TextField
+							select
+							label="Class"
+							value={form.schoolClassId}
+							onChange={set("schoolClassId")}
+							required
+							fullWidth
+							disabled={!form.academicYearId}
+						>
+							{schoolClasses.map((schoolClass) => (
+								<MenuItem key={schoolClass.id} value={schoolClass.id}>
+									{schoolClass.displayName ?? `Class #${schoolClass.id}`}
+								</MenuItem>
+							))}
+						</TextField>
+						<TextField
+							select
+							label="Section"
+							value={form.sectionId}
+							onChange={set("sectionId")}
+							required
+							fullWidth
+							disabled={!form.schoolClassId}
+						>
+							{sections.map((section) => (
+								<MenuItem key={section.id} value={section.id}>
+									{section.name}
+								</MenuItem>
+							))}
+						</TextField>
+						<TextField label="Roll number" type="number" value={form.rollNumber} onChange={set("rollNumber")} fullWidth />
 					</Box>
 					<TextField label="Previous school" value={form.previousSchool} onChange={set("previousSchool")} fullWidth />
 					<Box sx={{ display: "flex", gap: 2 }}>
