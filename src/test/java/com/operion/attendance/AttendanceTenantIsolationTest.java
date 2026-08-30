@@ -29,6 +29,7 @@ import com.operion.student.StudentDocumentRepository;
 import com.operion.student.StudentEnrollment;
 import com.operion.student.StudentEnrollmentRepository;
 import com.operion.student.StudentExitRepository;
+import com.operion.student.StudentIdGenerator;
 import com.operion.student.StudentRepository;
 import com.operion.student.StudentService;
 import org.junit.jupiter.api.AfterEach;
@@ -46,7 +47,7 @@ import tools.jackson.databind.ObjectMapper;
  * StudentTenantIsolationTest to the Attendance tables.
  */
 @DataJpaTest
-@Import({ MultiTenancyConfig.class, JpaConfig.class })
+@Import({ MultiTenancyConfig.class, JpaConfig.class, StudentIdGenerator.class })
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class AttendanceTenantIsolationTest {
 
@@ -86,6 +87,9 @@ class AttendanceTenantIsolationTest {
 	private StudentExitRepository studentExitRepository;
 
 	@Autowired
+	private StudentIdGenerator studentIdGenerator;
+
+	@Autowired
 	private AuditLogRepository auditLogRepository;
 
 	@Autowired
@@ -94,7 +98,7 @@ class AttendanceTenantIsolationTest {
 	@BeforeEach
 	void setUpStudentService() {
 		studentService = new StudentService(studentRepository, studentEnrollmentRepository, studentDocumentRepository,
-				studentExitRepository, null, null, new AuditLogService(auditLogRepository, new ObjectMapper()));
+			studentExitRepository, null, null, studentIdGenerator, new AuditLogService(auditLogRepository, new ObjectMapper()));
 	}
 
 	@AfterEach
@@ -116,7 +120,7 @@ class AttendanceTenantIsolationTest {
 		Person person = personRepository.save(new Person("Test", "Student"));
 
 		Student student = studentService.admit(
-				person, admissionNumber, LocalDate.of(2025, 5, 1), null, null, null, null, null, null, null, null);
+				person, admissionNumber, LocalDate.of(2025, 5, 1), null, null, null, null, null, null, null, null, null, null, null);
 		return studentService.enroll(student, academicYear, section, 1, LocalDate.of(2025, 6, 1));
 	}
 

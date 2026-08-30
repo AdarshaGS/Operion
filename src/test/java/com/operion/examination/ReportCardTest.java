@@ -34,6 +34,7 @@ import com.operion.student.StudentEnrollment;
 import com.operion.student.StudentDocumentRepository;
 import com.operion.student.StudentEnrollmentRepository;
 import com.operion.student.StudentExitRepository;
+import com.operion.student.StudentIdGenerator;
 import com.operion.student.StudentRepository;
 import com.operion.student.StudentService;
 import org.junit.jupiter.api.AfterEach;
@@ -52,7 +53,7 @@ import tools.jackson.databind.ObjectMapper;
  * and rejects a duplicate publish. Per ai-context/erp-system-plan.md §3.3.
  */
 @DataJpaTest
-@Import({ MultiTenancyConfig.class, JpaConfig.class })
+@Import({ MultiTenancyConfig.class, JpaConfig.class, StudentIdGenerator.class })
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class ReportCardTest {
 
@@ -117,12 +118,15 @@ class ReportCardTest {
 	@Autowired
 	private StudentExitRepository studentExitRepository;
 
+	@Autowired
+	private StudentIdGenerator studentIdGenerator;
+
 	@BeforeEach
 	void setUpExaminationService() {
 		examinationService = new ExaminationService(examRepository, examScheduleRepository, gradingScaleRepository,
 				gradingScaleBandRepository, marksEntryRepository, reportCardRepository, new AuditLogService(auditLogRepository, new ObjectMapper()));
 		studentService = new StudentService(studentRepository, studentEnrollmentRepository, studentDocumentRepository,
-				studentExitRepository, null, null, new AuditLogService(auditLogRepository, new ObjectMapper()));
+			studentExitRepository, null, null, studentIdGenerator, new AuditLogService(auditLogRepository, new ObjectMapper()));
 	}
 
 	@AfterEach
@@ -149,7 +153,7 @@ class ReportCardTest {
 		Person person = personRepository.save(new Person("Meera", "Nair"));
 
 		Student student = studentService.admit(
-				person, admissionNumber, LocalDate.of(2025, 5, 1), null, null, null, null, null, null, "Indian", null);
+				person, admissionNumber, LocalDate.of(2025, 5, 1), null, null, null, null, null, null, "Indian", null, null, null, null);
 		StudentEnrollment enrollment = studentService.enroll(student, academicYear, section, 12, LocalDate.of(2025, 6, 1));
 
 		Exam exam = examinationService.createExam(academicYear, "Half Yearly", ExamType.MID_TERM);

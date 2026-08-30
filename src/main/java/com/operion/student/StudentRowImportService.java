@@ -53,7 +53,7 @@ public class StudentRowImportService {
 		Student student = studentService.admit(person, admissionNumber, admissionDate, blankToNull(row.get("admissionSource")),
 				blankToNull(row.get("previousSchool")), blankToNull(row.get("tcNumber")), parseDouble(row.get("entranceScore")),
 				blankToNull(row.get("bloodGroup")), blankToNull(row.get("category")), blankToNull(row.get("nationality")),
-				blankToNull(row.get("remarks")));
+				blankToNull(row.get("remarks")), null, null, null);
 
 		return new StudentImportRowResult(rowNumber, true, "Created", student.getId());
 	}

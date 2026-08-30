@@ -30,6 +30,7 @@ import com.operion.student.StudentDocumentRepository;
 import com.operion.student.StudentEnrollment;
 import com.operion.student.StudentEnrollmentRepository;
 import com.operion.student.StudentExitRepository;
+import com.operion.student.StudentIdGenerator;
 import com.operion.student.StudentRepository;
 import com.operion.student.StudentService;
 import org.junit.jupiter.api.AfterEach;
@@ -44,7 +45,7 @@ import tools.jackson.databind.ObjectMapper;
 /** Proves render() resolves DATA_FIELD/QR_CODE/PHOTO bindings against a real student and
  * passes decorative elements (HEADER_BAND) through untouched. Per #33. */
 @DataJpaTest
-@Import({ MultiTenancyConfig.class, JpaConfig.class })
+@Import({ MultiTenancyConfig.class, JpaConfig.class, StudentIdGenerator.class })
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class IdCardTemplateServiceTest {
 
@@ -73,6 +74,8 @@ class IdCardTemplateServiceTest {
 	@Autowired
 	private StudentExitRepository studentExitRepository;
 	@Autowired
+	private StudentIdGenerator studentIdGenerator;
+	@Autowired
 	private AuditLogRepository auditLogRepository;
 
 	private final ObjectMapper objectMapper = new ObjectMapper();
@@ -98,8 +101,9 @@ class IdCardTemplateServiceTest {
 		person = personRepository.save(person);
 
 		StudentService studentService = new StudentService(studentRepository, studentEnrollmentRepository, studentDocumentRepository,
-				studentExitRepository, null, null, new AuditLogService(auditLogRepository, new ObjectMapper()));
-		Student student = studentService.admit(person, "ADM-001", LocalDate.of(2025, 5, 1), null, null, null, null, "O+", null, null, null);
+				studentExitRepository, null, null, studentIdGenerator, new AuditLogService(auditLogRepository, new ObjectMapper()));
+		Student student = studentService.admit(
+				person, "ADM-001", LocalDate.of(2025, 5, 1), null, null, null, null, "O+", null, null, null, null, null, null);
 		StudentEnrollment enrollment = studentService.enroll(student, academicYear, section, 12, LocalDate.of(2025, 6, 1));
 		assertThat(enrollment).isNotNull();
 

@@ -45,7 +45,8 @@ public class StudentController {
 
 		Student student = studentService.admit(person, request.admissionNumber(), request.admissionDate(),
 				request.admissionSource(), request.previousSchool(), request.tcNumber(), request.entranceScore(),
-				request.bloodGroup(), request.category(), request.nationality(), request.remarks());
+				request.bloodGroup(), request.category(), request.nationality(), request.remarks(),
+				request.medicalAlerts(), request.emergencyContactName(), request.emergencyContactPhone());
 		return StudentResponse.from(student);
 	}
 

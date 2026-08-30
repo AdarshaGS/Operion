@@ -30,30 +30,38 @@ public class StudentService {
 	private final StudentExitRepository studentExitRepository;
 	private final StudentAdmissionCounterRepository studentAdmissionCounterRepository;
 	private final OrganisationBrandingRepository organisationBrandingRepository;
+	private final StudentIdGenerator studentIdGenerator;
 	private final AuditLogService auditLogService;
 
 	public StudentService(StudentRepository studentRepository, StudentEnrollmentRepository studentEnrollmentRepository,
 			StudentDocumentRepository studentDocumentRepository, StudentExitRepository studentExitRepository,
 			StudentAdmissionCounterRepository studentAdmissionCounterRepository,
-			OrganisationBrandingRepository organisationBrandingRepository, AuditLogService auditLogService) {
+			OrganisationBrandingRepository organisationBrandingRepository, StudentIdGenerator studentIdGenerator,
+			AuditLogService auditLogService) {
 		this.studentRepository = studentRepository;
 		this.studentEnrollmentRepository = studentEnrollmentRepository;
 		this.studentDocumentRepository = studentDocumentRepository;
 		this.studentExitRepository = studentExitRepository;
 		this.studentAdmissionCounterRepository = studentAdmissionCounterRepository;
 		this.organisationBrandingRepository = organisationBrandingRepository;
+		this.studentIdGenerator = studentIdGenerator;
 		this.auditLogService = auditLogService;
 	}
 
-	/** {@code admissionNumber} is auto-generated from the org's configured format (#142) when null/blank. */
+	/** {@code admissionNumber} is auto-generated from the org's configured format (#142) when null/blank;
+	 * {@code studentId} (see StudentIdGenerator) is always system-generated - the two are deliberately
+	 * separate fields/counters, see #114. */
 	@Transactional
 	public Student admit(Person person, String admissionNumber, LocalDate admissionDate, String admissionSource,
 			String previousSchool, String tcNumber, Double entranceScore, String bloodGroup, String category,
-			String nationality, String remarks) {
+			String nationality, String remarks, String medicalAlerts, String emergencyContactName,
+			String emergencyContactPhone) {
 		String resolvedAdmissionNumber =
 				admissionNumber != null && !admissionNumber.isBlank() ? admissionNumber : nextAdmissionNumber(admissionDate);
-		Student student = studentRepository.save(new Student(person, resolvedAdmissionNumber, admissionDate, admissionSource,
-				previousSchool, tcNumber, entranceScore, bloodGroup, category, nationality, remarks));
+		String studentId = studentIdGenerator.next(admissionDate);
+		Student student = studentRepository.save(new Student(person, studentId, resolvedAdmissionNumber, admissionDate,
+				admissionSource, previousSchool, tcNumber, entranceScore, bloodGroup, category, nationality, remarks,
+				medicalAlerts, emergencyContactName, emergencyContactPhone));
 		auditLogService.record("Student", student.getId(), "STUDENT_ADMITTED", null, student.getStatus());
 		return student;
 	}

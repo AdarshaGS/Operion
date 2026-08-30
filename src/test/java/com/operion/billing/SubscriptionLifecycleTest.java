@@ -62,7 +62,7 @@ class SubscriptionLifecycleTest {
 
 	private void addActiveStudent(String admissionNumber) {
 		Person person = personRepository.save(new Person("Student", admissionNumber));
-		Student student = new Student(person, admissionNumber, LocalDate.of(2024, 6, 1), null, null, null, null, null, null, null, null);
+		Student student = new Student(person, "STU-" + admissionNumber, admissionNumber, LocalDate.of(2024, 6, 1), null, null, null, null, null, null, null, null, null, null, null);
 		student.activate();
 		studentRepository.save(student);
 	}

@@ -35,7 +35,7 @@ import tools.jackson.databind.ObjectMapper;
  */
 @DataJpaTest
 @Import({ MultiTenancyConfig.class, JpaConfig.class, StudentImportServiceTest.AuditLogServiceTestConfig.class, StudentService.class,
-		StudentRowImportService.class, StudentImportService.class })
+		StudentRowImportService.class, StudentImportService.class, StudentIdGenerator.class })
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class StudentImportServiceTest {
 
