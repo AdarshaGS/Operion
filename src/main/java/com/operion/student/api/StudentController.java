@@ -2,7 +2,9 @@ package com.operion.student.api;
 
 import java.util.List;
 
+import com.operion.authorization.PermissionChecker;
 import com.operion.authorization.RequirePermission;
+import com.operion.common.TenantContext;
 import com.operion.identity.Person;
 import com.operion.identity.PersonRepository;
 import com.operion.student.Student;
@@ -28,13 +30,15 @@ public class StudentController {
 	private final StudentRepository studentRepository;
 	private final PersonRepository personRepository;
 	private final StudentImportService studentImportService;
+	private final PermissionChecker permissionChecker;
 
 	public StudentController(StudentService studentService, StudentRepository studentRepository,
-			PersonRepository personRepository, StudentImportService studentImportService) {
+			PersonRepository personRepository, StudentImportService studentImportService, PermissionChecker permissionChecker) {
 		this.studentService = studentService;
 		this.studentRepository = studentRepository;
 		this.personRepository = personRepository;
 		this.studentImportService = studentImportService;
+		this.permissionChecker = permissionChecker;
 	}
 
 	@PostMapping
@@ -46,19 +50,23 @@ public class StudentController {
 		Student student = studentService.admit(person, request.admissionNumber(), request.admissionDate(),
 				request.admissionSource(), request.previousSchool(), request.tcNumber(), request.entranceScore(),
 				request.bloodGroup(), request.category(), request.nationality(), request.remarks());
-		return StudentResponse.from(student);
+		if (request.medicalAlerts() != null && !request.medicalAlerts().isBlank()) {
+			student = studentService.updateMedicalAlerts(student, request.medicalAlerts());
+		}
+		return StudentResponse.from(student, canViewSensitive());
 	}
 
 	@GetMapping
 	public List<StudentResponse> list() {
-		return studentRepository.findAll().stream().map(StudentResponse::from).toList();
+		boolean includeSensitive = canViewSensitive();
+		return studentRepository.findAll().stream().map(student -> StudentResponse.from(student, includeSensitive)).toList();
 	}
 
 	@GetMapping("/{studentId}")
 	public StudentResponse get(@PathVariable Long studentId) {
 		Student student = studentRepository.findById(studentId)
 				.orElseThrow(() -> new IllegalArgumentException("No student with id " + studentId));
-		return StudentResponse.from(student);
+		return StudentResponse.from(student, canViewSensitive());
 	}
 
 	/** Bulk CSV admission (#28) - reuses the same Person+Student write path as admit()
@@ -74,6 +82,11 @@ public class StudentController {
 	 * gated export path", reusing RequirePermission rather than adding a new permission). */
 	@GetMapping("/export")
 	public List<StudentExportResponse> export() {
-		return studentRepository.findAll().stream().map(StudentExportResponse::from).toList();
+		boolean includeSensitive = canViewSensitive();
+		return studentRepository.findAll().stream().map(student -> StudentExportResponse.from(student, includeSensitive)).toList();
+	}
+
+	private boolean canViewSensitive() {
+		return permissionChecker.has(TenantContext.getActorId(), "STUDENT_SENSITIVE_VIEW");
 	}
 }

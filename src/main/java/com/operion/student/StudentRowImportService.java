@@ -54,6 +54,10 @@ public class StudentRowImportService {
 				blankToNull(row.get("previousSchool")), blankToNull(row.get("tcNumber")), parseDouble(row.get("entranceScore")),
 				blankToNull(row.get("bloodGroup")), blankToNull(row.get("category")), blankToNull(row.get("nationality")),
 				blankToNull(row.get("remarks")));
+		String medicalAlerts = blankToNull(row.get("medicalAlerts"));
+		if (medicalAlerts != null) {
+			student = studentService.updateMedicalAlerts(student, medicalAlerts);
+		}
 
 		return new StudentImportRowResult(rowNumber, true, "Created", student.getId());
 	}

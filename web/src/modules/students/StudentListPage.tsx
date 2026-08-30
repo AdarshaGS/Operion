@@ -17,10 +17,13 @@ import AddIcon from "@mui/icons-material/Add";
 import { ApiError } from "../../api/client";
 import { listPersons, type PersonResponse } from "../../api/persons";
 import { listStudents, type StudentResponse } from "../../api/students";
+import { useAuth } from "../../auth/AuthContext";
+import { StudentApplicationsPanel } from "./StudentApplicationsPanel";
 import { TransferRequestsInboxPanel } from "./TransferRequestsInboxPanel";
 
 export function StudentListPage() {
 	const navigate = useNavigate();
+	const { hasPermission } = useAuth();
 	const [students, setStudents] = useState<StudentResponse[] | null>(null);
 	const [personsById, setPersonsById] = useState<Map<number, PersonResponse>>(new Map());
 	const [error, setError] = useState<string | null>(null);
@@ -96,6 +99,7 @@ export function StudentListPage() {
 			)}
 
 			<TransferRequestsInboxPanel />
+			{hasPermission("STUDENT_APPLICATION_MANAGE") && <StudentApplicationsPanel />}
 		</Stack>
 	);
 }

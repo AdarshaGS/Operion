@@ -58,6 +58,12 @@ public class StudentService {
 		return student;
 	}
 
+	@Transactional
+	public Student updateMedicalAlerts(Student student, String medicalAlerts) {
+		student.updateMedicalAlerts(medicalAlerts);
+		return studentRepository.save(student);
+	}
+
 	/** Atomic per-(organisation, calendar year) sequence - never SELECT MAX()+1, same pattern as FeeService. */
 	private String nextAdmissionNumber(LocalDate admissionDate) {
 		String template = organisationBrandingRepository.findById(TenantContext.getOrganisationId())

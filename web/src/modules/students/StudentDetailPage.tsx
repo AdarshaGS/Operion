@@ -28,6 +28,7 @@ import { getPerson, type PersonResponse } from "../../api/persons";
 import { listSchoolClasses, type SchoolClassResponse } from "../../api/schoolClasses";
 import { listSections, type SectionResponse } from "../../api/sections";
 import { getStudent, type StudentResponse } from "../../api/students";
+import { useAuth } from "../../auth/AuthContext";
 import { StudentGuardiansPanel } from "./StudentGuardiansPanel";
 import { StudentTransferPanel } from "./StudentTransferPanel";
 
@@ -172,6 +173,8 @@ function EnrollDialog({ open, onClose, onEnrolled, studentId }: EnrollDialogProp
 export function StudentDetailPage() {
 	const { studentId } = useParams<{ studentId: string }>();
 	const navigate = useNavigate();
+	const { hasPermission } = useAuth();
+	const canViewSensitive = hasPermission("STUDENT_SENSITIVE_VIEW");
 	const [student, setStudent] = useState<StudentResponse | null>(null);
 	const [person, setPerson] = useState<PersonResponse | null>(null);
 	const [enrollments, setEnrollments] = useState<StudentEnrollmentResponse[]>([]);
@@ -281,14 +284,21 @@ export function StudentDetailPage() {
 							<Field label="Blood group" value={student.bloodGroup} />
 						</Grid>
 						<Grid size={4}>
-							<Field label="Category" value={student.category} />
-						</Grid>
-						<Grid size={4}>
 							<Field label="Nationality" value={student.nationality} />
 						</Grid>
 						<Grid size={12}>
 							<Field label="Remarks" value={student.remarks} />
 						</Grid>
+						{canViewSensitive && (
+							<>
+								<Grid size={4}>
+									<Field label="Category" value={student.category} />
+								</Grid>
+								<Grid size={8}>
+									<Field label="Medical alerts / allergies" value={student.medicalAlerts} />
+								</Grid>
+							</>
+						)}
 					</Grid>
 				</Stack>
 			</Paper>

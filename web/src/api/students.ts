@@ -16,6 +16,7 @@ export interface CreateStudentRequest {
 	category?: string | null;
 	nationality?: string | null;
 	remarks?: string | null;
+	medicalAlerts?: string | null;
 }
 
 export interface StudentResponse {
@@ -28,7 +29,10 @@ export interface StudentResponse {
 	tcNumber: string | null;
 	entranceScore: number | null;
 	bloodGroup: string | null;
+	/** Omitted (null) unless the caller holds STUDENT_SENSITIVE_VIEW. */
 	category: string | null;
+	/** Omitted (null) unless the caller holds STUDENT_SENSITIVE_VIEW. */
+	medicalAlerts: string | null;
 	nationality: string | null;
 	remarks: string | null;
 	status: string;
@@ -85,6 +89,7 @@ export const STUDENT_IMPORT_TEMPLATE_HEADERS = [
 	"category",
 	"nationality",
 	"remarks",
+	"medicalAlerts",
 ];
 
 /** Separate from api/client.ts's request() - a file upload needs a multipart body with

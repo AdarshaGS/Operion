@@ -58,8 +58,13 @@ public class Student extends TenantScopedEntity {
 	@Column(name = "blood_group")
 	private String bloodGroup;
 
-	/** Nullable - RTE/reservation category. Access-controlled once permission enforcement exists. */
+	/** Nullable - RTE/reservation category. Gated behind STUDENT_SENSITIVE_VIEW, see StudentResponse. */
 	private String category;
+
+	/** Nullable free text - allergies/conditions front desk or a nurse should know about.
+	 * Gated behind STUDENT_SENSITIVE_VIEW, same as category. */
+	@Column(name = "medical_alerts")
+	private String medicalAlerts;
 
 	/** Nullable. */
 	private String nationality;
@@ -86,6 +91,13 @@ public class Student extends TenantScopedEntity {
 		this.nationality = nationality;
 		this.remarks = remarks;
 		this.status = StudentStatus.ADMITTED;
+	}
+
+	/** Not part of the constructor - captured as a follow-up write right after admission
+	 * (see StudentService.updateMedicalAlerts) so adding it didn't require touching every
+	 * existing call site of the 11-arg admission constructor. */
+	public void updateMedicalAlerts(String medicalAlerts) {
+		this.medicalAlerts = medicalAlerts;
 	}
 
 	public void activate() {

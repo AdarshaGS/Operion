@@ -13,6 +13,7 @@ import { getAcademicSetupStatus } from "../../api/academicSetupStatus";
 import { ApiError } from "../../api/client";
 import { createPerson } from "../../api/persons";
 import { admitStudent } from "../../api/students";
+import { useAuth } from "../../auth/AuthContext";
 
 const ACADEMIC_SETUP_REQUIRED_MESSAGE = "Complete Academic Setup before adding a student.";
 
@@ -30,6 +31,7 @@ interface FormState {
 	category: string;
 	nationality: string;
 	remarks: string;
+	medicalAlerts: string;
 }
 
 const EMPTY_FORM: FormState = {
@@ -46,6 +48,7 @@ const EMPTY_FORM: FormState = {
 	category: "",
 	nationality: "",
 	remarks: "",
+	medicalAlerts: "",
 };
 
 /** Person + Student are two backend entities (identity ≠ enrollment, per the project's
@@ -53,6 +56,8 @@ const EMPTY_FORM: FormState = {
  * flow would: register the person, then admit them as a student. */
 export function StudentCreatePage() {
 	const navigate = useNavigate();
+	const { hasPermission } = useAuth();
+	const canViewSensitive = hasPermission("STUDENT_SENSITIVE_VIEW");
 	const [form, setForm] = useState<FormState>(EMPTY_FORM);
 	const [error, setError] = useState<string | null>(null);
 	const [submitting, setSubmitting] = useState(false);
@@ -98,6 +103,7 @@ export function StudentCreatePage() {
 				category: form.category || null,
 				nationality: form.nationality || null,
 				remarks: form.remarks || null,
+				medicalAlerts: form.medicalAlerts || null,
 			});
 			navigate(`/students/${student.id}`, { replace: true });
 		} catch (err) {
@@ -168,6 +174,17 @@ export function StudentCreatePage() {
 						<TextField label="Nationality" value={form.nationality} onChange={set("nationality")} fullWidth />
 					</Box>
 					<TextField label="Remarks" value={form.remarks} onChange={set("remarks")} multiline rows={2} fullWidth />
+					{canViewSensitive && (
+						<TextField
+							label="Medical alerts / allergies"
+							helperText="Only visible to roles granted STUDENT_SENSITIVE_VIEW"
+							value={form.medicalAlerts}
+							onChange={set("medicalAlerts")}
+							multiline
+							rows={2}
+							fullWidth
+						/>
+					)}
 
 					<Box sx={{ display: "flex", gap: 2, justifyContent: "flex-end" }}>
 						<Button onClick={() => navigate("/students")}>Cancel</Button>
