@@ -17,6 +17,7 @@ import AddIcon from "@mui/icons-material/Add";
 import { ApiError } from "../../api/client";
 import { listPersons, type PersonResponse } from "../../api/persons";
 import { listStudents, type StudentResponse } from "../../api/students";
+import { ApplicantsPanel } from "./ApplicantsPanel";
 import { TransferRequestsInboxPanel } from "./TransferRequestsInboxPanel";
 
 export function StudentListPage() {
@@ -96,6 +97,7 @@ export function StudentListPage() {
 			)}
 
 			<TransferRequestsInboxPanel />
+			<ApplicantsPanel />
 		</Stack>
 	);
 }

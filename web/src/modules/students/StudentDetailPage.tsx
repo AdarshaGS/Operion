@@ -269,6 +269,9 @@ export function StudentDetailPage() {
 					<Typography variant="subtitle1">Admission details</Typography>
 					<Grid container spacing={2}>
 						<Grid size={4}>
+							<Field label="Student ID" value={student.studentId} />
+						</Grid>
+						<Grid size={4}>
 							<Field label="Admission number" value={student.admissionNumber} />
 						</Grid>
 						<Grid size={4}>
@@ -288,6 +291,15 @@ export function StudentDetailPage() {
 						</Grid>
 						<Grid size={12}>
 							<Field label="Remarks" value={student.remarks} />
+						</Grid>
+						<Grid size={12}>
+							<Field label="Medical alerts / allergies" value={student.medicalAlerts} />
+						</Grid>
+						<Grid size={4}>
+							<Field label="Emergency contact name" value={student.emergencyContactName} />
+						</Grid>
+						<Grid size={4}>
+							<Field label="Emergency contact phone" value={student.emergencyContactPhone} />
 						</Grid>
 					</Grid>
 				</Stack>

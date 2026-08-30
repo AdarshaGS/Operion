@@ -30,6 +30,9 @@ interface FormState {
 	category: string;
 	nationality: string;
 	remarks: string;
+	medicalAlerts: string;
+	emergencyContactName: string;
+	emergencyContactPhone: string;
 }
 
 const EMPTY_FORM: FormState = {
@@ -46,6 +49,9 @@ const EMPTY_FORM: FormState = {
 	category: "",
 	nationality: "",
 	remarks: "",
+	medicalAlerts: "",
+	emergencyContactName: "",
+	emergencyContactPhone: "",
 };
 
 /** Person + Student are two backend entities (identity ≠ enrollment, per the project's
@@ -98,6 +104,9 @@ export function StudentCreatePage() {
 				category: form.category || null,
 				nationality: form.nationality || null,
 				remarks: form.remarks || null,
+				medicalAlerts: form.medicalAlerts || null,
+				emergencyContactName: form.emergencyContactName || null,
+				emergencyContactPhone: form.emergencyContactPhone || null,
 			});
 			navigate(`/students/${student.id}`, { replace: true });
 		} catch (err) {
@@ -168,6 +177,29 @@ export function StudentCreatePage() {
 						<TextField label="Nationality" value={form.nationality} onChange={set("nationality")} fullWidth />
 					</Box>
 					<TextField label="Remarks" value={form.remarks} onChange={set("remarks")} multiline rows={2} fullWidth />
+					<TextField
+						label="Medical alerts / allergies"
+						value={form.medicalAlerts}
+						onChange={set("medicalAlerts")}
+						multiline
+						rows={2}
+						fullWidth
+					/>
+					<Box sx={{ display: "flex", gap: 2 }}>
+						<TextField
+							label="Emergency contact name"
+							helperText="A contact who isn't necessarily one of the student's guardians"
+							value={form.emergencyContactName}
+							onChange={set("emergencyContactName")}
+							fullWidth
+						/>
+						<TextField
+							label="Emergency contact phone"
+							value={form.emergencyContactPhone}
+							onChange={set("emergencyContactPhone")}
+							fullWidth
+						/>
+					</Box>
 
 					<Box sx={{ display: "flex", gap: 2, justifyContent: "flex-end" }}>
 						<Button onClick={() => navigate("/students")}>Cancel</Button>

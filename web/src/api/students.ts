@@ -16,11 +16,16 @@ export interface CreateStudentRequest {
 	category?: string | null;
 	nationality?: string | null;
 	remarks?: string | null;
+	medicalAlerts?: string | null;
+	emergencyContactName?: string | null;
+	emergencyContactPhone?: string | null;
 }
 
 export interface StudentResponse {
 	id: number;
 	personId: number;
+	/** System-generated, immutable (e.g. STU-2026-00042) - distinct from admissionNumber. */
+	studentId: string;
 	admissionNumber: string;
 	admissionDate: string;
 	admissionSource: string | null;
@@ -31,6 +36,9 @@ export interface StudentResponse {
 	category: string | null;
 	nationality: string | null;
 	remarks: string | null;
+	medicalAlerts: string | null;
+	emergencyContactName: string | null;
+	emergencyContactPhone: string | null;
 	status: string;
 }
 
