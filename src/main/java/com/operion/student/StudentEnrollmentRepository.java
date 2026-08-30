@@ -9,6 +9,10 @@ public interface StudentEnrollmentRepository extends JpaRepository<StudentEnroll
 
 	Optional<StudentEnrollment> findByStudentIdAndCurrentTrue(Long studentId);
 
+	/** Batch form of findByStudentIdAndCurrentTrue - used to enrich a page of students
+	 * (#245) without one query per row. */
+	List<StudentEnrollment> findByStudentIdInAndCurrentTrue(List<Long> studentIds);
+
 	List<StudentEnrollment> findByStudentId(Long studentId);
 
 	List<StudentEnrollment> findBySectionId(Long sectionId);

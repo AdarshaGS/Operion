@@ -1,15 +1,30 @@
 package com.operion.student.api;
 
+import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 import com.operion.authorization.RequirePermission;
+import com.operion.common.api.PageResponse;
 import com.operion.identity.Person;
 import com.operion.identity.PersonRepository;
+import com.operion.parent.StudentGuardian;
+import com.operion.parent.StudentGuardianRepository;
+import com.operion.parent.StudentGuardianStatus;
 import com.operion.student.Student;
+import com.operion.student.StudentEnrollment;
+import com.operion.student.StudentEnrollmentRepository;
 import com.operion.student.StudentImportService;
 import com.operion.student.StudentRepository;
 import com.operion.student.StudentService;
+import com.operion.student.StudentStatus;
 import jakarta.validation.Valid;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -28,13 +43,18 @@ public class StudentController {
 	private final StudentRepository studentRepository;
 	private final PersonRepository personRepository;
 	private final StudentImportService studentImportService;
+	private final StudentEnrollmentRepository studentEnrollmentRepository;
+	private final StudentGuardianRepository studentGuardianRepository;
 
 	public StudentController(StudentService studentService, StudentRepository studentRepository,
-			PersonRepository personRepository, StudentImportService studentImportService) {
+			PersonRepository personRepository, StudentImportService studentImportService,
+			StudentEnrollmentRepository studentEnrollmentRepository, StudentGuardianRepository studentGuardianRepository) {
 		this.studentService = studentService;
 		this.studentRepository = studentRepository;
 		this.personRepository = personRepository;
 		this.studentImportService = studentImportService;
+		this.studentEnrollmentRepository = studentEnrollmentRepository;
+		this.studentGuardianRepository = studentGuardianRepository;
 	}
 
 	@PostMapping
@@ -53,6 +73,36 @@ public class StudentController {
 	@GetMapping
 	public List<StudentResponse> list() {
 		return studentRepository.findAll().stream().map(StudentResponse::from).toList();
+	}
+
+	/** Separate from list() above - that endpoint's unpaginated "give me everything" shape
+	 * is relied on by lookup maps all over the app (attendance, fees, exams, transport...),
+	 * so it stays as-is; this is purpose-built for the student list screen's search/filter/
+	 * pagination needs (#245), enriched with columns (current section, primary guardian)
+	 * that live on other entities entirely. */
+	@GetMapping("/search")
+	public PageResponse<StudentListRowResponse> search(@RequestParam(required = false) String search,
+			@RequestParam(required = false) String status, @RequestParam(required = false) Long schoolClassId,
+			@RequestParam(required = false) Long sectionId,
+			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate admissionDateFrom,
+			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate admissionDateTo,
+			@PageableDefault(size = 25, sort = "admissionDate", direction = Sort.Direction.DESC) Pageable pageable) {
+		StudentStatus parsedStatus = status != null && !status.isBlank() ? StudentStatus.valueOf(status) : null;
+		String likeSearch = search != null && !search.isBlank() ? "%" + search.toLowerCase() + "%" : null;
+
+		Page<Student> page = studentRepository.search(
+				likeSearch, parsedStatus, schoolClassId, sectionId, admissionDateFrom, admissionDateTo, pageable);
+
+		List<Long> studentIds = page.getContent().stream().map(Student::getId).toList();
+		Map<Long, StudentEnrollment> currentEnrollmentByStudentId = studentEnrollmentRepository
+				.findByStudentIdInAndCurrentTrue(studentIds).stream()
+				.collect(Collectors.toMap(enrollment -> enrollment.getStudent().getId(), enrollment -> enrollment));
+		Map<Long, StudentGuardian> primaryGuardianByStudentId = studentGuardianRepository
+				.findByStudentIdInAndPrimaryGuardianTrueAndStatus(studentIds, StudentGuardianStatus.ACTIVE).stream()
+				.collect(Collectors.toMap(link -> link.getStudent().getId(), link -> link));
+
+		return PageResponse.from(page.map(student -> StudentListRowResponse.from(
+				student, currentEnrollmentByStudentId.get(student.getId()), primaryGuardianByStudentId.get(student.getId()))));
 	}
 
 	@GetMapping("/{studentId}")

@@ -14,4 +14,8 @@ public interface StudentGuardianRepository extends JpaRepository<StudentGuardian
 	Optional<StudentGuardian> findByStudentIdAndGuardianId(Long studentId, Long guardianId);
 
 	Optional<StudentGuardian> findByStudentIdAndPrimaryGuardianTrue(Long studentId);
+
+	/** Batch form - used to enrich a page of students with their primary guardian's
+	 * contact (#245) without one query per row. */
+	List<StudentGuardian> findByStudentIdInAndPrimaryGuardianTrueAndStatus(List<Long> studentIds, StudentGuardianStatus status);
 }

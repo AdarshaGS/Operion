@@ -1,4 +1,4 @@
-import { api, ApiError } from "./client";
+import { api, ApiError, type PageResponse } from "./client";
 import { getSession } from "./tokenStore";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8080";
@@ -118,4 +118,53 @@ export async function importStudents(file: File): Promise<StudentImportRowResult
 
 export function exportStudents(): Promise<StudentExportRow[]> {
 	return api.get<StudentExportRow[]>("/api/v1/students/export");
+}
+
+/** One row of the #245 search/filter list - enriched with columns (current section,
+ * primary guardian contact) that StudentResponse doesn't carry, since those live on
+ * other entities entirely. */
+export interface StudentListRowResponse {
+	id: number;
+	personId: number;
+	firstName: string;
+	lastName: string | null;
+	studentId: string;
+	admissionNumber: string;
+	admissionDate: string;
+	status: string;
+	sectionId: number | null;
+	sectionName: string | null;
+	schoolClassId: number | null;
+	schoolClassDisplayName: string | null;
+	primaryGuardianName: string | null;
+	primaryGuardianPhone: string | null;
+}
+
+export interface StudentSearchFilters {
+	search?: string | null;
+	status?: string | null;
+	schoolClassId?: number | null;
+	sectionId?: number | null;
+	admissionDateFrom?: string | null;
+	admissionDateTo?: string | null;
+	page?: number;
+	size?: number;
+}
+
+function buildSearchQuery(filters: StudentSearchFilters): string {
+	const params = new URLSearchParams();
+	if (filters.search) params.set("search", filters.search);
+	if (filters.status) params.set("status", filters.status);
+	if (filters.schoolClassId != null) params.set("schoolClassId", String(filters.schoolClassId));
+	if (filters.sectionId != null) params.set("sectionId", String(filters.sectionId));
+	if (filters.admissionDateFrom) params.set("admissionDateFrom", filters.admissionDateFrom);
+	if (filters.admissionDateTo) params.set("admissionDateTo", filters.admissionDateTo);
+	if (filters.page != null) params.set("page", String(filters.page));
+	if (filters.size != null) params.set("size", String(filters.size));
+	const query = params.toString();
+	return query ? `?${query}` : "";
+}
+
+export function searchStudents(filters: StudentSearchFilters): Promise<PageResponse<StudentListRowResponse>> {
+	return api.get<PageResponse<StudentListRowResponse>>(`/api/v1/students/search${buildSearchQuery(filters)}`);
 }
