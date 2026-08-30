@@ -91,11 +91,20 @@ interface NavGroup {
 	items: NavItem[];
 }
 
+/** Pinned above every collapsible group, ungrouped - it's overall activity across the whole
+ * app, not an academics-specific view, so it doesn't belong inside the Academics section. */
+const DASHBOARD_ITEM: NavItem = {
+	label: "Dashboard",
+	path: "/dashboard",
+	icon: <DashboardIcon />,
+	built: true,
+	requiredPermissions: ["ORGANISATION_MANAGE"],
+};
+
 const NAV_GROUPS: NavGroup[] = [
 	{
 		label: "Academics",
 		items: [
-			{ label: "Dashboard", path: "/dashboard", icon: <DashboardIcon />, built: true, requiredPermissions: ["ORGANISATION_MANAGE"] },
 			{ label: "Students", path: "/students", icon: <SchoolIcon />, built: true, requiredPermissions: ["STUDENT_VIEW"] },
 			{
 				label: "Academics",
@@ -193,6 +202,35 @@ export function AppLayout() {
 		});
 	}
 
+	function renderNavItem(item: NavItem) {
+		const permitted = isPermitted(item);
+		const blocked = permitted && setupBlocked(item);
+		const enabled = item.built && permitted && !blocked;
+		const reason = !item.built
+			? "Coming soon"
+			: !permitted
+				? "You don't have permission to view this"
+				: blocked
+					? (item.setupGate as NonNullable<NavItem["setupGate"]>).message
+					: "";
+		const tooltip = collapsed ? (reason ? `${item.label} — ${reason}` : item.label) : reason;
+		return (
+			<Tooltip key={item.path} title={tooltip} placement="right">
+				<span>
+					<ListItemButton
+						selected={location.pathname.startsWith(item.path)}
+						disabled={!enabled}
+						onClick={() => navigate(item.path)}
+						sx={{ justifyContent: collapsed ? "center" : "flex-start", px: collapsed ? 1.5 : 2, mx: 1, width: "auto" }}
+					>
+						<ListItemIcon sx={{ minWidth: collapsed ? 0 : 40, justifyContent: "center" }}>{item.icon}</ListItemIcon>
+						{!collapsed && <ListItemText primary={item.label} />}
+					</ListItemButton>
+				</span>
+			</Tooltip>
+		);
+	}
+
 	const drawerWidth = collapsed ? DRAWER_WIDTH_COLLAPSED : DRAWER_WIDTH;
 
 	return (
@@ -233,6 +271,8 @@ export function AppLayout() {
 					</Tooltip>
 				</Box>
 				<Box sx={{ overflowY: "auto" }}>
+					<List>{renderNavItem(DASHBOARD_ITEM)}</List>
+					<Divider sx={{ my: 0.5 }} />
 					{NAV_GROUPS.map((group, groupIndex) => {
 						const groupOpen = collapsed || !collapsedGroups[group.label];
 						return (
@@ -267,36 +307,7 @@ export function AppLayout() {
 								</ListSubheader>
 							)}
 							<Collapse in={groupOpen} timeout="auto">
-							<List>
-								{group.items.map((item) => {
-									const permitted = isPermitted(item);
-									const blocked = permitted && setupBlocked(item);
-									const enabled = item.built && permitted && !blocked;
-									const reason = !item.built
-										? "Coming soon"
-										: !permitted
-											? "You don't have permission to view this"
-											: blocked
-												? (item.setupGate as NonNullable<NavItem["setupGate"]>).message
-												: "";
-									const tooltip = collapsed ? (reason ? `${item.label} — ${reason}` : item.label) : reason;
-									return (
-										<Tooltip key={item.path} title={tooltip} placement="right">
-											<span>
-												<ListItemButton
-													selected={location.pathname.startsWith(item.path)}
-													disabled={!enabled}
-													onClick={() => navigate(item.path)}
-													sx={{ justifyContent: collapsed ? "center" : "flex-start", px: collapsed ? 1.5 : 2, mx: 1, width: "auto" }}
-												>
-													<ListItemIcon sx={{ minWidth: collapsed ? 0 : 40, justifyContent: "center" }}>{item.icon}</ListItemIcon>
-													{!collapsed && <ListItemText primary={item.label} />}
-												</ListItemButton>
-											</span>
-										</Tooltip>
-									);
-								})}
-							</List>
+							<List>{group.items.map((item) => renderNavItem(item))}</List>
 							</Collapse>
 						</Box>
 						);
