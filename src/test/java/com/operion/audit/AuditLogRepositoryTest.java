@@ -29,30 +29,36 @@ class AuditLogRepositoryTest {
 
 	@Test
 	void searchFiltersByOrganisationEntityTypeActorAndDateRangeIndependently() {
-		auditLogRepository.save(new AuditLog(1L, 10L, "Student", 1L, "CREATE", null, null));
-		auditLogRepository.save(new AuditLog(1L, 11L, "Invoice", 2L, "CREATE", null, null));
-		auditLogRepository.save(new AuditLog(2L, 10L, "Student", 3L, "CREATE", null, null));
+		// Negative, never-colliding sentinel org ids - real Organisation rows always get a
+		// positive auto-increment id, and @DataJpaTest's cached-context H2 instance is shared
+		// (not reset) across every test class with this exact @Import signature, so a literal
+		// positive id here would be polluted by whatever other tests happen to run first.
+		long orgA = -101L;
+		long orgB = -102L;
+		auditLogRepository.save(new AuditLog(orgA, 10L, "Student", 1L, "CREATE", null, null));
+		auditLogRepository.save(new AuditLog(orgA, 11L, "Invoice", 2L, "CREATE", null, null));
+		auditLogRepository.save(new AuditLog(orgB, 10L, "Student", 3L, "CREATE", null, null));
 
 		Instant cutoff = Instant.now();
-		auditLogRepository.save(new AuditLog(1L, 10L, "Student", 4L, "UPDATE", null, null));
+		auditLogRepository.save(new AuditLog(orgA, 10L, "Student", 4L, "UPDATE", null, null));
 
-		// No filters beyond organisation - only org 1's three rows come back.
-		assertThat(auditLogRepository.search(1L, null, null, null, null, PageRequest.of(0, 50)).getTotalElements()).isEqualTo(3);
+		// No filters beyond organisation - only org A's three rows come back.
+		assertThat(auditLogRepository.search(orgA, null, null, null, null, PageRequest.of(0, 50)).getTotalElements()).isEqualTo(3);
 
 		// entityType narrows within the organisation.
-		assertThat(auditLogRepository.search(1L, "Student", null, null, null, PageRequest.of(0, 50)).getTotalElements()).isEqualTo(2);
+		assertThat(auditLogRepository.search(orgA, "Student", null, null, null, PageRequest.of(0, 50)).getTotalElements()).isEqualTo(2);
 
 		// actorUserId narrows independently of entityType.
-		assertThat(auditLogRepository.search(1L, null, 11L, null, null, PageRequest.of(0, 50)).getTotalElements()).isEqualTo(1);
+		assertThat(auditLogRepository.search(orgA, null, 11L, null, null, PageRequest.of(0, 50)).getTotalElements()).isEqualTo(1);
 
 		// from narrows to rows at/after the cutoff.
-		assertThat(auditLogRepository.search(1L, null, null, cutoff, null, PageRequest.of(0, 50)).getTotalElements()).isEqualTo(1);
+		assertThat(auditLogRepository.search(orgA, null, null, cutoff, null, PageRequest.of(0, 50)).getTotalElements()).isEqualTo(1);
 
-		// Tenant boundary: org 2's row never appears in org 1's results regardless of filters.
-		assertThat(auditLogRepository.search(1L, null, null, null, null, PageRequest.of(0, 50)).getContent())
+		// Tenant boundary: org B's row never appears in org A's results regardless of filters.
+		assertThat(auditLogRepository.search(orgA, null, null, null, null, PageRequest.of(0, 50)).getContent())
 				.extracting(AuditLog::getOrganisationId)
-				.doesNotContain(2L);
+				.doesNotContain(orgB);
 
-		assertThat(auditLogRepository.findDistinctEntityTypes(1L)).containsExactlyInAnyOrder("Student", "Invoice");
+		assertThat(auditLogRepository.findDistinctEntityTypes(orgA)).containsExactlyInAnyOrder("Student", "Invoice");
 	}
 }

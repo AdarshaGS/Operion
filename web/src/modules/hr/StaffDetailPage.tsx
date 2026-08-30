@@ -23,12 +23,14 @@ import Typography from "@mui/material/Typography";
 import AddIcon from "@mui/icons-material/Add";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { Can } from "../../auth/Can";
+import { useAuth } from "../../auth/AuthContext";
 import { MemberStatusChip } from "../../components/MemberStatusChip";
 import { StaffInviteDialog } from "../../components/StaffInviteDialog";
 import { listAcademicYears, type AcademicYearResponse } from "../../api/academicYears";
 import { ApiError } from "../../api/client";
 import { listCampuses, type CampusResponse } from "../../api/campuses";
 import { listDepartments, type DepartmentResponse } from "../../api/departments";
+import { listDesignations, type DesignationResponse } from "../../api/designations";
 import { allocateLeaveBalance, getLeaveBalance, type LeaveBalanceResponse } from "../../api/leaveBalances";
 import {
 	approveLeaveRequest,
@@ -45,18 +47,39 @@ import { listRoles, type RoleResponse } from "../../api/roles";
 import {
 	addStaffDocument,
 	changeStaffStatus,
+	getStaffBankDetails,
+	getStaffProfile,
+	listStaffAssignments,
 	listStaffDocuments,
+	listStaffExits,
 	listStaffProfiles,
+	recordStaffExit,
+	transferStaff,
+	upsertStaffBankDetails,
 	verifyStaffDocument,
+	type StaffAssignmentResponse,
+	type StaffBankDetailResponse,
 	type StaffDocumentResponse,
+	type StaffExitResponse,
 	type StaffProfileResponse,
 } from "../../api/staffProfiles";
 import { inviteUser, type StaffInviteResponse } from "../../api/users";
 
+/** ON_LEAVE is deliberately excluded - it's derived automatically by StaffLeaveStatusScheduler
+ * from approved leave requests, never a manually-set target (see StaffProfileStatus's own doc). */
 const STAFF_STATUSES = ["ACTIVE", "RESIGNED", "TERMINATED"];
+const EXIT_TYPES = ["RESIGNATION", "TERMINATION", "RETIREMENT", "CONTRACT_END"];
 
 function todayIso(): string {
 	return new Date().toISOString().slice(0, 10);
+}
+
+function documentExpiryChip(expiryDate: string | null) {
+	if (!expiryDate) return null;
+	const daysUntil = (new Date(expiryDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24);
+	if (daysUntil < 0) return <Chip label={`Expired ${expiryDate}`} size="small" color="error" />;
+	if (daysUntil <= 30) return <Chip label={`Expires ${expiryDate}`} size="small" color="warning" />;
+	return <Chip label={`Expires ${expiryDate}`} size="small" variant="outlined" />;
 }
 
 /** No GET-by-id exists for StaffProfile - resolving via list+find, same tradeoff documented
@@ -77,10 +100,18 @@ export function StaffDetailPage() {
 
 	const [statusValue, setStatusValue] = useState("ACTIVE");
 
+	const { hasAnyPermission } = useAuth();
+	const canViewPayroll = hasAnyPermission(["HR_PAYROLL_VIEW"]);
+
 	const [memberStatus, setMemberStatus] = useState<string | null>(null);
 	const [roles, setRoles] = useState<RoleResponse[]>([]);
 	const [campuses, setCampuses] = useState<CampusResponse[]>([]);
 	const [departments, setDepartments] = useState<DepartmentResponse[]>([]);
+	const [designations, setDesignations] = useState<DesignationResponse[]>([]);
+	const [assignments, setAssignments] = useState<StaffAssignmentResponse[]>([]);
+	const [exits, setExits] = useState<StaffExitResponse[]>([]);
+	const [bankDetails, setBankDetails] = useState<StaffBankDetailResponse | null>(null);
+	const [allStaffProfiles, setAllStaffProfiles] = useState<StaffProfileResponse[]>([]);
 	const [grantDialogOpen, setGrantDialogOpen] = useState(false);
 	const [grantRoleId, setGrantRoleId] = useState<number | "">("");
 	const [grantCampusId, setGrantCampusId] = useState<number | "">("");
@@ -92,6 +123,25 @@ export function StaffDetailPage() {
 	const [documentType, setDocumentType] = useState("");
 	const [fileReference, setFileReference] = useState("");
 	const [fileName, setFileName] = useState("");
+	const [documentExpiryDate, setDocumentExpiryDate] = useState("");
+
+	const [transferDialogOpen, setTransferDialogOpen] = useState(false);
+	const [transferCampusId, setTransferCampusId] = useState<number | "">("");
+	const [transferDepartmentId, setTransferDepartmentId] = useState<number | "">("");
+	const [transferDesignationId, setTransferDesignationId] = useState<number | "">("");
+	const [transferEffectiveDate, setTransferEffectiveDate] = useState(todayIso());
+
+	const [exitDialogOpen, setExitDialogOpen] = useState(false);
+	const [exitType, setExitType] = useState("RESIGNATION");
+	const [exitDate, setExitDate] = useState(todayIso());
+	const [exitReason, setExitReason] = useState("");
+
+	const [bankAccountHolderName, setBankAccountHolderName] = useState("");
+	const [bankAccountNumber, setBankAccountNumber] = useState("");
+	const [bankName, setBankName] = useState("");
+	const [bankBranchCode, setBankBranchCode] = useState("");
+	const [taxIdentifier, setTaxIdentifier] = useState("");
+	const [bankSubmitting, setBankSubmitting] = useState(false);
 
 	const [balanceLeaveTypeId, setBalanceLeaveTypeId] = useState("");
 	const [balanceAcademicYearId, setBalanceAcademicYearId] = useState("");
@@ -108,27 +158,40 @@ export function StaffDetailPage() {
 
 	useEffect(() => {
 		if (!staffProfileId) return;
-		listStaffProfiles()
-			.then(async (profiles) => {
-				const found = profiles.find((p) => p.id === Number(staffProfileId));
-				setProfile(found ?? null);
-				if (found) {
-					setStatusValue(found.status);
-					const fetchedPerson = await getPerson(found.personId);
-					setPerson(fetchedPerson);
-					refreshLoginAccess(fetchedPerson.id);
-				}
+		getStaffProfile(Number(staffProfileId))
+			.then(async (found) => {
+				setProfile(found);
+				setStatusValue(found.status);
+				const fetchedPerson = await getPerson(found.personId);
+				setPerson(fetchedPerson);
+				refreshLoginAccess(fetchedPerson.id);
 			})
 			.catch((err) => setError(err instanceof ApiError ? err.message : "Failed to load staff profile"))
 			.finally(() => setLoading(false));
+		// For resolving the reporting-manager's display label only - reporting managers are
+		// expected to be active staff, so the roster list (not getStaffProfile) is fine here.
+		listStaffProfiles().then(setAllStaffProfiles).catch(() => {});
 		listLeaveTypes().then(setLeaveTypes).catch(() => {});
 		listAcademicYears().then(setAcademicYears).catch(() => {});
 		listRoles().then(setRoles).catch(() => {});
 		listCampuses().then(setCampuses).catch(() => {});
 		listDepartments().then(setDepartments).catch(() => {});
+		listDesignations().then(setDesignations).catch(() => {});
 		refreshDocuments();
 		refreshLeaveRequests();
+		refreshAssignments();
+		refreshExits();
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [staffProfileId]);
+
+	// Separate from the effect above - useAuth()'s permission set can still be loading on
+	// first render, so gating this fetch on staffProfileId alone would capture a stale
+	// canViewPayroll=false and never retry once permissions actually resolve to true.
+	useEffect(() => {
+		if (!staffProfileId || !canViewPayroll) return;
+		refreshBankDetails();
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [staffProfileId, canViewPayroll]);
 
 	function refreshLoginAccess(personId: number) {
 		listMemberships()
@@ -176,6 +239,30 @@ export function StaffDetailPage() {
 			.catch((err) => setError(err instanceof ApiError ? err.message : "Failed to load leave requests"));
 	}
 
+	function refreshAssignments() {
+		if (!staffProfileId) return;
+		listStaffAssignments(Number(staffProfileId)).then(setAssignments).catch(() => {});
+	}
+
+	function refreshExits() {
+		if (!staffProfileId) return;
+		listStaffExits(Number(staffProfileId)).then(setExits).catch(() => {});
+	}
+
+	function refreshBankDetails() {
+		if (!staffProfileId) return;
+		getStaffBankDetails(Number(staffProfileId))
+			.then((details) => {
+				setBankDetails(details);
+				setBankAccountHolderName(details?.bankAccountHolderName ?? "");
+				setBankAccountNumber(details?.bankAccountNumber ?? "");
+				setBankName(details?.bankName ?? "");
+				setBankBranchCode(details?.bankBranchCode ?? "");
+				setTaxIdentifier(details?.taxIdentifier ?? "");
+			})
+			.catch(() => {});
+	}
+
 	function leaveTypeLabel(id: number): string {
 		return leaveTypes.find((t) => t.id === id)?.name ?? `Leave type #${id}`;
 	}
@@ -195,10 +282,11 @@ export function StaffDetailPage() {
 		if (!staffProfileId) return;
 		setSubmitting(true);
 		try {
-			await addStaffDocument(Number(staffProfileId), { documentType, fileReference, fileName });
+			await addStaffDocument(Number(staffProfileId), { documentType, fileReference, fileName, expiryDate: documentExpiryDate || null });
 			setDocumentType("");
 			setFileReference("");
 			setFileName("");
+			setDocumentExpiryDate("");
 			setDocumentDialogOpen(false);
 			refreshDocuments();
 		} catch (err) {
@@ -294,6 +382,68 @@ export function StaffDetailPage() {
 		}
 	}
 
+	async function handleTransfer(event: FormEvent) {
+		event.preventDefault();
+		if (!staffProfileId || transferDesignationId === "") return;
+		setSubmitting(true);
+		try {
+			const updated = await transferStaff(Number(staffProfileId), {
+				campusId: transferCampusId === "" ? null : transferCampusId,
+				departmentId: transferDepartmentId === "" ? null : transferDepartmentId,
+				designationId: transferDesignationId,
+				effectiveDate: transferEffectiveDate,
+			});
+			setProfile(updated);
+			setTransferDialogOpen(false);
+			refreshAssignments();
+		} catch (err) {
+			setError(err instanceof ApiError ? err.message : "Failed to transfer staff member");
+		} finally {
+			setSubmitting(false);
+		}
+	}
+
+	async function handleRecordExit(event: FormEvent) {
+		event.preventDefault();
+		if (!staffProfileId) return;
+		setSubmitting(true);
+		try {
+			await recordStaffExit(Number(staffProfileId), { exitType, exitDate, reason: exitReason || null });
+			const updated = await getStaffProfile(Number(staffProfileId));
+			setProfile(updated);
+			setStatusValue(updated.status);
+			setExitDialogOpen(false);
+			refreshExits();
+		} catch (err) {
+			setError(err instanceof ApiError ? err.message : "Failed to record exit");
+		} finally {
+			setSubmitting(false);
+		}
+	}
+
+	async function handleSaveBankDetails(event: FormEvent) {
+		event.preventDefault();
+		if (!staffProfileId) return;
+		setBankSubmitting(true);
+		try {
+			const saved = await upsertStaffBankDetails(Number(staffProfileId), {
+				bankAccountHolderName: bankAccountHolderName || null,
+				bankAccountNumber: bankAccountNumber || null,
+				bankName: bankName || null,
+				bankBranchCode: bankBranchCode || null,
+				taxIdentifier: taxIdentifier || null,
+			});
+			setBankDetails(saved);
+		} catch (err) {
+			setError(err instanceof ApiError ? err.message : "Failed to save bank details");
+		} finally {
+			setBankSubmitting(false);
+		}
+	}
+
+	const reportingManager = allStaffProfiles.find((p) => p.id === profile?.reportingManagerId);
+	const reportingManagerLabel = reportingManager ? `${reportingManager.employeeCode} — ${reportingManager.designationName}` : "";
+
 	if (loading) {
 		return (
 			<Box sx={{ display: "flex", justifyContent: "center", p: 4 }}>
@@ -324,8 +474,22 @@ export function StaffDetailPage() {
 						</Typography>
 						<Chip label={profile?.status} size="small" />
 					</Box>
+					{person?.address && <Typography variant="body2" color="text.secondary">{person.address}</Typography>}
+					{profile?.reportingManagerId && (
+						<Typography variant="body2" color="text.secondary">
+							Reports to: {reportingManagerLabel}
+						</Typography>
+					)}
 					<Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
 						<TextField select label="Status" size="small" value={statusValue} onChange={(e) => setStatusValue(e.target.value)} sx={{ minWidth: 160 }}>
+							{/* ON_LEAVE isn't a selectable target (scheduler-derived), but it must still
+							 * appear here - disabled - so the select renders the current value instead of
+							 * going blank when a staff member happens to be on leave right now. */}
+							{profile?.status === "ON_LEAVE" && (
+								<MenuItem value="ON_LEAVE" disabled>
+									ON_LEAVE
+								</MenuItem>
+							)}
 							{STAFF_STATUSES.map((status) => (
 								<MenuItem key={status} value={status}>
 									{status}
@@ -335,9 +499,95 @@ export function StaffDetailPage() {
 						<Button size="small" variant="outlined" onClick={handleStatusChange} disabled={statusValue === profile?.status}>
 							Update status
 						</Button>
+						<Can anyOf={["HR_STAFF_MANAGE"]}>
+							<Button size="small" variant="outlined" onClick={() => setTransferDialogOpen(true)}>
+								Transfer
+							</Button>
+							<Button
+								size="small"
+								variant="outlined"
+								color="error"
+								onClick={() => setExitDialogOpen(true)}
+								disabled={profile?.status === "RESIGNED" || profile?.status === "TERMINATED"}
+							>
+								Record exit
+							</Button>
+						</Can>
 					</Box>
+					{assignments.length > 1 && (
+						<TableContainer>
+							<Table size="small">
+								<TableHead>
+									<TableRow>
+										<TableCell>Designation</TableCell>
+										<TableCell>Start</TableCell>
+										<TableCell>End</TableCell>
+										<TableCell>Status</TableCell>
+									</TableRow>
+								</TableHead>
+								<TableBody>
+									{assignments.map((assignment) => (
+										<TableRow key={assignment.id}>
+											<TableCell>{assignment.designationName}</TableCell>
+											<TableCell>{assignment.startDate}</TableCell>
+											<TableCell>{assignment.endDate ?? "—"}</TableCell>
+											<TableCell>
+												<Chip label={assignment.status} size="small" />
+											</TableCell>
+										</TableRow>
+									))}
+								</TableBody>
+							</Table>
+						</TableContainer>
+					)}
+					{exits.length > 0 && (
+						<Stack spacing={1}>
+							<Typography variant="subtitle2">Exit history</Typography>
+							{exits.map((exit) => (
+								<Typography variant="body2" color="text.secondary" key={exit.id}>
+									{exit.exitType} on {exit.exitDate}
+									{exit.reason ? ` — ${exit.reason}` : ""}
+								</Typography>
+							))}
+						</Stack>
+					)}
 				</Stack>
 			</Paper>
+
+			<Can anyOf={["HR_PAYROLL_VIEW"]}>
+				<Paper sx={{ p: 3 }} component="form" onSubmit={handleSaveBankDetails}>
+					<Stack spacing={2}>
+						<Typography variant="h6">Bank &amp; tax details</Typography>
+						<Box sx={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
+							<TextField
+								label="Account holder name"
+								value={bankAccountHolderName}
+								onChange={(e) => setBankAccountHolderName(e.target.value)}
+								sx={{ minWidth: 220 }}
+							/>
+							<TextField
+								label="Account number"
+								value={bankAccountNumber}
+								onChange={(e) => setBankAccountNumber(e.target.value)}
+								sx={{ minWidth: 220 }}
+							/>
+							<TextField label="Bank name" value={bankName} onChange={(e) => setBankName(e.target.value)} sx={{ minWidth: 220 }} />
+							<TextField
+								label="Branch code"
+								value={bankBranchCode}
+								onChange={(e) => setBankBranchCode(e.target.value)}
+								sx={{ minWidth: 180 }}
+							/>
+							<TextField label="Tax identifier" value={taxIdentifier} onChange={(e) => setTaxIdentifier(e.target.value)} sx={{ minWidth: 180 }} />
+						</Box>
+						<Box>
+							<Button type="submit" size="small" variant="contained" disabled={bankSubmitting}>
+								{bankDetails ? "Update" : "Save"}
+							</Button>
+						</Box>
+					</Stack>
+				</Paper>
+			</Can>
 
 			<Paper sx={{ p: 3 }}>
 				<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -372,6 +622,7 @@ export function StaffDetailPage() {
 									<TableRow>
 										<TableCell>Type</TableCell>
 										<TableCell>File name</TableCell>
+										<TableCell>Expiry</TableCell>
 										<TableCell>Verification</TableCell>
 										<TableCell />
 									</TableRow>
@@ -381,6 +632,7 @@ export function StaffDetailPage() {
 										<TableRow key={doc.id}>
 											<TableCell>{doc.documentType}</TableCell>
 											<TableCell>{doc.fileName}</TableCell>
+											<TableCell>{documentExpiryChip(doc.expiryDate) ?? "—"}</TableCell>
 											<TableCell>
 												<Chip label={doc.verificationStatus} size="small" />
 											</TableCell>
@@ -546,6 +798,14 @@ export function StaffDetailPage() {
 							required
 							fullWidth
 						/>
+						<TextField
+							label="Expiry date (optional)"
+							type="date"
+							value={documentExpiryDate}
+							onChange={(e) => setDocumentExpiryDate(e.target.value)}
+							slotProps={{ inputLabel: { shrink: true } }}
+							fullWidth
+						/>
 					</Stack>
 				</DialogContent>
 				<DialogActions>
@@ -690,6 +950,102 @@ export function StaffDetailPage() {
 					<Button onClick={() => setGrantDialogOpen(false)}>Cancel</Button>
 					<Button type="submit" variant="contained" disabled={grantSubmitting}>
 						Grant access
+					</Button>
+				</DialogActions>
+			</Dialog>
+
+			<Dialog open={transferDialogOpen} onClose={() => setTransferDialogOpen(false)} component="form" onSubmit={handleTransfer} fullWidth maxWidth="xs">
+				<DialogTitle>Transfer staff member</DialogTitle>
+				<DialogContent>
+					<Stack spacing={2} sx={{ mt: 1 }}>
+						<TextField
+							select
+							label="Campus (optional — org-wide if left blank)"
+							value={transferCampusId}
+							onChange={(e) => setTransferCampusId(e.target.value === "" ? "" : Number(e.target.value))}
+							fullWidth
+						>
+							<MenuItem value="">Org-wide</MenuItem>
+							{campuses.map((campus) => (
+								<MenuItem key={campus.id} value={campus.id}>
+									{campus.name}
+								</MenuItem>
+							))}
+						</TextField>
+						<TextField
+							select
+							label="Department (optional)"
+							value={transferDepartmentId}
+							onChange={(e) => setTransferDepartmentId(e.target.value === "" ? "" : Number(e.target.value))}
+							fullWidth
+						>
+							<MenuItem value="">No department</MenuItem>
+							{departments.map((department) => (
+								<MenuItem key={department.id} value={department.id}>
+									{department.name}
+								</MenuItem>
+							))}
+						</TextField>
+						<TextField
+							select
+							label="Designation"
+							value={transferDesignationId}
+							onChange={(e) => setTransferDesignationId(e.target.value === "" ? "" : Number(e.target.value))}
+							required
+							fullWidth
+						>
+							{designations.map((designation) => (
+								<MenuItem key={designation.id} value={designation.id}>
+									{designation.name}
+								</MenuItem>
+							))}
+						</TextField>
+						<TextField
+							label="Effective date"
+							type="date"
+							value={transferEffectiveDate}
+							onChange={(e) => setTransferEffectiveDate(e.target.value)}
+							required
+							slotProps={{ inputLabel: { shrink: true } }}
+							fullWidth
+						/>
+					</Stack>
+				</DialogContent>
+				<DialogActions>
+					<Button onClick={() => setTransferDialogOpen(false)}>Cancel</Button>
+					<Button type="submit" variant="contained" disabled={submitting || transferDesignationId === ""}>
+						Transfer
+					</Button>
+				</DialogActions>
+			</Dialog>
+
+			<Dialog open={exitDialogOpen} onClose={() => setExitDialogOpen(false)} component="form" onSubmit={handleRecordExit} fullWidth maxWidth="xs">
+				<DialogTitle>Record exit</DialogTitle>
+				<DialogContent>
+					<Stack spacing={2} sx={{ mt: 1 }}>
+						<TextField select label="Exit type" value={exitType} onChange={(e) => setExitType(e.target.value)} required fullWidth>
+							{EXIT_TYPES.map((type) => (
+								<MenuItem key={type} value={type}>
+									{type}
+								</MenuItem>
+							))}
+						</TextField>
+						<TextField
+							label="Exit date"
+							type="date"
+							value={exitDate}
+							onChange={(e) => setExitDate(e.target.value)}
+							required
+							slotProps={{ inputLabel: { shrink: true } }}
+							fullWidth
+						/>
+						<TextField label="Reason" value={exitReason} onChange={(e) => setExitReason(e.target.value)} multiline rows={2} fullWidth />
+					</Stack>
+				</DialogContent>
+				<DialogActions>
+					<Button onClick={() => setExitDialogOpen(false)}>Cancel</Button>
+					<Button type="submit" variant="contained" color="error" disabled={submitting}>
+						Record exit
 					</Button>
 				</DialogActions>
 			</Dialog>

@@ -50,6 +50,8 @@ public class Person extends TenantScopedEntity {
 	@Column(name = "photo_url")
 	private String photoUrl;
 
+	private String address;
+
 	@Enumerated(EnumType.STRING)
 	@Column(nullable = false, length = 20)
 	private PersonStatus status;

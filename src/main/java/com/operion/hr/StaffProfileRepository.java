@@ -9,6 +9,8 @@ public interface StaffProfileRepository extends JpaRepository<StaffProfile, Long
 
 	List<StaffProfile> findByStatus(StaffProfileStatus status);
 
+	List<StaffProfile> findByStatusIn(List<StaffProfileStatus> statuses);
+
 	List<StaffProfile> findByCampusId(Long campusId);
 
 	Optional<StaffProfile> findByPersonId(Long personId);

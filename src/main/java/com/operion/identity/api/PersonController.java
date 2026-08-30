@@ -35,6 +35,7 @@ public class PersonController {
 		person.setPhone(request.phone());
 		person.setEmail(request.email());
 		person.setPhotoUrl(request.photoUrl());
+		person.setAddress(request.address());
 		return PersonResponse.from(personRepository.save(person));
 	}
 

@@ -23,9 +23,12 @@ import lombok.NoArgsConstructor;
  * OrganisationMembership, same "role-specific profile FKs to Person" pattern as
  * Student/Guardian. campus is nullable - org-wide staff (e.g. IT admin across
  * campuses) vs. single-campus teachers, same nullability convention as
- * OrganisationMembership.campus. status deliberately excludes an ON_LEAVE value -
- * that's a day-level attendance concept (still not wired, per the class doc on
- * LeaveRequest), not a master-record status.
+ * OrganisationMembership.campus. ON_LEAVE is derived automatically by
+ * StaffLeaveStatusScheduler from approved leave requests, never set here directly.
+ * campus/department/designation are a denormalized "current" snapshot - the insert-only
+ * trail of changes to them lives in StaffAssignment, same split as
+ * StudentEnrollment/TeacherAssignment being their own history but StaffProfile keeping
+ * cheap current-state columns for its many existing readers.
  */
 @Getter
 @Entity
@@ -54,6 +57,11 @@ public class StaffProfile extends TenantScopedEntity {
 	@JoinColumn(name = "department_id")
 	private Department department;
 
+	/** Nullable - who this staff member reports to; self-referencing, no cycle enforcement. */
+	@ManyToOne
+	@JoinColumn(name = "reporting_manager_id")
+	private StaffProfile reportingManager;
+
 	@Column(name = "date_of_joining", nullable = false)
 	private LocalDate dateOfJoining;
 
@@ -79,5 +87,17 @@ public class StaffProfile extends TenantScopedEntity {
 
 	public void changeStatus(StaffProfileStatus status) {
 		this.status = status;
+	}
+
+	public void setReportingManager(StaffProfile reportingManager) {
+		this.reportingManager = reportingManager;
+	}
+
+	/** Updates the current-state snapshot - callers (HrService.transfer) are responsible
+	 * for recording the corresponding StaffAssignment history row. */
+	public void transfer(Campus campus, Department department, Designation designation) {
+		this.campus = campus;
+		this.department = department;
+		this.designation = designation;
 	}
 }

@@ -18,7 +18,7 @@ import { ApiError } from "../../api/client";
 import { listDepartments, type DepartmentResponse } from "../../api/departments";
 import { listDesignations, type DesignationResponse } from "../../api/designations";
 import { listRoles, type RoleResponse } from "../../api/roles";
-import { createStaffProfile } from "../../api/staffProfiles";
+import { createStaffProfile, listStaffProfiles, type StaffProfileResponse } from "../../api/staffProfiles";
 import { type StaffInviteResponse } from "../../api/users";
 
 const EMPLOYMENT_TYPES = ["PERMANENT", "CONTRACT", "PART_TIME"];
@@ -26,11 +26,13 @@ const EMPLOYMENT_TYPES = ["PERMANENT", "CONTRACT", "PART_TIME"];
 interface HrExtension {
 	designationId: string;
 	employmentType: string;
+	reportingManagerId: string;
 }
 
 const EMPTY_HR_EXTENSION: HrExtension = {
 	designationId: "",
 	employmentType: "PERMANENT",
+	reportingManagerId: "",
 };
 
 /** Person + Membership(s) via the shared "Add member" fields (GitHub #104), plus an
@@ -46,6 +48,7 @@ export function StaffCreatePage() {
 	const [designations, setDesignations] = useState<DesignationResponse[]>([]);
 	const [departments, setDepartments] = useState<DepartmentResponse[]>([]);
 	const [roles, setRoles] = useState<RoleResponse[]>([]);
+	const [existingStaff, setExistingStaff] = useState<StaffProfileResponse[]>([]);
 	const [error, setError] = useState<string | null>(null);
 	const [submitting, setSubmitting] = useState(false);
 
@@ -59,6 +62,7 @@ export function StaffCreatePage() {
 		listDesignations().then(setDesignations).catch(() => {});
 		listDepartments().then(setDepartments).catch(() => {});
 		listRoles().then(setRoles).catch(() => {});
+		listStaffProfiles().then(setExistingStaff).catch(() => {});
 	}, []);
 
 	function setHrField<K extends keyof HrExtension>(key: K) {
@@ -93,6 +97,7 @@ export function StaffCreatePage() {
 					departmentId: form.departmentId === "" ? null : form.departmentId,
 					dateOfJoining: form.joiningDate,
 					employmentType: hrExtension.employmentType,
+					reportingManagerId: hrExtension.reportingManagerId === "" ? null : Number(hrExtension.reportingManagerId),
 				});
 				landingPath = `/hr/staff/${staffProfile.id}`;
 			}
@@ -172,6 +177,20 @@ export function StaffCreatePage() {
 								{EMPLOYMENT_TYPES.map((type) => (
 									<MenuItem key={type} value={type}>
 										{type}
+									</MenuItem>
+								))}
+							</TextField>
+							<TextField
+								select
+								label="Reporting manager (optional)"
+								value={hrExtension.reportingManagerId}
+								onChange={setHrField("reportingManagerId")}
+								fullWidth
+							>
+								<MenuItem value="">No reporting manager</MenuItem>
+								{existingStaff.map((staff) => (
+									<MenuItem key={staff.id} value={staff.id}>
+										{staff.employeeCode} — {staff.designationName}
 									</MenuItem>
 								))}
 							</TextField>

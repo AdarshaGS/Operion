@@ -21,6 +21,7 @@ export interface AddMemberFormState {
 	lastName: string;
 	email: string;
 	phone: string;
+	address: string;
 	memberId: string;
 	campusId: number | "";
 	departmentId: number | "";
@@ -33,6 +34,7 @@ export const EMPTY_ADD_MEMBER_FORM: AddMemberFormState = {
 	lastName: "",
 	email: "",
 	phone: "",
+	address: "",
 	memberId: "",
 	campusId: "",
 	departmentId: "",
@@ -80,6 +82,14 @@ export function AddMemberFields({ value, onChange, campuses, departments, roles,
 				<TextField label="Email" type="email" value={value.email} onChange={(e) => set("email", e.target.value)} fullWidth />
 				<TextField label="Phone" value={value.phone} onChange={(e) => set("phone", e.target.value)} fullWidth />
 			</Box>
+			<TextField
+				label="Address (optional)"
+				value={value.address}
+				onChange={(e) => set("address", e.target.value)}
+				fullWidth
+				multiline
+				minRows={2}
+			/>
 			<Box sx={{ display: "flex", gap: 2 }}>
 				<TextField label="Member ID (optional)" value={value.memberId} onChange={(e) => set("memberId", e.target.value)} fullWidth />
 				<TextField
@@ -172,6 +182,7 @@ export async function submitAddMember(form: AddMemberFormState): Promise<AddMemb
 		lastName: form.lastName,
 		email: form.email || null,
 		phone: form.phone || null,
+		address: form.address || null,
 	});
 
 	if (form.roleIds.length === 0) {

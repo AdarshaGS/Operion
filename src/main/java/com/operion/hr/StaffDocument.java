@@ -1,6 +1,7 @@
 package com.operion.hr;
 
 import java.time.Instant;
+import java.time.LocalDate;
 
 import com.operion.common.TenantScopedEntity;
 import jakarta.persistence.Column;
@@ -41,6 +42,10 @@ public class StaffDocument extends TenantScopedEntity {
 	@Column(name = "mime_type")
 	private String mimeType;
 
+	/** Nullable - not every document type expires (e.g. a degree certificate). */
+	@Column(name = "expiry_date")
+	private LocalDate expiryDate;
+
 	@Enumerated(EnumType.STRING)
 	@Column(name = "verification_status", nullable = false, length = 20)
 	private DocumentVerificationStatus verificationStatus;
@@ -56,12 +61,14 @@ public class StaffDocument extends TenantScopedEntity {
 	@Column(nullable = false, length = 20)
 	private StaffDocumentStatus status;
 
-	public StaffDocument(StaffProfile staffProfile, String documentType, String fileReference, String fileName, String mimeType) {
+	public StaffDocument(StaffProfile staffProfile, String documentType, String fileReference, String fileName, String mimeType,
+			LocalDate expiryDate) {
 		this.staffProfile = staffProfile;
 		this.documentType = documentType;
 		this.fileReference = fileReference;
 		this.fileName = fileName;
 		this.mimeType = mimeType;
+		this.expiryDate = expiryDate;
 		this.verificationStatus = DocumentVerificationStatus.PENDING;
 		this.status = StaffDocumentStatus.ACTIVE;
 	}

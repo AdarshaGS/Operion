@@ -4,7 +4,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.LocalDate;
+import java.util.List;
 
+import com.operion.attendance.AttendanceStatus;
+import com.operion.attendance.StaffAttendanceRepository;
+import com.operion.audit.AuditLogRepository;
+import com.operion.audit.AuditLogService;
 import com.operion.common.JpaConfig;
 import com.operion.common.MultiTenancyConfig;
 import com.operion.common.TenantContext;
@@ -21,23 +26,29 @@ import com.operion.organisation.DesignationRepository;
 import com.operion.organisation.Organisation;
 import com.operion.organisation.OrganisationRepository;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * Proves HrService's leave approval rules: approving within the allocated balance
  * succeeds and reduces the live-computed remaining balance, approving beyond it (or
  * with no LeaveBalance row at all) is rejected, and approve/reject/cancel are one-way
  * transitions off PENDING.
+ *
+ * HrService is constructed by hand rather than @Import'd - see StaffAttendanceTest for why.
  */
 @DataJpaTest
-@Import({ MultiTenancyConfig.class, JpaConfig.class, HrService.class })
+@Import({ MultiTenancyConfig.class, JpaConfig.class })
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class LeaveBalanceApprovalTest {
+
+	private HrService hrService;
 
 	@Autowired
 	private OrganisationRepository organisationRepository;
@@ -58,7 +69,45 @@ class LeaveBalanceApprovalTest {
 	private DepartmentRepository departmentRepository;
 
 	@Autowired
-	private HrService hrService;
+	private StaffProfileRepository staffProfileRepository;
+
+	@Autowired
+	private LeaveTypeRepository leaveTypeRepository;
+
+	@Autowired
+	private LeaveBalanceRepository leaveBalanceRepository;
+
+	@Autowired
+	private LeaveRequestRepository leaveRequestRepository;
+
+	@Autowired
+	private StaffDocumentRepository staffDocumentRepository;
+
+	@Autowired
+	private JobApplicationRepository jobApplicationRepository;
+
+	@Autowired
+	private StaffAssignmentRepository staffAssignmentRepository;
+
+	@Autowired
+	private StaffExitRepository staffExitRepository;
+
+	@Autowired
+	private StaffBankDetailRepository staffBankDetailRepository;
+
+	@Autowired
+	private StaffAttendanceRepository staffAttendanceRepository;
+
+	@Autowired
+	private AuditLogRepository auditLogRepository;
+
+	@BeforeEach
+	void setUpHrService() {
+		hrService = new HrService(staffProfileRepository, leaveTypeRepository, leaveBalanceRepository, leaveRequestRepository,
+				staffDocumentRepository, jobApplicationRepository, organisationRepository, staffAssignmentRepository,
+				staffExitRepository, staffBankDetailRepository, staffAttendanceRepository,
+				new AuditLogService(auditLogRepository, new ObjectMapper()));
+	}
 
 	@AfterEach
 	void clearTenant() {
@@ -96,6 +145,22 @@ class LeaveBalanceApprovalTest {
 		assertThat(request.getStatus()).isEqualTo(LeaveRequestStatus.APPROVED);
 		assertThat(request.getApprovedBy()).isEqualTo(99L);
 		assertThat(hrService.getRemainingBalance(fixture.staffProfile(), fixture.leaveType(), fixture.academicYear())).isEqualTo(9.0);
+	}
+
+	@Test
+	void approvingWritesLeaveAttendanceForEveryCoveredDate() {
+		Fixture fixture = setUpFixture("hr-approve-writes-attendance");
+		hrService.allocateBalance(fixture.staffProfile(), fixture.leaveType(), fixture.academicYear(), 12.0);
+		LeaveRequest request = hrService.raiseLeaveRequest(
+				fixture.staffProfile(), fixture.leaveType(), fixture.academicYear(), LocalDate.of(2026, 1, 5), LocalDate.of(2026, 1, 7), 3.0, null);
+
+		hrService.approve(request, 99L);
+
+		Long personId = fixture.staffProfile().getPerson().getId();
+		for (LocalDate date : List.of(LocalDate.of(2026, 1, 5), LocalDate.of(2026, 1, 6), LocalDate.of(2026, 1, 7))) {
+			assertThat(staffAttendanceRepository.findByPersonIdAndAttendanceDate(personId, date))
+					.hasValueSatisfying(attendance -> assertThat(attendance.getAttendanceStatus()).isEqualTo(AttendanceStatus.LEAVE));
+		}
 	}
 
 	@Test

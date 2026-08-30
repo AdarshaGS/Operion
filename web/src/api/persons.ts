@@ -8,6 +8,7 @@ export interface CreatePersonRequest {
 	phone?: string | null;
 	email?: string | null;
 	photoUrl?: string | null;
+	address?: string | null;
 }
 
 export interface PersonResponse {
@@ -19,6 +20,7 @@ export interface PersonResponse {
 	phone: string | null;
 	email: string | null;
 	photoUrl: string | null;
+	address: string | null;
 	status: string;
 }
 

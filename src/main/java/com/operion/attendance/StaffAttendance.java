@@ -72,4 +72,9 @@ public class StaffAttendance extends TenantScopedEntity {
 		}
 		this.checkOutTime = checkOutTime;
 	}
+
+	/** Approved leave overrides whatever attendance was previously recorded for the date. */
+	public void markOnLeave() {
+		this.attendanceStatus = AttendanceStatus.LEAVE;
+	}
 }
