@@ -263,6 +263,9 @@ export function StudentDetailPage() {
 						<Grid size={4}>
 							<Field label="Email" value={person?.email} />
 						</Grid>
+						<Grid size={12}>
+							<Field label="Home address" value={person?.address} />
+						</Grid>
 					</Grid>
 
 					<Divider />

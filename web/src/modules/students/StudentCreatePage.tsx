@@ -14,10 +14,12 @@ import { getAcademicSetupStatus } from "../../api/academicSetupStatus";
 import { listAcademicYears, type AcademicYearResponse } from "../../api/academicYears";
 import { ApiError } from "../../api/client";
 import { createEnrollment } from "../../api/enrollments";
+import { createOrGetGuardian } from "../../api/guardians";
 import { createPerson } from "../../api/persons";
 import { listSchoolClasses, type SchoolClassResponse } from "../../api/schoolClasses";
 import { listSections, type SectionResponse } from "../../api/sections";
 import { admitStudent } from "../../api/students";
+import { GUARDIAN_RELATIONSHIP_TYPES, linkGuardian, type GuardianRelationshipType } from "../../api/studentGuardians";
 
 const ACADEMIC_SETUP_REQUIRED_MESSAGE = "Complete Academic Setup before adding a student.";
 
@@ -28,6 +30,7 @@ interface FormState {
 	gender: string;
 	phone: string;
 	email: string;
+	address: string;
 	admissionNumber: string;
 	admissionDate: string;
 	previousSchool: string;
@@ -42,6 +45,10 @@ interface FormState {
 	schoolClassId: string;
 	sectionId: string;
 	rollNumber: string;
+	guardianFirstName: string;
+	guardianLastName: string;
+	guardianPhone: string;
+	guardianRelationshipType: string;
 }
 
 const EMPTY_FORM: FormState = {
@@ -51,6 +58,7 @@ const EMPTY_FORM: FormState = {
 	gender: "",
 	phone: "",
 	email: "",
+	address: "",
 	admissionNumber: "",
 	admissionDate: "",
 	previousSchool: "",
@@ -65,6 +73,10 @@ const EMPTY_FORM: FormState = {
 	schoolClassId: "",
 	sectionId: "",
 	rollNumber: "",
+	guardianFirstName: "",
+	guardianLastName: "",
+	guardianPhone: "",
+	guardianRelationshipType: "FATHER",
 };
 
 /** Person + Student are two backend entities (identity ≠ enrollment, per the project's
@@ -130,6 +142,7 @@ export function StudentCreatePage() {
 				gender: form.gender || null,
 				phone: form.phone || null,
 				email: form.email || null,
+				address: form.address || null,
 			});
 			const student = await admitStudent({
 				personId: person.id,
@@ -150,6 +163,23 @@ export function StudentCreatePage() {
 				rollNumber: form.rollNumber ? Number(form.rollNumber) : null,
 				enrolledDate: form.admissionDate,
 			});
+			if (form.guardianFirstName && form.guardianLastName) {
+				const guardianPerson = await createPerson({
+					firstName: form.guardianFirstName,
+					lastName: form.guardianLastName,
+					phone: form.guardianPhone || null,
+				});
+				const guardian = await createOrGetGuardian({ personId: guardianPerson.id });
+				await linkGuardian(student.id, {
+					guardianId: guardian.id,
+					relationshipType: form.guardianRelationshipType as GuardianRelationshipType,
+					primaryGuardian: true,
+					emergencyContact: false,
+					canPickup: true,
+					canReceiveCommunication: true,
+					contactPriority: 1,
+				});
+			}
 			navigate(`/students/${student.id}`, { replace: true });
 		} catch (err) {
 			setError(err instanceof ApiError ? err.message : "Failed to admit student");
@@ -190,6 +220,30 @@ export function StudentCreatePage() {
 					<Box sx={{ display: "flex", gap: 2 }}>
 						<TextField label="Phone" value={form.phone} onChange={set("phone")} fullWidth />
 						<TextField label="Email" type="email" value={form.email} onChange={set("email")} fullWidth />
+					</Box>
+					<TextField label="Home address" value={form.address} onChange={set("address")} multiline rows={2} fullWidth />
+
+					<Divider />
+					<Typography variant="subtitle1">Primary guardian</Typography>
+					<Box sx={{ display: "flex", gap: 2 }}>
+						<TextField label="Guardian first name" value={form.guardianFirstName} onChange={set("guardianFirstName")} fullWidth />
+						<TextField label="Guardian last name" value={form.guardianLastName} onChange={set("guardianLastName")} fullWidth />
+					</Box>
+					<Box sx={{ display: "flex", gap: 2 }}>
+						<TextField label="Guardian mobile" value={form.guardianPhone} onChange={set("guardianPhone")} fullWidth />
+						<TextField
+							select
+							label="Relationship"
+							value={form.guardianRelationshipType}
+							onChange={set("guardianRelationshipType")}
+							fullWidth
+						>
+							{GUARDIAN_RELATIONSHIP_TYPES.map((type) => (
+								<MenuItem key={type} value={type}>
+									{type.replaceAll("_", " ")}
+								</MenuItem>
+							))}
+						</TextField>
 					</Box>
 
 					<Divider />
