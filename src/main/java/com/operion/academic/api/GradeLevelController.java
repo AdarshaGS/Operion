@@ -8,6 +8,7 @@ import com.operion.academic.GradeLevelRepository;
 import com.operion.academic.GradeLevelStatus;
 import com.operion.authorization.RequirePermission;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -46,5 +47,14 @@ public class GradeLevelController {
 				.orElseThrow(() -> new IllegalArgumentException("No grade level with id " + id));
 		return GradeLevelResponse.from(
 				academicService.changeGradeLevelStatus(gradeLevel, GradeLevelStatus.valueOf(request.status())));
+	}
+
+	@PatchMapping("/{id}")
+	@RequirePermission("GRADE_LEVEL_MANAGE")
+	public GradeLevelResponse update(@PathVariable Long id, @RequestBody UpdateGradeLevelRequest request) {
+		GradeLevel gradeLevel = gradeLevelRepository.findById(id)
+				.orElseThrow(() -> new IllegalArgumentException("No grade level with id " + id));
+		return GradeLevelResponse.from(
+				academicService.updateGradeLevel(gradeLevel, request.name(), request.sequenceOrder(), request.stage()));
 	}
 }

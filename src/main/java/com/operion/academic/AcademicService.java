@@ -45,6 +45,11 @@ public class AcademicService {
 		return gradeLevelRepository.save(gradeLevel);
 	}
 
+	public GradeLevel updateGradeLevel(GradeLevel gradeLevel, String name, int sequenceOrder, String stage) {
+		gradeLevel.update(name, sequenceOrder, stage);
+		return gradeLevelRepository.save(gradeLevel);
+	}
+
 	public Subject createSubject(String name, String code) {
 		return subjectRepository.save(new Subject(name, code));
 	}
@@ -63,6 +68,11 @@ public class AcademicService {
 		return schoolClassRepository.save(schoolClass);
 	}
 
+	public SchoolClass updateSchoolClassDisplayName(SchoolClass schoolClass, String displayName) {
+		schoolClass.updateDisplayName(displayName);
+		return schoolClassRepository.save(schoolClass);
+	}
+
 	public Section createSection(SchoolClass schoolClass, String name, Integer capacity, String room) {
 		return sectionRepository.save(new Section(schoolClass, name, capacity, room));
 	}
@@ -72,12 +82,22 @@ public class AcademicService {
 		return sectionRepository.save(section);
 	}
 
+	public Section updateSection(Section section, String name, Integer capacity, String room) {
+		section.update(name, capacity, room);
+		return sectionRepository.save(section);
+	}
+
 	public ClassSubject assignSubjectToClass(SchoolClass schoolClass, Subject subject, boolean mandatory) {
 		return classSubjectRepository.save(new ClassSubject(schoolClass, subject, mandatory));
 	}
 
 	public ClassSubject changeClassSubjectStatus(ClassSubject classSubject, ClassSubjectStatus status) {
 		classSubject.changeStatus(status);
+		return classSubjectRepository.save(classSubject);
+	}
+
+	public ClassSubject updateClassSubjectMandatory(ClassSubject classSubject, boolean mandatory) {
+		classSubject.updateMandatory(mandatory);
 		return classSubjectRepository.save(classSubject);
 	}
 

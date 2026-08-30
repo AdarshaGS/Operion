@@ -12,6 +12,7 @@ import com.operion.academic.Subject;
 import com.operion.academic.SubjectRepository;
 import com.operion.authorization.RequirePermission;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -60,5 +61,14 @@ public class ClassSubjectController {
 				.orElseThrow(() -> new IllegalArgumentException("No class subject with id " + id));
 		return ClassSubjectResponse.from(
 				academicService.changeClassSubjectStatus(classSubject, ClassSubjectStatus.valueOf(request.status())));
+	}
+
+	@PatchMapping("/{id}")
+	@RequirePermission("CLASS_MANAGE")
+	public ClassSubjectResponse update(
+			@PathVariable Long classId, @PathVariable Long id, @RequestBody UpdateClassSubjectRequest request) {
+		ClassSubject classSubject = classSubjectRepository.findById(id)
+				.orElseThrow(() -> new IllegalArgumentException("No class subject with id " + id));
+		return ClassSubjectResponse.from(academicService.updateClassSubjectMandatory(classSubject, request.mandatory()));
 	}
 }

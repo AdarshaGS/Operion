@@ -26,3 +26,7 @@ export function listSections(classId: number): Promise<SectionResponse[]> {
 export function changeSectionStatus(classId: number, sectionId: number, status: string): Promise<SectionResponse> {
 	return api.post<SectionResponse>(`/api/v1/school-classes/${classId}/sections/${sectionId}/status`, { status });
 }
+
+export function updateSection(classId: number, sectionId: number, request: CreateSectionRequest): Promise<SectionResponse> {
+	return api.patch<SectionResponse>(`/api/v1/school-classes/${classId}/sections/${sectionId}`, request);
+}

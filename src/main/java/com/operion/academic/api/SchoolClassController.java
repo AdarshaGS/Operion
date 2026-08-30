@@ -14,6 +14,7 @@ import com.operion.organisation.AcademicYearRepository;
 import com.operion.organisation.Campus;
 import com.operion.organisation.CampusRepository;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -71,5 +72,13 @@ public class SchoolClassController {
 				.orElseThrow(() -> new IllegalArgumentException("No school class with id " + id));
 		return SchoolClassResponse.from(
 				academicService.changeSchoolClassStatus(schoolClass, SchoolClassStatus.valueOf(request.status())));
+	}
+
+	@PatchMapping("/{id}")
+	@RequirePermission("CLASS_MANAGE")
+	public SchoolClassResponse update(@PathVariable Long id, @RequestBody UpdateSchoolClassRequest request) {
+		SchoolClass schoolClass = schoolClassRepository.findById(id)
+				.orElseThrow(() -> new IllegalArgumentException("No school class with id " + id));
+		return SchoolClassResponse.from(academicService.updateSchoolClassDisplayName(schoolClass, request.displayName()));
 	}
 }

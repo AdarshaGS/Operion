@@ -55,4 +55,11 @@ public class SchoolClass extends TenantScopedEntity {
 	public void changeStatus(SchoolClassStatus status) {
 		this.status = status;
 	}
+
+	/** Only displayName is editable after creation - academicYear/campus/gradeLevel are
+	 * the structural identity of "which offering this is"; changing them would silently
+	 * turn this into a different offering rather than renaming the same one. */
+	public void updateDisplayName(String displayName) {
+		this.displayName = displayName;
+	}
 }

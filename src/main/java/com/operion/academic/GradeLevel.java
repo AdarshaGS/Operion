@@ -44,4 +44,10 @@ public class GradeLevel extends TenantScopedEntity {
 	public void changeStatus(GradeLevelStatus status) {
 		this.status = status;
 	}
+
+	public void update(String name, int sequenceOrder, String stage) {
+		this.name = name;
+		this.sequenceOrder = sequenceOrder;
+		this.stage = stage;
+	}
 }

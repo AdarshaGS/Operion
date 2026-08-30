@@ -24,3 +24,7 @@ export function listClassSubjects(classId: number): Promise<ClassSubjectResponse
 export function changeClassSubjectStatus(classId: number, id: number, status: string): Promise<ClassSubjectResponse> {
 	return api.post<ClassSubjectResponse>(`/api/v1/school-classes/${classId}/subjects/${id}/status`, { status });
 }
+
+export function updateClassSubject(classId: number, id: number, mandatory: boolean): Promise<ClassSubjectResponse> {
+	return api.patch<ClassSubjectResponse>(`/api/v1/school-classes/${classId}/subjects/${id}`, { mandatory });
+}

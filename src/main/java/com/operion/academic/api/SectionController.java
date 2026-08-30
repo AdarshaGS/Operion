@@ -10,6 +10,7 @@ import com.operion.academic.SectionRepository;
 import com.operion.academic.SectionStatus;
 import com.operion.authorization.RequirePermission;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -54,6 +55,15 @@ public class SectionController {
 		Section section = sectionRepository.findById(sectionId)
 				.orElseThrow(() -> new IllegalArgumentException("No section with id " + sectionId));
 		return SectionResponse.from(academicService.changeSectionStatus(section, SectionStatus.valueOf(request.status())));
+	}
+
+	@PatchMapping("/{sectionId}")
+	@RequirePermission("CLASS_MANAGE")
+	public SectionResponse update(
+			@PathVariable Long classId, @PathVariable Long sectionId, @RequestBody UpdateSectionRequest request) {
+		Section section = sectionRepository.findById(sectionId)
+				.orElseThrow(() -> new IllegalArgumentException("No section with id " + sectionId));
+		return SectionResponse.from(academicService.updateSection(section, request.name(), request.capacity(), request.room()));
 	}
 
 	private SchoolClass findClassOrThrow(Long classId) {

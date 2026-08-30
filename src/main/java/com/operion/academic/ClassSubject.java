@@ -48,4 +48,8 @@ public class ClassSubject extends TenantScopedEntity {
 	public void changeStatus(ClassSubjectStatus status) {
 		this.status = status;
 	}
+
+	public void updateMandatory(boolean mandatory) {
+		this.mandatory = mandatory;
+	}
 }

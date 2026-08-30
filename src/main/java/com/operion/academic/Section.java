@@ -53,4 +53,10 @@ public class Section extends TenantScopedEntity {
 	public void changeStatus(SectionStatus status) {
 		this.status = status;
 	}
+
+	public void update(String name, Integer capacity, String room) {
+		this.name = name;
+		this.capacity = capacity;
+		this.room = room;
+	}
 }

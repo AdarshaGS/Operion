@@ -19,15 +19,60 @@ import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import AddIcon from "@mui/icons-material/Add";
 import { ApiError } from "../../api/client";
-import { changeGradeLevelStatus, createGradeLevel, listGradeLevels, type GradeLevelResponse } from "../../api/gradeLevels";
+import {
+	changeGradeLevelStatus,
+	createGradeLevel,
+	listGradeLevels,
+	updateGradeLevel,
+	type GradeLevelResponse,
+} from "../../api/gradeLevels";
+
+interface GradeLevelFormState {
+	name: string;
+	sequenceOrder: string;
+	stage: string;
+}
+
+const EMPTY_FORM: GradeLevelFormState = { name: "", sequenceOrder: "", stage: "" };
+
+function GradeLevelFormFields({ value, onChange }: { value: GradeLevelFormState; onChange: (next: GradeLevelFormState) => void }) {
+	return (
+		<>
+			<TextField
+				label="Name"
+				placeholder="Grade 5"
+				value={value.name}
+				onChange={(e) => onChange({ ...value, name: e.target.value })}
+				required
+				autoFocus
+				fullWidth
+			/>
+			<TextField
+				label="Sequence order"
+				type="number"
+				value={value.sequenceOrder}
+				onChange={(e) => onChange({ ...value, sequenceOrder: e.target.value })}
+				required
+				fullWidth
+			/>
+			<TextField
+				label="Stage"
+				placeholder="PRIMARY"
+				value={value.stage}
+				onChange={(e) => onChange({ ...value, stage: e.target.value })}
+				fullWidth
+			/>
+		</>
+	);
+}
 
 export function GradeLevelsPanel() {
 	const [gradeLevels, setGradeLevels] = useState<GradeLevelResponse[]>([]);
 	const [error, setError] = useState<string | null>(null);
 	const [dialogOpen, setDialogOpen] = useState(false);
-	const [name, setName] = useState("");
-	const [sequenceOrder, setSequenceOrder] = useState("");
-	const [stage, setStage] = useState("");
+	const [form, setForm] = useState<GradeLevelFormState>(EMPTY_FORM);
+	const [editTarget, setEditTarget] = useState<GradeLevelResponse | null>(null);
+	const [editForm, setEditForm] = useState<GradeLevelFormState>(EMPTY_FORM);
 	const [submitting, setSubmitting] = useState(false);
 
 	function refresh() {
@@ -51,14 +96,36 @@ export function GradeLevelsPanel() {
 		event.preventDefault();
 		setSubmitting(true);
 		try {
-			await createGradeLevel({ name, sequenceOrder: Number(sequenceOrder), stage: stage || null });
-			setName("");
-			setSequenceOrder("");
-			setStage("");
+			await createGradeLevel({ name: form.name, sequenceOrder: Number(form.sequenceOrder), stage: form.stage || null });
+			setForm(EMPTY_FORM);
 			setDialogOpen(false);
 			refresh();
 		} catch (err) {
 			setError(err instanceof ApiError ? err.message : "Failed to create grade level");
+		} finally {
+			setSubmitting(false);
+		}
+	}
+
+	function openEdit(level: GradeLevelResponse) {
+		setEditTarget(level);
+		setEditForm({ name: level.name, sequenceOrder: String(level.sequenceOrder), stage: level.stage ?? "" });
+	}
+
+	async function handleEditSave(event: FormEvent) {
+		event.preventDefault();
+		if (!editTarget) return;
+		setSubmitting(true);
+		try {
+			await updateGradeLevel(editTarget.id, {
+				name: editForm.name,
+				sequenceOrder: Number(editForm.sequenceOrder),
+				stage: editForm.stage || null,
+			});
+			setEditTarget(null);
+			refresh();
+		} catch (err) {
+			setError(err instanceof ApiError ? err.message : "Failed to update grade level");
 		} finally {
 			setSubmitting(false);
 		}
@@ -97,6 +164,9 @@ export function GradeLevelsPanel() {
 										<Chip label={level.status} size="small" />
 									</TableCell>
 									<TableCell>
+										<Button size="small" onClick={() => openEdit(level)}>
+											Edit
+										</Button>
 										<Button size="small" onClick={() => handleToggleStatus(level)}>
 											{level.status === "ACTIVE" ? "Deactivate" : "Reactivate"}
 										</Button>
@@ -112,22 +182,28 @@ export function GradeLevelsPanel() {
 				<DialogTitle>Add grade level</DialogTitle>
 				<DialogContent>
 					<Stack spacing={2} sx={{ mt: 1 }}>
-						<TextField label="Name" placeholder="Grade 5" value={name} onChange={(e) => setName(e.target.value)} required autoFocus fullWidth />
-						<TextField
-							label="Sequence order"
-							type="number"
-							value={sequenceOrder}
-							onChange={(e) => setSequenceOrder(e.target.value)}
-							required
-							fullWidth
-						/>
-						<TextField label="Stage" placeholder="PRIMARY" value={stage} onChange={(e) => setStage(e.target.value)} fullWidth />
+						<GradeLevelFormFields value={form} onChange={setForm} />
 					</Stack>
 				</DialogContent>
 				<DialogActions>
 					<Button onClick={() => setDialogOpen(false)}>Cancel</Button>
 					<Button type="submit" variant="contained" disabled={submitting}>
 						Add
+					</Button>
+				</DialogActions>
+			</Dialog>
+
+			<Dialog open={editTarget !== null} onClose={() => setEditTarget(null)} component="form" onSubmit={handleEditSave} fullWidth maxWidth="xs">
+				<DialogTitle>Edit grade level</DialogTitle>
+				<DialogContent>
+					<Stack spacing={2} sx={{ mt: 1 }}>
+						<GradeLevelFormFields value={editForm} onChange={setEditForm} />
+					</Stack>
+				</DialogContent>
+				<DialogActions>
+					<Button onClick={() => setEditTarget(null)}>Cancel</Button>
+					<Button type="submit" variant="contained" disabled={submitting}>
+						Save
 					</Button>
 				</DialogActions>
 			</Dialog>

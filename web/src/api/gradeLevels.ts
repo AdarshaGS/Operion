@@ -25,3 +25,7 @@ export function listGradeLevels(): Promise<GradeLevelResponse[]> {
 export function changeGradeLevelStatus(id: number, status: string): Promise<GradeLevelResponse> {
 	return api.post<GradeLevelResponse>(`/api/v1/grade-levels/${id}/status`, { status });
 }
+
+export function updateGradeLevel(id: number, request: CreateGradeLevelRequest): Promise<GradeLevelResponse> {
+	return api.patch<GradeLevelResponse>(`/api/v1/grade-levels/${id}`, request);
+}

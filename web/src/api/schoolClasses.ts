@@ -28,3 +28,7 @@ export function listSchoolClasses(academicYearId?: number): Promise<SchoolClassR
 export function changeSchoolClassStatus(id: number, status: string): Promise<SchoolClassResponse> {
 	return api.post<SchoolClassResponse>(`/api/v1/school-classes/${id}/status`, { status });
 }
+
+export function updateSchoolClassDisplayName(id: number, displayName: string | null): Promise<SchoolClassResponse> {
+	return api.patch<SchoolClassResponse>(`/api/v1/school-classes/${id}`, { displayName });
+}

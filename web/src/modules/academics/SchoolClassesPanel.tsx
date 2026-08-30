@@ -24,7 +24,13 @@ import { type AcademicYearResponse, listAcademicYears } from "../../api/academic
 import { type CampusResponse, listCampuses } from "../../api/campuses";
 import { ApiError } from "../../api/client";
 import { type GradeLevelResponse, listGradeLevels } from "../../api/gradeLevels";
-import { changeSchoolClassStatus, createSchoolClass, listSchoolClasses, type SchoolClassResponse } from "../../api/schoolClasses";
+import {
+	changeSchoolClassStatus,
+	createSchoolClass,
+	listSchoolClasses,
+	updateSchoolClassDisplayName,
+	type SchoolClassResponse,
+} from "../../api/schoolClasses";
 
 export function SchoolClassesPanel() {
 	const navigate = useNavigate();
@@ -39,6 +45,8 @@ export function SchoolClassesPanel() {
 	const [gradeLevelId, setGradeLevelId] = useState("");
 	const [displayName, setDisplayName] = useState("");
 	const [submitting, setSubmitting] = useState(false);
+	const [editTarget, setEditTarget] = useState<SchoolClassResponse | null>(null);
+	const [editDisplayName, setEditDisplayName] = useState("");
 
 	function refresh() {
 		listSchoolClasses()
@@ -66,6 +74,26 @@ export function SchoolClassesPanel() {
 			refresh();
 		} catch (err) {
 			setError(err instanceof ApiError ? err.message : "Failed to update class status");
+		}
+	}
+
+	function openEdit(schoolClass: SchoolClassResponse) {
+		setEditTarget(schoolClass);
+		setEditDisplayName(schoolClass.displayName ?? "");
+	}
+
+	async function handleEditSave(event: FormEvent) {
+		event.preventDefault();
+		if (!editTarget) return;
+		setSubmitting(true);
+		try {
+			await updateSchoolClassDisplayName(editTarget.id, editDisplayName || null);
+			setEditTarget(null);
+			refresh();
+		} catch (err) {
+			setError(err instanceof ApiError ? err.message : "Failed to update class");
+		} finally {
+			setSubmitting(false);
 		}
 	}
 
@@ -149,6 +177,9 @@ export function SchoolClassesPanel() {
 										<Chip label={schoolClass.status} size="small" />
 									</TableCell>
 									<TableCell onClick={(e) => e.stopPropagation()}>
+										<Button size="small" onClick={() => openEdit(schoolClass)}>
+											Edit
+										</Button>
 										<Button size="small" onClick={() => handleToggleStatus(schoolClass)}>
 											{schoolClass.status === "ACTIVE" ? "Deactivate" : "Reactivate"}
 										</Button>
@@ -198,6 +229,28 @@ export function SchoolClassesPanel() {
 					<Button onClick={() => setDialogOpen(false)}>Cancel</Button>
 					<Button type="submit" variant="contained" disabled={submitting}>
 						Add
+					</Button>
+				</DialogActions>
+			</Dialog>
+
+			<Dialog open={editTarget !== null} onClose={() => setEditTarget(null)} component="form" onSubmit={handleEditSave} fullWidth maxWidth="xs">
+				<DialogTitle>Edit class</DialogTitle>
+				<DialogContent>
+					<Stack spacing={2} sx={{ mt: 1 }}>
+						<TextField
+							label="Display name"
+							placeholder="Defaults to the grade level's name"
+							value={editDisplayName}
+							onChange={(e) => setEditDisplayName(e.target.value)}
+							autoFocus
+							fullWidth
+						/>
+					</Stack>
+				</DialogContent>
+				<DialogActions>
+					<Button onClick={() => setEditTarget(null)}>Cancel</Button>
+					<Button type="submit" variant="contained" disabled={submitting}>
+						Save
 					</Button>
 				</DialogActions>
 			</Dialog>
