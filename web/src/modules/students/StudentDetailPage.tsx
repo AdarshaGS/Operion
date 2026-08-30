@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import Alert from "@mui/material/Alert";
+import Avatar from "@mui/material/Avatar";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
@@ -24,10 +25,12 @@ import {
 	listStudentEnrollments,
 	type StudentEnrollmentResponse,
 } from "../../api/enrollments";
-import { getPerson, type PersonResponse } from "../../api/persons";
+import { getPerson, updatePersonPhoto, type PersonResponse } from "../../api/persons";
 import { listSchoolClasses, type SchoolClassResponse } from "../../api/schoolClasses";
 import { listSections, type SectionResponse } from "../../api/sections";
 import { getStudent, type StudentResponse } from "../../api/students";
+import { resolveAssetUrl, uploadAsset } from "../../api/assets";
+import { StudentDocumentsPanel } from "./StudentDocumentsPanel";
 import { StudentGuardiansPanel } from "./StudentGuardiansPanel";
 import { StudentTransferPanel } from "./StudentTransferPanel";
 
@@ -177,6 +180,23 @@ export function StudentDetailPage() {
 	const [enrollments, setEnrollments] = useState<StudentEnrollmentResponse[]>([]);
 	const [error, setError] = useState<string | null>(null);
 	const [enrollDialogOpen, setEnrollDialogOpen] = useState(false);
+	const [uploadingPhoto, setUploadingPhoto] = useState(false);
+
+	async function handlePhotoChange(event: React.ChangeEvent<HTMLInputElement>) {
+		const file = event.target.files?.[0];
+		event.target.value = "";
+		if (!file || !person) return;
+		setUploadingPhoto(true);
+		try {
+			const asset = await uploadAsset(file);
+			const updated = await updatePersonPhoto(person.id, asset.url);
+			setPerson(updated);
+		} catch (err) {
+			setError(err instanceof ApiError ? err.message : "Failed to upload photo");
+		} finally {
+			setUploadingPhoto(false);
+		}
+	}
 
 	function refresh() {
 		if (!studentId) return;
@@ -249,7 +269,16 @@ export function StudentDetailPage() {
 
 			<Paper sx={{ p: 3 }}>
 				<Stack spacing={2}>
-					<Typography variant="subtitle1">Person details</Typography>
+					<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+						<Typography variant="subtitle1">Person details</Typography>
+						<Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+							<Avatar src={person?.photoUrl ? resolveAssetUrl(person.photoUrl) : undefined} sx={{ width: 40, height: 40 }} />
+							<Button component="label" size="small" disabled={uploadingPhoto}>
+								{uploadingPhoto ? "Uploading..." : "Upload photo"}
+								<input type="file" hidden accept="image/png,image/jpeg" onChange={handlePhotoChange} />
+							</Button>
+						</Box>
+					</Box>
 					<Grid container spacing={2}>
 						<Grid size={4}>
 							<Field label="Date of birth" value={person?.dateOfBirth} />
@@ -309,6 +338,8 @@ export function StudentDetailPage() {
 			</Paper>
 
 			<StudentGuardiansPanel studentId={student.id} />
+
+			<StudentDocumentsPanel studentId={student.id} />
 
 			<StudentTransferPanel studentId={student.id} />
 		</Stack>

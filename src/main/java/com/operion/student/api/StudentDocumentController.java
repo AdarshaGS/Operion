@@ -3,6 +3,7 @@ package com.operion.student.api;
 import java.util.List;
 
 import com.operion.authorization.RequirePermission;
+import com.operion.storage.AssetStorageService;
 import com.operion.student.DocumentVerificationStatus;
 import com.operion.student.Student;
 import com.operion.student.StudentDocument;
@@ -25,12 +26,14 @@ public class StudentDocumentController {
 	private final StudentService studentService;
 	private final StudentRepository studentRepository;
 	private final StudentDocumentRepository studentDocumentRepository;
+	private final AssetStorageService assetStorageService;
 
 	public StudentDocumentController(StudentService studentService, StudentRepository studentRepository,
-			StudentDocumentRepository studentDocumentRepository) {
+			StudentDocumentRepository studentDocumentRepository, AssetStorageService assetStorageService) {
 		this.studentService = studentService;
 		this.studentRepository = studentRepository;
 		this.studentDocumentRepository = studentDocumentRepository;
+		this.assetStorageService = assetStorageService;
 	}
 
 	@PostMapping
@@ -41,7 +44,7 @@ public class StudentDocumentController {
 
 		StudentDocument document = studentService.addDocument(
 				student, request.documentType(), request.fileReference(), request.fileName(), request.mimeType());
-		return StudentDocumentResponse.from(document);
+		return StudentDocumentResponse.from(document, assetStorageService);
 	}
 
 	@PatchMapping("/{documentId}/verify")
@@ -53,11 +56,13 @@ public class StudentDocumentController {
 
 		StudentDocument verified = studentService.verifyDocument(
 				document, DocumentVerificationStatus.valueOf(request.verificationStatus()), request.verifiedBy());
-		return StudentDocumentResponse.from(verified);
+		return StudentDocumentResponse.from(verified, assetStorageService);
 	}
 
 	@GetMapping
 	public List<StudentDocumentResponse> list(@PathVariable Long studentId) {
-		return studentDocumentRepository.findByStudentId(studentId).stream().map(StudentDocumentResponse::from).toList();
+		return studentDocumentRepository.findByStudentId(studentId).stream()
+				.map(document -> StudentDocumentResponse.from(document, assetStorageService))
+				.toList();
 	}
 }

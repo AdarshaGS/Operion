@@ -37,11 +37,24 @@ class LocalDiskAssetStorageServiceTest {
 	}
 
 	@Test
+	void storesAValidPdfAndResolvesItBackToTheSameBytes() throws Exception {
+		byte[] content = { 5, 6, 7, 8 };
+		MockMultipartFile file = new MockMultipartFile("file", "birth-certificate.pdf", "application/pdf", content);
+
+		String reference = storageService.store(file);
+
+		assertThat(reference).endsWith(".pdf");
+		assertThat(storageService.resolveUrl(reference)).isEqualTo("/uploads/" + reference);
+		assertThat(Files.readAllBytes(tempDir.resolve(reference))).isEqualTo(content);
+	}
+
+	@Test
 	void rejectsAnUnsupportedContentType() {
-		MockMultipartFile file = new MockMultipartFile("file", "resume.pdf", "application/pdf", new byte[] { 1 });
+		MockMultipartFile file = new MockMultipartFile("file", "resume.docx",
+				"application/vnd.openxmlformats-officedocument.wordprocessingml.document", new byte[] { 1 });
 
 		assertThatThrownBy(() -> storageService.store(file)).isInstanceOf(AssetStorageException.class)
-				.hasMessageContaining("PNG or JPG");
+				.hasMessageContaining("PNG, JPG, or PDF");
 	}
 
 	@Test

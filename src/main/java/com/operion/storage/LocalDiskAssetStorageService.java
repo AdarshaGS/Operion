@@ -23,7 +23,8 @@ import org.springframework.web.multipart.MultipartFile;
 public class LocalDiskAssetStorageService implements AssetStorageService {
 
 	private static final long MAX_FILE_SIZE_BYTES = 5L * 1024 * 1024;
-	private static final Map<String, String> ALLOWED_CONTENT_TYPES = Map.of("image/png", "png", "image/jpeg", "jpg");
+	private static final Map<String, String> ALLOWED_CONTENT_TYPES =
+			Map.of("image/png", "png", "image/jpeg", "jpg", "application/pdf", "pdf");
 
 	private final Path baseDir;
 
@@ -41,7 +42,7 @@ public class LocalDiskAssetStorageService implements AssetStorageService {
 		}
 		String extension = ALLOWED_CONTENT_TYPES.get(file.getContentType());
 		if (extension == null) {
-			throw new AssetStorageException("Only PNG or JPG images are accepted");
+			throw new AssetStorageException("Only PNG, JPG, or PDF files are accepted");
 		}
 
 		String reference = UUID.randomUUID() + "." + extension;

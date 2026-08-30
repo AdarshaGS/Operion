@@ -35,3 +35,7 @@ export function listPersons(): Promise<PersonResponse[]> {
 export function getPerson(id: number): Promise<PersonResponse> {
 	return api.get<PersonResponse>(`/api/v1/persons/${id}`);
 }
+
+export function updatePersonPhoto(id: number, photoUrl: string): Promise<PersonResponse> {
+	return api.patch<PersonResponse>(`/api/v1/persons/${id}/photo`, { photoUrl });
+}
