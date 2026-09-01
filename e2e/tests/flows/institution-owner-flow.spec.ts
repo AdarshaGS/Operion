@@ -253,6 +253,7 @@ test("Institution Owner: onboarding checklist moves in real dependency order, dr
 		await expect(fees.categoryRow(`TUI${run}`)).toBeVisible();
 
 		await fees.selectStructureScope(academicYearName, className);
+		await fees.setUpStructure(`${className} Fees ${academicYearName}`);
 		await fees.addStructure({ categoryName, amount: 12000, installmentDueDate: "2026-07-01" });
 		await expect(fees.structureRow(categoryName)).toBeVisible();
 

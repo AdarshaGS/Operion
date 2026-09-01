@@ -16,6 +16,7 @@ test("creating a fee category and a fee structure through the real forms end to 
 	await expect(fees.categoryRow(categoryCode)).toBeVisible();
 
 	await fees.selectStructureScope(seed.academicYearName, seed.className);
+	await fees.setUpStructure(`${seed.className} Fees ${seed.academicYearName}`);
 	await fees.addStructure({ categoryName: "UI Tuition Fee", amount: 5000, installmentDueDate: "2026-07-01" });
 	await expect(fees.structureRow("UI Tuition Fee")).toBeVisible();
 	await expect(fees.structureRow("UI Tuition Fee")).toContainText("5000");

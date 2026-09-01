@@ -2,18 +2,16 @@ package com.operion.finance.api;
 
 import java.util.List;
 
-import com.operion.academic.SchoolClass;
-import com.operion.academic.SchoolClassRepository;
 import com.operion.authorization.RequirePermission;
 import com.operion.finance.FeeCategory;
 import com.operion.finance.FeeCategoryRepository;
 import com.operion.finance.FeeService;
 import com.operion.finance.FeeService.InstallmentInput;
 import com.operion.finance.FeeStructure;
+import com.operion.finance.FeeStructureGroup;
+import com.operion.finance.FeeStructureGroupRepository;
 import com.operion.finance.FeeStructureInstallmentRepository;
 import com.operion.finance.FeeStructureRepository;
-import com.operion.organisation.AcademicYear;
-import com.operion.organisation.AcademicYearRepository;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -30,28 +28,24 @@ public class FeeStructureController {
 	private final FeeService feeService;
 	private final FeeStructureRepository feeStructureRepository;
 	private final FeeStructureInstallmentRepository feeStructureInstallmentRepository;
-	private final AcademicYearRepository academicYearRepository;
-	private final SchoolClassRepository schoolClassRepository;
+	private final FeeStructureGroupRepository feeStructureGroupRepository;
 	private final FeeCategoryRepository feeCategoryRepository;
 
 	public FeeStructureController(FeeService feeService, FeeStructureRepository feeStructureRepository,
-			FeeStructureInstallmentRepository feeStructureInstallmentRepository, AcademicYearRepository academicYearRepository,
-			SchoolClassRepository schoolClassRepository, FeeCategoryRepository feeCategoryRepository) {
+			FeeStructureInstallmentRepository feeStructureInstallmentRepository, FeeStructureGroupRepository feeStructureGroupRepository,
+			FeeCategoryRepository feeCategoryRepository) {
 		this.feeService = feeService;
 		this.feeStructureRepository = feeStructureRepository;
 		this.feeStructureInstallmentRepository = feeStructureInstallmentRepository;
-		this.academicYearRepository = academicYearRepository;
-		this.schoolClassRepository = schoolClassRepository;
+		this.feeStructureGroupRepository = feeStructureGroupRepository;
 		this.feeCategoryRepository = feeCategoryRepository;
 	}
 
 	@PostMapping
 	@RequirePermission("FEE_STRUCTURE_MANAGE")
 	public FeeStructureResponse create(@RequestBody CreateFeeStructureRequest request) {
-		AcademicYear academicYear = academicYearRepository.findById(request.academicYearId())
-				.orElseThrow(() -> new IllegalArgumentException("No academic year with id " + request.academicYearId()));
-		SchoolClass schoolClass = schoolClassRepository.findById(request.schoolClassId())
-				.orElseThrow(() -> new IllegalArgumentException("No school class with id " + request.schoolClassId()));
+		FeeStructureGroup feeStructureGroup = feeStructureGroupRepository.findById(request.feeStructureGroupId())
+				.orElseThrow(() -> new IllegalArgumentException("No fee structure group with id " + request.feeStructureGroupId()));
 		FeeCategory feeCategory = feeCategoryRepository.findById(request.feeCategoryId())
 				.orElseThrow(() -> new IllegalArgumentException("No fee category with id " + request.feeCategoryId()));
 
@@ -59,13 +53,13 @@ public class FeeStructureController {
 				.map(entry -> new InstallmentInput(entry.installmentNumber(), entry.dueDate(), entry.amount()))
 				.toList();
 
-		FeeStructure structure = feeService.createFeeStructure(academicYear, schoolClass, feeCategory, request.amount(), installments);
+		FeeStructure structure = feeService.createFeeStructure(feeStructureGroup, feeCategory, request.amount(), installments);
 		return toResponse(structure);
 	}
 
 	@GetMapping
-	public List<FeeStructureResponse> list(@RequestParam Long academicYearId, @RequestParam Long schoolClassId) {
-		return feeStructureRepository.findByAcademicYearIdAndSchoolClassId(academicYearId, schoolClassId).stream()
+	public List<FeeStructureResponse> list(@RequestParam Long feeStructureGroupId) {
+		return feeStructureRepository.findByFeeStructureGroupId(feeStructureGroupId).stream()
 				.map(this::toResponse)
 				.toList();
 	}

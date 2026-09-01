@@ -24,6 +24,7 @@ import AddIcon from "@mui/icons-material/Add";
 import { ApiError } from "../../api/client";
 import { assignFee, listFeeAssignments, type StudentFeeAssignmentResponse } from "../../api/feeAssignments";
 import { listFeeCategories, type FeeCategoryResponse } from "../../api/feeCategories";
+import { listFeeStructureGroups } from "../../api/feeStructureGroups";
 import { listFeeStructures, type FeeStructureResponse } from "../../api/feeStructures";
 import { generateInvoice, listInvoices, type InvoiceResponse } from "../../api/invoices";
 import { recordPayment, type AllocationEntry } from "../../api/payments";
@@ -88,7 +89,10 @@ export function StudentFeesPanel({ studentEnrollmentId, academicYearId, schoolCl
 	useEffect(refresh, [studentEnrollmentId]);
 
 	useEffect(() => {
-		listFeeStructures(academicYearId, schoolClassId).then(setFeeStructures).catch(() => {});
+		listFeeStructureGroups(academicYearId, schoolClassId)
+			.then((groups) => (groups[0] ? listFeeStructures(groups[0].id) : []))
+			.then(setFeeStructures)
+			.catch(() => {});
 		listFeeCategories().then(setCategories).catch(() => {});
 	}, [academicYearId, schoolClassId]);
 

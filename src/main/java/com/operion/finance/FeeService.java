@@ -27,6 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class FeeService {
 
 	private final FeeCategoryRepository feeCategoryRepository;
+	private final FeeStructureGroupRepository feeStructureGroupRepository;
 	private final FeeStructureRepository feeStructureRepository;
 	private final FeeStructureInstallmentRepository feeStructureInstallmentRepository;
 	private final StudentFeeAssignmentRepository studentFeeAssignmentRepository;
@@ -37,13 +38,14 @@ public class FeeService {
 	private final FeeDocumentCounterRepository feeDocumentCounterRepository;
 	private final OrganisationBrandingRepository organisationBrandingRepository;
 
-	public FeeService(FeeCategoryRepository feeCategoryRepository, FeeStructureRepository feeStructureRepository,
-			FeeStructureInstallmentRepository feeStructureInstallmentRepository,
+	public FeeService(FeeCategoryRepository feeCategoryRepository, FeeStructureGroupRepository feeStructureGroupRepository,
+			FeeStructureRepository feeStructureRepository, FeeStructureInstallmentRepository feeStructureInstallmentRepository,
 			StudentFeeAssignmentRepository studentFeeAssignmentRepository, InvoiceRepository invoiceRepository,
 			PaymentRepository paymentRepository, PaymentAllocationRepository paymentAllocationRepository,
 			RefundRepository refundRepository, FeeDocumentCounterRepository feeDocumentCounterRepository,
 			OrganisationBrandingRepository organisationBrandingRepository) {
 		this.feeCategoryRepository = feeCategoryRepository;
+		this.feeStructureGroupRepository = feeStructureGroupRepository;
 		this.feeStructureRepository = feeStructureRepository;
 		this.feeStructureInstallmentRepository = feeStructureInstallmentRepository;
 		this.studentFeeAssignmentRepository = studentFeeAssignmentRepository;
@@ -59,9 +61,15 @@ public class FeeService {
 		return feeCategoryRepository.save(new FeeCategory(code, name, description));
 	}
 
+	/** The named "one fee structure, several components" setup - see FeeStructureGroup. */
+	@Transactional
+	public FeeStructureGroup createFeeStructureGroup(String name, AcademicYear academicYear, SchoolClass schoolClass) {
+		return feeStructureGroupRepository.save(new FeeStructureGroup(name, academicYear, schoolClass));
+	}
+
 	/** Validates the installments sum to exactly the structure's amount before saving anything. */
 	@Transactional
-	public FeeStructure createFeeStructure(AcademicYear academicYear, SchoolClass schoolClass, FeeCategory feeCategory,
+	public FeeStructure createFeeStructure(FeeStructureGroup feeStructureGroup, FeeCategory feeCategory,
 			BigDecimal amount, List<InstallmentInput> installments) {
 		BigDecimal installmentTotal = installments.stream().map(InstallmentInput::amount).reduce(BigDecimal.ZERO, BigDecimal::add);
 		if (installmentTotal.compareTo(amount) != 0) {
@@ -69,7 +77,7 @@ public class FeeService {
 					"Installment amounts (" + installmentTotal + ") must sum to the structure amount (" + amount + ")");
 		}
 
-		FeeStructure structure = feeStructureRepository.save(new FeeStructure(academicYear, schoolClass, feeCategory, amount));
+		FeeStructure structure = feeStructureRepository.save(new FeeStructure(feeStructureGroup, feeCategory, amount));
 		for (InstallmentInput input : installments) {
 			feeStructureInstallmentRepository.save(
 					new FeeStructureInstallment(structure, input.installmentNumber(), input.dueDate(), input.amount()));
@@ -81,10 +89,11 @@ public class FeeService {
 	@Transactional
 	public StudentFeeAssignment assignFee(StudentEnrollment studentEnrollment, FeeStructure feeStructure,
 			BigDecimal discountAmount, String discountReason, Long approvedBy) {
-		if (!studentEnrollment.getAcademicYear().getId().equals(feeStructure.getAcademicYear().getId())) {
+		FeeStructureGroup feeStructureGroup = feeStructure.getFeeStructureGroup();
+		if (!studentEnrollment.getAcademicYear().getId().equals(feeStructureGroup.getAcademicYear().getId())) {
 			throw new IllegalArgumentException("Enrollment and fee structure are for different academic years");
 		}
-		if (!studentEnrollment.getSection().getSchoolClass().getId().equals(feeStructure.getSchoolClass().getId())) {
+		if (!studentEnrollment.getSection().getSchoolClass().getId().equals(feeStructureGroup.getSchoolClass().getId())) {
 			throw new IllegalArgumentException("Enrollment and fee structure are for different classes");
 		}
 

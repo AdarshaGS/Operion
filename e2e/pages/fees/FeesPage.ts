@@ -38,8 +38,15 @@ export class FeesPage {
 		await this.page.getByRole("option", { name: className }).click();
 	}
 
+	/** Only needed the first time a class/year has no fee structure group yet. */
+	async setUpStructure(name: string) {
+		await this.page.getByRole("button", { name: "Set up" }).click();
+		await this.page.getByLabel("Name").fill(name);
+		await this.page.getByRole("button", { name: "Create" }).click();
+	}
+
 	async addStructure(input: { categoryName: string; amount: number; installmentDueDate: string }) {
-		await this.page.getByRole("button", { name: "Add structure" }).click();
+		await this.page.getByRole("button", { name: "Add component" }).click();
 		await this.page.getByRole("combobox", { name: "Fee category" }).click();
 		await this.page.getByRole("option", { name: input.categoryName }).click();
 		await this.page.getByLabel("Total amount").fill(String(input.amount));

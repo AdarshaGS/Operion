@@ -24,6 +24,11 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import { type AcademicYearResponse, listAcademicYears } from "../../api/academicYears";
 import { ApiError } from "../../api/client";
 import { type FeeCategoryResponse, listFeeCategories } from "../../api/feeCategories";
+import {
+	createFeeStructureGroup,
+	listFeeStructureGroups,
+	type FeeStructureGroupResponse,
+} from "../../api/feeStructureGroups";
 import { createFeeStructure, listFeeStructures, type FeeStructureResponse, type InstallmentEntry } from "../../api/feeStructures";
 import { listSchoolClasses, type SchoolClassResponse } from "../../api/schoolClasses";
 
@@ -35,8 +40,13 @@ export function FeeStructuresPanel() {
 	const [categories, setCategories] = useState<FeeCategoryResponse[]>([]);
 	const [academicYearId, setAcademicYearId] = useState("");
 	const [schoolClassId, setSchoolClassId] = useState("");
+	const [group, setGroup] = useState<FeeStructureGroupResponse | null | undefined>(undefined);
 	const [structures, setStructures] = useState<FeeStructureResponse[]>([]);
 	const [error, setError] = useState<string | null>(null);
+
+	const [groupDialogOpen, setGroupDialogOpen] = useState(false);
+	const [groupName, setGroupName] = useState("");
+	const [creatingGroup, setCreatingGroup] = useState(false);
 
 	const [dialogOpen, setDialogOpen] = useState(false);
 	const [feeCategoryId, setFeeCategoryId] = useState("");
@@ -50,20 +60,59 @@ export function FeeStructuresPanel() {
 		listFeeCategories().then(setCategories).catch(() => {});
 	}, []);
 
-	function refresh() {
+	function refreshGroup() {
 		if (!academicYearId || !schoolClassId) {
+			setGroup(undefined);
 			setStructures([]);
 			return;
 		}
-		listFeeStructures(Number(academicYearId), Number(schoolClassId))
-			.then(setStructures)
-			.catch((err) => setError(err instanceof ApiError ? err.message : "Failed to load fee structures"));
+		listFeeStructureGroups(Number(academicYearId), Number(schoolClassId))
+			.then((groups) => setGroup(groups[0] ?? null))
+			.catch((err) => setError(err instanceof ApiError ? err.message : "Failed to load fee structure"));
 	}
 
-	useEffect(refresh, [academicYearId, schoolClassId]);
+	useEffect(refreshGroup, [academicYearId, schoolClassId]);
+
+	function refreshStructures() {
+		if (!group) {
+			setStructures([]);
+			return;
+		}
+		listFeeStructures(group.id)
+			.then(setStructures)
+			.catch((err) => setError(err instanceof ApiError ? err.message : "Failed to load fee structure components"));
+	}
+
+	useEffect(refreshStructures, [group]);
 
 	const installmentTotal = installments.reduce((sum, entry) => sum + (Number(entry.amount) || 0), 0);
 	const totalsMatch = installments.length > 0 && Math.abs(installmentTotal - (Number(amount) || 0)) < 0.005;
+
+	function openGroupDialog() {
+		const year = academicYears.find((y) => String(y.id) === academicYearId);
+		const schoolClass = classes.find((c) => String(c.id) === schoolClassId);
+		const defaultName = [schoolClass?.displayName, year?.name].filter(Boolean).join(" Fees ");
+		setGroupName(defaultName || "");
+		setGroupDialogOpen(true);
+	}
+
+	async function handleCreateGroup(event: FormEvent) {
+		event.preventDefault();
+		setCreatingGroup(true);
+		try {
+			const created = await createFeeStructureGroup({
+				name: groupName,
+				academicYearId: Number(academicYearId),
+				schoolClassId: Number(schoolClassId),
+			});
+			setGroup(created);
+			setGroupDialogOpen(false);
+		} catch (err) {
+			setError(err instanceof ApiError ? err.message : "Failed to set up fee structure");
+		} finally {
+			setCreatingGroup(false);
+		}
+	}
 
 	function openDialog() {
 		listFeeCategories().then(setCategories).catch(() => {});
@@ -87,20 +136,19 @@ export function FeeStructuresPanel() {
 
 	async function handleSubmit(event: FormEvent) {
 		event.preventDefault();
-		if (!totalsMatch) return;
+		if (!totalsMatch || !group) return;
 		setSubmitting(true);
 		try {
 			await createFeeStructure({
-				academicYearId: Number(academicYearId),
-				schoolClassId: Number(schoolClassId),
+				feeStructureGroupId: group.id,
 				feeCategoryId: Number(feeCategoryId),
 				amount: Number(amount),
 				installments,
 			});
 			setDialogOpen(false);
-			refresh();
+			refreshStructures();
 		} catch (err) {
-			setError(err instanceof ApiError ? err.message : "Failed to create fee structure");
+			setError(err instanceof ApiError ? err.message : "Failed to add fee component");
 		} finally {
 			setSubmitting(false);
 		}
@@ -136,43 +184,83 @@ export function FeeStructuresPanel() {
 							</MenuItem>
 						))}
 					</TextField>
-					<Button startIcon={<AddIcon />} onClick={openDialog} disabled={!academicYearId || !schoolClassId}>
-						Add structure
-					</Button>
 				</Box>
 
 				{error && <Alert severity="error">{error}</Alert>}
 
-				{academicYearId && schoolClassId && (
-					<TableContainer>
-						<Table size="small">
-							<TableHead>
-								<TableRow>
-									<TableCell>Category</TableCell>
-									<TableCell>Amount</TableCell>
-									<TableCell>Installments</TableCell>
-									<TableCell>Status</TableCell>
-								</TableRow>
-							</TableHead>
-							<TableBody>
-								{structures.map((structure) => (
-									<TableRow key={structure.id}>
-										<TableCell>{categoryName(structure.feeCategoryId)}</TableCell>
-										<TableCell>{structure.amount}</TableCell>
-										<TableCell>{structure.installments.length}</TableCell>
-										<TableCell>
-											<Chip label={structure.status} size="small" />
-										</TableCell>
+				{academicYearId && schoolClassId && group === null && (
+					<Alert
+						severity="info"
+						action={
+							<Button color="inherit" size="small" onClick={openGroupDialog}>
+								Set up
+							</Button>
+						}
+					>
+						No fee structure has been set up for this class yet.
+					</Alert>
+				)}
+
+				{group && (
+					<>
+						<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+							<Typography variant="subtitle1">{group.name}</Typography>
+							<Button startIcon={<AddIcon />} onClick={openDialog}>
+								Add component
+							</Button>
+						</Box>
+
+						<TableContainer>
+							<Table size="small">
+								<TableHead>
+									<TableRow>
+										<TableCell>Category</TableCell>
+										<TableCell>Amount</TableCell>
+										<TableCell>Installments</TableCell>
+										<TableCell>Status</TableCell>
 									</TableRow>
-								))}
-							</TableBody>
-						</Table>
-					</TableContainer>
+								</TableHead>
+								<TableBody>
+									{structures.map((structure) => (
+										<TableRow key={structure.id}>
+											<TableCell>{categoryName(structure.feeCategoryId)}</TableCell>
+											<TableCell>{structure.amount}</TableCell>
+											<TableCell>{structure.installments.length}</TableCell>
+											<TableCell>
+												<Chip label={structure.status} size="small" />
+											</TableCell>
+										</TableRow>
+									))}
+								</TableBody>
+							</Table>
+						</TableContainer>
+					</>
 				)}
 			</Stack>
 
+			<Dialog open={groupDialogOpen} onClose={() => setGroupDialogOpen(false)} component="form" onSubmit={handleCreateGroup} fullWidth maxWidth="xs">
+				<DialogTitle>Set up fee structure</DialogTitle>
+				<DialogContent>
+					<TextField
+						label="Name"
+						value={groupName}
+						onChange={(e) => setGroupName(e.target.value)}
+						required
+						fullWidth
+						sx={{ mt: 1 }}
+						helperText='e.g. "Grade 5 Annual Fees 2026-27"'
+					/>
+				</DialogContent>
+				<DialogActions>
+					<Button onClick={() => setGroupDialogOpen(false)}>Cancel</Button>
+					<Button type="submit" variant="contained" disabled={creatingGroup || !groupName}>
+						Create
+					</Button>
+				</DialogActions>
+			</Dialog>
+
 			<Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} component="form" onSubmit={handleSubmit} fullWidth maxWidth="sm">
-				<DialogTitle>Add fee structure</DialogTitle>
+				<DialogTitle>Add fee component</DialogTitle>
 				<DialogContent>
 					<Stack spacing={2} sx={{ mt: 1 }}>
 						<TextField select label="Fee category" value={feeCategoryId} onChange={(e) => setFeeCategoryId(e.target.value)} required fullWidth>
