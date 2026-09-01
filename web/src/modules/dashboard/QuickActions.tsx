@@ -1,9 +1,12 @@
 import { useNavigate } from "react-router-dom";
 import Box from "@mui/material/Box";
+import IconButton from "@mui/material/IconButton";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
+import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
+import CloseIcon from "@mui/icons-material/Close";
 import EventAvailableIcon from "@mui/icons-material/EventAvailable";
 import GroupAddIcon from "@mui/icons-material/GroupAdd";
 import PaymentsIcon from "@mui/icons-material/Payments";
@@ -52,11 +55,16 @@ const ACTIONS: Action[] = [
 	},
 ];
 
+interface QuickActionsProps {
+	onDismiss: () => void;
+}
+
 /** Shortcuts into the four most common admin flows - reachable normally via nav too,
  * this just puts them one click from the dashboard landing (#97). Each shortcut is
  * gated by the same permission its target flow itself requires (#124) - no assumption
- * about which role "should" do these, purely the org's own configured permissions. */
-export function QuickActions() {
+ * about which role "should" do these, purely the org's own configured permissions.
+ * Dismissible (permanent per-user) for anyone who already knows the system. */
+export function QuickActions({ onDismiss }: QuickActionsProps) {
 	const navigate = useNavigate();
 	const { hasAnyPermission } = useAuth();
 	const actions = ACTIONS.filter((action) => hasAnyPermission([action.requiredPermission]));
@@ -68,7 +76,14 @@ export function QuickActions() {
 	return (
 		<Paper sx={{ p: 3, height: "100%" }}>
 			<Stack spacing={1.5}>
-				<Typography variant="subtitle1">Quick actions</Typography>
+				<Stack direction="row" alignItems="center" justifyContent="space-between">
+					<Typography variant="subtitle1">Quick actions</Typography>
+					<Tooltip title="Hide this - you can always reach these from the sidebar">
+						<IconButton size="small" onClick={onDismiss} aria-label="Dismiss quick actions">
+							<CloseIcon fontSize="small" />
+						</IconButton>
+					</Tooltip>
+				</Stack>
 				<Stack spacing={1}>
 					{actions.map((action) => (
 						<Box

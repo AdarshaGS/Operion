@@ -1,11 +1,14 @@
 import { useNavigate } from "react-router-dom";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
+import IconButton from "@mui/material/IconButton";
 import LinearProgress from "@mui/material/LinearProgress";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
+import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import CheckIcon from "@mui/icons-material/Check";
+import CloseIcon from "@mui/icons-material/Close";
 import type { SetupChecklist } from "../../api/dashboard";
 import { colors } from "../../theme";
 
@@ -37,11 +40,13 @@ const STEPS: Step[] = [
 
 interface SetupProgressProps {
 	checklist: SetupChecklist;
+	onDismiss: () => void;
 }
 
 /** Post-login "next setup step" card (#97) - a numbered vertical stepper over the
- * SetupChecklist signal, always shown until every step reports done. */
-export function SetupProgress({ checklist }: SetupProgressProps) {
+ * SetupChecklist signal, shown until every step reports done or the user dismisses it
+ * early (permanent per-user dismissal, for anyone who already knows the system). */
+export function SetupProgress({ checklist, onDismiss }: SetupProgressProps) {
 	const navigate = useNavigate();
 
 	const doneCount = STEPS.filter((step) => checklist[step.key]).length;
@@ -53,7 +58,14 @@ export function SetupProgress({ checklist }: SetupProgressProps) {
 	return (
 		<Paper sx={{ p: 3, height: "100%" }}>
 			<Stack spacing={2}>
-				<Typography variant="subtitle1">Next setup step</Typography>
+				<Stack direction="row" alignItems="center" justifyContent="space-between">
+					<Typography variant="subtitle1">Next setup step</Typography>
+					<Tooltip title="Hide this - you can always reach setup from Settings">
+						<IconButton size="small" onClick={onDismiss} aria-label="Dismiss setup guide">
+							<CloseIcon fontSize="small" />
+						</IconButton>
+					</Tooltip>
+				</Stack>
 				<Box>
 					<Typography variant="body2" sx={{ color: colors.inkSoft, mb: 0.75 }}>
 						<Box component="span" sx={{ color: colors.accent, fontWeight: 700 }}>

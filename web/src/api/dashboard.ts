@@ -63,6 +63,11 @@ export interface SetupChecklist {
 	attendanceStarted: boolean;
 }
 
+export interface DashboardPreferences {
+	setupProgressDismissed: boolean;
+	quickActionsDismissed: boolean;
+}
+
 export interface DashboardSummaryResponse {
 	enrollment: EnrollmentSummary;
 	attendanceToday: AttendanceSummary;
@@ -74,8 +79,19 @@ export interface DashboardSummaryResponse {
 	inventory: InventorySummary;
 	communication: CommunicationSummary;
 	setupChecklist: SetupChecklist;
+	preferences: DashboardPreferences;
 }
 
 export function getDashboardSummary(): Promise<DashboardSummaryResponse> {
 	return api.get<DashboardSummaryResponse>("/api/v1/dashboard/summary");
+}
+
+/** Permanent per-user dismissal (#backend DashboardController) - no undo endpoint by
+ * design; re-showing these cards is a future Settings > Learning affordance, not this one. */
+export function dismissSetupProgress(): Promise<void> {
+	return api.post<void>("/api/v1/dashboard/setup-progress/dismiss");
+}
+
+export function dismissQuickActions(): Promise<void> {
+	return api.post<void>("/api/v1/dashboard/quick-actions/dismiss");
 }

@@ -21,6 +21,9 @@ import { usePlatformAuth } from "../auth/PlatformAuthContext";
 
 const DRAWER_WIDTH = 220;
 
+// No standalone "Integrations" nav entry - entitlement is per-organisation (see
+// PlatformExternalServiceController), so it lives as a section on each org's own
+// OrganisationDetailPage instead of a single global page.
 const NAV_ITEMS = [
 	{ label: "Dashboard", path: "/platform/dashboard", icon: <DashboardIcon /> },
 	{ label: "Organisations", path: "/platform/organisations", icon: <ApartmentIcon /> },

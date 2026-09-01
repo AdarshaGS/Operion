@@ -11,6 +11,7 @@ import DialogTitle from "@mui/material/DialogTitle";
 import MenuItem from "@mui/material/MenuItem";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
+import Switch from "@mui/material/Switch";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
@@ -20,6 +21,11 @@ import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import AddIcon from "@mui/icons-material/Add";
+import {
+	listOrganisationExternalServices,
+	setOrganisationExternalServiceEnabled,
+	type OrganisationExternalServiceResponse,
+} from "./api/organisationExternalServices";
 import { changeOrganisationStatus, getOrganisation, type OrganisationResponse } from "./api/organisations";
 import { listPlans, type PlanResponse } from "./api/plans";
 import { generateInvoice, listInvoices, markInvoicePaid, type PlatformInvoiceResponse } from "./api/platformInvoices";
@@ -54,6 +60,7 @@ export function OrganisationDetailPage() {
 	const [plans, setPlans] = useState<PlanResponse[]>([]);
 	const [subscriptions, setSubscriptions] = useState<SubscriptionResponse[]>([]);
 	const [invoices, setInvoices] = useState<PlatformInvoiceResponse[]>([]);
+	const [externalServices, setExternalServices] = useState<OrganisationExternalServiceResponse[]>([]);
 	const [error, setError] = useState<string | null>(null);
 
 	const [statusDialogOpen, setStatusDialogOpen] = useState(false);
@@ -77,6 +84,18 @@ export function OrganisationDetailPage() {
 		listInvoices(orgId)
 			.then(setInvoices)
 			.catch((err) => setError(err instanceof PlatformApiError ? err.message : "Failed to load invoices"));
+		listOrganisationExternalServices(orgId)
+			.then(setExternalServices)
+			.catch((err) => setError(err instanceof PlatformApiError ? err.message : "Failed to load integrations"));
+	}
+
+	async function handleToggleExternalService(serviceKey: string, enabled: boolean) {
+		try {
+			const updated = await setOrganisationExternalServiceEnabled(orgId, serviceKey, enabled);
+			setExternalServices((prev) => prev.map((service) => (service.serviceKey === serviceKey ? updated : service)));
+		} catch (err) {
+			setError(err instanceof PlatformApiError ? err.message : "Failed to update integration");
+		}
 	}
 
 	useEffect(() => {
@@ -272,6 +291,44 @@ export function OrganisationDetailPage() {
 														Mark paid
 													</Button>
 												)}
+											</TableCell>
+										</TableRow>
+									))}
+								</TableBody>
+							</Table>
+						</TableContainer>
+					)}
+				</Stack>
+			</Paper>
+
+			<Paper sx={{ p: 3 }}>
+				<Stack spacing={2}>
+					<Typography variant="h6">Integrations</Typography>
+					<Typography variant="body2" color="text.secondary">
+						Grants this organisation access to configure its own credentials from its own Settings — the platform never
+						sees the values it enters.
+					</Typography>
+
+					{externalServices.length === 0 && <Alert severity="info">No integrations available yet.</Alert>}
+
+					{externalServices.length > 0 && (
+						<TableContainer>
+							<Table size="small">
+								<TableHead>
+									<TableRow>
+										<TableCell>Integration</TableCell>
+										<TableCell>Enabled</TableCell>
+									</TableRow>
+								</TableHead>
+								<TableBody>
+									{externalServices.map((service) => (
+										<TableRow key={service.serviceKey}>
+											<TableCell>{service.displayName}</TableCell>
+											<TableCell>
+												<Switch
+													checked={service.enabled}
+													onChange={(e) => handleToggleExternalService(service.serviceKey, e.target.checked)}
+												/>
 											</TableCell>
 										</TableRow>
 									))}

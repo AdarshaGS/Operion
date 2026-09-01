@@ -15,7 +15,12 @@ import EventAvailableIcon from "@mui/icons-material/EventAvailable";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import GroupsIcon from "@mui/icons-material/Groups";
 import PaymentsIcon from "@mui/icons-material/Payments";
-import { getDashboardSummary, type DashboardSummaryResponse } from "../../api/dashboard";
+import {
+	dismissQuickActions,
+	dismissSetupProgress,
+	getDashboardSummary,
+	type DashboardSummaryResponse,
+} from "../../api/dashboard";
 import { ApiError } from "../../api/client";
 import { useAuth } from "../../auth/AuthContext";
 import { colors } from "../../theme";
@@ -127,6 +132,19 @@ export function DashboardPage() {
 			.finally(() => setLoading(false));
 	}, []);
 
+	/** Optimistic + permanent (#97 dismiss) - flips the flag immediately so the card
+	 * disappears without waiting on the round trip; the dismiss endpoints have no undo,
+	 * so there's nothing to reconcile if the request fails beyond a silent retry-later. */
+	function handleDismissSetupProgress() {
+		setSummary((current) => (current ? { ...current, preferences: { ...current.preferences, setupProgressDismissed: true } } : current));
+		dismissSetupProgress().catch(() => undefined);
+	}
+
+	function handleDismissQuickActions() {
+		setSummary((current) => (current ? { ...current, preferences: { ...current.preferences, quickActionsDismissed: true } } : current));
+		dismissQuickActions().catch(() => undefined);
+	}
+
 	/** No students yet (#125) - lead with one clear next step instead of a wall of
 	 * zero-value tiles, checking academic setup before students per the issue's own
 	 * dependency order. Once students exist, this returns exactly today's layout. */
@@ -201,14 +219,20 @@ export function DashboardPage() {
 					</Paper>
 				)}
 
-				<Stack direction={{ xs: "column", md: "row" }} spacing={3} sx={{ alignItems: "stretch" }}>
-					<Box sx={{ flex: "3 1 0" }}>
-						<SetupProgress checklist={summaryData.setupChecklist} />
-					</Box>
-					<Box sx={{ flex: "2 1 0" }}>
-						<QuickActions />
-					</Box>
-				</Stack>
+				{!(summaryData.preferences.setupProgressDismissed && summaryData.preferences.quickActionsDismissed) && (
+					<Stack direction={{ xs: "column", md: "row" }} spacing={3} sx={{ alignItems: "stretch" }}>
+						{!summaryData.preferences.setupProgressDismissed && (
+							<Box sx={{ flex: "3 1 0" }}>
+								<SetupProgress checklist={summaryData.setupChecklist} onDismiss={handleDismissSetupProgress} />
+							</Box>
+						)}
+						{!summaryData.preferences.quickActionsDismissed && (
+							<Box sx={{ flex: "2 1 0" }}>
+								<QuickActions onDismiss={handleDismissQuickActions} />
+							</Box>
+						)}
+					</Stack>
+				)}
 
 				<RecentActivity />
 

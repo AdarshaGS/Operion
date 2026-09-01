@@ -143,8 +143,6 @@ public class MessagingService {
 		return threadParticipantRepository.findByThreadId(thread.getId());
 	}
 
-	/** Also the seam WebSocket SUBSCRIBE authorization (StompAuthenticationInterceptor)
-	 * checks against, so a client can't subscribe to a thread it isn't in. */
 	public boolean isParticipant(Long threadId, Long personId) {
 		return threadParticipantRepository.existsByThreadIdAndPersonId(threadId, personId);
 	}

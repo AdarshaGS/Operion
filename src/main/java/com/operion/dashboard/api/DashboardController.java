@@ -15,6 +15,8 @@ import com.operion.authorization.RequirePermission;
 import com.operion.authorization.RoleRepository;
 import com.operion.communication.AnnouncementRepository;
 import com.operion.communication.AnnouncementStatus;
+import com.operion.dashboard.DashboardPreference;
+import com.operion.dashboard.DashboardPreferenceRepository;
 import com.operion.examination.ExamRepository;
 import com.operion.examination.ExamStatus;
 import com.operion.finance.FeeStructureRepository;
@@ -50,6 +52,7 @@ import com.operion.transport.TransportAssignmentStatus;
 import com.operion.transport.VehicleRepository;
 import com.operion.transport.VehicleStatus;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -66,7 +69,10 @@ import org.springframework.web.bind.annotation.RestController;
 @RequirePermission("ORGANISATION_MANAGE")
 public class DashboardController {
 
-	private static final int DEFAULT_ROLE_COUNT = 5;
+	// Org provisioning now seeds only the Owner role (DefaultRoles - GitHub #92 removed
+	// the old Teacher/Accountant/Front Desk/Guardian defaults), so "Roles" reads done as
+	// soon as one role beyond Owner exists.
+	private static final int DEFAULT_ROLE_COUNT = 1;
 
 	private final StudentRepository studentRepository;
 	private final CampusRepository campusRepository;
@@ -93,6 +99,7 @@ public class DashboardController {
 	private final AcademicYearRepository academicYearRepository;
 	private final FeeStructureRepository feeStructureRepository;
 	private final OrganisationConfigurationRepository organisationConfigurationRepository;
+	private final DashboardPreferenceRepository dashboardPreferenceRepository;
 
 	public DashboardController(StudentRepository studentRepository, CampusRepository campusRepository,
 			StudentAttendanceRepository studentAttendanceRepository, InvoiceRepository invoiceRepository,
@@ -104,7 +111,8 @@ public class DashboardController {
 			RoleRepository roleRepository, OrganisationMembershipRepository membershipRepository, SaleRepository saleRepository,
 			PurchaseOrderRepository purchaseOrderRepository, InventoryService inventoryService,
 			SchoolClassRepository schoolClassRepository, AcademicYearRepository academicYearRepository,
-			FeeStructureRepository feeStructureRepository, OrganisationConfigurationRepository organisationConfigurationRepository) {
+			FeeStructureRepository feeStructureRepository, OrganisationConfigurationRepository organisationConfigurationRepository,
+			DashboardPreferenceRepository dashboardPreferenceRepository) {
 		this.studentRepository = studentRepository;
 		this.campusRepository = campusRepository;
 		this.studentAttendanceRepository = studentAttendanceRepository;
@@ -130,6 +138,7 @@ public class DashboardController {
 		this.academicYearRepository = academicYearRepository;
 		this.feeStructureRepository = feeStructureRepository;
 		this.organisationConfigurationRepository = organisationConfigurationRepository;
+		this.dashboardPreferenceRepository = dashboardPreferenceRepository;
 	}
 
 	@GetMapping("/summary")
@@ -155,7 +164,33 @@ public class DashboardController {
 				purchase(),
 				new SetupChecklist(structureConfigured(), totalRoles > DEFAULT_ROLE_COUNT, activeMembers > 1,
 						academicYearRepository.existsByCurrentTrue() && schoolClassRepository.count() > 0, activeStudents > 0,
-						feeStructureRepository.count() > 0, studentAttendanceRepository.count() > 0));
+						feeStructureRepository.count() > 0, studentAttendanceRepository.count() > 0),
+				preferences());
+	}
+
+	@PostMapping("/setup-progress/dismiss")
+	public void dismissSetupProgress() {
+		DashboardPreference preference = currentPreference();
+		preference.dismissSetupProgress();
+		dashboardPreferenceRepository.save(preference);
+	}
+
+	@PostMapping("/quick-actions/dismiss")
+	public void dismissQuickActions() {
+		DashboardPreference preference = currentPreference();
+		preference.dismissQuickActions();
+		dashboardPreferenceRepository.save(preference);
+	}
+
+	private DashboardPreferences preferences() {
+		return dashboardPreferenceRepository.findByUserId(TenantContext.getActorId())
+				.map(preference -> new DashboardPreferences(preference.isSetupProgressDismissed(), preference.isQuickActionsDismissed()))
+				.orElse(new DashboardPreferences(false, false));
+	}
+
+	private DashboardPreference currentPreference() {
+		return dashboardPreferenceRepository.findByUserId(TenantContext.getActorId())
+				.orElseGet(() -> new DashboardPreference(TenantContext.getActorId()));
 	}
 
 	// Departments/designations are optional and deliberately not part of this signal

@@ -9,7 +9,7 @@ import com.operion.common.TenantContext;
 import com.operion.identity.Person;
 import com.operion.identity.auth.InvalidTokenException;
 import com.operion.identity.auth.JwtService;
-import com.operion.messaging.MessagingService;
+import com.operion.messaging.ThreadParticipantRepository;
 import org.springframework.messaging.Message;
 import org.springframework.messaging.MessageChannel;
 import org.springframework.messaging.simp.stomp.StompCommand;
@@ -39,13 +39,13 @@ class StompAuthenticationInterceptor implements ChannelInterceptor {
 
 	private final JwtService jwtService;
 	private final OrganisationMembershipRepository organisationMembershipRepository;
-	private final MessagingService messagingService;
+	private final ThreadParticipantRepository threadParticipantRepository;
 
 	StompAuthenticationInterceptor(JwtService jwtService, OrganisationMembershipRepository organisationMembershipRepository,
-			MessagingService messagingService) {
+			ThreadParticipantRepository threadParticipantRepository) {
 		this.jwtService = jwtService;
 		this.organisationMembershipRepository = organisationMembershipRepository;
-		this.messagingService = messagingService;
+		this.threadParticipantRepository = threadParticipantRepository;
 	}
 
 	@Override
@@ -94,7 +94,7 @@ class StompAuthenticationInterceptor implements ChannelInterceptor {
 		}
 		TenantContext.set(organisationId, null);
 		try {
-			if (!messagingService.isParticipant(threadId, personId)) {
+			if (!threadParticipantRepository.existsByThreadIdAndPersonId(threadId, personId)) {
 				throw new AuthorizationDeniedException("Not a participant of this thread");
 			}
 		} finally {
