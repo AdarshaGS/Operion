@@ -109,6 +109,24 @@ public class Student extends TenantScopedEntity {
 		this.status = StudentStatus.ADMITTED;
 	}
 
+	/** Everything except person/studentId/admissionNumber/admissionDate/status - same
+	 * exclusions as UpdateStudentRequest. */
+	public void update(String admissionSource, String previousSchool, String tcNumber, Double entranceScore,
+			String bloodGroup, String category, String nationality, String remarks, String medicalAlerts,
+			String emergencyContactName, String emergencyContactPhone) {
+		this.admissionSource = admissionSource;
+		this.previousSchool = previousSchool;
+		this.tcNumber = tcNumber;
+		this.entranceScore = entranceScore;
+		this.bloodGroup = bloodGroup;
+		this.category = category;
+		this.nationality = nationality;
+		this.remarks = remarks;
+		this.medicalAlerts = medicalAlerts;
+		this.emergencyContactName = emergencyContactName;
+		this.emergencyContactPhone = emergencyContactPhone;
+	}
+
 	public void activate() {
 		if (status != StudentStatus.ADMITTED) {
 			throw new IllegalStateException("Only an admitted student can be activated");

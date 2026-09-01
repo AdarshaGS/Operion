@@ -39,3 +39,17 @@ export function getPerson(id: number): Promise<PersonResponse> {
 export function updatePersonPhoto(id: number, photoUrl: string): Promise<PersonResponse> {
 	return api.patch<PersonResponse>(`/api/v1/persons/${id}/photo`, { photoUrl });
 }
+
+export interface UpdatePersonRequest {
+	firstName: string;
+	lastName: string;
+	dateOfBirth?: string | null;
+	gender?: string | null;
+	phone?: string | null;
+	email?: string | null;
+	address?: string | null;
+}
+
+export function updatePerson(id: number, request: UpdatePersonRequest): Promise<PersonResponse> {
+	return api.patch<PersonResponse>(`/api/v1/persons/${id}`, request);
+}

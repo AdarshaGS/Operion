@@ -66,6 +66,17 @@ public class StudentService {
 		return student;
 	}
 
+	@Transactional
+	public Student update(Student student, String admissionSource, String previousSchool, String tcNumber,
+			Double entranceScore, String bloodGroup, String category, String nationality, String remarks,
+			String medicalAlerts, String emergencyContactName, String emergencyContactPhone) {
+		student.update(admissionSource, previousSchool, tcNumber, entranceScore, bloodGroup, category, nationality,
+				remarks, medicalAlerts, emergencyContactName, emergencyContactPhone);
+		Student saved = studentRepository.save(student);
+		auditLogService.record("Student", saved.getId(), "STUDENT_UPDATED", null, null);
+		return saved;
+	}
+
 	/** Atomic per-(organisation, calendar year) sequence - never SELECT MAX()+1, same pattern as FeeService. */
 	private String nextAdmissionNumber(LocalDate admissionDate) {
 		String template = organisationBrandingRepository.findById(TenantContext.getOrganisationId())

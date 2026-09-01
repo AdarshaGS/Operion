@@ -54,6 +54,24 @@ export function getStudent(id: number): Promise<StudentResponse> {
 	return api.get<StudentResponse>(`/api/v1/students/${id}`);
 }
 
+export interface UpdateStudentRequest {
+	admissionSource?: string | null;
+	previousSchool?: string | null;
+	tcNumber?: string | null;
+	entranceScore?: number | null;
+	bloodGroup?: string | null;
+	category?: string | null;
+	nationality?: string | null;
+	remarks?: string | null;
+	medicalAlerts?: string | null;
+	emergencyContactName?: string | null;
+	emergencyContactPhone?: string | null;
+}
+
+export function updateStudent(id: number, request: UpdateStudentRequest): Promise<StudentResponse> {
+	return api.patch<StudentResponse>(`/api/v1/students/${id}`, request);
+}
+
 export interface StudentImportRowResult {
 	row: number;
 	success: boolean;

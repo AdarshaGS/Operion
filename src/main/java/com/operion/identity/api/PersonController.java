@@ -50,14 +50,25 @@ public class PersonController {
 		return PersonResponse.from(findOrThrow(id));
 	}
 
-	/** Narrow single-field update (#115) rather than a general edit endpoint - Person has
-	 * no business rules to enforce here, but a photo is captured after creation (upload
-	 * needs a real file, which the create form's JSON body can't carry), unlike every
-	 * other Person field which is only ever set at creation today. */
+	/** Narrow single-field update (#115) rather than the general edit endpoint below -
+	 * upload needs a real file, which the general endpoint's JSON body can't carry. */
 	@PatchMapping("/{id}/photo")
 	public PersonResponse updatePhoto(@PathVariable Long id, @RequestBody UpdatePersonPhotoRequest request) {
 		Person person = findOrThrow(id);
 		person.setPhotoUrl(request.photoUrl());
+		return PersonResponse.from(personRepository.save(person));
+	}
+
+	@PatchMapping("/{id}")
+	public PersonResponse update(@PathVariable Long id, @Valid @RequestBody UpdatePersonRequest request) {
+		Person person = findOrThrow(id);
+		person.setFirstName(request.firstName());
+		person.setLastName(request.lastName());
+		person.setDateOfBirth(request.dateOfBirth());
+		person.setGender(request.gender());
+		person.setPhone(request.phone());
+		person.setEmail(request.email());
+		person.setAddress(request.address());
 		return PersonResponse.from(personRepository.save(person));
 	}
 

@@ -26,6 +26,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -110,6 +111,18 @@ public class StudentController {
 		Student student = studentRepository.findById(studentId)
 				.orElseThrow(() -> new IllegalArgumentException("No student with id " + studentId));
 		return StudentResponse.from(student);
+	}
+
+	@PatchMapping("/{studentId}")
+	@RequirePermission("STUDENT_MANAGE")
+	public StudentResponse update(@PathVariable Long studentId, @RequestBody UpdateStudentRequest request) {
+		Student student = studentRepository.findById(studentId)
+				.orElseThrow(() -> new IllegalArgumentException("No student with id " + studentId));
+		Student updated = studentService.update(student, request.admissionSource(), request.previousSchool(),
+				request.tcNumber(), request.entranceScore(), request.bloodGroup(), request.category(),
+				request.nationality(), request.remarks(), request.medicalAlerts(), request.emergencyContactName(),
+				request.emergencyContactPhone());
+		return StudentResponse.from(updated);
 	}
 
 	/** Bulk CSV admission (#28) - reuses the same Person+Student write path as admit()
