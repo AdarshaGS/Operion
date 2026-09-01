@@ -20,6 +20,7 @@ import { CommunicationPage } from "./modules/communication/CommunicationPage";
 import { ExamDetailPage } from "./modules/examinations/ExamDetailPage";
 import { ExaminationsPage } from "./modules/examinations/ExaminationsPage";
 import { MarksEntryPage } from "./modules/examinations/MarksEntryPage";
+import { ReportCardPrintPage } from "./modules/examinations/ReportCardPrintPage";
 import { FeesPage } from "./modules/fees/FeesPage";
 import { HrPage } from "./modules/hr/HrPage";
 import { StaffCreatePage } from "./modules/hr/StaffCreatePage";
@@ -90,6 +91,7 @@ function App() {
 							<Route path="/examinations" element={<ExaminationsPage />} />
 							<Route path="/examinations/exams/:examId" element={<ExamDetailPage />} />
 							<Route path="/examinations/exams/:examId/schedules/:scheduleId" element={<MarksEntryPage />} />
+							<Route path="/examinations/report-cards/:reportCardId/print" element={<ReportCardPrintPage />} />
 							<Route path="/communication" element={<CommunicationPage />} />
 							<Route path="/messaging" element={<MessagingPage />} />
 							<Route path="/transport" element={<TransportPage />} />

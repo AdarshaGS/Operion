@@ -4,6 +4,8 @@ import java.util.List;
 
 import com.operion.academic.SchoolClass;
 import com.operion.academic.SchoolClassRepository;
+import com.operion.academic.Section;
+import com.operion.academic.SectionRepository;
 import com.operion.academic.Subject;
 import com.operion.academic.SubjectRepository;
 import com.operion.authorization.RequirePermission;
@@ -33,16 +35,18 @@ public class ExamController {
 	private final ExamScheduleRepository examScheduleRepository;
 	private final AcademicYearRepository academicYearRepository;
 	private final SchoolClassRepository schoolClassRepository;
+	private final SectionRepository sectionRepository;
 	private final SubjectRepository subjectRepository;
 
 	public ExamController(ExaminationService examinationService, ExamRepository examRepository,
 			ExamScheduleRepository examScheduleRepository, AcademicYearRepository academicYearRepository,
-			SchoolClassRepository schoolClassRepository, SubjectRepository subjectRepository) {
+			SchoolClassRepository schoolClassRepository, SectionRepository sectionRepository, SubjectRepository subjectRepository) {
 		this.examinationService = examinationService;
 		this.examRepository = examRepository;
 		this.examScheduleRepository = examScheduleRepository;
 		this.academicYearRepository = academicYearRepository;
 		this.schoolClassRepository = schoolClassRepository;
+		this.sectionRepository = sectionRepository;
 		this.subjectRepository = subjectRepository;
 	}
 
@@ -72,11 +76,13 @@ public class ExamController {
 		Exam exam = findExam(examId);
 		SchoolClass schoolClass = schoolClassRepository.findById(request.schoolClassId())
 				.orElseThrow(() -> new IllegalArgumentException("No school class with id " + request.schoolClassId()));
+		Section section = request.sectionId() == null ? null : sectionRepository.findById(request.sectionId())
+				.orElseThrow(() -> new IllegalArgumentException("No section with id " + request.sectionId()));
 		Subject subject = subjectRepository.findById(request.subjectId())
 				.orElseThrow(() -> new IllegalArgumentException("No subject with id " + request.subjectId()));
 
 		ExamSchedule schedule = examinationService.addSchedule(
-				exam, schoolClass, subject, request.examDate(), request.maxMarks(), request.passMarks());
+				exam, schoolClass, section, subject, request.examDate(), request.maxMarks(), request.passMarks());
 		return ExamScheduleResponse.from(schedule);
 	}
 

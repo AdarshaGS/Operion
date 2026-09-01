@@ -101,7 +101,13 @@ class ReportCardTest {
 	private MarksEntryRepository marksEntryRepository;
 
 	@Autowired
+	private MarksEntryRegisterRepository marksEntryRegisterRepository;
+
+	@Autowired
 	private ReportCardRepository reportCardRepository;
+
+	@Autowired
+	private ExaminationSettingsRepository examinationSettingsRepository;
 
 	@Autowired
 	private AuditLogRepository auditLogRepository;
@@ -124,7 +130,8 @@ class ReportCardTest {
 	@BeforeEach
 	void setUpExaminationService() {
 		examinationService = new ExaminationService(examRepository, examScheduleRepository, gradingScaleRepository,
-				gradingScaleBandRepository, marksEntryRepository, reportCardRepository, new AuditLogService(auditLogRepository, new ObjectMapper()));
+				gradingScaleBandRepository, marksEntryRepository, marksEntryRegisterRepository, reportCardRepository,
+				examinationSettingsRepository, new AuditLogService(auditLogRepository, new ObjectMapper()));
 		studentService = new StudentService(studentRepository, studentEnrollmentRepository, studentDocumentRepository,
 			studentExitRepository, null, null, studentIdGenerator, new AuditLogService(auditLogRepository, new ObjectMapper()));
 	}
@@ -174,6 +181,8 @@ class ReportCardTest {
 		Fixture fixture = setUpFixture("report-card-school", "ADM-500");
 		examinationService.enterMarks(fixture.mathsSchedule(), List.of(new MarkInput(fixture.enrollment(), 90.0, false, null)));
 		examinationService.enterMarks(fixture.scienceSchedule(), List.of(new MarkInput(fixture.enrollment(), 85.0, false, null)));
+		approveRegister(fixture.mathsSchedule());
+		approveRegister(fixture.scienceSchedule());
 
 		ReportCard reportCard = examinationService.publishReportCard(fixture.exam(), fixture.enrollment(), fixture.gradingScale());
 
@@ -181,6 +190,7 @@ class ReportCardTest {
 		assertThat(reportCard.getTotalMaxMarks()).isEqualTo(200.0);
 		assertThat(reportCard.getPercentage()).isEqualTo(87.5);
 		assertThat(reportCard.getOverallGrade()).isEqualTo("A");
+		assertThat(reportCard.isPassed()).isTrue();
 
 		assertThatThrownBy(() -> examinationService.publishReportCard(fixture.exam(), fixture.enrollment(), fixture.gradingScale()))
 				.isInstanceOf(IllegalStateException.class);
@@ -194,5 +204,45 @@ class ReportCardTest {
 
 		assertThatThrownBy(() -> examinationService.publishReportCard(fixture.exam(), fixture.enrollment(), fixture.gradingScale()))
 				.isInstanceOf(IllegalStateException.class);
+	}
+
+	@Test
+	void refusesToPublishWithAnUnapprovedRegister() {
+		Fixture fixture = setUpFixture("report-card-unapproved-school", "ADM-502");
+		examinationService.enterMarks(fixture.mathsSchedule(), List.of(new MarkInput(fixture.enrollment(), 90.0, false, null)));
+		examinationService.enterMarks(fixture.scienceSchedule(), List.of(new MarkInput(fixture.enrollment(), 85.0, false, null)));
+		// Neither register submitted nor approved.
+
+		assertThatThrownBy(() -> examinationService.publishReportCard(fixture.exam(), fixture.enrollment(), fixture.gradingScale()))
+				.isInstanceOf(IllegalStateException.class);
+	}
+
+	@Test
+	void republishingASuperseddedStaleReportCardKeepsTheOldSnapshot() {
+		Fixture fixture = setUpFixture("report-card-republish-school", "ADM-503");
+		MarksEntry mathsEntry =
+				examinationService.enterMarks(fixture.mathsSchedule(), List.of(new MarkInput(fixture.enrollment(), 90.0, false, null))).get(0);
+		examinationService.enterMarks(fixture.scienceSchedule(), List.of(new MarkInput(fixture.enrollment(), 85.0, false, null)));
+		approveRegister(fixture.mathsSchedule());
+		approveRegister(fixture.scienceSchedule());
+
+		ReportCard firstPublish = examinationService.publishReportCard(fixture.exam(), fixture.enrollment(), fixture.gradingScale());
+		examinationService.correctMarksAfterPublish(mathsEntry, 60.0, false, "Re-checked after publish");
+
+		ReportCard reFetchedFirst = reportCardRepository.findById(firstPublish.getId()).orElseThrow();
+		assertThat(reFetchedFirst.isStale()).isTrue();
+		assertThat(reFetchedFirst.getStatus()).isEqualTo(ReportCardStatus.PUBLISHED);
+
+		ReportCard republished = examinationService.publishReportCard(fixture.exam(), fixture.enrollment(), fixture.gradingScale());
+		assertThat(republished.getId()).isNotEqualTo(firstPublish.getId());
+		assertThat(republished.getTotalMarksObtained()).isEqualTo(145.0);
+
+		ReportCard supersededOriginal = reportCardRepository.findById(firstPublish.getId()).orElseThrow();
+		assertThat(supersededOriginal.getStatus()).isEqualTo(ReportCardStatus.SUPERSEDED);
+	}
+
+	private void approveRegister(ExamSchedule schedule) {
+		examinationService.submitMarksRegister(schedule);
+		examinationService.approveMarksRegister(schedule);
 	}
 }

@@ -56,7 +56,13 @@ class GradingScaleTest {
 	private MarksEntryRepository marksEntryRepository;
 
 	@Autowired
+	private MarksEntryRegisterRepository marksEntryRegisterRepository;
+
+	@Autowired
 	private ReportCardRepository reportCardRepository;
+
+	@Autowired
+	private ExaminationSettingsRepository examinationSettingsRepository;
 
 	@Autowired
 	private AuditLogRepository auditLogRepository;
@@ -64,7 +70,8 @@ class GradingScaleTest {
 	@BeforeEach
 	void setUpExaminationService() {
 		examinationService = new ExaminationService(examRepository, examScheduleRepository, gradingScaleRepository,
-				gradingScaleBandRepository, marksEntryRepository, reportCardRepository, new AuditLogService(auditLogRepository, new ObjectMapper()));
+				gradingScaleBandRepository, marksEntryRepository, marksEntryRegisterRepository, reportCardRepository,
+				examinationSettingsRepository, new AuditLogService(auditLogRepository, new ObjectMapper()));
 	}
 
 	@AfterEach

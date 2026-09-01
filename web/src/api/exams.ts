@@ -28,6 +28,7 @@ export function getExam(examId: number): Promise<ExamResponse> {
 
 export interface CreateExamScheduleRequest {
 	schoolClassId: number;
+	sectionId?: number | null;
 	subjectId: number;
 	examDate: string;
 	maxMarks: number;
@@ -38,6 +39,7 @@ export interface ExamScheduleResponse {
 	id: number;
 	examId: number;
 	schoolClassId: number;
+	sectionId: number | null;
 	subjectId: number;
 	examDate: string;
 	maxMarks: number;

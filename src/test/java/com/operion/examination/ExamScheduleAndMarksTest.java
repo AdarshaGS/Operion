@@ -101,7 +101,13 @@ class ExamScheduleAndMarksTest {
 	private MarksEntryRepository marksEntryRepository;
 
 	@Autowired
+	private MarksEntryRegisterRepository marksEntryRegisterRepository;
+
+	@Autowired
 	private ReportCardRepository reportCardRepository;
+
+	@Autowired
+	private ExaminationSettingsRepository examinationSettingsRepository;
 
 	@Autowired
 	private AuditLogRepository auditLogRepository;
@@ -124,7 +130,8 @@ class ExamScheduleAndMarksTest {
 	@BeforeEach
 	void setUpExaminationService() {
 		examinationService = new ExaminationService(examRepository, examScheduleRepository, gradingScaleRepository,
-				gradingScaleBandRepository, marksEntryRepository, reportCardRepository, new AuditLogService(auditLogRepository, new ObjectMapper()));
+				gradingScaleBandRepository, marksEntryRepository, marksEntryRegisterRepository, reportCardRepository,
+				examinationSettingsRepository, new AuditLogService(auditLogRepository, new ObjectMapper()));
 		studentService = new StudentService(studentRepository, studentEnrollmentRepository, studentDocumentRepository,
 			studentExitRepository, null, null, studentIdGenerator, new AuditLogService(auditLogRepository, new ObjectMapper()));
 	}
@@ -193,5 +200,29 @@ class ExamScheduleAndMarksTest {
 
 		assertThat(entry.isAbsent()).isTrue();
 		assertThat(entry.getMarksObtained()).isEqualTo(0.0);
+	}
+
+	@Test
+	void submitAndApproveMoveTheRegisterThroughItsLifecycleAndBlockFurtherEntryOnceSubmitted() {
+		Fixture fixture = setUpFixture("marks-register-school", "ADM-403");
+		examinationService.enterMarks(fixture.schedule(), List.of(new MarkInput(fixture.enrollment(), 78.0, false, null)));
+
+		MarksEntryRegister submitted = examinationService.submitMarksRegister(fixture.schedule());
+		assertThat(submitted.getRegisterStatus()).isEqualTo(MarksEntryRegisterStatus.SUBMITTED);
+
+		assertThatThrownBy(() -> examinationService.enterMarks(fixture.schedule(), List.of()))
+				.isInstanceOf(IllegalStateException.class);
+
+		MarksEntryRegister approved = examinationService.approveMarksRegister(fixture.schedule());
+		assertThat(approved.getRegisterStatus()).isEqualTo(MarksEntryRegisterStatus.APPROVED);
+		assertThat(auditLogRepository.findAll()).anyMatch(log -> log.getEntityType().equals("MarksEntryRegister") && log.getAction().equals("APPROVED"));
+	}
+
+	@Test
+	void approvingWithoutASubmittedRegisterIsRejected() {
+		Fixture fixture = setUpFixture("marks-register-unsubmitted-school", "ADM-404");
+		examinationService.enterMarks(fixture.schedule(), List.of(new MarkInput(fixture.enrollment(), 78.0, false, null)));
+
+		assertThatThrownBy(() -> examinationService.approveMarksRegister(fixture.schedule())).isInstanceOf(IllegalStateException.class);
 	}
 }

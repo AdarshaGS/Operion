@@ -4,6 +4,7 @@ import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Checkbox from "@mui/material/Checkbox";
+import Chip from "@mui/material/Chip";
 import CircularProgress from "@mui/material/CircularProgress";
 import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
@@ -18,12 +19,23 @@ import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
+import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { ApiError } from "../../api/client";
 import { listSectionEnrollments, type StudentEnrollmentResponse } from "../../api/enrollments";
 import { listSchedules, type ExamScheduleResponse } from "../../api/exams";
-import { correctMarks, enterMarks, listMarks, type MarksEntryResponse } from "../../api/marks";
+import {
+	approveRegister,
+	correctMarks,
+	correctMarksAfterPublish,
+	enterMarks,
+	getRegister,
+	listMarks,
+	submitRegister,
+	type MarksEntryRegisterResponse,
+	type MarksEntryResponse,
+} from "../../api/marks";
 import { type PersonResponse, listPersons } from "../../api/persons";
 import { listSections } from "../../api/sections";
 import { listStudents, type StudentResponse } from "../../api/students";
@@ -36,9 +48,15 @@ interface DraftRow {
 	remarks: string;
 }
 
-/** ExamSchedule is scoped by schoolClassId, not a single section - marks entry needs
- * every currently-enrolled student across all of the class's sections, composed from
- * listSections + listSectionEnrollments since no "enrollments by school class" endpoint
+function auditTooltip(entry: MarksEntryResponse): string {
+	const entered = `Entered by user #${entry.enteredBy ?? "—"} on ${new Date(entry.enteredAt).toLocaleString()}`;
+	if (!entry.correctedAt) return entered;
+	return `${entered} · Last corrected by user #${entry.correctedBy ?? "—"} on ${new Date(entry.correctedAt).toLocaleString()}`;
+}
+
+/** ExamSchedule is scoped by schoolClassId (and optionally sectionId, #139) - marks entry
+ * needs every currently-enrolled student in the applicable section(s), composed from
+ * listSections + listSectionEnrollments since no "enrollments by class/section" endpoint
  * exists (same list+compose tradeoff already documented for FeesPage's class lookup). */
 export function MarksEntryPage() {
 	const { examId, scheduleId } = useParams<{ examId: string; scheduleId: string }>();
@@ -52,11 +70,12 @@ export function MarksEntryPage() {
 
 	const [marks, setMarks] = useState<MarksEntryResponse[] | null>(null);
 	const [draftRows, setDraftRows] = useState<DraftRow[] | null>(null);
+	const [register, setRegister] = useState<MarksEntryRegisterResponse | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [submitting, setSubmitting] = useState(false);
 
-	const [correctingId, setCorrectingId] = useState<number | null>(null);
+	const [correctingEntry, setCorrectingEntry] = useState<MarksEntryResponse | null>(null);
 	const [correctMarksValue, setCorrectMarksValue] = useState("");
 	const [correctAbsent, setCorrectAbsent] = useState(false);
 	const [correctRemarks, setCorrectRemarks] = useState("");
@@ -81,14 +100,17 @@ export function MarksEntryPage() {
 				setStudents(studentList);
 				setPersons(personList);
 
-				const sections = await listSections(found.schoolClassId);
-				const enrollmentLists = await Promise.all(sections.map((section) => listSectionEnrollments(section.id)));
+				const sectionIds = found.sectionId
+					? [found.sectionId]
+					: (await listSections(found.schoolClassId)).map((section) => section.id);
+				const enrollmentLists = await Promise.all(sectionIds.map((sectionId) => listSectionEnrollments(sectionId)));
 				const allEnrollments = enrollmentLists.flat();
 				if (cancelled) return;
 				setEnrollments(allEnrollments);
 
-				const existingMarks = await listMarks(Number(scheduleId));
+				const [existingMarks, currentRegister] = await Promise.all([listMarks(Number(scheduleId)), getRegister(Number(scheduleId))]);
 				if (cancelled) return;
+				setRegister(currentRegister);
 				if (existingMarks.length > 0) {
 					setMarks(existingMarks);
 				} else {
@@ -120,6 +142,15 @@ export function MarksEntryPage() {
 		setDraftRows((rows) => (rows ? rows.map((row) => (row.enrollmentId === enrollmentId ? { ...row, ...patch } : row)) : rows));
 	}
 
+	async function refreshRegister() {
+		if (!scheduleId) return;
+		try {
+			setRegister(await getRegister(Number(scheduleId)));
+		} catch {
+			// non-fatal - keep the previous register state visible
+		}
+	}
+
 	async function handleSubmitMarks() {
 		if (!draftRows || !scheduleId) return;
 		setSubmitting(true);
@@ -135,6 +166,7 @@ export function MarksEntryPage() {
 			);
 			setMarks(result);
 			setDraftRows(null);
+			await refreshRegister();
 		} catch (err) {
 			setError(err instanceof ApiError ? err.message : "Failed to enter marks");
 		} finally {
@@ -142,14 +174,43 @@ export function MarksEntryPage() {
 		}
 	}
 
-	async function handleCorrect() {
-		if (correctingId === null) return;
+	async function handleSubmitRegister() {
+		if (!scheduleId) return;
 		setSubmitting(true);
 		try {
-			await correctMarks(correctingId, correctAbsent ? null : correctMarksValue ? Number(correctMarksValue) : null, correctAbsent, correctRemarks);
+			setRegister(await submitRegister(Number(scheduleId)));
+		} catch (err) {
+			setError(err instanceof ApiError ? err.message : "Failed to submit for review");
+		} finally {
+			setSubmitting(false);
+		}
+	}
+
+	async function handleApproveRegister() {
+		if (!scheduleId) return;
+		setSubmitting(true);
+		try {
+			setRegister(await approveRegister(Number(scheduleId)));
+		} catch (err) {
+			setError(err instanceof ApiError ? err.message : "Failed to approve");
+		} finally {
+			setSubmitting(false);
+		}
+	}
+
+	async function handleCorrect() {
+		if (!correctingEntry || !scheduleId) return;
+		setSubmitting(true);
+		try {
+			const value = correctAbsent ? null : correctMarksValue ? Number(correctMarksValue) : null;
+			if (correctingEntry.published) {
+				await correctMarksAfterPublish(correctingEntry.id, value, correctAbsent, correctRemarks);
+			} else {
+				await correctMarks(correctingEntry.id, value, correctAbsent, correctRemarks);
+			}
 			const refreshed = await listMarks(Number(scheduleId));
 			setMarks(refreshed);
-			setCorrectingId(null);
+			setCorrectingEntry(null);
 		} catch (err) {
 			setError(err instanceof ApiError ? err.message : "Failed to correct marks");
 		} finally {
@@ -173,14 +234,33 @@ export function MarksEntryPage() {
 				</Button>
 			</Box>
 
-			<Typography variant="h4" component="h1">
-				{schedule ? subjects.find((s) => s.id === schedule.subjectId)?.name ?? `Subject #${schedule.subjectId}` : "Marks entry"}
-			</Typography>
-			{schedule && (
-				<Typography variant="body2" color="text.secondary">
-					{schedule.examDate} — max {schedule.maxMarks}, pass {schedule.passMarks}
-				</Typography>
-			)}
+			<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+				<Box>
+					<Typography variant="h4" component="h1">
+						{schedule ? subjects.find((s) => s.id === schedule.subjectId)?.name ?? `Subject #${schedule.subjectId}` : "Marks entry"}
+					</Typography>
+					{schedule && (
+						<Typography variant="body2" color="text.secondary">
+							{schedule.examDate} — max {schedule.maxMarks}, pass {schedule.passMarks}
+						</Typography>
+					)}
+				</Box>
+				{register && (
+					<Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+						<Chip label={register.registerStatus} color={register.registerStatus === "APPROVED" ? "success" : "default"} />
+						{register.registerStatus === "DRAFT" && marks && (
+							<Button size="small" variant="outlined" onClick={handleSubmitRegister} disabled={submitting}>
+								Submit for review
+							</Button>
+						)}
+						{register.registerStatus === "SUBMITTED" && (
+							<Button size="small" variant="outlined" onClick={handleApproveRegister} disabled={submitting}>
+								Approve
+							</Button>
+						)}
+					</Stack>
+				)}
+			</Box>
 
 			{error && <Alert severity="error">{error}</Alert>}
 
@@ -255,6 +335,8 @@ export function MarksEntryPage() {
 										<TableCell>Student</TableCell>
 										<TableCell>Marks obtained</TableCell>
 										<TableCell>Absent</TableCell>
+										<TableCell>Pass/Fail</TableCell>
+										<TableCell>Rank</TableCell>
 										<TableCell>Remarks</TableCell>
 										<TableCell />
 									</TableRow>
@@ -262,21 +344,29 @@ export function MarksEntryPage() {
 								<TableBody>
 									{marks.map((entry) => (
 										<TableRow key={entry.id}>
-											<TableCell>{studentNameFor(entry.studentEnrollmentId)}</TableCell>
+											<TableCell>
+												<Tooltip title={auditTooltip(entry)}>
+													<span>{studentNameFor(entry.studentEnrollmentId)}</span>
+												</Tooltip>
+											</TableCell>
 											<TableCell>{entry.absent ? "—" : entry.marksObtained}</TableCell>
 											<TableCell>{entry.absent ? "Yes" : "No"}</TableCell>
+											<TableCell>
+												<Chip size="small" color={entry.passed ? "success" : "error"} label={entry.passed ? "PASS" : "FAIL"} />
+											</TableCell>
+											<TableCell>{entry.rank ?? "—"}</TableCell>
 											<TableCell>{entry.remarks ?? "—"}</TableCell>
 											<TableCell>
 												<Button
 													size="small"
 													onClick={() => {
-														setCorrectingId(entry.id);
+														setCorrectingEntry(entry);
 														setCorrectMarksValue(entry.marksObtained != null ? String(entry.marksObtained) : "");
 														setCorrectAbsent(entry.absent);
 														setCorrectRemarks(entry.remarks ?? "");
 													}}
 												>
-													Correct
+													{entry.published ? "Correct (published)" : "Correct"}
 												</Button>
 											</TableCell>
 										</TableRow>
@@ -288,10 +378,13 @@ export function MarksEntryPage() {
 				</Paper>
 			)}
 
-			<Dialog open={correctingId !== null} onClose={() => setCorrectingId(null)} fullWidth maxWidth="xs">
-				<DialogTitle>Correct marks</DialogTitle>
+			<Dialog open={correctingEntry !== null} onClose={() => setCorrectingEntry(null)} fullWidth maxWidth="xs">
+				<DialogTitle>{correctingEntry?.published ? "Correct marks (report card already published)" : "Correct marks"}</DialogTitle>
 				<DialogContent>
 					<Stack spacing={2} sx={{ mt: 1 }}>
+						{correctingEntry?.published && (
+							<Alert severity="warning">This student's report card is already published - correcting will flag it stale until republished.</Alert>
+						)}
 						<TextField
 							label="Marks obtained"
 							type="number"
@@ -308,7 +401,7 @@ export function MarksEntryPage() {
 					</Stack>
 				</DialogContent>
 				<DialogActions>
-					<Button onClick={() => setCorrectingId(null)}>Cancel</Button>
+					<Button onClick={() => setCorrectingEntry(null)}>Cancel</Button>
 					<Button variant="contained" onClick={handleCorrect} disabled={submitting}>
 						Save
 					</Button>

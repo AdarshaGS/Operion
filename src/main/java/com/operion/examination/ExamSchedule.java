@@ -3,6 +3,7 @@ package com.operion.examination;
 import java.time.LocalDate;
 
 import com.operion.academic.SchoolClass;
+import com.operion.academic.Section;
 import com.operion.academic.Subject;
 import com.operion.common.TenantScopedEntity;
 import jakarta.persistence.Column;
@@ -17,6 +18,9 @@ import lombok.NoArgsConstructor;
 /**
  * One row per (exam, schoolClass, subject) - an explicit row per class, same pattern as
  * FeeStructure, since max marks/pass marks can differ by class even for the same exam.
+ * {@code section} is nullable: null means the schedule applies to every section of the
+ * class (today's default behavior); set it to stagger exam date/room by section within
+ * the same class. Per #139.
  */
 @Getter
 @Entity
@@ -36,6 +40,11 @@ public class ExamSchedule extends TenantScopedEntity {
 	@JoinColumn(name = "subject_id")
 	private Subject subject;
 
+	/** Nullable - null applies to every section of {@link #schoolClass}. */
+	@ManyToOne
+	@JoinColumn(name = "section_id")
+	private Section section;
+
 	@Column(name = "exam_date", nullable = false)
 	private LocalDate examDate;
 
@@ -46,8 +55,14 @@ public class ExamSchedule extends TenantScopedEntity {
 	private Double passMarks;
 
 	public ExamSchedule(Exam exam, SchoolClass schoolClass, Subject subject, LocalDate examDate, Double maxMarks, Double passMarks) {
+		this(exam, schoolClass, null, subject, examDate, maxMarks, passMarks);
+	}
+
+	public ExamSchedule(
+			Exam exam, SchoolClass schoolClass, Section section, Subject subject, LocalDate examDate, Double maxMarks, Double passMarks) {
 		this.exam = exam;
 		this.schoolClass = schoolClass;
+		this.section = section;
 		this.subject = subject;
 		this.examDate = examDate;
 		this.maxMarks = maxMarks;

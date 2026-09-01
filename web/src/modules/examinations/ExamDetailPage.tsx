@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
+import Chip from "@mui/material/Chip";
 import CircularProgress from "@mui/material/CircularProgress";
 import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
@@ -28,6 +29,7 @@ import { listGradingScales, type GradingScaleResponse } from "../../api/gradingS
 import { type PersonResponse, listPersons } from "../../api/persons";
 import { publishReportCard, type ReportCardResponse } from "../../api/reportCards";
 import { listSchoolClasses, type SchoolClassResponse } from "../../api/schoolClasses";
+import { listSections, type SectionResponse } from "../../api/sections";
 import { listStudents, type StudentResponse } from "../../api/students";
 import { listSubjects, type SubjectResponse } from "../../api/subjects";
 
@@ -39,10 +41,13 @@ export function ExamDetailPage() {
 	const [schedules, setSchedules] = useState<ExamScheduleResponse[]>([]);
 	const [classes, setClasses] = useState<SchoolClassResponse[]>([]);
 	const [subjects, setSubjects] = useState<SubjectResponse[]>([]);
+	const [sectionsByClass, setSectionsByClass] = useState<Record<number, SectionResponse[]>>({});
 	const [error, setError] = useState<string | null>(null);
 
 	const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
 	const [schoolClassId, setSchoolClassId] = useState("");
+	const [dialogSections, setDialogSections] = useState<SectionResponse[]>([]);
+	const [sectionId, setSectionId] = useState("");
 	const [subjectId, setSubjectId] = useState("");
 	const [examDate, setExamDate] = useState("");
 	const [maxMarks, setMaxMarks] = useState("100");
@@ -74,7 +79,16 @@ export function ExamDetailPage() {
 	function refreshSchedules() {
 		if (!examId) return;
 		listSchedules(Number(examId))
-			.then(setSchedules)
+			.then((result) => {
+				setSchedules(result);
+				const classIds = [...new Set(result.map((s) => s.schoolClassId))];
+				classIds.forEach((classId) => {
+					if (sectionsByClass[classId]) return;
+					listSections(classId)
+						.then((sections) => setSectionsByClass((prev) => ({ ...prev, [classId]: sections })))
+						.catch(() => {});
+				});
+			})
 			.catch((err) => setError(err instanceof ApiError ? err.message : "Failed to load schedules"));
 	}
 
@@ -86,9 +100,23 @@ export function ExamDetailPage() {
 		return subjects.find((s) => s.id === id)?.name ?? `Subject #${id}`;
 	}
 
+	function sectionName(schoolClassId: number, secId: number | null): string {
+		if (secId == null) return "All sections";
+		return sectionsByClass[schoolClassId]?.find((s) => s.id === secId)?.name ?? `Section #${secId}`;
+	}
+
 	function studentLabel(student: StudentResponse): string {
 		const person = persons.find((p) => p.id === student.personId);
 		return person ? `${person.firstName} ${person.lastName} (${student.admissionNumber})` : student.admissionNumber;
+	}
+
+	function handleSchoolClassChange(value: string) {
+		setSchoolClassId(value);
+		setSectionId("");
+		setDialogSections([]);
+		if (value) {
+			listSections(Number(value)).then(setDialogSections).catch(() => {});
+		}
 	}
 
 	async function handleAddSchedule(event: FormEvent) {
@@ -98,12 +126,15 @@ export function ExamDetailPage() {
 		try {
 			await addSchedule(Number(examId), {
 				schoolClassId: Number(schoolClassId),
+				sectionId: sectionId ? Number(sectionId) : null,
 				subjectId: Number(subjectId),
 				examDate,
 				maxMarks: Number(maxMarks),
 				passMarks: Number(passMarks),
 			});
 			setSchoolClassId("");
+			setSectionId("");
+			setDialogSections([]);
 			setSubjectId("");
 			setExamDate("");
 			setScheduleDialogOpen(false);
@@ -176,6 +207,7 @@ export function ExamDetailPage() {
 								<TableHead>
 									<TableRow>
 										<TableCell>Class</TableCell>
+										<TableCell>Section</TableCell>
 										<TableCell>Subject</TableCell>
 										<TableCell>Date</TableCell>
 										<TableCell>Max marks</TableCell>
@@ -191,6 +223,7 @@ export function ExamDetailPage() {
 											onClick={() => navigate(`/examinations/exams/${examId}/schedules/${schedule.id}`)}
 										>
 											<TableCell>{className(schedule.schoolClassId)}</TableCell>
+											<TableCell>{sectionName(schedule.schoolClassId, schedule.sectionId)}</TableCell>
 											<TableCell>{subjectName(schedule.subjectId)}</TableCell>
 											<TableCell>{schedule.examDate}</TableCell>
 											<TableCell>{schedule.maxMarks}</TableCell>
@@ -214,10 +247,23 @@ export function ExamDetailPage() {
 					</Box>
 
 					{publishedReport && (
-						<Alert severity="success">
-							Published: {publishedReport.totalMarksObtained}/{publishedReport.totalMaxMarks} (
-							{publishedReport.percentage.toFixed(1)}%) — grade {publishedReport.overallGrade}
-						</Alert>
+						<Stack spacing={1}>
+							<Alert severity={publishedReport.passed ? "success" : "warning"}>
+								{publishedReport.totalMarksObtained}/{publishedReport.totalMaxMarks} ({publishedReport.percentage.toFixed(1)}%) — grade{" "}
+								{publishedReport.overallGrade} —{" "}
+								<Chip size="small" color={publishedReport.passed ? "success" : "error"} label={publishedReport.passed ? "PASS" : "FAIL"} />
+								{publishedReport.classRank != null && ` · Class rank #${publishedReport.classRank}`}
+								{publishedReport.stale && " · stale (marks corrected since publish — republish to update)"}
+							</Alert>
+							<Typography variant="caption" color="text.secondary">
+								Published by user #{publishedReport.publishedBy ?? "—"} on {new Date(publishedReport.publishedAt).toLocaleString()}
+							</Typography>
+							<Box>
+								<Button size="small" onClick={() => navigate(`/examinations/report-cards/${publishedReport.id}/print`)}>
+									View / print
+								</Button>
+							</Box>
+						</Stack>
 					)}
 				</Stack>
 			</Paper>
@@ -226,10 +272,25 @@ export function ExamDetailPage() {
 				<DialogTitle>Add schedule</DialogTitle>
 				<DialogContent>
 					<Stack spacing={2} sx={{ mt: 1 }}>
-						<TextField select label="Class" value={schoolClassId} onChange={(e) => setSchoolClassId(e.target.value)} required fullWidth>
+						<TextField select label="Class" value={schoolClassId} onChange={(e) => handleSchoolClassChange(e.target.value)} required fullWidth>
 							{classes.map((schoolClass) => (
 								<MenuItem key={schoolClass.id} value={schoolClass.id}>
 									{schoolClass.displayName ?? `Class #${schoolClass.id}`}
+								</MenuItem>
+							))}
+						</TextField>
+						<TextField
+							select
+							label="Section (optional — leave blank for all sections)"
+							value={sectionId}
+							onChange={(e) => setSectionId(e.target.value)}
+							disabled={!schoolClassId}
+							fullWidth
+						>
+							<MenuItem value="">All sections</MenuItem>
+							{dialogSections.map((section) => (
+								<MenuItem key={section.id} value={section.id}>
+									{section.name}
 								</MenuItem>
 							))}
 						</TextField>
