@@ -59,6 +59,10 @@ public class AttendanceService {
 		}
 
 		for (StudentAttendanceMark mark : marks) {
+			if (!mark.enrollment().isCurrent()) {
+				throw new IllegalStateException(
+						"Student enrollment " + mark.enrollment().getId() + " is not a current enrollment");
+			}
 			studentAttendanceRepository
 					.findByStudentEnrollmentIdAndAttendanceDate(mark.enrollment().getId(), attendanceDate)
 					.ifPresent(existing -> {
@@ -85,9 +89,20 @@ public class AttendanceService {
 		return classAttendanceRegisterRepository.save(register);
 	}
 
-	/** Blocked once the day's register is LOCKED - unlock (a future admin action) before correcting. */
+	@Transactional
+	public ClassAttendanceRegister unlockRegister(ClassAttendanceRegister register) {
+		register.unlock();
+		auditLogService.record("ClassAttendanceRegister", register.getId(), "UNLOCKED", null, null);
+		return classAttendanceRegisterRepository.save(register);
+	}
+
+	/** Blocked once the day's register is LOCKED - use unlockRegister() first to allow corrections again. */
 	@Transactional
 	public StudentAttendance correct(StudentAttendance attendance, AttendanceStatus newStatus, String reason) {
+		if (!attendance.getStudentEnrollment().isCurrent()) {
+			throw new IllegalStateException(
+					"Student enrollment " + attendance.getStudentEnrollment().getId() + " is not a current enrollment");
+		}
 		classAttendanceRegisterRepository
 				.findBySectionIdAndAttendanceDate(attendance.getSection().getId(), attendance.getAttendanceDate())
 				.filter(register -> register.getRegisterStatus() == ClassAttendanceRegisterStatus.LOCKED)
@@ -103,6 +118,29 @@ public class AttendanceService {
 		StudentAttendance saved = studentAttendanceRepository.save(attendance);
 		auditLogService.record("StudentAttendance", attendance.getId(), "CORRECTED", previousStatus, newStatus);
 		return saved;
+	}
+
+	public MonthlyAttendanceSummary monthlySummary(Long enrollmentId, int year, int month) {
+		LocalDate from = LocalDate.of(year, month, 1);
+		LocalDate to = from.withDayOfMonth(from.lengthOfMonth());
+		List<StudentAttendance> entries =
+				studentAttendanceRepository.findByStudentEnrollmentIdAndAttendanceDateBetween(enrollmentId, from, to);
+
+		int present = 0, absent = 0, late = 0, halfDay = 0, leave = 0;
+		for (StudentAttendance entry : entries) {
+			switch (entry.getAttendanceStatus()) {
+				case PRESENT -> present++;
+				case ABSENT -> absent++;
+				case LATE -> late++;
+				case HALF_DAY -> halfDay++;
+				case LEAVE -> leave++;
+			}
+		}
+
+		int workingDays = entries.size() - leave;
+		double percentage = workingDays == 0 ? 0.0
+				: Math.round((present + late + 0.5 * halfDay) / workingDays * 1000.0) / 10.0;
+		return new MonthlyAttendanceSummary(entries.size(), present, absent, late, halfDay, leave, percentage);
 	}
 
 	@Transactional

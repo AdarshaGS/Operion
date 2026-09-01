@@ -5,6 +5,7 @@ import java.util.List;
 
 import com.operion.academic.Section;
 import com.operion.academic.SectionRepository;
+import com.operion.attendance.AttendanceCorrectionRepository;
 import com.operion.attendance.AttendanceService;
 import com.operion.attendance.AttendanceService.StudentAttendanceMark;
 import com.operion.attendance.AttendanceStatus;
@@ -34,16 +35,19 @@ public class StudentAttendanceController {
 	private final StudentEnrollmentRepository studentEnrollmentRepository;
 	private final ClassAttendanceRegisterRepository classAttendanceRegisterRepository;
 	private final StudentAttendanceRepository studentAttendanceRepository;
+	private final AttendanceCorrectionRepository attendanceCorrectionRepository;
 
 	public StudentAttendanceController(AttendanceService attendanceService, SectionRepository sectionRepository,
 			StudentEnrollmentRepository studentEnrollmentRepository,
 			ClassAttendanceRegisterRepository classAttendanceRegisterRepository,
-			StudentAttendanceRepository studentAttendanceRepository) {
+			StudentAttendanceRepository studentAttendanceRepository,
+			AttendanceCorrectionRepository attendanceCorrectionRepository) {
 		this.attendanceService = attendanceService;
 		this.sectionRepository = sectionRepository;
 		this.studentEnrollmentRepository = studentEnrollmentRepository;
 		this.classAttendanceRegisterRepository = classAttendanceRegisterRepository;
 		this.studentAttendanceRepository = studentAttendanceRepository;
+		this.attendanceCorrectionRepository = attendanceCorrectionRepository;
 	}
 
 	@PostMapping("/sections/{sectionId}/register")
@@ -72,6 +76,12 @@ public class StudentAttendanceController {
 		return toRegisterResponse(attendanceService.lockRegister(findRegister(registerId)));
 	}
 
+	@PostMapping("/register/{registerId}/unlock")
+	@RequirePermission("ATTENDANCE_UNLOCK")
+	public AttendanceRegisterResponse unlock(@PathVariable Long registerId) {
+		return toRegisterResponse(attendanceService.unlockRegister(findRegister(registerId)));
+	}
+
 	@GetMapping("/sections/{sectionId}/register")
 	public AttendanceRegisterResponse getRegister(
 			@PathVariable Long sectionId, @RequestParam LocalDate date) {
@@ -93,6 +103,13 @@ public class StudentAttendanceController {
 		return StudentAttendanceResponse.from(corrected);
 	}
 
+	@GetMapping("/students/{attendanceId}/corrections")
+	public List<AttendanceCorrectionResponse> corrections(@PathVariable Long attendanceId) {
+		return attendanceCorrectionRepository.findByStudentAttendanceId(attendanceId).stream()
+				.map(AttendanceCorrectionResponse::from)
+				.toList();
+	}
+
 	@GetMapping("/enrollments/{enrollmentId}")
 	public List<StudentAttendanceResponse> history(@PathVariable Long enrollmentId,
 			@RequestParam LocalDate from,
@@ -101,6 +118,12 @@ public class StudentAttendanceController {
 				.stream()
 				.map(StudentAttendanceResponse::from)
 				.toList();
+	}
+
+	@GetMapping("/enrollments/{enrollmentId}/summary")
+	public MonthlyAttendanceSummaryResponse summary(
+			@PathVariable Long enrollmentId, @RequestParam int year, @RequestParam int month) {
+		return MonthlyAttendanceSummaryResponse.from(attendanceService.monthlySummary(enrollmentId, year, month));
 	}
 
 	private AttendanceRegisterResponse toRegisterResponse(ClassAttendanceRegister register) {

@@ -19,9 +19,11 @@ import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
+import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import {
 	type AttendanceRegisterResponse,
+	type StudentAttendanceResponse,
 	correctAttendance,
 	getRegister,
 	lockRegister,
@@ -35,10 +37,21 @@ import { listSchoolClasses, type SchoolClassResponse } from "../../api/schoolCla
 import { listSections, type SectionResponse } from "../../api/sections";
 import { listStudents, type StudentResponse } from "../../api/students";
 
-const STATUS_OPTIONS = ["PRESENT", "ABSENT", "LATE", "HALF_DAY"];
+const STATUS_OPTIONS = ["PRESENT", "ABSENT", "LATE", "HALF_DAY", "LEAVE"];
 
 function todayIso(): string {
 	return new Date().toISOString().slice(0, 10);
+}
+
+function shiftDate(iso: string, days: number): string {
+	const [year, month, day] = iso.split("-").map(Number);
+	return new Date(Date.UTC(year, month - 1, day + days)).toISOString().slice(0, 10);
+}
+
+function markedTooltip(entry: StudentAttendanceResponse): string {
+	const marked = `Marked by user #${entry.markedBy ?? "—"} on ${new Date(entry.markedAt).toLocaleString()}`;
+	if (!entry.correctedAt) return marked;
+	return `${marked} · Last corrected by user #${entry.correctedBy ?? "—"} on ${new Date(entry.correctedAt).toLocaleString()}`;
 }
 
 interface DraftRow {
@@ -91,8 +104,10 @@ export function AttendancePage() {
 		return person ? `${person.firstName} ${person.lastName}` : `Student #${student.id}`;
 	}
 
-	async function handleLoad() {
+	async function handleLoad(dateOverride?: string) {
 		if (!sectionId) return;
+		const targetDate = dateOverride ?? date;
+		if (dateOverride) setDate(dateOverride);
 		setLoading(true);
 		setError(null);
 		setLoaded(false);
@@ -108,7 +123,7 @@ export function AttendancePage() {
 			setStudents(studentList);
 			setPersons(personList);
 
-			const existing = await getRegister(Number(sectionId), date);
+			const existing = await getRegister(Number(sectionId), targetDate);
 			if (existing) {
 				setRegister(existing);
 			} else {
@@ -124,6 +139,10 @@ export function AttendancePage() {
 
 	function updateDraftRow(enrollmentId: number, patch: Partial<DraftRow>) {
 		setDraftRows((rows) => (rows ? rows.map((row) => (row.enrollmentId === enrollmentId ? { ...row, ...patch } : row)) : rows));
+	}
+
+	function handleMarkAllPresent() {
+		setDraftRows((rows) => (rows ? rows.map((row) => ({ ...row, status: "PRESENT" })) : rows));
 	}
 
 	function rollNumberFor(enrollmentId: number): number | null {
@@ -219,14 +238,30 @@ export function AttendancePage() {
 								</MenuItem>
 							))}
 						</TextField>
-						<TextField
-							label="Date"
-							type="date"
-							value={date}
-							onChange={(e) => setDate(e.target.value)}
-							slotProps={{ inputLabel: { shrink: true } }}
-						/>
-						<Button variant="contained" disabled={!sectionId || loading} onClick={handleLoad}>
+						<Stack direction="row" spacing={0.5} sx={{ alignItems: "center" }}>
+							<Button
+								size="small"
+								disabled={!sectionId || loading}
+								onClick={() => handleLoad(shiftDate(date, -1))}
+							>
+								◀
+							</Button>
+							<TextField
+								label="Date"
+								type="date"
+								value={date}
+								onChange={(e) => setDate(e.target.value)}
+								slotProps={{ inputLabel: { shrink: true } }}
+							/>
+							<Button
+								size="small"
+								disabled={!sectionId || loading}
+								onClick={() => handleLoad(shiftDate(date, 1))}
+							>
+								▶
+							</Button>
+						</Stack>
+						<Button variant="contained" disabled={!sectionId || loading} onClick={() => handleLoad()}>
 							Load
 						</Button>
 					</Box>
@@ -246,9 +281,14 @@ export function AttendancePage() {
 					<Stack spacing={2}>
 						<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
 							<Typography variant="h6">Mark attendance — {date}</Typography>
-							<Button variant="contained" onClick={handleSubmitMarks} disabled={loading || draftRows.length === 0}>
-								Submit marks
-							</Button>
+							<Stack direction="row" spacing={1}>
+								<Button onClick={handleMarkAllPresent} disabled={loading || draftRows.length === 0}>
+									Mark all present
+								</Button>
+								<Button variant="contained" onClick={handleSubmitMarks} disabled={loading || draftRows.length === 0}>
+									Submit marks
+								</Button>
+							</Stack>
 						</Box>
 
 						{draftRows.length === 0 && <Alert severity="info">No currently-enrolled students in this section.</Alert>}
@@ -328,6 +368,14 @@ export function AttendancePage() {
 							</Stack>
 						</Box>
 
+						<Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
+							{STATUS_OPTIONS.map((status) => {
+								const count = register.entries.filter((entry) => entry.attendanceStatus === status).length;
+								return count > 0 ? <Chip key={status} label={`${status}: ${count}`} size="small" variant="outlined" /> : null;
+							})}
+							<Chip label={`Total: ${register.entries.length}`} size="small" />
+						</Stack>
+
 						<TableContainer>
 							<Table size="small">
 								<TableHead>
@@ -344,7 +392,9 @@ export function AttendancePage() {
 										<TableRow key={entry.id}>
 											<TableCell>{enrollmentStudentName(entry.studentEnrollmentId)}</TableCell>
 											<TableCell>
-												<Chip label={entry.attendanceStatus} size="small" />
+												<Tooltip title={markedTooltip(entry)}>
+													<Chip label={entry.attendanceStatus} size="small" />
+												</Tooltip>
 											</TableCell>
 											<TableCell>{entry.excused ? "Yes" : "No"}</TableCell>
 											<TableCell>{entry.remarks ?? "—"}</TableCell>

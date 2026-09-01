@@ -30,6 +30,29 @@ export interface StudentAttendanceResponse {
 	attendanceStatus: string;
 	excused: boolean;
 	remarks: string | null;
+	markedBy: number | null;
+	markedAt: string;
+	correctedBy: number | null;
+	correctedAt: string | null;
+}
+
+export interface AttendanceCorrectionResponse {
+	id: number;
+	previousStatus: string;
+	newStatus: string;
+	reason: string;
+	correctedBy: number | null;
+	correctedAt: string;
+}
+
+export interface MonthlyAttendanceSummaryResponse {
+	totalMarkedDays: number;
+	presentCount: number;
+	absentCount: number;
+	lateCount: number;
+	halfDayCount: number;
+	leaveCount: number;
+	percentage: number;
 }
 
 export interface AttendanceRegisterResponse {
@@ -62,4 +85,14 @@ export function lockRegister(registerId: number): Promise<AttendanceRegisterResp
 
 export function correctAttendance(attendanceId: number, newStatus: string, reason: string): Promise<StudentAttendanceResponse> {
 	return api.patch<StudentAttendanceResponse>(`/api/v1/attendance/students/${attendanceId}`, { newStatus, reason });
+}
+
+export function getCorrections(attendanceId: number): Promise<AttendanceCorrectionResponse[]> {
+	return api.get<AttendanceCorrectionResponse[]>(`/api/v1/attendance/students/${attendanceId}/corrections`);
+}
+
+export function getMonthlySummary(enrollmentId: number, year: number, month: number): Promise<MonthlyAttendanceSummaryResponse> {
+	return api.get<MonthlyAttendanceSummaryResponse>(
+		`/api/v1/attendance/enrollments/${enrollmentId}/summary?year=${year}&month=${month}`,
+	);
 }

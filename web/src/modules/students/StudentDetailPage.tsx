@@ -30,6 +30,7 @@ import { listSchoolClasses, type SchoolClassResponse } from "../../api/schoolCla
 import { listSections, type SectionResponse } from "../../api/sections";
 import { getStudent, type StudentResponse } from "../../api/students";
 import { resolveAssetUrl, uploadAsset } from "../../api/assets";
+import { StudentAttendanceSummaryPanel } from "./StudentAttendanceSummaryPanel";
 import { StudentDocumentsPanel } from "./StudentDocumentsPanel";
 import { StudentGuardiansPanel } from "./StudentGuardiansPanel";
 import { StudentTransferPanel } from "./StudentTransferPanel";
@@ -336,6 +337,8 @@ export function StudentDetailPage() {
 					</Grid>
 				</Stack>
 			</Paper>
+
+			{currentEnrollment && <StudentAttendanceSummaryPanel enrollmentId={currentEnrollment.id} />}
 
 			<StudentGuardiansPanel studentId={student.id} />
 

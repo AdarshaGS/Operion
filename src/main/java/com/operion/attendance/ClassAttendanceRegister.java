@@ -63,4 +63,11 @@ public class ClassAttendanceRegister extends TenantScopedEntity {
 		}
 		this.registerStatus = ClassAttendanceRegisterStatus.LOCKED;
 	}
+
+	public void unlock() {
+		if (registerStatus != ClassAttendanceRegisterStatus.LOCKED) {
+			throw new IllegalStateException("Register " + getId() + " is not LOCKED, cannot unlock");
+		}
+		this.registerStatus = ClassAttendanceRegisterStatus.SUBMITTED;
+	}
 }

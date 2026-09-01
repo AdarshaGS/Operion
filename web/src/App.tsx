@@ -15,6 +15,7 @@ import { AcademicsPage } from "./modules/academics/AcademicsPage";
 import { SchoolClassSectionsPage } from "./modules/academics/SchoolClassSectionsPage";
 import { SectionDetailPage } from "./modules/academics/SectionDetailPage";
 import { AttendancePage } from "./modules/attendance/AttendancePage";
+import { MarkAttendanceQuickPage } from "./modules/attendance/MarkAttendanceQuickPage";
 import { CommunicationPage } from "./modules/communication/CommunicationPage";
 import { ExamDetailPage } from "./modules/examinations/ExamDetailPage";
 import { ExaminationsPage } from "./modules/examinations/ExaminationsPage";
@@ -82,7 +83,7 @@ function App() {
 							<Route path="/academics/classes/:classId" element={<SchoolClassSectionsPage />} />
 							<Route path="/academics/classes/:classId/sections/:sectionId" element={<SectionDetailPage />} />
 							<Route path="/attendance" element={<AttendancePage />} />
-							<Route path="/attendance/mark" element={<AttendancePage />} />
+							<Route path="/attendance/mark" element={<MarkAttendanceQuickPage />} />
 							<Route path="/fees" element={<FeesPage />} />
 							<Route path="/fees/setup" element={<FeesPage />} />
 							<Route path="/fees/collect" element={<FeesPage />} />
