@@ -225,4 +225,38 @@ class ExamScheduleAndMarksTest {
 
 		assertThatThrownBy(() -> examinationService.approveMarksRegister(fixture.schedule())).isInstanceOf(IllegalStateException.class);
 	}
+
+	/** Per #139: a whole-class schedule and a per-section schedule for the same (exam, subject) can't coexist, in either order. */
+	@Test
+	void rejectsAWholeClassScheduleConflictingWithAnExistingPerSectionScheduleAndViceVersa() {
+		Organisation organisation = organisationRepository.save(new Organisation("Test School", "Test School Trust", "schedule-conflict-school"));
+		TenantContext.set(organisation.getId(), null);
+
+		AcademicYear academicYear =
+				academicYearRepository.save(new AcademicYear("2025-2026", LocalDate.of(2025, 6, 1), LocalDate.of(2026, 4, 30)));
+		Campus campus = campusRepository.save(new Campus("Main Campus", "MAIN"));
+		GradeLevel grade5 = gradeLevelRepository.save(new GradeLevel("Grade 5", 5, null));
+		SchoolClass schoolClass = schoolClassRepository.save(new SchoolClass(academicYear, campus, grade5, null));
+		Section sectionA = sectionRepository.save(new Section(schoolClass, "A", 40, null));
+		Section sectionB = sectionRepository.save(new Section(schoolClass, "B", 40, null));
+		Subject maths = subjectRepository.save(new Subject("Mathematics", "MATH"));
+
+		Exam exam = examinationService.createExam(academicYear, "Term 1 Unit Test", ExamType.UNIT_TEST);
+		examinationService.addSchedule(exam, schoolClass, sectionA, maths, LocalDate.of(2025, 8, 1), 100.0, 35.0);
+
+		assertThatThrownBy(() -> examinationService.addSchedule(exam, schoolClass, maths, LocalDate.of(2025, 8, 2), 100.0, 35.0))
+				.isInstanceOf(IllegalStateException.class);
+		assertThatThrownBy(() -> examinationService.addSchedule(exam, schoolClass, sectionA, maths, LocalDate.of(2025, 8, 2), 100.0, 35.0))
+				.isInstanceOf(IllegalStateException.class);
+
+		ExamSchedule sectionBSchedule = examinationService.addSchedule(exam, schoolClass, sectionB, maths, LocalDate.of(2025, 8, 2), 100.0, 35.0);
+		assertThat(sectionBSchedule.getSection().getId()).isEqualTo(sectionB.getId());
+
+		Exam anotherExam = examinationService.createExam(academicYear, "Term 2 Unit Test", ExamType.UNIT_TEST);
+		ExamSchedule wholeClassSchedule = examinationService.addSchedule(anotherExam, schoolClass, maths, LocalDate.of(2025, 8, 1), 100.0, 35.0);
+		assertThat(wholeClassSchedule.getSection()).isNull();
+
+		assertThatThrownBy(() -> examinationService.addSchedule(anotherExam, schoolClass, sectionA, maths, LocalDate.of(2025, 8, 2), 100.0, 35.0))
+				.isInstanceOf(IllegalStateException.class);
+	}
 }

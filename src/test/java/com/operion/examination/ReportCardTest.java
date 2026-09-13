@@ -2,6 +2,7 @@ package com.operion.examination;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.within;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -244,5 +245,102 @@ class ReportCardTest {
 	private void approveRegister(ExamSchedule schedule) {
 		examinationService.submitMarksRegister(schedule);
 		examinationService.approveMarksRegister(schedule);
+	}
+
+	/** Per #135: MINIMUM_AGGREGATE_PERCENTAGE passes a student who failed one subject as long as the aggregate clears the threshold. */
+	@Test
+	void minimumAggregatePercentageStrategyPassesAStudentWhoFailedOneSubjectButClearedTheAggregate() {
+		Fixture fixture = setUpFixture("report-card-min-aggregate-school", "ADM-504");
+		saveSettings(false, PassFailStrategy.MINIMUM_AGGREGATE_PERCENTAGE, 33.0);
+		examinationService.enterMarks(fixture.mathsSchedule(), List.of(new MarkInput(fixture.enrollment(), 20.0, false, null)));
+		examinationService.enterMarks(fixture.scienceSchedule(), List.of(new MarkInput(fixture.enrollment(), 90.0, false, null)));
+		approveRegister(fixture.mathsSchedule());
+		approveRegister(fixture.scienceSchedule());
+
+		ReportCard reportCard = examinationService.publishReportCard(fixture.exam(), fixture.enrollment(), fixture.gradingScale());
+
+		assertThat(reportCard.getPercentage()).isEqualTo(55.0, within(0.0001));
+		assertThat(reportCard.isPassed()).isTrue();
+	}
+
+	/** Per #135: BOTH requires every subject to pass on top of the aggregate threshold - a failed subject still fails the report card. */
+	@Test
+	void bothStrategyFailsAStudentWhoClearedTheAggregateButFailedOneSubject() {
+		Fixture fixture = setUpFixture("report-card-both-strategy-school", "ADM-505");
+		saveSettings(false, PassFailStrategy.BOTH, 33.0);
+		examinationService.enterMarks(fixture.mathsSchedule(), List.of(new MarkInput(fixture.enrollment(), 20.0, false, null)));
+		examinationService.enterMarks(fixture.scienceSchedule(), List.of(new MarkInput(fixture.enrollment(), 90.0, false, null)));
+		approveRegister(fixture.mathsSchedule());
+		approveRegister(fixture.scienceSchedule());
+
+		ReportCard reportCard = examinationService.publishReportCard(fixture.exam(), fixture.enrollment(), fixture.gradingScale());
+
+		assertThat(reportCard.getPercentage()).isEqualTo(55.0, within(0.0001));
+		assertThat(reportCard.isPassed()).isFalse();
+	}
+
+	/** Per #136: subject and class rank use standard competition ranking (1,1,3) - tied top scores share rank 1, the next distinct score skips to 3. */
+	@Test
+	void computesSubjectAndClassRanksWithStandardCompetitionTieBreakingWhenRankingIsEnabled() {
+		Organisation organisation = organisationRepository.save(new Organisation("Test School", "Test School Trust", "ranking-school"));
+		TenantContext.set(organisation.getId(), null);
+		saveSettings(true, ExaminationSettings.DEFAULT_PASS_FAIL_STRATEGY, ExaminationSettings.DEFAULT_MINIMUM_AGGREGATE_PERCENTAGE);
+
+		AcademicYear academicYear =
+				academicYearRepository.save(new AcademicYear("2025-2026", LocalDate.of(2025, 6, 1), LocalDate.of(2026, 4, 30)));
+		Campus campus = campusRepository.save(new Campus("Main Campus", "MAIN"));
+		GradeLevel grade5 = gradeLevelRepository.save(new GradeLevel("Grade 5", 5, null));
+		SchoolClass schoolClass = schoolClassRepository.save(new SchoolClass(academicYear, campus, grade5, null));
+		Section section = sectionRepository.save(new Section(schoolClass, "A", 40, null));
+		Subject maths = subjectRepository.save(new Subject("Mathematics", "MATH"));
+
+		Exam exam = examinationService.createExam(academicYear, "Half Yearly", ExamType.MID_TERM);
+		ExamSchedule mathsSchedule = examinationService.addSchedule(exam, schoolClass, maths, LocalDate.of(2025, 9, 1), 100.0, 35.0);
+		GradingScale gradingScale = examinationService.createGradingScale("CBSE Standard", true,
+				List.of(new BandInput("A+", 90.0, "Excellent"), new BandInput("F", 0.0, "Fail")));
+
+		StudentEnrollment top = admitAndEnroll(academicYear, section, "Asha", "Rao", "ADM-600");
+		StudentEnrollment tiedWithTop = admitAndEnroll(academicYear, section, "Kiran", "Shah", "ADM-601");
+		StudentEnrollment last = admitAndEnroll(academicYear, section, "Rohit", "Verma", "ADM-602");
+
+		examinationService.enterMarks(mathsSchedule, List.of(
+				new MarkInput(top, 90.0, false, null),
+				new MarkInput(tiedWithTop, 90.0, false, null),
+				new MarkInput(last, 40.0, false, null)));
+		approveRegister(mathsSchedule);
+
+		examinationService.publishReportCard(exam, top, gradingScale);
+		examinationService.publishReportCard(exam, tiedWithTop, gradingScale);
+		examinationService.publishReportCard(exam, last, gradingScale);
+
+		MarksEntry topEntry = marksEntryRepository.findByExamScheduleIdAndStudentEnrollmentId(mathsSchedule.getId(), top.getId()).orElseThrow();
+		MarksEntry tiedEntry = marksEntryRepository.findByExamScheduleIdAndStudentEnrollmentId(mathsSchedule.getId(), tiedWithTop.getId()).orElseThrow();
+		MarksEntry lastEntry = marksEntryRepository.findByExamScheduleIdAndStudentEnrollmentId(mathsSchedule.getId(), last.getId()).orElseThrow();
+		assertThat(topEntry.getRank()).isEqualTo(1);
+		assertThat(tiedEntry.getRank()).isEqualTo(1);
+		assertThat(lastEntry.getRank()).isEqualTo(3);
+
+		ReportCard topCard = reportCardRepository.findByExamIdAndStudentEnrollmentIdAndStatus(exam.getId(), top.getId(), ReportCardStatus.PUBLISHED).orElseThrow();
+		ReportCard tiedCard =
+				reportCardRepository.findByExamIdAndStudentEnrollmentIdAndStatus(exam.getId(), tiedWithTop.getId(), ReportCardStatus.PUBLISHED).orElseThrow();
+		ReportCard lastCard = reportCardRepository.findByExamIdAndStudentEnrollmentIdAndStatus(exam.getId(), last.getId(), ReportCardStatus.PUBLISHED).orElseThrow();
+		assertThat(topCard.getClassRank()).isEqualTo(1);
+		assertThat(tiedCard.getClassRank()).isEqualTo(1);
+		assertThat(lastCard.getClassRank()).isEqualTo(3);
+	}
+
+	private StudentEnrollment admitAndEnroll(AcademicYear academicYear, Section section, String firstName, String lastName, String admissionNumber) {
+		Person person = personRepository.save(new Person(firstName, lastName));
+		Student student = studentService.admit(
+				person, admissionNumber, LocalDate.of(2025, 5, 1), null, null, null, null, null, null, "Indian", null, null, null, null);
+		return studentService.enroll(student, academicYear, section, 12, LocalDate.of(2025, 6, 1));
+	}
+
+	private void saveSettings(boolean rankingEnabled, PassFailStrategy passFailStrategy, double minimumAggregatePercentage) {
+		ExaminationSettings settings = new ExaminationSettings();
+		settings.setRankingEnabled(rankingEnabled);
+		settings.setPassFailStrategy(passFailStrategy);
+		settings.setMinimumAggregatePercentage(minimumAggregatePercentage);
+		examinationSettingsRepository.save(settings);
 	}
 }
