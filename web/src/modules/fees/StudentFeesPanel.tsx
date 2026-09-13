@@ -21,13 +21,18 @@ import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import AddIcon from "@mui/icons-material/Add";
+import { Can } from "../../auth/Can";
+import { useAuth } from "../../auth/AuthContext";
+import { recordAdjustment } from "../../api/adjustments";
 import { ApiError } from "../../api/client";
 import { assignFee, listFeeAssignments, type StudentFeeAssignmentResponse } from "../../api/feeAssignments";
 import { listFeeCategories, type FeeCategoryResponse } from "../../api/feeCategories";
 import { listFeeStructureGroups } from "../../api/feeStructureGroups";
 import { listFeeStructures, type FeeStructureResponse } from "../../api/feeStructures";
 import { generateInvoice, listInvoices, type InvoiceResponse } from "../../api/invoices";
-import { recordPayment, type AllocationEntry } from "../../api/payments";
+import { bouncePayment, listPayments, recordPayment, type AllocationEntry, type PaymentResponse } from "../../api/payments";
+import { recordRefund } from "../../api/refunds";
+import { recordWaiver } from "../../api/waivers";
 import { colors } from "../../theme";
 
 const PAYMENT_METHODS = ["CASH", "CHEQUE", "UPI", "CARD", "BANK_TRANSFER"];
@@ -42,8 +47,15 @@ const INVOICE_STATUS_COLOR: Record<string, "success" | "warning" | "default"> = 
 	PAID: "success",
 };
 
+const PAYMENT_STATUS_LABEL: Record<string, string> = { CLEARED: "Cleared", BOUNCED: "Bounced" };
+const PAYMENT_STATUS_COLOR: Record<string, "success" | "error"> = { CLEARED: "success", BOUNCED: "error" };
+
 function currency(amount: number): string {
 	return `₹${amount.toLocaleString("en-IN")}`;
+}
+
+function today(): string {
+	return new Date().toISOString().slice(0, 10);
 }
 
 interface Props {
@@ -53,8 +65,10 @@ interface Props {
 }
 
 export function StudentFeesPanel({ studentEnrollmentId, academicYearId, schoolClassId }: Props) {
+	const { hasAnyPermission } = useAuth();
 	const [assignments, setAssignments] = useState<StudentFeeAssignmentResponse[]>([]);
 	const [invoices, setInvoices] = useState<InvoiceResponse[]>([]);
+	const [payments, setPayments] = useState<PaymentResponse[]>([]);
 	const [feeStructures, setFeeStructures] = useState<FeeStructureResponse[]>([]);
 	const [categories, setCategories] = useState<FeeCategoryResponse[]>([]);
 	const [error, setError] = useState<string | null>(null);
@@ -71,9 +85,26 @@ export function StudentFeesPanel({ studentEnrollmentId, academicYearId, schoolCl
 	const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
 	const [paymentAmount, setPaymentAmount] = useState("");
 	const [paymentMethod, setPaymentMethod] = useState("CASH");
-	const [paymentDate, setPaymentDate] = useState(new Date().toISOString().slice(0, 10));
+	const [paymentDate, setPaymentDate] = useState(today());
 	const [paymentRemarks, setPaymentRemarks] = useState("");
 	const [allocations, setAllocations] = useState<Record<number, string>>({});
+	const [receiptDialogPayment, setReceiptDialogPayment] = useState<PaymentResponse | null>(null);
+
+	const [refundDialogPayment, setRefundDialogPayment] = useState<PaymentResponse | null>(null);
+	const [refundInvoiceId, setRefundInvoiceId] = useState("");
+	const [refundAmount, setRefundAmount] = useState("");
+	const [refundReason, setRefundReason] = useState("");
+	const [refundApprovedBy, setRefundApprovedBy] = useState("");
+
+	const [adjustmentDialogInvoice, setAdjustmentDialogInvoice] = useState<InvoiceResponse | null>(null);
+	const [adjustmentAmount, setAdjustmentAmount] = useState("");
+	const [adjustmentReason, setAdjustmentReason] = useState("");
+	const [adjustmentApprovedBy, setAdjustmentApprovedBy] = useState("");
+
+	const [waiverDialogInvoice, setWaiverDialogInvoice] = useState<InvoiceResponse | null>(null);
+	const [waiverAmount, setWaiverAmount] = useState("");
+	const [waiverReason, setWaiverReason] = useState("");
+	const [waiverApprovedBy, setWaiverApprovedBy] = useState("");
 
 	const [submitting, setSubmitting] = useState(false);
 
@@ -84,6 +115,9 @@ export function StudentFeesPanel({ studentEnrollmentId, academicYearId, schoolCl
 		listInvoices(studentEnrollmentId)
 			.then(setInvoices)
 			.catch((err) => setError(err instanceof ApiError ? err.message : "Failed to load invoices"));
+		listPayments(studentEnrollmentId)
+			.then(setPayments)
+			.catch((err) => setError(err instanceof ApiError ? err.message : "Failed to load payment history"));
 	}
 
 	useEffect(refresh, [studentEnrollmentId]);
@@ -151,8 +185,7 @@ export function StudentFeesPanel({ studentEnrollmentId, academicYearId, schoolCl
 	const outstandingInvoices = invoices.filter((invoice) => invoice.outstanding > 0);
 	const totalCollected = invoices.reduce((sum, invoice) => sum + invoice.amountPaid, 0);
 	const totalOutstanding = invoices.reduce((sum, invoice) => sum + invoice.outstanding, 0);
-	const today = new Date().toISOString().slice(0, 10);
-	const overdueCount = invoices.filter((invoice) => invoice.outstanding > 0 && invoice.dueDate < today).length;
+	const overdueCount = invoices.filter((invoice) => invoice.outstanding > 0 && invoice.dueDate < today()).length;
 
 	const allocatedTotal = Object.values(allocations).reduce((sum, value) => sum + (Number(value) || 0), 0);
 	const allocationsMatch = Math.abs(allocatedTotal - (Number(paymentAmount) || 0)) < 0.005;
@@ -160,7 +193,7 @@ export function StudentFeesPanel({ studentEnrollmentId, academicYearId, schoolCl
 	function openPaymentDialog() {
 		setPaymentAmount("");
 		setPaymentMethod("CASH");
-		setPaymentDate(new Date().toISOString().slice(0, 10));
+		setPaymentDate(today());
 		setPaymentRemarks("");
 		setAllocations({});
 		setPaymentDialogOpen(true);
@@ -187,7 +220,7 @@ export function StudentFeesPanel({ studentEnrollmentId, academicYearId, schoolCl
 				invoiceId: Number(invoiceId),
 				amount: Number(amount),
 			}));
-			await recordPayment({
+			const payment = await recordPayment({
 				academicYearId,
 				amount: Number(paymentAmount),
 				paymentMethod,
@@ -196,6 +229,7 @@ export function StudentFeesPanel({ studentEnrollmentId, academicYearId, schoolCl
 				allocations: entries,
 			});
 			setPaymentDialogOpen(false);
+			setReceiptDialogPayment(payment);
 			refresh();
 		} catch (err) {
 			setError(err instanceof ApiError ? err.message : "Failed to record payment");
@@ -203,6 +237,109 @@ export function StudentFeesPanel({ studentEnrollmentId, academicYearId, schoolCl
 			setSubmitting(false);
 		}
 	}
+
+	async function handleBounce(payment: PaymentResponse) {
+		setSubmitting(true);
+		try {
+			await bouncePayment(payment.id);
+			refresh();
+		} catch (err) {
+			setError(err instanceof ApiError ? err.message : "Failed to mark payment bounced");
+		} finally {
+			setSubmitting(false);
+		}
+	}
+
+	function openRefundDialog(payment: PaymentResponse) {
+		setRefundInvoiceId("");
+		setRefundAmount("");
+		setRefundReason("");
+		setRefundApprovedBy("");
+		setRefundDialogPayment(payment);
+	}
+
+	async function handleRefund(event: FormEvent) {
+		event.preventDefault();
+		if (!refundDialogPayment) return;
+		setSubmitting(true);
+		try {
+			await recordRefund({
+				paymentId: refundDialogPayment.id,
+				invoiceId: Number(refundInvoiceId),
+				amount: Number(refundAmount),
+				reason: refundReason,
+				approvedBy: Number(refundApprovedBy),
+				refundDate: today(),
+			});
+			setRefundDialogPayment(null);
+			refresh();
+		} catch (err) {
+			setError(err instanceof ApiError ? err.message : "Failed to record refund");
+		} finally {
+			setSubmitting(false);
+		}
+	}
+
+	function openAdjustmentDialog(invoice: InvoiceResponse) {
+		setAdjustmentAmount("");
+		setAdjustmentReason("");
+		setAdjustmentApprovedBy("");
+		setAdjustmentDialogInvoice(invoice);
+	}
+
+	async function handleAdjustment(event: FormEvent) {
+		event.preventDefault();
+		if (!adjustmentDialogInvoice) return;
+		setSubmitting(true);
+		try {
+			await recordAdjustment({
+				invoiceId: adjustmentDialogInvoice.id,
+				amount: Number(adjustmentAmount),
+				reason: adjustmentReason,
+				approvedBy: Number(adjustmentApprovedBy),
+				adjustmentDate: today(),
+			});
+			setAdjustmentDialogInvoice(null);
+			refresh();
+		} catch (err) {
+			setError(err instanceof ApiError ? err.message : "Failed to record adjustment");
+		} finally {
+			setSubmitting(false);
+		}
+	}
+
+	function openWaiverDialog(invoice: InvoiceResponse) {
+		setWaiverAmount(String(invoice.outstanding));
+		setWaiverReason("");
+		setWaiverApprovedBy("");
+		setWaiverDialogInvoice(invoice);
+	}
+
+	async function handleWaiver(event: FormEvent) {
+		event.preventDefault();
+		if (!waiverDialogInvoice) return;
+		setSubmitting(true);
+		try {
+			await recordWaiver({
+				invoiceId: waiverDialogInvoice.id,
+				amount: Number(waiverAmount),
+				reason: waiverReason,
+				approvedBy: Number(waiverApprovedBy),
+				waiverDate: today(),
+			});
+			setWaiverDialogInvoice(null);
+			refresh();
+		} catch (err) {
+			setError(err instanceof ApiError ? err.message : "Failed to record waiver");
+		} finally {
+			setSubmitting(false);
+		}
+	}
+
+	const canRefund = hasAnyPermission(["FEE_REFUND_APPROVE"]);
+	const canBounce = hasAnyPermission(["FEE_COLLECT"]);
+	const canAdjust = hasAnyPermission(["FEE_ADJUSTMENT_MANAGE"]);
+	const canWaive = hasAnyPermission(["FEE_WAIVER_APPROVE"]);
 
 	return (
 		<Stack spacing={3}>
@@ -318,6 +455,7 @@ export function StudentFeesPanel({ studentEnrollmentId, academicYearId, schoolCl
 										<TableCell>Paid</TableCell>
 										<TableCell>Outstanding</TableCell>
 										<TableCell>Status</TableCell>
+										{(canAdjust || canWaive) && <TableCell />}
 									</TableRow>
 								</TableHead>
 								<TableBody>
@@ -335,6 +473,80 @@ export function StudentFeesPanel({ studentEnrollmentId, academicYearId, schoolCl
 													size="small"
 												/>
 											</TableCell>
+											{(canAdjust || canWaive) && (
+												<TableCell>
+													<Stack direction="row" spacing={1}>
+														<Can anyOf={["FEE_ADJUSTMENT_MANAGE"]}>
+															<Button size="small" onClick={() => openAdjustmentDialog(invoice)}>
+																Adjust
+															</Button>
+														</Can>
+														<Can anyOf={["FEE_WAIVER_APPROVE"]}>
+															<Button size="small" onClick={() => openWaiverDialog(invoice)} disabled={invoice.outstanding <= 0}>
+																Waive
+															</Button>
+														</Can>
+													</Stack>
+												</TableCell>
+											)}
+										</TableRow>
+									))}
+								</TableBody>
+							</Table>
+						</TableContainer>
+					)}
+				</Stack>
+			</Paper>
+
+			<Paper sx={{ p: 3 }}>
+				<Stack spacing={2}>
+					<Typography variant="h6">Payment history</Typography>
+
+					{payments.length === 0 && <Alert severity="info">No payments recorded yet.</Alert>}
+
+					{payments.length > 0 && (
+						<TableContainer>
+							<Table size="small">
+								<TableHead>
+									<TableRow>
+										<TableCell>Receipt #</TableCell>
+										<TableCell>Date</TableCell>
+										<TableCell>Method</TableCell>
+										<TableCell>Amount</TableCell>
+										<TableCell>Status</TableCell>
+										{(canRefund || canBounce) && <TableCell />}
+									</TableRow>
+								</TableHead>
+								<TableBody>
+									{payments.map((payment) => (
+										<TableRow key={payment.id}>
+											<TableCell>{payment.receiptNumber}</TableCell>
+											<TableCell>{payment.paymentDate}</TableCell>
+											<TableCell>{payment.paymentMethod}</TableCell>
+											<TableCell>{currency(payment.amount)}</TableCell>
+											<TableCell>
+												<Chip
+													label={PAYMENT_STATUS_LABEL[payment.status] ?? payment.status}
+													color={PAYMENT_STATUS_COLOR[payment.status] ?? "default"}
+													size="small"
+												/>
+											</TableCell>
+											{(canRefund || canBounce) && (
+												<TableCell>
+													<Stack direction="row" spacing={1}>
+														<Can anyOf={["FEE_REFUND_APPROVE"]}>
+															<Button size="small" onClick={() => openRefundDialog(payment)} disabled={payment.status === "BOUNCED"}>
+																Refund
+															</Button>
+														</Can>
+														<Can anyOf={["FEE_COLLECT"]}>
+															<Button size="small" color="error" onClick={() => handleBounce(payment)} disabled={payment.status === "BOUNCED"}>
+																Mark bounced
+															</Button>
+														</Can>
+													</Stack>
+												</TableCell>
+											)}
 										</TableRow>
 									))}
 								</TableBody>
@@ -357,7 +569,7 @@ export function StudentFeesPanel({ studentEnrollmentId, academicYearId, schoolCl
 						</TextField>
 						<Divider />
 						<Typography variant="caption" color="text.secondary">
-							Optional discount — requires both a reason and an approver id
+							Optional discount — requires both a reason and an approver
 						</Typography>
 						<TextField label="Discount amount" type="number" value={discountAmount} onChange={(e) => setDiscountAmount(e.target.value)} fullWidth />
 						<TextField label="Discount reason" value={discountReason} onChange={(e) => setDiscountReason(e.target.value)} fullWidth />
@@ -458,6 +670,106 @@ export function StudentFeesPanel({ studentEnrollmentId, academicYearId, schoolCl
 					<Button onClick={() => setPaymentDialogOpen(false)}>Cancel</Button>
 					<Button type="submit" variant="contained" disabled={submitting || !allocationsMatch || Object.keys(allocations).length === 0}>
 						Record
+					</Button>
+				</DialogActions>
+			</Dialog>
+
+			<Dialog open={receiptDialogPayment !== null} onClose={() => setReceiptDialogPayment(null)} fullWidth maxWidth="xs">
+				<DialogTitle>Payment recorded</DialogTitle>
+				<DialogContent>
+					<Stack spacing={1.5} sx={{ mt: 1 }}>
+						<Typography variant="body2" color="text.secondary">
+							Receipt number
+						</Typography>
+						<Typography variant="h5" sx={{ fontFamily: "monospace" }}>
+							{receiptDialogPayment?.receiptNumber}
+						</Typography>
+						<Typography variant="body2" color="text.secondary">
+							{receiptDialogPayment && currency(receiptDialogPayment.amount)} via {receiptDialogPayment?.paymentMethod}
+						</Typography>
+					</Stack>
+				</DialogContent>
+				<DialogActions>
+					<Button variant="contained" onClick={() => setReceiptDialogPayment(null)}>
+						Done
+					</Button>
+				</DialogActions>
+			</Dialog>
+
+			<Dialog open={refundDialogPayment !== null} onClose={() => setRefundDialogPayment(null)} component="form" onSubmit={handleRefund} fullWidth maxWidth="xs">
+				<DialogTitle>Refund payment {refundDialogPayment?.receiptNumber}</DialogTitle>
+				<DialogContent>
+					<Stack spacing={2} sx={{ mt: 1 }}>
+						<TextField select label="Invoice" value={refundInvoiceId} onChange={(e) => setRefundInvoiceId(e.target.value)} required fullWidth>
+							{invoices.map((invoice) => (
+								<MenuItem key={invoice.id} value={invoice.id}>
+									{invoice.invoiceNumber} (paid {invoice.amountPaid})
+								</MenuItem>
+							))}
+						</TextField>
+						<TextField label="Amount" type="number" value={refundAmount} onChange={(e) => setRefundAmount(e.target.value)} required fullWidth />
+						<TextField label="Reason" value={refundReason} onChange={(e) => setRefundReason(e.target.value)} required fullWidth />
+						<TextField label="Approved by (user id)" type="number" value={refundApprovedBy} onChange={(e) => setRefundApprovedBy(e.target.value)} required fullWidth />
+					</Stack>
+				</DialogContent>
+				<DialogActions>
+					<Button onClick={() => setRefundDialogPayment(null)}>Cancel</Button>
+					<Button type="submit" variant="contained" disabled={submitting || !refundInvoiceId || !refundAmount || !refundReason || !refundApprovedBy}>
+						Refund
+					</Button>
+				</DialogActions>
+			</Dialog>
+
+			<Dialog open={adjustmentDialogInvoice !== null} onClose={() => setAdjustmentDialogInvoice(null)} component="form" onSubmit={handleAdjustment} fullWidth maxWidth="xs">
+				<DialogTitle>Adjust invoice {adjustmentDialogInvoice?.invoiceNumber}</DialogTitle>
+				<DialogContent>
+					<Stack spacing={2} sx={{ mt: 1 }}>
+						<Typography variant="caption" color="text.secondary">
+							Positive increases what's owed, negative decreases it (e.g. a billing error).
+						</Typography>
+						<TextField label="Amount" type="number" value={adjustmentAmount} onChange={(e) => setAdjustmentAmount(e.target.value)} required fullWidth />
+						<TextField label="Reason" value={adjustmentReason} onChange={(e) => setAdjustmentReason(e.target.value)} required fullWidth />
+						<TextField
+							label="Approved by (user id)"
+							type="number"
+							value={adjustmentApprovedBy}
+							onChange={(e) => setAdjustmentApprovedBy(e.target.value)}
+							required
+							fullWidth
+						/>
+					</Stack>
+				</DialogContent>
+				<DialogActions>
+					<Button onClick={() => setAdjustmentDialogInvoice(null)}>Cancel</Button>
+					<Button type="submit" variant="contained" disabled={submitting || !adjustmentAmount || !adjustmentReason || !adjustmentApprovedBy}>
+						Apply
+					</Button>
+				</DialogActions>
+			</Dialog>
+
+			<Dialog open={waiverDialogInvoice !== null} onClose={() => setWaiverDialogInvoice(null)} component="form" onSubmit={handleWaiver} fullWidth maxWidth="xs">
+				<DialogTitle>Waive invoice {waiverDialogInvoice?.invoiceNumber}</DialogTitle>
+				<DialogContent>
+					<Stack spacing={2} sx={{ mt: 1 }}>
+						<Typography variant="caption" color="text.secondary">
+							Forgives up to the outstanding balance ({waiverDialogInvoice && currency(waiverDialogInvoice.outstanding)}).
+						</Typography>
+						<TextField label="Amount" type="number" value={waiverAmount} onChange={(e) => setWaiverAmount(e.target.value)} required fullWidth />
+						<TextField label="Reason" value={waiverReason} onChange={(e) => setWaiverReason(e.target.value)} required fullWidth />
+						<TextField
+							label="Approved by (user id)"
+							type="number"
+							value={waiverApprovedBy}
+							onChange={(e) => setWaiverApprovedBy(e.target.value)}
+							required
+							fullWidth
+						/>
+					</Stack>
+				</DialogContent>
+				<DialogActions>
+					<Button onClick={() => setWaiverDialogInvoice(null)}>Cancel</Button>
+					<Button type="submit" variant="contained" disabled={submitting || !waiverAmount || !waiverReason || !waiverApprovedBy}>
+						Waive
 					</Button>
 				</DialogActions>
 			</Dialog>

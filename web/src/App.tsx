@@ -21,7 +21,9 @@ import { ExamDetailPage } from "./modules/examinations/ExamDetailPage";
 import { ExaminationsPage } from "./modules/examinations/ExaminationsPage";
 import { MarksEntryPage } from "./modules/examinations/MarksEntryPage";
 import { ReportCardPrintPage } from "./modules/examinations/ReportCardPrintPage";
-import { FeesPage } from "./modules/fees/FeesPage";
+import { FeeCollectionPage } from "./modules/fees/FeeCollectionPage";
+import { FeeDemandPage } from "./modules/fees/FeeDemandPage";
+import { FeesSetupPage } from "./modules/fees/FeesSetupPage";
 import { HrPage } from "./modules/hr/HrPage";
 import { StaffCreatePage } from "./modules/hr/StaffCreatePage";
 import { StaffDetailPage } from "./modules/hr/StaffDetailPage";
@@ -92,9 +94,10 @@ function App() {
 							<Route path="/academics/classes/:classId/sections/:sectionId" element={<SectionDetailPage />} />
 							<Route path="/attendance" element={<AttendancePage />} />
 							<Route path="/attendance/mark" element={<MarkAttendanceQuickPage />} />
-							<Route path="/fees" element={<FeesPage />} />
-							<Route path="/fees/setup" element={<FeesPage />} />
-							<Route path="/fees/collect" element={<FeesPage />} />
+							<Route path="/fees" element={<FeeCollectionPage />} />
+							<Route path="/fees/setup" element={<FeesSetupPage />} />
+							<Route path="/fees/collect" element={<FeeCollectionPage />} />
+							<Route path="/fees/demand" element={<FeeDemandPage />} />
 							<Route path="/examinations" element={<ExaminationsPage />} />
 							<Route path="/examinations/exams/:examId" element={<ExamDetailPage />} />
 							<Route path="/examinations/exams/:examId/schedules/:scheduleId" element={<MarksEntryPage />} />

@@ -1,21 +1,27 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import Alert from "@mui/material/Alert";
+import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
 import MenuItem from "@mui/material/MenuItem";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
+import NotificationsActiveIcon from "@mui/icons-material/NotificationsActive";
+import { Can } from "../../auth/Can";
 import { ApiError } from "../../api/client";
 import { listStudentEnrollments, type StudentEnrollmentResponse } from "../../api/enrollments";
 import { type PersonResponse, listPersons } from "../../api/persons";
 import { type SectionResponse, listSections } from "../../api/sections";
 import { listSchoolClasses } from "../../api/schoolClasses";
 import { listStudents, type StudentResponse } from "../../api/students";
-import { FeeCategoriesPanel } from "./FeeCategoriesPanel";
-import { FeeStructuresPanel } from "./FeeStructuresPanel";
 import { StudentFeesPanel } from "./StudentFeesPanel";
 
-export function FeesPage() {
+/** The daily fee-collection workflow (#203) - student search, payment recording, payment
+ * history, and correction actions. Setup (categories/structures) lives in FeesSetupPage. */
+export function FeeCollectionPage() {
+	const navigate = useNavigate();
 	const [students, setStudents] = useState<StudentResponse[]>([]);
 	const [persons, setPersons] = useState<PersonResponse[]>([]);
 	const [studentId, setStudentId] = useState("");
@@ -67,12 +73,16 @@ export function FeesPage() {
 
 	return (
 		<Stack spacing={3}>
-			<FeeCategoriesPanel />
-			<FeeStructuresPanel />
-
 			<Paper sx={{ p: 3 }}>
 				<Stack spacing={2}>
-					<Typography variant="h6">Student fees</Typography>
+					<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+						<Typography variant="h6">Collect fee</Typography>
+						<Can anyOf={["FEE_REMINDER_SEND"]}>
+							<Button size="small" startIcon={<NotificationsActiveIcon />} onClick={() => navigate("/fees/demand")}>
+								Overdue &amp; reminders
+							</Button>
+						</Can>
+					</Box>
 					<TextField select label="Student" value={studentId} onChange={(e) => setStudentId(e.target.value)} sx={{ maxWidth: 400 }}>
 						{students.map((student) => (
 							<MenuItem key={student.id} value={student.id}>

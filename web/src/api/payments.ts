@@ -28,3 +28,11 @@ export interface PaymentResponse {
 export function recordPayment(request: RecordPaymentRequest): Promise<PaymentResponse> {
 	return api.post<PaymentResponse>("/api/v1/fees/payments", request);
 }
+
+export function listPayments(studentEnrollmentId: number): Promise<PaymentResponse[]> {
+	return api.get<PaymentResponse[]>(`/api/v1/fees/payments?studentEnrollmentId=${studentEnrollmentId}`);
+}
+
+export function bouncePayment(paymentId: number): Promise<PaymentResponse> {
+	return api.post<PaymentResponse>(`/api/v1/fees/payments/${paymentId}/bounce`);
+}
