@@ -1,11 +1,16 @@
 package com.operion.finance.api;
 
+import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 import com.operion.authorization.RequirePermission;
 import com.operion.finance.FeeService;
 import com.operion.finance.FeeService.AllocationInput;
 import com.operion.finance.Payment;
+import com.operion.finance.PaymentAllocation;
+import com.operion.finance.PaymentAllocationRepository;
 import com.operion.finance.PaymentMethod;
 import com.operion.finance.PaymentRepository;
 import com.operion.organisation.AcademicYear;
@@ -15,6 +20,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -24,11 +30,14 @@ public class PaymentController {
 
 	private final FeeService feeService;
 	private final PaymentRepository paymentRepository;
+	private final PaymentAllocationRepository paymentAllocationRepository;
 	private final AcademicYearRepository academicYearRepository;
 
-	public PaymentController(FeeService feeService, PaymentRepository paymentRepository, AcademicYearRepository academicYearRepository) {
+	public PaymentController(FeeService feeService, PaymentRepository paymentRepository,
+			PaymentAllocationRepository paymentAllocationRepository, AcademicYearRepository academicYearRepository) {
 		this.feeService = feeService;
 		this.paymentRepository = paymentRepository;
+		this.paymentAllocationRepository = paymentAllocationRepository;
 		this.academicYearRepository = academicYearRepository;
 	}
 
@@ -57,6 +66,20 @@ public class PaymentController {
 	@GetMapping("/{paymentId}")
 	public PaymentResponse get(@PathVariable Long paymentId) {
 		return PaymentResponse.from(findPayment(paymentId));
+	}
+
+	/** A student's payment/receipt history (#133) - deduplicated across allocations, since
+	 * a single payment can cover several of the student's invoices. */
+	@GetMapping
+	public List<PaymentResponse> list(@RequestParam Long studentEnrollmentId) {
+		Map<Long, Payment> byId = new LinkedHashMap<>();
+		for (PaymentAllocation allocation : paymentAllocationRepository.findByInvoice_StudentFeeAssignment_StudentEnrollmentId(studentEnrollmentId)) {
+			byId.putIfAbsent(allocation.getPayment().getId(), allocation.getPayment());
+		}
+		return byId.values().stream()
+				.sorted(Comparator.comparing(Payment::getPaymentDate).reversed())
+				.map(PaymentResponse::from)
+				.toList();
 	}
 
 	private Payment findPayment(Long paymentId) {

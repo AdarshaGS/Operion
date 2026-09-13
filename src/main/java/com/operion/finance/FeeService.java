@@ -35,6 +35,8 @@ public class FeeService {
 	private final PaymentRepository paymentRepository;
 	private final PaymentAllocationRepository paymentAllocationRepository;
 	private final RefundRepository refundRepository;
+	private final AdjustmentRepository adjustmentRepository;
+	private final WaiverRepository waiverRepository;
 	private final FeeDocumentCounterRepository feeDocumentCounterRepository;
 	private final OrganisationBrandingRepository organisationBrandingRepository;
 
@@ -42,8 +44,8 @@ public class FeeService {
 			FeeStructureRepository feeStructureRepository, FeeStructureInstallmentRepository feeStructureInstallmentRepository,
 			StudentFeeAssignmentRepository studentFeeAssignmentRepository, InvoiceRepository invoiceRepository,
 			PaymentRepository paymentRepository, PaymentAllocationRepository paymentAllocationRepository,
-			RefundRepository refundRepository, FeeDocumentCounterRepository feeDocumentCounterRepository,
-			OrganisationBrandingRepository organisationBrandingRepository) {
+			RefundRepository refundRepository, AdjustmentRepository adjustmentRepository, WaiverRepository waiverRepository,
+			FeeDocumentCounterRepository feeDocumentCounterRepository, OrganisationBrandingRepository organisationBrandingRepository) {
 		this.feeCategoryRepository = feeCategoryRepository;
 		this.feeStructureGroupRepository = feeStructureGroupRepository;
 		this.feeStructureRepository = feeStructureRepository;
@@ -53,6 +55,8 @@ public class FeeService {
 		this.paymentRepository = paymentRepository;
 		this.paymentAllocationRepository = paymentAllocationRepository;
 		this.refundRepository = refundRepository;
+		this.adjustmentRepository = adjustmentRepository;
+		this.waiverRepository = waiverRepository;
 		this.feeDocumentCounterRepository = feeDocumentCounterRepository;
 		this.organisationBrandingRepository = organisationBrandingRepository;
 	}
@@ -188,6 +192,22 @@ public class FeeService {
 		invoice.reversePayment(amount);
 		invoiceRepository.save(invoice);
 		return refundRepository.save(new Refund(payment, invoice, amount, reason, approvedBy, refundDate));
+	}
+
+	/** Manual correction to what's owed on an invoice - amount may be positive or negative. Per #131. */
+	@Transactional
+	public Adjustment recordAdjustment(Invoice invoice, BigDecimal amount, String reason, Long approvedBy, LocalDate adjustmentDate) {
+		invoice.applyAdjustment(amount);
+		invoiceRepository.save(invoice);
+		return adjustmentRepository.save(new Adjustment(invoice, amount, reason, approvedBy, adjustmentDate));
+	}
+
+	/** Forgives some or all of an already-issued invoice's outstanding balance. Per #131. */
+	@Transactional
+	public Waiver recordWaiver(Invoice invoice, BigDecimal amount, String reason, Long approvedBy, LocalDate waiverDate) {
+		invoice.applyWaiver(amount);
+		invoiceRepository.save(invoice);
+		return waiverRepository.save(new Waiver(invoice, amount, reason, approvedBy, waiverDate));
 	}
 
 	/** Atomic per-(organisation, academicYear, documentType) sequence - never SELECT MAX()+1.
