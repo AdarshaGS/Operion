@@ -23,7 +23,7 @@ export function PlatformLoginPage() {
 	const [submitting, setSubmitting] = useState(false);
 
 	if (isAuthenticated) {
-		return <Navigate to="/platform/organisations" replace />;
+		return <Navigate to="/platform/dashboard" replace />;
 	}
 
 	async function handleSubmit(event: FormEvent) {
@@ -32,7 +32,7 @@ export function PlatformLoginPage() {
 		setSubmitting(true);
 		try {
 			await login(email.trim(), password);
-			navigate("/platform/organisations", { replace: true });
+			navigate("/platform/dashboard", { replace: true });
 		} catch (err) {
 			setError(err instanceof PlatformApiError ? err.message : "Login failed - please try again");
 		} finally {

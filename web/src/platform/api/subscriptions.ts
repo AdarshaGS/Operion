@@ -8,6 +8,7 @@ export interface SubscriptionResponse {
 	startDate: string;
 	endDate: string | null;
 	status: string;
+	createdAt: string;
 }
 
 export interface CreateSubscriptionRequest {

@@ -50,10 +50,14 @@ import { TransportPage } from "./modules/transport/TransportPage";
 import { StudentCreatePage } from "./modules/students/StudentCreatePage";
 import { StudentDetailPage } from "./modules/students/StudentDetailPage";
 import { StudentListPage } from "./modules/students/StudentListPage";
+import { ActivityPage } from "./platform/ActivityPage";
 import { DashboardPage as PlatformDashboardPage } from "./platform/DashboardPage";
+import { InvoicesPage } from "./platform/InvoicesPage";
 import { OrganisationDetailPage } from "./platform/OrganisationDetailPage";
 import { OrganisationsPage } from "./platform/OrganisationsPage";
+import { PaymentsPage } from "./platform/PaymentsPage";
 import { PlansPage } from "./platform/PlansPage";
+import { SubscriptionsPage } from "./platform/SubscriptionsPage";
 import { PlatformAuthProvider } from "./platform/auth/PlatformAuthContext";
 import { PlatformLoginPage } from "./platform/auth/PlatformLoginPage";
 import { PlatformProtectedRoute } from "./platform/auth/PlatformProtectedRoute";
@@ -127,6 +131,10 @@ function App() {
 							<Route path="/platform/organisations" element={<OrganisationsPage />} />
 							<Route path="/platform/organisations/:organisationId" element={<OrganisationDetailPage />} />
 							<Route path="/platform/plans" element={<PlansPage />} />
+							<Route path="/platform/subscriptions" element={<SubscriptionsPage />} />
+							<Route path="/platform/invoices" element={<InvoicesPage />} />
+							<Route path="/platform/payments" element={<PaymentsPage />} />
+							<Route path="/platform/activity" element={<ActivityPage />} />
 						</Route>
 					</Route>
 					<Route path="*" element={<Navigate to="/" replace />} />

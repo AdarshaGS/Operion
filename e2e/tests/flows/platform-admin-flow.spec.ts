@@ -38,11 +38,8 @@ test("Platform Admin: manages plans, provisions a tenant, changes its status, an
 		const login = new PlatformLoginPage(page);
 		await login.open();
 		await login.login(PLATFORM_ADMIN_CREDENTIALS.email, PLATFORM_ADMIN_CREDENTIALS.password);
-		await expect(page).toHaveURL(/\/platform\/organisations/); // PlatformLoginPage's own post-login target
-
-		await page.goto("/platform/dashboard");
-		await expect(page).not.toHaveURL(/\/platform\/login/);
-		await expect(page.getByRole("heading", { name: /dashboard/i })).toBeVisible();
+		await expect(page).toHaveURL(/\/platform\/dashboard/); // PlatformLoginPage's own post-login target
+		await expect(page.getByRole("heading", { name: /good (morning|afternoon|evening)/i })).toBeVisible();
 		diagnostics.assertClean("platform dashboard");
 	});
 

@@ -9,6 +9,7 @@ export interface OrganisationResponse {
 	organisationType: string;
 	board: string | null;
 	schoolCode: string | null;
+	createdAt: string;
 }
 
 export interface CreateOrganisationRequest {

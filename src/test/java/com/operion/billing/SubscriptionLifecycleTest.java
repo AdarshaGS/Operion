@@ -7,6 +7,8 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
+import com.operion.audit.AuditLogRepository;
+import com.operion.audit.AuditLogService;
 import com.operion.common.JpaConfig;
 import com.operion.common.MultiTenancyConfig;
 import com.operion.common.TenantContext;
@@ -17,12 +19,14 @@ import com.operion.organisation.OrganisationRepository;
 import com.operion.student.Student;
 import com.operion.student.StudentRepository;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * Proves BillingService's core rules: one ACTIVE subscription per org (changing plans
@@ -30,9 +34,13 @@ import org.springframework.transaction.annotation.Transactional;
  * TeacherAssignment), an invoice can't be generated without an active subscription, the
  * invoiced amount is computed from the org's live ACTIVE student headcount at the
  * subscription's snapshotted rate, and markPaid is a one-way transition.
+ *
+ * @DataJpaTest per the "no ObjectMapper bean in this slice" gotcha (ai-context/load-context.md):
+ * BillingService needs an AuditLogService (for its own audit-log calls), so it's
+ * constructed by hand rather than pulled in via @Import.
  */
 @DataJpaTest
-@Import({ MultiTenancyConfig.class, JpaConfig.class, BillingService.class })
+@Import({ MultiTenancyConfig.class, JpaConfig.class })
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class SubscriptionLifecycleTest {
 
@@ -46,10 +54,25 @@ class SubscriptionLifecycleTest {
 	private StudentRepository studentRepository;
 
 	@Autowired
-	private BillingService billingService;
+	private PlanRepository planRepository;
 
 	@Autowired
 	private SubscriptionRepository subscriptionRepository;
+
+	@Autowired
+	private PlatformInvoiceRepository platformInvoiceRepository;
+
+	@Autowired
+	private AuditLogRepository auditLogRepository;
+
+	private BillingService billingService;
+
+	@BeforeEach
+	void setUpBillingService() {
+		AuditLogService auditLogService = new AuditLogService(auditLogRepository, new ObjectMapper());
+		billingService = new BillingService(planRepository, subscriptionRepository, platformInvoiceRepository,
+				organisationRepository, studentRepository, auditLogService);
+	}
 
 	@AfterEach
 	void clearTenant() {

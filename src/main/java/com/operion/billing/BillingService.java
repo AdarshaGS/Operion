@@ -5,6 +5,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 
+import com.operion.audit.AuditLogService;
 import com.operion.common.TenantContext;
 import com.operion.organisation.Organisation;
 import com.operion.organisation.OrganisationRepository;
@@ -27,26 +28,36 @@ public class BillingService {
 	private final PlatformInvoiceRepository platformInvoiceRepository;
 	private final OrganisationRepository organisationRepository;
 	private final StudentRepository studentRepository;
+	private final AuditLogService auditLogService;
 
 	public BillingService(PlanRepository planRepository, SubscriptionRepository subscriptionRepository,
 			PlatformInvoiceRepository platformInvoiceRepository, OrganisationRepository organisationRepository,
-			StudentRepository studentRepository) {
+			StudentRepository studentRepository, AuditLogService auditLogService) {
 		this.planRepository = planRepository;
 		this.subscriptionRepository = subscriptionRepository;
 		this.platformInvoiceRepository = platformInvoiceRepository;
 		this.organisationRepository = organisationRepository;
 		this.studentRepository = studentRepository;
+		this.auditLogService = auditLogService;
 	}
 
+	/** Plan is a global catalog entity, not org-scoped - unlike the subscription/invoice
+	 * audit calls below, this never needs to borrow TenantContext to stamp an organisation_id. */
+	@Transactional
 	public Plan createPlan(String code, String name, BigDecimal pricePerStudentPerYear) {
-		return planRepository.save(new Plan(code, name, pricePerStudentPerYear));
+		Plan plan = planRepository.save(new Plan(code, name, pricePerStudentPerYear));
+		auditLogService.record("Plan", plan.getId(), "CREATE", null, plan.getStatus());
+		return plan;
 	}
 
 	@Transactional
 	public Plan changePlanStatus(Long planId, PlanStatus target) {
 		Plan plan = planRepository.findById(planId).orElseThrow(() -> new IllegalArgumentException("No plan with id " + planId));
+		PlanStatus previous = plan.getStatus();
 		plan.changeStatus(target);
-		return planRepository.save(plan);
+		plan = planRepository.save(plan);
+		auditLogService.record("Plan", plan.getId(), "STATUS_CHANGE", previous, target);
+		return plan;
 	}
 
 	/**
@@ -67,7 +78,20 @@ public class BillingService {
 					subscriptionRepository.save(current);
 				});
 
-		return subscriptionRepository.save(new Subscription(organisation, plan, startDate));
+		Subscription subscription = subscriptionRepository.save(new Subscription(organisation, plan, startDate));
+
+		// Same TenantContext-borrow as OrganisationService.changeStatus() - a platform
+		// request otherwise carries no organisation, and this audit row is about one.
+		Long previousOrganisationId = TenantContext.getOrganisationId();
+		Long previousActorId = TenantContext.getActorId();
+		try {
+			TenantContext.set(organisationId, previousActorId);
+			auditLogService.record("Subscription", subscription.getId(), "CREATE", null, plan.getCode());
+		} finally {
+			TenantContext.set(previousOrganisationId, previousActorId);
+		}
+
+		return subscription;
 	}
 
 	public List<Subscription> subscriptionHistory(Long organisationId) {
@@ -105,8 +129,22 @@ public class BillingService {
 		int studentCount = countActiveStudents(organisationId);
 		BigDecimal amount = subscription.getPricePerStudentPerYear().multiply(BigDecimal.valueOf(studentCount));
 
-		return platformInvoiceRepository.save(
+		PlatformInvoice invoice = platformInvoiceRepository.save(
 				new PlatformInvoice(organisation, subscription, periodStart, periodEnd, studentCount, amount, dueDate));
+
+		// Same TenantContext-borrow as subscribe() above - deliberately not wrapped in
+		// this method's own @Transactional (there isn't one, see the class comment on
+		// why), but AuditLog isn't tenant-scoped so it doesn't need one either.
+		Long previousOrganisationId = TenantContext.getOrganisationId();
+		Long previousActorId = TenantContext.getActorId();
+		try {
+			TenantContext.set(organisationId, previousActorId);
+			auditLogService.record("PlatformInvoice", invoice.getId(), "GENERATE", null, amount);
+		} finally {
+			TenantContext.set(previousOrganisationId, previousActorId);
+		}
+
+		return invoice;
 	}
 
 	@Transactional
@@ -114,7 +152,19 @@ public class BillingService {
 		PlatformInvoice invoice = platformInvoiceRepository.findById(invoiceId)
 				.orElseThrow(() -> new IllegalArgumentException("No platform invoice with id " + invoiceId));
 		invoice.markPaid(Instant.now());
-		return platformInvoiceRepository.save(invoice);
+		invoice = platformInvoiceRepository.save(invoice);
+
+		Long organisationId = invoice.getOrganisation().getId();
+		Long previousOrganisationId = TenantContext.getOrganisationId();
+		Long previousActorId = TenantContext.getActorId();
+		try {
+			TenantContext.set(organisationId, previousActorId);
+			auditLogService.record("PlatformInvoice", invoice.getId(), "STATUS_CHANGE", PlatformInvoiceStatus.ISSUED, PlatformInvoiceStatus.PAID);
+		} finally {
+			TenantContext.set(previousOrganisationId, previousActorId);
+		}
+
+		return invoice;
 	}
 
 	public List<PlatformInvoice> invoiceHistory(Long organisationId) {

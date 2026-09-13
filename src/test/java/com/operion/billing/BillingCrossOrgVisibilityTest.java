@@ -6,6 +6,8 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
+import com.operion.audit.AuditLogRepository;
+import com.operion.audit.AuditLogService;
 import com.operion.common.JpaConfig;
 import com.operion.common.MultiTenancyConfig;
 import com.operion.common.TenantContext;
@@ -16,12 +18,14 @@ import com.operion.organisation.OrganisationRepository;
 import com.operion.student.Student;
 import com.operion.student.StudentRepository;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * The inverse of every *TenantIsolationTest in this codebase (see e.g.
@@ -34,9 +38,13 @@ import org.springframework.transaction.annotation.Transactional;
  * still correctly isolates per org even though the platform-facing surface around it
  * does not - the two invoices below must reflect each org's own headcount, not a mixed
  * total.
+ *
+ * @DataJpaTest per the "no ObjectMapper bean in this slice" gotcha (ai-context/load-context.md):
+ * BillingService needs an AuditLogService (for its own audit-log calls), so it's
+ * constructed by hand rather than pulled in via @Import.
  */
 @DataJpaTest
-@Import({ MultiTenancyConfig.class, JpaConfig.class, BillingService.class })
+@Import({ MultiTenancyConfig.class, JpaConfig.class })
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class BillingCrossOrgVisibilityTest {
 
@@ -50,10 +58,25 @@ class BillingCrossOrgVisibilityTest {
 	private StudentRepository studentRepository;
 
 	@Autowired
-	private BillingService billingService;
+	private PlanRepository planRepository;
 
 	@Autowired
 	private SubscriptionRepository subscriptionRepository;
+
+	@Autowired
+	private PlatformInvoiceRepository platformInvoiceRepository;
+
+	@Autowired
+	private AuditLogRepository auditLogRepository;
+
+	private BillingService billingService;
+
+	@BeforeEach
+	void setUpBillingService() {
+		AuditLogService auditLogService = new AuditLogService(auditLogRepository, new ObjectMapper());
+		billingService = new BillingService(planRepository, subscriptionRepository, platformInvoiceRepository,
+				organisationRepository, studentRepository, auditLogService);
+	}
 
 	@AfterEach
 	void clearTenant() {

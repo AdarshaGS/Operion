@@ -13,6 +13,18 @@ public interface AuditLogRepository extends JpaRepository<AuditLog, Long> {
 
 	Page<AuditLog> findByOrganisationId(Long organisationId, Pageable pageable);
 
+	/** Cross-org, for the platform-admin activity feed - AuditLog carries no @TenantId (see
+	 * its own javadoc), so a plain findAll() would return every organisation's rows, same
+	 * "the platform plane is the one place cross-tenant listing is allowed" precedent as
+	 * BillingService.allSubscriptions()/allInvoices(). But this table is shared by every
+	 * module (attendance, reporting, students, ...), not just the platform-billing ones -
+	 * without the entityType filter this drags in tenant-level noise (e.g. a school's own
+	 * "SavedReport run" entries) that has nothing to do with the platform-admin feed.
+	 * entityType is deliberately a literal Java list, not a DB enum: AuditLog's own javadoc
+	 * says entity_type/entity_id is intentionally schema-free, so there's nothing to join
+	 * against - this list is just "what BillingService/OrganisationService currently log". */
+	List<AuditLog> findTop50ByEntityTypeInOrderByOccurredAtDesc(List<String> entityTypes);
+
 	/** All filters optional - the frontend viewer (#145) narrows by any combination of
 	 * entity type / actor / date range, or none at all. */
 	@Query("SELECT a FROM AuditLog a WHERE a.organisationId = :organisationId "

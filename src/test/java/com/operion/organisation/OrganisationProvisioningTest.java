@@ -8,12 +8,16 @@ import com.operion.authorization.OrganisationMembershipRepository;
 import com.operion.authorization.PermissionRepository;
 import com.operion.authorization.RoleRepository;
 import com.operion.billing.BillingService;
+import com.operion.billing.PlanRepository;
+import com.operion.billing.PlatformInvoiceRepository;
+import com.operion.billing.SubscriptionRepository;
 import com.operion.common.JpaConfig;
 import com.operion.common.MultiTenancyConfig;
 import com.operion.common.TenantContext;
 import com.operion.identity.PersonRepository;
 import com.operion.identity.User;
 import com.operion.identity.UserRepository;
+import com.operion.student.StudentRepository;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,10 +35,11 @@ import tools.jackson.databind.ObjectMapper;
  * existing identity - see the comment on OrganisationService.createAdminMembership.
  *
  * @DataJpaTest per the "no ObjectMapper bean in this slice" gotcha (ai-context/load-context.md):
- * OrganisationService is constructed by hand rather than pulled in via @Import.
+ * OrganisationService and BillingService (which now also needs an AuditLogService, for its
+ * own audit-log calls) are both constructed by hand rather than pulled in via @Import.
  */
 @DataJpaTest
-@Import({ MultiTenancyConfig.class, JpaConfig.class, BillingService.class })
+@Import({ MultiTenancyConfig.class, JpaConfig.class })
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class OrganisationProvisioningTest {
 
@@ -61,13 +66,21 @@ class OrganisationProvisioningTest {
 	@Autowired
 	private AuditLogRepository auditLogRepository;
 	@Autowired
-	private BillingService billingService;
+	private PlanRepository planRepository;
+	@Autowired
+	private SubscriptionRepository subscriptionRepository;
+	@Autowired
+	private PlatformInvoiceRepository platformInvoiceRepository;
+	@Autowired
+	private StudentRepository studentRepository;
 
 	static final ProvisioningProfile NO_PROFILE =
 			new ProvisioningProfile(null, null, null, null, null, null, null, null, null, null);
 
 	private OrganisationService organisationService() {
 		AuditLogService auditLogService = new AuditLogService(auditLogRepository, new ObjectMapper());
+		BillingService billingService = new BillingService(planRepository, subscriptionRepository, platformInvoiceRepository,
+				organisationRepository, studentRepository, auditLogService);
 		return new OrganisationService(organisationRepository, campusRepository, configurationRepository, brandingRepository,
 				academicYearRepository, roleRepository, permissionRepository, userRepository, personRepository, membershipRepository,
 				new BCryptPasswordEncoder(), auditLogService, billingService);

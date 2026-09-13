@@ -6,6 +6,7 @@ export interface PlanResponse {
 	name: string;
 	pricePerStudentPerYear: number;
 	status: string;
+	createdAt: string;
 }
 
 export interface CreatePlanRequest {
