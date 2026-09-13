@@ -21,7 +21,8 @@ public class PlatformAuditLogController {
 	/** The entity types BillingService/OrganisationService actually audit-log today -
 	 * everything else in audit_logs is tenant-module noise (attendance, reporting, ...)
 	 * that has no business being on a platform-wide feed. */
-	private static final List<String> PLATFORM_ENTITY_TYPES = List.of("Organisation", "Plan", "Subscription", "PlatformInvoice");
+	private static final List<String> PLATFORM_ENTITY_TYPES =
+			List.of("Organisation", "Plan", "Subscription", "PlatformInvoice", "PlatformSetting");
 
 	private final AuditLogRepository auditLogRepository;
 

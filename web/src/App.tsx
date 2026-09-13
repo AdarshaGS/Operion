@@ -57,6 +57,7 @@ import { OrganisationDetailPage } from "./platform/OrganisationDetailPage";
 import { OrganisationsPage } from "./platform/OrganisationsPage";
 import { PaymentsPage } from "./platform/PaymentsPage";
 import { PlansPage } from "./platform/PlansPage";
+import { PlatformSettingsPage } from "./platform/PlatformSettingsPage";
 import { SubscriptionsPage } from "./platform/SubscriptionsPage";
 import { SystemHealthPage } from "./platform/SystemHealthPage";
 import { UsagePage } from "./platform/UsagePage";
@@ -139,6 +140,7 @@ function App() {
 							<Route path="/platform/activity" element={<ActivityPage />} />
 							<Route path="/platform/usage" element={<UsagePage />} />
 							<Route path="/platform/system-health" element={<SystemHealthPage />} />
+							<Route path="/platform/settings" element={<PlatformSettingsPage />} />
 						</Route>
 					</Route>
 					<Route path="*" element={<Navigate to="/" replace />} />

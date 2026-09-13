@@ -77,7 +77,7 @@ const NAV_GROUPS: PlatformNavGroup[] = [
 	},
 	{
 		label: "Settings",
-		items: [{ label: "Platform Settings", path: "/platform/settings", icon: <SettingsIcon />, built: false }],
+		items: [{ label: "Platform Settings", path: "/platform/settings", icon: <SettingsIcon />, built: true }],
 	},
 ];
 

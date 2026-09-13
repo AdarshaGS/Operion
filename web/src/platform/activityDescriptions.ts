@@ -46,6 +46,8 @@ export function describeActivity(entry: ActivityResponse, { organisations, plans
 			const name = plan?.name ?? "A plan";
 			return entry.action === "CREATE" ? `Plan "${name}" created` : `Plan "${name}" status changed`;
 		}
+		case "PlatformSetting":
+			return "Platform settings changed";
 		default:
 			return `${entry.entityType} ${entry.action.toLowerCase().replace("_", " ")}`;
 	}
