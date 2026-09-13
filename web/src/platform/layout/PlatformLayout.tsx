@@ -66,9 +66,9 @@ const NAV_GROUPS: PlatformNavGroup[] = [
 	{
 		label: "Operations",
 		items: [
-			{ label: "Usage", path: "/platform/usage", icon: <BarChartIcon />, built: false },
+			{ label: "Usage", path: "/platform/usage", icon: <BarChartIcon />, built: true },
 			{ label: "Activity", path: "/platform/activity", icon: <TimelineIcon />, built: true },
-			{ label: "System Health", path: "/platform/system-health", icon: <MonitorHeartIcon />, built: false },
+			{ label: "System Health", path: "/platform/system-health", icon: <MonitorHeartIcon />, built: true },
 		],
 	},
 	{

@@ -33,4 +33,10 @@ public class SubscriptionController {
 	public List<SubscriptionResponse> all() {
 		return billingService.allSubscriptions().stream().map(SubscriptionResponse::from).toList();
 	}
+
+	/** See BillingService.calculateMrr() for the definition. */
+	@GetMapping("/api/v1/platform/subscriptions/mrr")
+	public MrrResponse mrr() {
+		return new MrrResponse(billingService.calculateMrr());
+	}
 }

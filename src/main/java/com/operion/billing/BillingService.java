@@ -1,6 +1,7 @@
 package com.operion.billing;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
@@ -174,6 +175,37 @@ public class BillingService {
 	/** Cross-org, for the platform dashboard - see allSubscriptions() above. */
 	public List<PlatformInvoice> allInvoices() {
 		return platformInvoiceRepository.findAll();
+	}
+
+	/**
+	 * MRR approximation for the platform dashboard - subscriptions are priced per-student-
+	 * per-year, not as a flat recurring fee, so there's no literal "monthly amount" stored
+	 * anywhere. Defined as Σ(active subscription's per-student-per-year rate × that org's
+	 * current active student headcount) / 12, recomputed live on every call (no snapshot/
+	 * history kept) - same "small enough to compute at request time" call as the rest of
+	 * this dashboard, just one countActiveStudents() call per ACTIVE subscription instead
+	 * of one org at a time like generateInvoice().
+	 */
+	public BigDecimal calculateMrr() {
+		return subscriptionRepository.findByStatus(SubscriptionStatus.ACTIVE).stream()
+				.map(subscription -> subscription.getPricePerStudentPerYear()
+						.multiply(BigDecimal.valueOf(countActiveStudents(subscription.getOrganisation().getId()))))
+				.reduce(BigDecimal.ZERO, BigDecimal::add)
+				.divide(BigDecimal.valueOf(12), 2, RoundingMode.HALF_UP);
+	}
+
+	/** Cross-org, for the platform-admin Usage page (Operations section) - "usage" is
+	 * approximated as each org's current active-student headcount, the same live count
+	 * generateInvoice() snapshots one org at a time, computed here across every
+	 * organisation in one pass. No historical/trend tracking - see the ticket for why a
+	 * standalone usage-history entity isn't built yet. */
+	public List<OrganisationUsage> usageByOrganisation() {
+		return organisationRepository.findAll().stream()
+				.map(org -> new OrganisationUsage(org.getId(), countActiveStudents(org.getId())))
+				.toList();
+	}
+
+	public record OrganisationUsage(Long organisationId, int activeStudentCount) {
 	}
 
 	/**

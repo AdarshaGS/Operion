@@ -58,6 +58,8 @@ import { OrganisationsPage } from "./platform/OrganisationsPage";
 import { PaymentsPage } from "./platform/PaymentsPage";
 import { PlansPage } from "./platform/PlansPage";
 import { SubscriptionsPage } from "./platform/SubscriptionsPage";
+import { SystemHealthPage } from "./platform/SystemHealthPage";
+import { UsagePage } from "./platform/UsagePage";
 import { PlatformAuthProvider } from "./platform/auth/PlatformAuthContext";
 import { PlatformLoginPage } from "./platform/auth/PlatformLoginPage";
 import { PlatformProtectedRoute } from "./platform/auth/PlatformProtectedRoute";
@@ -135,6 +137,8 @@ function App() {
 							<Route path="/platform/invoices" element={<InvoicesPage />} />
 							<Route path="/platform/payments" element={<PaymentsPage />} />
 							<Route path="/platform/activity" element={<ActivityPage />} />
+							<Route path="/platform/usage" element={<UsagePage />} />
+							<Route path="/platform/system-health" element={<SystemHealthPage />} />
 						</Route>
 					</Route>
 					<Route path="*" element={<Navigate to="/" replace />} />

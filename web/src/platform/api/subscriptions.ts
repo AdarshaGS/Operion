@@ -27,3 +27,11 @@ export function createSubscription(organisationId: number, request: CreateSubscr
 export function listAllSubscriptions(): Promise<SubscriptionResponse[]> {
 	return platformApi.get<SubscriptionResponse[]>("/api/v1/platform/subscriptions");
 }
+
+export interface MrrResponse {
+	mrr: number;
+}
+
+export function getMrr(): Promise<MrrResponse> {
+	return platformApi.get<MrrResponse>("/api/v1/platform/subscriptions/mrr");
+}

@@ -24,7 +24,7 @@ import { listOrganisations, type OrganisationResponse } from "./api/organisation
 import { listAllInvoices, type PlatformInvoiceResponse } from "./api/platformInvoices";
 import { listPlans, type PlanResponse } from "./api/plans";
 import { PlatformApiError } from "./api/platformClient";
-import { listAllSubscriptions, type SubscriptionResponse } from "./api/subscriptions";
+import { getMrr, listAllSubscriptions, type SubscriptionResponse } from "./api/subscriptions";
 import { describeActivity } from "./activityDescriptions";
 import { colors } from "../theme";
 
@@ -98,10 +98,11 @@ function StatTile({ label, value, hint, onClick }: { label: string; value: strin
  * at this scale to compute client-side, same "don't optimize for scale the product doesn't
  * have yet" call as the rest of this frontend.
  *
- * Deliberately missing vs. the target mockup: MRR and a revenue trend chart (the per-student
- * pricing model needs a product decision on what "MRR" even means before those can be built
- * honestly - see the tracking issue), and a "needs attention" org-inactivity/incomplete-
- * onboarding callout (no activity/onboarding-completeness signal exists yet either). */
+ * Deliberately missing vs. the target mockup: a revenue trend chart (there's no MRR
+ * snapshot history, so it would really be "billed revenue by month," not literal MRR-
+ * over-time - a separate approximation the MRR tile below doesn't need to make), and a
+ * "needs attention" org-inactivity/incomplete-onboarding callout (no activity/onboarding-
+ * completeness signal exists yet - see the tracking issue). */
 export function DashboardPage() {
 	const navigate = useNavigate();
 	const [organisations, setOrganisations] = useState<OrganisationResponse[] | null>(null);
@@ -109,22 +110,24 @@ export function DashboardPage() {
 	const [invoices, setInvoices] = useState<PlatformInvoiceResponse[] | null>(null);
 	const [plans, setPlans] = useState<PlanResponse[] | null>(null);
 	const [activity, setActivity] = useState<ActivityResponse[] | null>(null);
+	const [mrr, setMrr] = useState<number | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	const [growthWindow, setGrowthWindow] = useState<(typeof GROWTH_WINDOW_OPTIONS)[number]>(6);
 
 	useEffect(() => {
-		Promise.all([listOrganisations(), listAllSubscriptions(), listAllInvoices(), listPlans(), listRecentActivity()])
-			.then(([orgs, subs, inv, pl, act]) => {
+		Promise.all([listOrganisations(), listAllSubscriptions(), listAllInvoices(), listPlans(), listRecentActivity(), getMrr()])
+			.then(([orgs, subs, inv, pl, act, mrrResponse]) => {
 				setOrganisations(orgs);
 				setSubscriptions(subs);
 				setInvoices(inv);
 				setPlans(pl);
 				setActivity(act);
+				setMrr(mrrResponse.mrr);
 			})
 			.catch((err) => setError(err instanceof PlatformApiError ? err.message : "Failed to load dashboard"));
 	}, []);
 
-	const loading = !organisations || !subscriptions || !invoices || !plans || !activity;
+	const loading = !organisations || !subscriptions || !invoices || !plans || !activity || mrr === null;
 
 	const orgCountByStatus = Object.fromEntries(
 		ORG_STATUSES.map((status) => [status, organisations?.filter((org) => org.status === status).length ?? 0]),
@@ -140,6 +143,13 @@ export function DashboardPage() {
 
 	const today = new Date().toISOString().slice(0, 10);
 	const overdueInvoices = outstandingInvoices.filter((inv) => inv.dueDate < today);
+
+	const in7Days = Date.now() + 7 * 86_400_000;
+	const trialsExpiringSoon = (organisations ?? []).filter(
+		(org) => org.status === "TRIAL" && new Date(org.trialEndsAt).getTime() <= in7Days,
+	);
+
+	const needsAttentionCount = overdueInvoices.length + trialsExpiringSoon.length;
 
 	const growthData = useMemo(() => bucketByMonth(organisations ?? [], growthWindow), [organisations, growthWindow]);
 
@@ -185,6 +195,12 @@ export function DashboardPage() {
 							onClick={() => navigate("/platform/invoices")}
 						/>
 						<StatTile label="Collection rate" value={collectionRate === null ? "—" : `${collectionRate.toFixed(1)}%`} />
+						<StatTile
+							label="MRR"
+							value={currency(mrr!)}
+							hint="rate × active students ÷ 12"
+							onClick={() => navigate("/platform/subscriptions")}
+						/>
 					</Stack>
 
 					<Stack direction={{ xs: "column", md: "row" }} spacing={2}>
@@ -224,14 +240,30 @@ export function DashboardPage() {
 						<Paper variant="outlined" sx={{ p: 2.5, flex: 1, minWidth: 0 }}>
 							<Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center", mb: 1 }}>
 								<Typography variant="h6">Needs attention</Typography>
-								<Chip label={overdueInvoices.length} size="small" color={overdueInvoices.length ? "error" : "default"} />
+								<Chip label={needsAttentionCount} size="small" color={needsAttentionCount ? "error" : "default"} />
 							</Stack>
-							{overdueInvoices.length === 0 && (
+							{needsAttentionCount === 0 && (
 								<Typography variant="body2" color="text.secondary">
 									Nothing needs attention right now.
 								</Typography>
 							)}
 							<Stack spacing={1}>
+								{trialsExpiringSoon.slice(0, 6).map((org) => {
+									const expired = new Date(org.trialEndsAt).getTime() < Date.now();
+									return (
+										<Stack key={`trial-${org.id}`} direction="row" sx={{ justifyContent: "space-between", alignItems: "center" }}>
+											<Box>
+												<Typography variant="body2">{org.name} — trial {expired ? "expired" : "expiring soon"}</Typography>
+												<Typography variant="caption" color="text.secondary">
+													{expired ? "Ended" : "Ends"} {org.trialEndsAt.slice(0, 10)}
+												</Typography>
+											</Box>
+											<Button size="small" onClick={() => navigate(`/platform/organisations/${org.id}`)}>
+												View
+											</Button>
+										</Stack>
+									);
+								})}
 								{overdueInvoices.slice(0, 6).map((inv) => (
 									<Stack key={inv.id} direction="row" sx={{ justifyContent: "space-between", alignItems: "center" }}>
 										<Box>

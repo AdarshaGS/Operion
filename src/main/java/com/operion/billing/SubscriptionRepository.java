@@ -10,4 +10,6 @@ public interface SubscriptionRepository extends JpaRepository<Subscription, Long
 	List<Subscription> findByOrganisationIdOrderByStartDateDesc(Long organisationId);
 
 	Optional<Subscription> findByOrganisationIdAndStatus(Long organisationId, SubscriptionStatus status);
+
+	List<Subscription> findByStatus(SubscriptionStatus status);
 }

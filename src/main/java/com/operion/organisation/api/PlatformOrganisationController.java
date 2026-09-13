@@ -6,6 +6,7 @@ import com.operion.organisation.Organisation;
 import com.operion.organisation.OrganisationRepository;
 import com.operion.organisation.OrganisationService;
 import com.operion.organisation.OrganisationStatus;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -29,33 +30,36 @@ public class PlatformOrganisationController {
 
 	private final OrganisationRepository organisationRepository;
 	private final OrganisationService organisationService;
+	private final int trialDays;
 
-	public PlatformOrganisationController(OrganisationRepository organisationRepository, OrganisationService organisationService) {
+	public PlatformOrganisationController(OrganisationRepository organisationRepository, OrganisationService organisationService,
+			@Value("${app.billing.trial-days}") int trialDays) {
 		this.organisationRepository = organisationRepository;
 		this.organisationService = organisationService;
+		this.trialDays = trialDays;
 	}
 
 	@GetMapping
 	public List<OrganisationResponse> list() {
-		return organisationRepository.findAll().stream().map(OrganisationResponse::from).toList();
+		return organisationRepository.findAll().stream().map(org -> OrganisationResponse.from(org, trialDays)).toList();
 	}
 
 	@GetMapping("/{id}")
 	public OrganisationResponse get(@PathVariable Long id) {
 		return OrganisationResponse.from(organisationRepository.findById(id)
-				.orElseThrow(() -> new IllegalArgumentException("No organisation with id " + id)));
+				.orElseThrow(() -> new IllegalArgumentException("No organisation with id " + id)), trialDays);
 	}
 
 	@PostMapping
 	public OrganisationResponse create(@RequestBody CreateOrganisationRequest request) {
 		Organisation organisation = organisationService.provision(request.toOrganisation(), request.toProfile(),
 				request.toAdminAccount(), request.toAcademicYearDetails(), request.toPlanSelection());
-		return OrganisationResponse.from(organisation);
+		return OrganisationResponse.from(organisation, trialDays);
 	}
 
 	@PatchMapping("/{id}/status")
 	public OrganisationResponse changeStatus(@PathVariable Long id, @RequestBody ChangeOrganisationStatusRequest request) {
 		OrganisationStatus target = OrganisationStatus.valueOf(request.status());
-		return OrganisationResponse.from(organisationService.changeStatus(id, target));
+		return OrganisationResponse.from(organisationService.changeStatus(id, target), trialDays);
 	}
 }

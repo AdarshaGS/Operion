@@ -10,6 +10,7 @@ export interface OrganisationResponse {
 	board: string | null;
 	schoolCode: string | null;
 	createdAt: string;
+	trialEndsAt: string;
 }
 
 export interface CreateOrganisationRequest {

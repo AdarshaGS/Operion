@@ -4,6 +4,7 @@ import com.operion.authorization.RequirePermission;
 import com.operion.organisation.Organisation;
 import com.operion.organisation.OrganisationService;
 import com.operion.organisation.OrganisationStatus;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -28,22 +29,24 @@ import org.springframework.web.bind.annotation.RestController;
 public class OrganisationController {
 
 	private final OrganisationService organisationService;
+	private final int trialDays;
 
-	public OrganisationController(OrganisationService organisationService) {
+	public OrganisationController(OrganisationService organisationService, @Value("${app.billing.trial-days}") int trialDays) {
 		this.organisationService = organisationService;
+		this.trialDays = trialDays;
 	}
 
 	@PostMapping
 	public OrganisationResponse create(@RequestBody CreateOrganisationRequest request) {
 		Organisation organisation = organisationService.provision(request.toOrganisation(), request.toProfile(),
 				request.toAdminAccount(), request.toAcademicYearDetails(), request.toPlanSelection());
-		return OrganisationResponse.from(organisation);
+		return OrganisationResponse.from(organisation, trialDays);
 	}
 
 	@PatchMapping("/{id}/status")
 	@RequirePermission("ORGANISATION_MANAGE")
 	public OrganisationResponse changeStatus(@PathVariable Long id, @RequestBody ChangeOrganisationStatusRequest request) {
 		OrganisationStatus target = OrganisationStatus.valueOf(request.status());
-		return OrganisationResponse.from(organisationService.changeStatus(id, target));
+		return OrganisationResponse.from(organisationService.changeStatus(id, target), trialDays);
 	}
 }
