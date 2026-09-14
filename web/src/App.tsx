@@ -122,6 +122,7 @@ function App() {
 							<Route path="/hr/staff/:staffProfileId" element={<StaffDetailPage />} />
 							<Route path="/members" element={<MembersPage />} />
 							<Route path="/members/invite" element={<MembersPage autoOpenInvite />} />
+							<Route path="/members/:userId" element={<UserDetailPage />} />
 							<Route path="/setup/structure" element={<StructureSetupPage />} />
 							<Route path="/profile" element={<ProfilePage />} />
 							<Route path="/settings" element={<SettingsPage />} />

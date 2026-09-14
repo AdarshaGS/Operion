@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -57,6 +57,10 @@ const USER_STATUS_ACTIONS: Record<string, { label: string; nextStatus: string }[
 export function UserDetailPage() {
 	const { userId } = useParams<{ userId: string }>();
 	const navigate = useNavigate();
+	const location = useLocation();
+	// Reachable from both /members/:userId and /settings/users/:userId - back goes to
+	// whichever list the caller entered from, not always Settings.
+	const fromMembers = location.pathname.startsWith("/members");
 
 	const [user, setUser] = useState<UserResponse | null>(null);
 	const [memberships, setMemberships] = useState<MembershipResponse[]>([]);
@@ -177,8 +181,8 @@ export function UserDetailPage() {
 	return (
 		<Stack spacing={2}>
 			<Box>
-				<Button startIcon={<ArrowBackIcon />} onClick={() => navigate("/settings")}>
-					Back to settings
+				<Button startIcon={<ArrowBackIcon />} onClick={() => navigate(fromMembers ? "/members" : "/settings")}>
+					{fromMembers ? "Back to members" : "Back to settings"}
 				</Button>
 			</Box>
 

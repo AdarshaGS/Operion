@@ -34,6 +34,7 @@ import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
 import PointOfSaleIcon from "@mui/icons-material/PointOfSale";
 import BadgeIcon from "@mui/icons-material/Badge";
 import AssessmentIcon from "@mui/icons-material/Assessment";
+import GroupIcon from "@mui/icons-material/Group";
 import SettingsIcon from "@mui/icons-material/Settings";
 import { useAuth } from "../auth/AuthContext";
 import { getDashboardSummary, type SetupChecklist } from "../api/dashboard";
@@ -149,6 +150,7 @@ const NAV_GROUPS: NavGroup[] = [
 		label: "Administration",
 		items: [
 			{ label: "HR", path: "/hr", icon: <BadgeIcon />, built: true, requiredPermissions: ["HR_VIEW"] },
+			{ label: "Members", path: "/members", icon: <GroupIcon />, built: true, requiredPermissions: ["MEMBERSHIP_VIEW"] },
 			/** Foundation-owned config (Campus/AcademicYear), not a domain module - kept here rather than mixed into
 			 * a module group. Campus/AcademicYear mutation endpoints reuse ORGANISATION_MANAGE but their listing
 			 * endpoints are deliberately ungated, so this item is never permission-gated. */
