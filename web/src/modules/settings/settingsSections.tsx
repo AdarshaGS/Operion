@@ -97,8 +97,8 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
 		sections: [
 			{
 				key: "users",
-				label: "Users",
-				description: "Manage user accounts and role assignments",
+				label: "Members",
+				description: "Manage member accounts and role assignments",
 				icon: <GroupIcon />,
 				panel: <UsersPanel />,
 			},

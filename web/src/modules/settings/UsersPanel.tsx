@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -45,6 +45,10 @@ interface UsersPanelProps {
 
 export function UsersPanel({ autoOpenInvite = false }: UsersPanelProps = {}) {
 	const navigate = useNavigate();
+	const location = useLocation();
+	// Reachable from both /members and /settings/users - drill-down stays under
+	// whichever URL the caller entered from, rather than always landing on one.
+	const detailBasePath = location.pathname.startsWith("/members") ? "/members" : "/settings/users";
 	const [memberships, setMemberships] = useState<MembershipResponse[]>([]);
 	const [roles, setRoles] = useState<RoleResponse[]>([]);
 	const [campuses, setCampuses] = useState<CampusResponse[]>([]);
@@ -59,7 +63,7 @@ export function UsersPanel({ autoOpenInvite = false }: UsersPanelProps = {}) {
 	function refresh() {
 		listMemberships()
 			.then(setMemberships)
-			.catch((err) => setError(err instanceof ApiError ? err.message : "Failed to load users"));
+			.catch((err) => setError(err instanceof ApiError ? err.message : "Failed to load members"));
 	}
 
 	useEffect(() => {
@@ -85,7 +89,7 @@ export function UsersPanel({ autoOpenInvite = false }: UsersPanelProps = {}) {
 			setInvite(issuedInvite);
 			refresh();
 		} catch (err) {
-			setError(err instanceof ApiError ? err.message : "Failed to add user");
+			setError(err instanceof ApiError ? err.message : "Failed to add member");
 		} finally {
 			setSubmitting(false);
 		}
@@ -104,10 +108,10 @@ export function UsersPanel({ autoOpenInvite = false }: UsersPanelProps = {}) {
 		<Paper sx={{ p: 3 }}>
 			<Stack spacing={2}>
 				<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-					<Typography variant="h6">Users</Typography>
+					<Typography variant="h6">Members</Typography>
 					<Can anyOf={["MEMBERSHIP_MANAGE"]}>
 						<Button size="small" startIcon={<AddIcon />} onClick={() => setDialogOpen(true)}>
-							Add user
+							Add member
 						</Button>
 					</Can>
 				</Box>
@@ -132,7 +136,7 @@ export function UsersPanel({ autoOpenInvite = false }: UsersPanelProps = {}) {
 									key={membership.id}
 									hover
 									sx={{ cursor: "pointer" }}
-									onClick={() => navigate(`/settings/users/${membership.userId}`)}
+									onClick={() => navigate(`${detailBasePath}/${membership.userId}`)}
 								>
 									<TableCell>{membership.personName}</TableCell>
 									<TableCell>{membership.memberId ?? "—"}</TableCell>
@@ -168,7 +172,7 @@ export function UsersPanel({ autoOpenInvite = false }: UsersPanelProps = {}) {
 			</Stack>
 
 			<Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} component="form" onSubmit={handleSubmit} fullWidth maxWidth="sm">
-				<DialogTitle>Add user</DialogTitle>
+				<DialogTitle>Add member</DialogTitle>
 				<DialogContent>
 					<Stack spacing={2} sx={{ mt: 1 }}>
 						<AddMemberFields value={form} onChange={setForm} campuses={campuses} departments={departments} roles={roles} />
