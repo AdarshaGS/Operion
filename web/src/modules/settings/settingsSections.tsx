@@ -38,113 +38,149 @@ export interface SettingsSection {
 	panel: ReactNode;
 }
 
+export interface SettingsGroup {
+	key: string;
+	label: string;
+	sections: SettingsSection[];
+}
+
 /** Single source of truth for both the Settings landing page (SettingsPage) and each
- * section's own page (SettingsSectionPage) - one list drives the tile grid and the
- * /settings/:section route so the two can't drift out of sync. */
-export const SETTINGS_SECTIONS: SettingsSection[] = [
+ * section's own page (SettingsSectionPage) - one list drives the grouped tile grid and
+ * the /settings/:section route so the two can't drift out of sync. Sections are grouped
+ * under four labeled groups (Organisation / Access & Security / Configuration / System);
+ * a not-yet-built section slots into the group it belongs to as soon as it ships. */
+export const SETTINGS_GROUPS: SettingsGroup[] = [
 	{
-		key: "profile",
-		label: "Organisation profile",
-		description: "Name, logo, primary contact, address, and tax identifiers",
-		icon: <BadgeIcon />,
-		panel: <OrganisationProfilePanel />,
+		key: "organisation",
+		label: "Organisation",
+		sections: [
+			{
+				key: "business",
+				label: "Business settings",
+				description: "Timezone, currency, date format, and working days",
+				icon: <TuneIcon />,
+				panel: <BusinessSettingsPanel />,
+			},
+			{
+				key: "profile",
+				label: "Organisation profile",
+				description: "Name, logo, primary contact, address, and tax identifiers",
+				icon: <BadgeIcon />,
+				panel: <OrganisationProfilePanel />,
+			},
+			{
+				key: "campuses",
+				label: "Campuses",
+				description: "Add or manage branch and location campuses",
+				icon: <LocationCityIcon />,
+				panel: <CampusesPanel />,
+			},
+			{
+				key: "departments",
+				label: "Departments",
+				description: "Manage the organisation's departments",
+				icon: <ApartmentIcon />,
+				panel: <DepartmentsPanel />,
+			},
+			{
+				key: "designations",
+				label: "Designations",
+				description: "Manage staff designations",
+				icon: <WorkIcon />,
+				panel: <DesignationsPanel />,
+			},
+		],
 	},
 	{
-		key: "branding",
-		label: "Branding & documents",
-		description: "Logo, stamp, signature, footer text, and numbering formats for printed documents",
-		icon: <BrushIcon />,
-		panel: <OrganisationBrandingPanel />,
+		key: "access-security",
+		label: "Access & Security",
+		sections: [
+			{
+				key: "users",
+				label: "Users",
+				description: "Manage user accounts and role assignments",
+				icon: <GroupIcon />,
+				panel: <UsersPanel />,
+			},
+			{
+				key: "roles",
+				label: "Roles",
+				description: "Define roles and their permissions",
+				icon: <SecurityIcon />,
+				panel: <RolesPanel />,
+			},
+			{
+				key: "audit-logs",
+				label: "Audit logs",
+				description: "Who changed roles, fee records, marks, student data, and settings",
+				icon: <HistoryIcon />,
+				panel: <AuditLogsPanel />,
+			},
+			{
+				key: "profile-change-requests",
+				label: "Profile change requests",
+				description: "Review self-service phone/email/photo change requests from staff and guardians",
+				icon: <RuleIcon />,
+				panel: <ProfileChangeRequestsPanel />,
+			},
+		],
 	},
 	{
-		key: "letter-formats",
-		label: "Letter formats",
-		description: "Branded header/footer template for question papers and report cards",
-		icon: <DescriptionIcon />,
-		panel: <LetterFormatsPanel />,
+		key: "configuration",
+		label: "Configuration",
+		sections: [
+			{
+				key: "academic-years",
+				label: "Academic years",
+				description: "Manage academic year periods",
+				icon: <CalendarMonthIcon />,
+				panel: <AcademicYearsPanel />,
+			},
+			{
+				key: "branding",
+				label: "Branding & documents",
+				description: "Logo, stamp, signature, footer text, and numbering formats for printed documents",
+				icon: <BrushIcon />,
+				panel: <OrganisationBrandingPanel />,
+			},
+			{
+				key: "letter-formats",
+				label: "Letter formats",
+				description: "Branded header/footer template for question papers and report cards",
+				icon: <DescriptionIcon />,
+				panel: <LetterFormatsPanel />,
+			},
+			{
+				key: "id-card-studio",
+				label: "ID Card Studio",
+				description: "Design ID card layouts bound to live student data",
+				icon: <CreditCardIcon />,
+				panel: <IdCardStudioPanel />,
+			},
+		],
 	},
 	{
-		key: "id-card-studio",
-		label: "ID Card Studio",
-		description: "Design ID card layouts bound to live student data",
-		icon: <CreditCardIcon />,
-		panel: <IdCardStudioPanel />,
-	},
-	{
-		key: "business",
-		label: "Business settings",
-		description: "Timezone, currency, date format, and working days",
-		icon: <TuneIcon />,
-		panel: <BusinessSettingsPanel />,
-	},
-	{
-		key: "campuses",
-		label: "Campuses",
-		description: "Add or manage branch and location campuses",
-		icon: <LocationCityIcon />,
-		panel: <CampusesPanel />,
-	},
-	{
-		key: "departments",
-		label: "Departments",
-		description: "Manage the organisation's departments",
-		icon: <ApartmentIcon />,
-		panel: <DepartmentsPanel />,
-	},
-	{
-		key: "designations",
-		label: "Designations",
-		description: "Manage staff designations",
-		icon: <WorkIcon />,
-		panel: <DesignationsPanel />,
-	},
-	{
-		key: "academic-years",
-		label: "Academic years",
-		description: "Manage academic year periods",
-		icon: <CalendarMonthIcon />,
-		panel: <AcademicYearsPanel />,
-	},
-	{
-		key: "roles",
-		label: "Roles",
-		description: "Define roles and their permissions",
-		icon: <SecurityIcon />,
-		panel: <RolesPanel />,
-	},
-	{
-		key: "users",
-		label: "Users",
-		description: "Manage user accounts and role assignments",
-		icon: <GroupIcon />,
-		panel: <UsersPanel />,
-	},
-	{
-		key: "audit-logs",
-		label: "Audit logs",
-		description: "Who changed roles, fee records, marks, student data, and settings",
-		icon: <HistoryIcon />,
-		panel: <AuditLogsPanel />,
-	},
-	{
-		key: "imports-exports",
-		label: "Imports & exports",
-		description: "Bulk import students from CSV, or export existing records",
-		icon: <ImportExportIcon />,
-		panel: <ImportsExportsPanel />,
-	},
-	{
-		key: "integrations",
-		label: "Integrations",
-		description: "Connect your own accounts for 3rd-party services like email and SMS delivery",
-		icon: <CableIcon />,
-		panel: <ExternalServicesPanel />,
-	},
-	{
-		key: "profile-change-requests",
-		label: "Profile change requests",
-		description: "Review self-service phone/email/photo change requests from staff and guardians",
-		icon: <RuleIcon />,
-		panel: <ProfileChangeRequestsPanel />,
+		key: "system",
+		label: "System",
+		sections: [
+			{
+				key: "imports-exports",
+				label: "Imports & exports",
+				description: "Bulk import students from CSV, or export existing records",
+				icon: <ImportExportIcon />,
+				panel: <ImportsExportsPanel />,
+			},
+			{
+				key: "integrations",
+				label: "Integrations & API",
+				description: "Connect your own accounts for 3rd-party services like email and SMS delivery",
+				icon: <CableIcon />,
+				panel: <ExternalServicesPanel />,
+			},
+		],
 	},
 ];
+
+/** Flattened view of SETTINGS_GROUPS, for lookups that don't care about grouping (the
+ * /settings/:section route). */
+export const SETTINGS_SECTIONS: SettingsSection[] = SETTINGS_GROUPS.flatMap((group) => group.sections);
