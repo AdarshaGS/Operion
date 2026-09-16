@@ -20,6 +20,7 @@ import com.operion.sms.SmsDeliveryService;
 import com.operion.sms.SmsMessage;
 import com.operion.sms.SmsSendException;
 import com.operion.sms.SmsSender;
+import com.operion.whatsapp.WhatsAppDeliveryService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -113,7 +114,7 @@ class NotificationDispatchServiceTest {
 		NotificationRecipient recipient = notificationRecipientRepository.save(
 				new NotificationRecipient(null, person, NotificationChannel.EMAIL, "Subject", "Body"));
 		NotificationDispatchService dispatchService = new NotificationDispatchService(notificationRecipientRepository,
-				new EmailDeliveryService(List.of(new StubEmailSender(true)), emailOutboxRepository), new SmsDeliveryService(List.of()));
+				new EmailDeliveryService(List.of(new StubEmailSender(true)), emailOutboxRepository), new SmsDeliveryService(List.of()), new WhatsAppDeliveryService(List.of()));
 
 		dispatchService.dispatch(recipient);
 
@@ -128,7 +129,7 @@ class NotificationDispatchServiceTest {
 		NotificationRecipient recipient = notificationRecipientRepository.save(
 				new NotificationRecipient(null, person, NotificationChannel.EMAIL, "Subject", "Body"));
 		NotificationDispatchService dispatchService = new NotificationDispatchService(notificationRecipientRepository,
-				new EmailDeliveryService(List.of(new StubEmailSender(false)), emailOutboxRepository), new SmsDeliveryService(List.of()));
+				new EmailDeliveryService(List.of(new StubEmailSender(false)), emailOutboxRepository), new SmsDeliveryService(List.of()), new WhatsAppDeliveryService(List.of()));
 
 		dispatchService.dispatch(recipient);
 
@@ -143,7 +144,7 @@ class NotificationDispatchServiceTest {
 		NotificationRecipient recipient = notificationRecipientRepository.save(
 				new NotificationRecipient(null, person, NotificationChannel.SMS, null, "Body"));
 		NotificationDispatchService dispatchService = new NotificationDispatchService(notificationRecipientRepository,
-				new EmailDeliveryService(List.of(), emailOutboxRepository), new SmsDeliveryService(List.of(new StubSmsSender(true))));
+				new EmailDeliveryService(List.of(), emailOutboxRepository), new SmsDeliveryService(List.of(new StubSmsSender(true))), new WhatsAppDeliveryService(List.of()));
 
 		dispatchService.dispatch(recipient);
 

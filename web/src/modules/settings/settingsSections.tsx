@@ -11,6 +11,7 @@ import GroupIcon from "@mui/icons-material/Group";
 import HistoryIcon from "@mui/icons-material/History";
 import ImportExportIcon from "@mui/icons-material/ImportExport";
 import LocationCityIcon from "@mui/icons-material/LocationCity";
+import NotificationsIcon from "@mui/icons-material/Notifications";
 import RuleIcon from "@mui/icons-material/Rule";
 import SecurityIcon from "@mui/icons-material/Security";
 import TuneIcon from "@mui/icons-material/Tune";
@@ -25,6 +26,7 @@ import { ExternalServicesPanel } from "./ExternalServicesPanel";
 import { IdCardStudioPanel } from "./IdCardStudioPanel";
 import { ImportsExportsPanel } from "./ImportsExportsPanel";
 import { LetterFormatsPanel } from "./LetterFormatsPanel";
+import { NotificationSettingsPanel } from "./NotificationSettingsPanel";
 import { OrganisationBrandingPanel } from "./OrganisationBrandingPanel";
 import { OrganisationProfilePanel } from "./OrganisationProfilePanel";
 import { ProfileChangeRequestsPanel } from "./ProfileChangeRequestsPanel";
@@ -165,6 +167,13 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
 				description: "Design ID card layouts bound to live student data",
 				icon: <CreditCardIcon />,
 				panel: <IdCardStudioPanel />,
+			},
+			{
+				key: "notifications",
+				label: "Notifications",
+				description: "Message templates - channel credentials and who may send live under Integrations & Roles",
+				icon: <NotificationsIcon />,
+				panel: <NotificationSettingsPanel />,
 			},
 		],
 	},

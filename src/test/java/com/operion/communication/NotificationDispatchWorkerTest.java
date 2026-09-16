@@ -16,6 +16,7 @@ import com.operion.identity.PersonRepository;
 import com.operion.organisation.Organisation;
 import com.operion.organisation.OrganisationRepository;
 import com.operion.sms.SmsDeliveryService;
+import com.operion.whatsapp.WhatsAppDeliveryService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -82,7 +83,8 @@ class NotificationDispatchWorkerTest {
 
 		TenantContext.clear();
 		NotificationDispatchService dispatchService = new NotificationDispatchService(notificationRecipientRepository,
-				new EmailDeliveryService(List.of(new StubEmailSender()), emailOutboxRepository), new SmsDeliveryService(List.of()));
+				new EmailDeliveryService(List.of(new StubEmailSender()), emailOutboxRepository), new SmsDeliveryService(List.of()),
+				new WhatsAppDeliveryService(List.of()));
 		NotificationDispatchWorker worker =
 				new NotificationDispatchWorker(organisationRepository, notificationRecipientRepository, dispatchService);
 

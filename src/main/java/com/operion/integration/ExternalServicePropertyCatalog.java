@@ -19,7 +19,10 @@ public class ExternalServicePropertyCatalog {
 					new ExternalServicePropertyDefinition("email.sender-email", false),
 					new ExternalServicePropertyDefinition("email.sender-name", false),
 					new ExternalServicePropertyDefinition("sms.api-key", true),
-					new ExternalServicePropertyDefinition("sms.sender", false)));
+					new ExternalServicePropertyDefinition("sms.sender", false)),
+			"whatsapp",
+			List.of(new ExternalServicePropertyDefinition("whatsapp.api-key", true),
+					new ExternalServicePropertyDefinition("whatsapp.phone-number-id", false)));
 
 	public List<ExternalServicePropertyDefinition> propertiesFor(String serviceKey) {
 		return DEFINITIONS.getOrDefault(serviceKey, List.of());

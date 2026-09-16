@@ -114,7 +114,7 @@ public class CommunicationService {
 	private void fanOutToPerson(Announcement announcement, Person person) {
 		for (NotificationChannel channel : NotificationChannel.values()) {
 			if (shouldFanOut(person, channel)) {
-				String subject = channel == NotificationChannel.SMS ? null : announcement.getTitle();
+				String subject = channel == NotificationChannel.SMS || channel == NotificationChannel.WHATSAPP ? null : announcement.getTitle();
 				notificationRecipientRepository.save(
 						new NotificationRecipient(announcement, person, channel, subject, announcement.getBody()));
 			}
@@ -180,14 +180,15 @@ public class CommunicationService {
 				.orElse(true);
 	}
 
-	/** Whether a channel is even usable for this person - IN_APP always is; EMAIL/SMS need
-	 * the corresponding contact field actually on file, so a person with no email/phone
-	 * doesn't get a NotificationRecipient row that's a guaranteed dispatch failure. */
+	/** Whether a channel is even usable for this person - IN_APP always is; EMAIL/SMS/
+	 * WHATSAPP need the corresponding contact field actually on file, so a person with no
+	 * email/phone doesn't get a NotificationRecipient row that's a guaranteed dispatch
+	 * failure. WhatsApp messages go to the same phone number as SMS. */
 	private boolean channelIsUsable(Person person, NotificationChannel channel) {
 		return switch (channel) {
 			case IN_APP -> true;
 			case EMAIL -> hasAddress(person.getEmail());
-			case SMS -> hasAddress(person.getPhone());
+			case SMS, WHATSAPP -> hasAddress(person.getPhone());
 		};
 	}
 

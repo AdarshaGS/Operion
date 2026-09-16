@@ -2,6 +2,7 @@ package com.operion.communication;
 
 import com.operion.email.EmailDeliveryService;
 import com.operion.sms.SmsDeliveryService;
+import com.operion.whatsapp.WhatsAppDeliveryService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,12 +19,15 @@ public class NotificationDispatchService {
 	private final NotificationRecipientRepository notificationRecipientRepository;
 	private final EmailDeliveryService emailDeliveryService;
 	private final SmsDeliveryService smsDeliveryService;
+	private final WhatsAppDeliveryService whatsAppDeliveryService;
 
 	public NotificationDispatchService(NotificationRecipientRepository notificationRecipientRepository,
-			EmailDeliveryService emailDeliveryService, SmsDeliveryService smsDeliveryService) {
+			EmailDeliveryService emailDeliveryService, SmsDeliveryService smsDeliveryService,
+			WhatsAppDeliveryService whatsAppDeliveryService) {
 		this.notificationRecipientRepository = notificationRecipientRepository;
 		this.emailDeliveryService = emailDeliveryService;
 		this.smsDeliveryService = smsDeliveryService;
+		this.whatsAppDeliveryService = whatsAppDeliveryService;
 	}
 
 	@Transactional(propagation = Propagation.REQUIRES_NEW)
@@ -32,6 +36,8 @@ public class NotificationDispatchService {
 			case EMAIL -> emailDeliveryService.trySend(recipient.getPerson().getEmail(), recipient.getSubject(), recipient.getBody())
 					.ifPresentOrElse(result -> recipient.markSent(result.provider(), result.messageId()), () -> markFailed(recipient));
 			case SMS -> smsDeliveryService.trySend(recipient.getPerson().getPhone(), recipient.getBody())
+					.ifPresentOrElse(result -> recipient.markSent(result.provider(), result.messageId()), () -> markFailed(recipient));
+			case WHATSAPP -> whatsAppDeliveryService.trySend(recipient.getPerson().getPhone(), recipient.getBody())
 					.ifPresentOrElse(result -> recipient.markSent(result.provider(), result.messageId()), () -> markFailed(recipient));
 			case IN_APP -> throw new IllegalStateException("IN_APP is never PENDING - see NotificationRecipient's constructor");
 		}
