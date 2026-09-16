@@ -6,6 +6,7 @@ import CableIcon from "@mui/icons-material/Cable";
 import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
 import CreditCardIcon from "@mui/icons-material/CreditCard";
 import DescriptionIcon from "@mui/icons-material/Description";
+import EventNoteIcon from "@mui/icons-material/EventNote";
 import GroupIcon from "@mui/icons-material/Group";
 import HistoryIcon from "@mui/icons-material/History";
 import ImportExportIcon from "@mui/icons-material/ImportExport";
@@ -29,6 +30,7 @@ import { OrganisationProfilePanel } from "./OrganisationProfilePanel";
 import { ProfileChangeRequestsPanel } from "./ProfileChangeRequestsPanel";
 import { RolesPanel } from "./RolesPanel";
 import { UsersPanel } from "./UsersPanel";
+import { WorkingCalendarPanel } from "./WorkingCalendarPanel";
 
 export interface SettingsSection {
 	key: string;
@@ -135,6 +137,13 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
 				description: "Manage academic year periods",
 				icon: <CalendarMonthIcon />,
 				panel: <AcademicYearsPanel />,
+			},
+			{
+				key: "working-calendar",
+				label: "Working calendar",
+				description: "Holidays, special working days, and school timings",
+				icon: <EventNoteIcon />,
+				panel: <WorkingCalendarPanel />,
 			},
 			{
 				key: "branding",
