@@ -6,6 +6,7 @@ import java.util.List;
 
 import com.operion.common.JpaConfig;
 import com.operion.common.MultiTenancyConfig;
+import com.operion.common.SchedulerHeartbeat;
 import com.operion.common.TenantContext;
 import com.operion.email.EmailDeliveryService;
 import com.operion.email.EmailMessage;
@@ -85,8 +86,8 @@ class NotificationDispatchWorkerTest {
 		NotificationDispatchService dispatchService = new NotificationDispatchService(notificationRecipientRepository,
 				new EmailDeliveryService(List.of(new StubEmailSender()), emailOutboxRepository), new SmsDeliveryService(List.of()),
 				new WhatsAppDeliveryService(List.of()));
-		NotificationDispatchWorker worker =
-				new NotificationDispatchWorker(organisationRepository, notificationRecipientRepository, dispatchService);
+		NotificationDispatchWorker worker = new NotificationDispatchWorker(organisationRepository, notificationRecipientRepository,
+				dispatchService, new SchedulerHeartbeat());
 
 		worker.dispatchPendingNotifications();
 
