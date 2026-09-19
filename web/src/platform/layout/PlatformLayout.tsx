@@ -73,7 +73,7 @@ const NAV_GROUPS: PlatformNavGroup[] = [
 	},
 	{
 		label: "Support",
-		items: [{ label: "Support / Issues", path: "/platform/support", icon: <SupportAgentIcon />, built: false }],
+		items: [{ label: "Support / Issues", path: "/platform/support", icon: <SupportAgentIcon />, built: true }],
 	},
 	{
 		label: "Settings",

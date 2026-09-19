@@ -61,6 +61,8 @@ import { PaymentsPage } from "./platform/PaymentsPage";
 import { PlansPage } from "./platform/PlansPage";
 import { PlatformSettingsPage } from "./platform/PlatformSettingsPage";
 import { SubscriptionsPage } from "./platform/SubscriptionsPage";
+import { SupportTicketDetailPage } from "./platform/SupportTicketDetailPage";
+import { SupportTicketsPage } from "./platform/SupportTicketsPage";
 import { SystemHealthPage } from "./platform/SystemHealthPage";
 import { UsagePage } from "./platform/UsagePage";
 import { PlatformAuthProvider } from "./platform/auth/PlatformAuthContext";
@@ -144,6 +146,8 @@ function App() {
 							<Route path="/platform/activity" element={<ActivityPage />} />
 							<Route path="/platform/usage" element={<UsagePage />} />
 							<Route path="/platform/system-health" element={<SystemHealthPage />} />
+							<Route path="/platform/support" element={<SupportTicketsPage />} />
+							<Route path="/platform/support/:ticketId" element={<SupportTicketDetailPage />} />
 							<Route path="/platform/settings" element={<PlatformSettingsPage />} />
 						</Route>
 					</Route>
