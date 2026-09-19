@@ -14,6 +14,8 @@ import {
 	Bar,
 	BarChart,
 	CartesianGrid,
+	Line,
+	LineChart,
 	ResponsiveContainer,
 	Tooltip as RechartsTooltip,
 	XAxis,
@@ -25,11 +27,13 @@ import { listAllInvoices, type PlatformInvoiceResponse } from "./api/platformInv
 import { listPlans, type PlanResponse } from "./api/plans";
 import { PlatformApiError } from "./api/platformClient";
 import { getMrr, listAllSubscriptions, type SubscriptionResponse } from "./api/subscriptions";
+import { listUsage, type UsageResponse } from "./api/usage";
 import { describeActivity } from "./activityDescriptions";
 import { colors } from "../theme";
 
 const ORG_STATUSES = ["TRIAL", "ACTIVE", "SUSPENDED", "ARCHIVED"] as const;
 const GROWTH_WINDOW_OPTIONS = [3, 6, 12] as const;
+const INACTIVE_AFTER_DAYS = 14;
 
 function currency(amount: number): string {
 	return `₹${amount.toLocaleString("en-IN")}`;
@@ -71,6 +75,26 @@ function bucketByMonth(organisations: OrganisationResponse[], months: number): {
 	return buckets.map(({ month, count }) => ({ month, count }));
 }
 
+/** Same client-side bucketing as bucketByMonth, over PlatformInvoice.amount by issuedAt
+ * instead of Organisation.createdAt - this is billed revenue by month, not literal MRR-
+ * over-time (there's no MRR snapshot history to chart), see the class doc below. */
+function bucketRevenueByMonth(invoices: PlatformInvoiceResponse[], months: number): { month: string; amount: number }[] {
+	const now = new Date();
+	const buckets: { key: string; month: string; amount: number }[] = [];
+	for (let i = months - 1; i >= 0; i--) {
+		const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+		buckets.push({ key: `${d.getFullYear()}-${d.getMonth()}`, month: d.toLocaleDateString("en-US", { month: "short" }), amount: 0 });
+	}
+	const byKey = new Map(buckets.map((b) => [b.key, b]));
+	for (const invoice of invoices) {
+		const issued = new Date(invoice.issuedAt);
+		const key = `${issued.getFullYear()}-${issued.getMonth()}`;
+		const bucket = byKey.get(key);
+		if (bucket) bucket.amount += invoice.amount;
+	}
+	return buckets.map(({ month, amount }) => ({ month, amount }));
+}
+
 function StatTile({ label, value, hint, onClick }: { label: string; value: string; hint?: string; onClick?: () => void }) {
 	return (
 		<Paper sx={{ p: 2.5, flex: "1 1 180px", cursor: onClick ? "pointer" : "default" }} onClick={onClick} variant="outlined">
@@ -93,16 +117,17 @@ function StatTile({ label, value, hint, onClick }: { label: string; value: strin
 
 /** Landing page for the platform-admin plane - aggregate counts pulled from the same
  * cross-org endpoints OrganisationsPage/PlansPage already use, plus the cross-org
- * subscription/invoice/activity endpoints added alongside this page. No new backend
- * aggregation for the stat tiles/chart - just sums/counts/buckets over lists small enough
+ * subscription/invoice/activity/usage endpoints added alongside this page. No new backend
+ * aggregation for the stat tiles/charts - just sums/counts/buckets over lists small enough
  * at this scale to compute client-side, same "don't optimize for scale the product doesn't
  * have yet" call as the rest of this frontend.
  *
- * Deliberately missing vs. the target mockup: a revenue trend chart (there's no MRR
- * snapshot history, so it would really be "billed revenue by month," not literal MRR-
- * over-time - a separate approximation the MRR tile below doesn't need to make), and a
- * "needs attention" org-inactivity/incomplete-onboarding callout (no activity/onboarding-
- * completeness signal exists yet - see the tracking issue). */
+ * "Needs attention" also flags inactive organisations (no AuditLog activity in
+ * INACTIVE_AFTER_DAYS, ACTIVE orgs only - see BillingService.usageByOrganisation's
+ * lastActivityAt) and incomplete onboarding (zero active students, TRIAL/ACTIVE orgs).
+ * Onboarding-incomplete is deliberately just the "zero students" half of the ticket's
+ * proposed definition - "no modules configured" has no backing data model in this
+ * codebase (no Module/OrganisationModule entity exists), flagged back to the ticket. */
 export function DashboardPage() {
 	const navigate = useNavigate();
 	const [organisations, setOrganisations] = useState<OrganisationResponse[] | null>(null);
@@ -110,24 +135,35 @@ export function DashboardPage() {
 	const [invoices, setInvoices] = useState<PlatformInvoiceResponse[] | null>(null);
 	const [plans, setPlans] = useState<PlanResponse[] | null>(null);
 	const [activity, setActivity] = useState<ActivityResponse[] | null>(null);
+	const [usage, setUsage] = useState<UsageResponse[] | null>(null);
 	const [mrr, setMrr] = useState<number | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	const [growthWindow, setGrowthWindow] = useState<(typeof GROWTH_WINDOW_OPTIONS)[number]>(6);
+	const [revenueWindow, setRevenueWindow] = useState<(typeof GROWTH_WINDOW_OPTIONS)[number]>(6);
 
 	useEffect(() => {
-		Promise.all([listOrganisations(), listAllSubscriptions(), listAllInvoices(), listPlans(), listRecentActivity(), getMrr()])
-			.then(([orgs, subs, inv, pl, act, mrrResponse]) => {
+		Promise.all([
+			listOrganisations(),
+			listAllSubscriptions(),
+			listAllInvoices(),
+			listPlans(),
+			listRecentActivity(),
+			getMrr(),
+			listUsage(),
+		])
+			.then(([orgs, subs, inv, pl, act, mrrResponse, usg]) => {
 				setOrganisations(orgs);
 				setSubscriptions(subs);
 				setInvoices(inv);
 				setPlans(pl);
 				setActivity(act);
 				setMrr(mrrResponse.mrr);
+				setUsage(usg);
 			})
 			.catch((err) => setError(err instanceof PlatformApiError ? err.message : "Failed to load dashboard"));
 	}, []);
 
-	const loading = !organisations || !subscriptions || !invoices || !plans || !activity || mrr === null;
+	const loading = !organisations || !subscriptions || !invoices || !plans || !activity || !usage || mrr === null;
 
 	const orgCountByStatus = Object.fromEntries(
 		ORG_STATUSES.map((status) => [status, organisations?.filter((org) => org.status === status).length ?? 0]),
@@ -149,9 +185,22 @@ export function DashboardPage() {
 		(org) => org.status === "TRIAL" && new Date(org.trialEndsAt).getTime() <= in7Days,
 	);
 
-	const needsAttentionCount = overdueInvoices.length + trialsExpiringSoon.length;
+	const usageByOrgId = new Map((usage ?? []).map((u) => [u.organisationId, u]));
+	const inactiveSince = Date.now() - INACTIVE_AFTER_DAYS * 86_400_000;
+	const inactiveOrgs = (organisations ?? []).filter((org) => {
+		if (org.status !== "ACTIVE") return false;
+		const lastActivityAt = usageByOrgId.get(org.id)?.lastActivityAt;
+		return !lastActivityAt || new Date(lastActivityAt).getTime() < inactiveSince;
+	});
+	const incompleteOnboardingOrgs = (organisations ?? []).filter(
+		(org) => (org.status === "TRIAL" || org.status === "ACTIVE") && (usageByOrgId.get(org.id)?.activeStudentCount ?? 0) === 0,
+	);
+
+	const needsAttentionCount =
+		overdueInvoices.length + trialsExpiringSoon.length + inactiveOrgs.length + incompleteOnboardingOrgs.length;
 
 	const growthData = useMemo(() => bucketByMonth(organisations ?? [], growthWindow), [organisations, growthWindow]);
+	const revenueData = useMemo(() => bucketRevenueByMonth(invoices ?? [], revenueWindow), [invoices, revenueWindow]);
 
 	return (
 		<Stack spacing={3}>
@@ -234,6 +283,37 @@ export function DashboardPage() {
 								</ResponsiveContainer>
 							</Box>
 						</Paper>
+
+						<Paper variant="outlined" sx={{ p: 2.5, flex: 1, minWidth: 0 }}>
+							<Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center", mb: 1 }}>
+								<Box>
+									<Typography variant="h6">Billed revenue</Typography>
+									<Typography variant="caption" color="text.secondary">
+										Invoice amount by month issued
+									</Typography>
+								</Box>
+								<FormControl size="small">
+									<Select value={revenueWindow} onChange={(e) => setRevenueWindow(Number(e.target.value) as typeof revenueWindow)}>
+										{GROWTH_WINDOW_OPTIONS.map((months) => (
+											<MenuItem key={months} value={months}>
+												Last {months} months
+											</MenuItem>
+										))}
+									</Select>
+								</FormControl>
+							</Stack>
+							<Box sx={{ height: 260 }}>
+								<ResponsiveContainer width="100%" height="100%">
+									<LineChart data={revenueData}>
+										<CartesianGrid strokeDasharray="3 3" vertical={false} />
+										<XAxis dataKey="month" tickLine={false} axisLine={false} />
+										<YAxis allowDecimals={false} tickLine={false} axisLine={false} width={28} />
+										<RechartsTooltip formatter={(value) => currency(Number(value))} />
+										<Line type="monotone" dataKey="amount" name="Billed revenue" stroke={colors.accent} strokeWidth={2} dot={false} />
+									</LineChart>
+								</ResponsiveContainer>
+							</Box>
+						</Paper>
 					</Stack>
 
 					<Stack direction={{ xs: "column", md: "row" }} spacing={2} sx={{ alignItems: "stretch" }}>
@@ -273,6 +353,36 @@ export function DashboardPage() {
 											</Typography>
 										</Box>
 										<Button size="small" onClick={() => navigate(`/platform/organisations/${inv.organisationId}`)}>
+											View
+										</Button>
+									</Stack>
+								))}
+								{inactiveOrgs.slice(0, 6).map((org) => (
+									<Stack key={`inactive-${org.id}`} direction="row" sx={{ justifyContent: "space-between", alignItems: "center" }}>
+										<Box>
+											<Typography variant="body2">{org.name} — inactive {INACTIVE_AFTER_DAYS}+ days</Typography>
+											<Typography variant="caption" color="text.secondary">
+												No activity in the last {INACTIVE_AFTER_DAYS} days
+											</Typography>
+										</Box>
+										<Button size="small" onClick={() => navigate(`/platform/organisations/${org.id}`)}>
+											View
+										</Button>
+									</Stack>
+								))}
+								{incompleteOnboardingOrgs.slice(0, 6).map((org) => (
+									<Stack
+										key={`onboarding-${org.id}`}
+										direction="row"
+										sx={{ justifyContent: "space-between", alignItems: "center" }}
+									>
+										<Box>
+											<Typography variant="body2">{org.name} — onboarding incomplete</Typography>
+											<Typography variant="caption" color="text.secondary">
+												No active students yet
+											</Typography>
+										</Box>
+										<Button size="small" onClick={() => navigate(`/platform/organisations/${org.id}`)}>
 											View
 										</Button>
 									</Stack>

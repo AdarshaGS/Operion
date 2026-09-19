@@ -5,7 +5,11 @@ import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
+import com.operion.audit.AuditLogRepository;
+import com.operion.audit.AuditLogRepository.OrganisationLastActivity;
 import com.operion.audit.AuditLogService;
 import com.operion.common.TenantContext;
 import com.operion.organisation.Organisation;
@@ -30,16 +34,18 @@ public class BillingService {
 	private final OrganisationRepository organisationRepository;
 	private final StudentRepository studentRepository;
 	private final AuditLogService auditLogService;
+	private final AuditLogRepository auditLogRepository;
 
 	public BillingService(PlanRepository planRepository, SubscriptionRepository subscriptionRepository,
 			PlatformInvoiceRepository platformInvoiceRepository, OrganisationRepository organisationRepository,
-			StudentRepository studentRepository, AuditLogService auditLogService) {
+			StudentRepository studentRepository, AuditLogService auditLogService, AuditLogRepository auditLogRepository) {
 		this.planRepository = planRepository;
 		this.subscriptionRepository = subscriptionRepository;
 		this.platformInvoiceRepository = platformInvoiceRepository;
 		this.organisationRepository = organisationRepository;
 		this.studentRepository = studentRepository;
 		this.auditLogService = auditLogService;
+		this.auditLogRepository = auditLogRepository;
 	}
 
 	/** Plan is a global catalog entity, not org-scoped - unlike the subscription/invoice
@@ -198,14 +204,20 @@ public class BillingService {
 	 * approximated as each org's current active-student headcount, the same live count
 	 * generateInvoice() snapshots one org at a time, computed here across every
 	 * organisation in one pass. No historical/trend tracking - see the ticket for why a
-	 * standalone usage-history entity isn't built yet. */
+	 * standalone usage-history entity isn't built yet. Also carries lastActivityAt (from
+	 * AuditLogRepository, one query for every org rather than per-org like
+	 * countActiveStudents needs) - the dashboard's "inactive organisation" signal (#274)
+	 * reuses this same endpoint rather than adding a new one. */
 	public List<OrganisationUsage> usageByOrganisation() {
+		Map<Long, Instant> lastActivityByOrganisation = auditLogRepository.lastActivityByOrganisation().stream()
+				.collect(Collectors.toMap(OrganisationLastActivity::getOrganisationId, OrganisationLastActivity::getLastActivityAt));
 		return organisationRepository.findAll().stream()
-				.map(org -> new OrganisationUsage(org.getId(), countActiveStudents(org.getId())))
+				.map(org -> new OrganisationUsage(org.getId(), countActiveStudents(org.getId()),
+						lastActivityByOrganisation.get(org.getId())))
 				.toList();
 	}
 
-	public record OrganisationUsage(Long organisationId, int activeStudentCount) {
+	public record OrganisationUsage(Long organisationId, int activeStudentCount, Instant lastActivityAt) {
 	}
 
 	/**

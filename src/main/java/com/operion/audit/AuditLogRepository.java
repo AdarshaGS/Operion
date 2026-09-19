@@ -37,4 +37,21 @@ public interface AuditLogRepository extends JpaRepository<AuditLog, Long> {
 
 	@Query("SELECT DISTINCT a.entityType FROM AuditLog a WHERE a.organisationId = :organisationId ORDER BY a.entityType")
 	List<String> findDistinctEntityTypes(@Param("organisationId") Long organisationId);
+
+	/** Cross-org, for the platform dashboard's "inactive organisation" signal (#274) - every
+	 * module writes to this table (see the class javadoc), so unlike
+	 * findTop50ByEntityTypeInOrderByOccurredAtDesc's curated platform-billing list, this is
+	 * deliberately unfiltered: any of an org's own activity (attendance, fees, ...) counts,
+	 * not just billing events. One row per organisation, not one per entry - a projection
+	 * over a GROUP BY rather than N findTopByOrganisationId... calls, since AuditLog carries
+	 * no @TenantId and this can run as a single query across every org in one pass. */
+	@Query("SELECT a.organisationId AS organisationId, MAX(a.occurredAt) AS lastActivityAt FROM AuditLog a "
+			+ "WHERE a.organisationId IS NOT NULL GROUP BY a.organisationId")
+	List<OrganisationLastActivity> lastActivityByOrganisation();
+
+	interface OrganisationLastActivity {
+		Long getOrganisationId();
+
+		Instant getLastActivityAt();
+	}
 }

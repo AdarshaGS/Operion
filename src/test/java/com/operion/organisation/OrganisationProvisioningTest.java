@@ -80,7 +80,7 @@ class OrganisationProvisioningTest {
 	private OrganisationService organisationService() {
 		AuditLogService auditLogService = new AuditLogService(auditLogRepository, new ObjectMapper());
 		BillingService billingService = new BillingService(planRepository, subscriptionRepository, platformInvoiceRepository,
-				organisationRepository, studentRepository, auditLogService);
+				organisationRepository, studentRepository, auditLogService, auditLogRepository);
 		return new OrganisationService(organisationRepository, campusRepository, configurationRepository, brandingRepository,
 				academicYearRepository, roleRepository, permissionRepository, userRepository, personRepository, membershipRepository,
 				new BCryptPasswordEncoder(), auditLogService, billingService);

@@ -75,7 +75,7 @@ class BillingCrossOrgVisibilityTest {
 	void setUpBillingService() {
 		AuditLogService auditLogService = new AuditLogService(auditLogRepository, new ObjectMapper());
 		billingService = new BillingService(planRepository, subscriptionRepository, platformInvoiceRepository,
-				organisationRepository, studentRepository, auditLogService);
+				organisationRepository, studentRepository, auditLogService, auditLogRepository);
 	}
 
 	@AfterEach
