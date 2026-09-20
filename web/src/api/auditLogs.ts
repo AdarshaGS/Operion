@@ -11,6 +11,7 @@ export interface AuditLogResponse {
 
 export interface AuditLogFilters {
 	entityType?: string | null;
+	entityId?: number | null;
 	actorUserId?: number | null;
 	from?: string | null;
 	to?: string | null;
@@ -21,6 +22,7 @@ export interface AuditLogFilters {
 function buildQuery(filters: AuditLogFilters): string {
 	const params = new URLSearchParams();
 	if (filters.entityType) params.set("entityType", filters.entityType);
+	if (filters.entityId != null) params.set("entityId", String(filters.entityId));
 	if (filters.actorUserId != null) params.set("actorUserId", String(filters.actorUserId));
 	if (filters.from) params.set("from", filters.from);
 	if (filters.to) params.set("to", filters.to);

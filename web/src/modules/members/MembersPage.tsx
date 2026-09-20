@@ -12,9 +12,14 @@ interface MembersPageProps {
 export function MembersPage({ autoOpenInvite = false }: MembersPageProps) {
 	return (
 		<Stack spacing={3}>
-			<Typography variant="h4" component="h1">
-				Members
-			</Typography>
+			<Stack spacing={0.5}>
+				<Typography variant="h4" component="h1">
+					Members
+				</Typography>
+				<Typography variant="body2" color="text.secondary">
+					Manage who can access this organisation and what they can access.
+				</Typography>
+			</Stack>
 			<UsersPanel autoOpenInvite={autoOpenInvite} />
 		</Stack>
 	);

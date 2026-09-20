@@ -109,4 +109,12 @@ public class UserController {
 	public UserResponse changeStatus(@PathVariable Long id, @RequestBody ChangeUserStatusRequest request) {
 		return UserResponse.from(userService.changeStatus(id, UserStatus.valueOf(request.status())));
 	}
+
+	/** Re-issues a claim link for a member who never claimed their original invite - see
+	 * StaffInviteService.reissue(). */
+	@PostMapping("/{id}/resend-invite")
+	public StaffInviteResponse resendInvite(@PathVariable Long id) {
+		StaffInviteService.IssuedInvite invite = staffInviteService.reissue(id);
+		return new StaffInviteResponse(invite.userId(), invite.inviteId(), invite.rawToken(), invite.expiresAt(), invite.emailSent());
+	}
 }

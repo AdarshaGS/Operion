@@ -15,6 +15,8 @@ export interface MembershipResponse {
 	userId: number;
 	personId: number;
 	personName: string;
+	email: string;
+	phone: string | null;
 	roleId: number;
 	roleName: string;
 	campusId: number | null;
@@ -27,6 +29,7 @@ export interface MembershipResponse {
 	memberStatus: "INVITED" | "ACTIVE" | "INACTIVE";
 	memberId: string | null;
 	joiningDate: string | null;
+	lastLoginAt: string | null;
 }
 
 export function listMemberships(): Promise<MembershipResponse[]> {

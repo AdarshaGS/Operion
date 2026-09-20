@@ -74,6 +74,25 @@ public class StaffInviteService {
 		return new IssuedInvite(user.getId(), invite.getId(), rawToken, invite.getExpiresAt(), emailSent);
 	}
 
+	/** Resend for a member who never claimed their invite - a brand-new StaffInvite row
+	 * (and email) for the same, still-PENDING User, since the original raw token was never
+	 * stored server-side and can't be recovered (see class javadoc). */
+	@Transactional
+	public IssuedInvite reissue(Long userId) {
+		User user = userRepository.findById(userId).orElseThrow(() -> new IllegalArgumentException("No user with id " + userId));
+		if (user.getStatus() != UserStatus.PENDING) {
+			throw new IllegalStateException("Only a pending invitation can be resent");
+		}
+
+		String rawToken = generateToken();
+		StaffInvite invite = staffInviteRepository
+				.save(new StaffInvite(user.getId(), passwordEncoder.encode(rawToken), Instant.now().plus(INVITE_VALIDITY)));
+
+		boolean emailSent = sendInviteEmail(user.getEmail(), rawToken);
+
+		return new IssuedInvite(user.getId(), invite.getId(), rawToken, invite.getExpiresAt(), emailSent);
+	}
+
 	private boolean sendInviteEmail(String email, String rawToken) {
 		String organisationSlug = organisationRepository.findById(TenantContext.getOrganisationId())
 				.map(Organisation::getSlug)

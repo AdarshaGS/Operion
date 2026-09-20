@@ -43,19 +43,19 @@ class AuditLogRepositoryTest {
 		auditLogRepository.save(new AuditLog(orgA, 10L, "Student", 4L, "UPDATE", null, null));
 
 		// No filters beyond organisation - only org A's three rows come back.
-		assertThat(auditLogRepository.search(orgA, null, null, null, null, PageRequest.of(0, 50)).getTotalElements()).isEqualTo(3);
+		assertThat(auditLogRepository.search(orgA, null, null, null, null, null, PageRequest.of(0, 50)).getTotalElements()).isEqualTo(3);
 
 		// entityType narrows within the organisation.
-		assertThat(auditLogRepository.search(orgA, "Student", null, null, null, PageRequest.of(0, 50)).getTotalElements()).isEqualTo(2);
+		assertThat(auditLogRepository.search(orgA, "Student", null, null, null, null, PageRequest.of(0, 50)).getTotalElements()).isEqualTo(2);
 
 		// actorUserId narrows independently of entityType.
-		assertThat(auditLogRepository.search(orgA, null, 11L, null, null, PageRequest.of(0, 50)).getTotalElements()).isEqualTo(1);
+		assertThat(auditLogRepository.search(orgA, null, null, 11L, null, null, PageRequest.of(0, 50)).getTotalElements()).isEqualTo(1);
 
 		// from narrows to rows at/after the cutoff.
-		assertThat(auditLogRepository.search(orgA, null, null, cutoff, null, PageRequest.of(0, 50)).getTotalElements()).isEqualTo(1);
+		assertThat(auditLogRepository.search(orgA, null, null, null, cutoff, null, PageRequest.of(0, 50)).getTotalElements()).isEqualTo(1);
 
 		// Tenant boundary: org B's row never appears in org A's results regardless of filters.
-		assertThat(auditLogRepository.search(orgA, null, null, null, null, PageRequest.of(0, 50)).getContent())
+		assertThat(auditLogRepository.search(orgA, null, null, null, null, null, PageRequest.of(0, 50)).getContent())
 				.extracting(AuditLog::getOrganisationId)
 				.doesNotContain(orgB);
 

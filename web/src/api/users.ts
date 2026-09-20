@@ -31,6 +31,8 @@ export interface UserResponse {
 	email: string;
 	phone: string | null;
 	status: string;
+	lastLoginAt: string | null;
+	invitedAt: string;
 }
 
 export function createUser(request: CreateUserRequest): Promise<UserResponse> {
@@ -58,4 +60,9 @@ export function updateUser(id: number, request: UpdateUserRequest): Promise<User
 /** Also the deactivate path (status: "DISABLED") - see UserController.changeStatus(). */
 export function changeUserStatus(id: number, status: string): Promise<UserResponse> {
 	return api.post<UserResponse>(`/api/v1/users/${id}/status`, { status });
+}
+
+/** For a member who never claimed their original invite - see UserController.resendInvite(). */
+export function resendInvite(id: number): Promise<StaffInviteResponse> {
+	return api.post<StaffInviteResponse>(`/api/v1/users/${id}/resend-invite`, undefined);
 }

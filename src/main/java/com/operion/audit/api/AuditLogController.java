@@ -34,12 +34,13 @@ public class AuditLogController {
 
 	@GetMapping
 	public PageResponse<AuditLogResponse> list(@RequestParam(required = false) String entityType,
+			@RequestParam(required = false) Long entityId,
 			@RequestParam(required = false) Long actorUserId,
 			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
 			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to,
 			@PageableDefault(size = 50, sort = "occurredAt", direction = Sort.Direction.DESC) Pageable pageable) {
 		return PageResponse.from(auditLogRepository
-				.search(TenantContext.getOrganisationId(), entityType, actorUserId, from, to, pageable)
+				.search(TenantContext.getOrganisationId(), entityType, entityId, actorUserId, from, to, pageable)
 				.map(AuditLogResponse::from));
 	}
 

@@ -29,11 +29,13 @@ public interface AuditLogRepository extends JpaRepository<AuditLog, Long> {
 	 * entity type / actor / date range, or none at all. */
 	@Query("SELECT a FROM AuditLog a WHERE a.organisationId = :organisationId "
 			+ "AND (:entityType IS NULL OR a.entityType = :entityType) "
+			+ "AND (:entityId IS NULL OR a.entityId = :entityId) "
 			+ "AND (:actorUserId IS NULL OR a.actorUserId = :actorUserId) "
 			+ "AND (:from IS NULL OR a.occurredAt >= :from) "
 			+ "AND (:to IS NULL OR a.occurredAt <= :to)")
 	Page<AuditLog> search(@Param("organisationId") Long organisationId, @Param("entityType") String entityType,
-			@Param("actorUserId") Long actorUserId, @Param("from") Instant from, @Param("to") Instant to, Pageable pageable);
+			@Param("entityId") Long entityId, @Param("actorUserId") Long actorUserId, @Param("from") Instant from,
+			@Param("to") Instant to, Pageable pageable);
 
 	@Query("SELECT DISTINCT a.entityType FROM AuditLog a WHERE a.organisationId = :organisationId ORDER BY a.entityType")
 	List<String> findDistinctEntityTypes(@Param("organisationId") Long organisationId);
