@@ -1,0 +1,2 @@
+ALTER TABLE fee_categories
+    ADD COLUMN category_type VARCHAR(20) NOT NULL DEFAULT 'GENERAL';

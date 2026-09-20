@@ -61,8 +61,8 @@ public class FeeService {
 		this.organisationBrandingRepository = organisationBrandingRepository;
 	}
 
-	public FeeCategory createCategory(String code, String name, String description) {
-		return feeCategoryRepository.save(new FeeCategory(code, name, description));
+	public FeeCategory createCategory(String code, String name, String description, FeeCategoryType categoryType) {
+		return feeCategoryRepository.save(new FeeCategory(code, name, description, categoryType));
 	}
 
 	/** The named "one fee structure, several components" setup - see FeeStructureGroup. */
@@ -75,13 +75,20 @@ public class FeeService {
 	@Transactional
 	public FeeStructure createFeeStructure(FeeStructureGroup feeStructureGroup, FeeCategory feeCategory,
 			BigDecimal amount, List<InstallmentInput> installments) {
+		return createFeeStructure(feeStructureGroup, feeCategory, amount, installments, PaymentFrequency.MONTHLY, null);
+	}
+
+	@Transactional
+	public FeeStructure createFeeStructure(FeeStructureGroup feeStructureGroup, FeeCategory feeCategory, BigDecimal amount,
+			List<InstallmentInput> installments, PaymentFrequency paymentFrequency, BigDecimal oneShotDiscountAmount) {
 		BigDecimal installmentTotal = installments.stream().map(InstallmentInput::amount).reduce(BigDecimal.ZERO, BigDecimal::add);
 		if (installmentTotal.compareTo(amount) != 0) {
 			throw new IllegalArgumentException(
 					"Installment amounts (" + installmentTotal + ") must sum to the structure amount (" + amount + ")");
 		}
 
-		FeeStructure structure = feeStructureRepository.save(new FeeStructure(feeStructureGroup, feeCategory, amount));
+		FeeStructure structure = feeStructureRepository.save(
+				new FeeStructure(feeStructureGroup, feeCategory, amount, paymentFrequency, oneShotDiscountAmount));
 		for (InstallmentInput input : installments) {
 			feeStructureInstallmentRepository.save(
 					new FeeStructureInstallment(structure, input.installmentNumber(), input.dueDate(), input.amount()));
@@ -157,13 +164,20 @@ public class FeeService {
 	@Transactional
 	public Payment recordPayment(AcademicYear academicYear, BigDecimal amount, PaymentMethod paymentMethod,
 			LocalDate paymentDate, String remarks, List<AllocationInput> allocations) {
+		return recordPayment(academicYear, amount, paymentMethod, paymentDate, remarks, allocations, null);
+	}
+
+	@Transactional
+	public Payment recordPayment(AcademicYear academicYear, BigDecimal amount, PaymentMethod paymentMethod, LocalDate paymentDate,
+			String remarks, List<AllocationInput> allocations, String paymentReference) {
 		BigDecimal allocatedTotal = allocations.stream().map(AllocationInput::amount).reduce(BigDecimal.ZERO, BigDecimal::add);
 		if (allocatedTotal.compareTo(amount) != 0) {
 			throw new IllegalArgumentException("Allocated amount (" + allocatedTotal + ") must equal the payment amount (" + amount + ")");
 		}
 
 		String receiptNumber = nextDocumentNumber(academicYear, FeeDocumentType.PAYMENT);
-		Payment payment = paymentRepository.save(new Payment(academicYear, receiptNumber, amount, paymentMethod, paymentDate, remarks));
+		Payment payment = paymentRepository.save(
+				new Payment(academicYear, receiptNumber, amount, paymentMethod, paymentDate, remarks, paymentReference));
 
 		for (AllocationInput input : allocations) {
 			Invoice invoice = invoiceRepository.findById(input.invoiceId())
@@ -188,26 +202,30 @@ public class FeeService {
 	}
 
 	@Transactional
-	public Refund recordRefund(Payment payment, Invoice invoice, BigDecimal amount, String reason, Long approvedBy, LocalDate refundDate) {
+	public Refund recordRefund(Payment payment, Invoice invoice, BigDecimal amount, String reason, Long approvedBy, LocalDate refundDate,
+			String proofFileReference, String proofFileName) {
 		invoice.reversePayment(amount);
 		invoiceRepository.save(invoice);
-		return refundRepository.save(new Refund(payment, invoice, amount, reason, approvedBy, refundDate));
+		return refundRepository.save(new Refund(payment, invoice, amount, reason, approvedBy, refundDate, proofFileReference, proofFileName));
 	}
 
 	/** Manual correction to what's owed on an invoice - amount may be positive or negative. Per #131. */
 	@Transactional
-	public Adjustment recordAdjustment(Invoice invoice, BigDecimal amount, String reason, Long approvedBy, LocalDate adjustmentDate) {
+	public Adjustment recordAdjustment(Invoice invoice, BigDecimal amount, String reason, Long approvedBy, LocalDate adjustmentDate,
+			String proofFileReference, String proofFileName) {
 		invoice.applyAdjustment(amount);
 		invoiceRepository.save(invoice);
-		return adjustmentRepository.save(new Adjustment(invoice, amount, reason, approvedBy, adjustmentDate));
+		return adjustmentRepository.save(
+				new Adjustment(invoice, amount, reason, approvedBy, adjustmentDate, proofFileReference, proofFileName));
 	}
 
 	/** Forgives some or all of an already-issued invoice's outstanding balance. Per #131. */
 	@Transactional
-	public Waiver recordWaiver(Invoice invoice, BigDecimal amount, String reason, Long approvedBy, LocalDate waiverDate) {
+	public Waiver recordWaiver(Invoice invoice, BigDecimal amount, String reason, Long approvedBy, LocalDate waiverDate,
+			String proofFileReference, String proofFileName) {
 		invoice.applyWaiver(amount);
 		invoiceRepository.save(invoice);
-		return waiverRepository.save(new Waiver(invoice, amount, reason, approvedBy, waiverDate));
+		return waiverRepository.save(new Waiver(invoice, amount, reason, approvedBy, waiverDate, proofFileReference, proofFileName));
 	}
 
 	/** Atomic per-(organisation, academicYear, documentType) sequence - never SELECT MAX()+1.

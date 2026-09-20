@@ -11,6 +11,8 @@ export interface CreateFeeStructureRequest {
 	feeCategoryId: number;
 	amount: number;
 	installments: InstallmentEntry[];
+	paymentFrequency: string;
+	oneShotDiscountAmount?: number | null;
 }
 
 export interface FeeStructureInstallmentResponse {
@@ -27,6 +29,8 @@ export interface FeeStructureResponse {
 	amount: number;
 	status: string;
 	installments: FeeStructureInstallmentResponse[];
+	paymentFrequency: string;
+	oneShotDiscountAmount: number | null;
 }
 
 export function createFeeStructure(request: CreateFeeStructureRequest): Promise<FeeStructureResponse> {

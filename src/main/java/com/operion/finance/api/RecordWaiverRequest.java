@@ -3,5 +3,6 @@ package com.operion.finance.api;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
-public record RecordWaiverRequest(Long invoiceId, BigDecimal amount, String reason, Long approvedBy, LocalDate waiverDate) {
+public record RecordWaiverRequest(Long invoiceId, BigDecimal amount, String reason, Long approvedBy, LocalDate waiverDate,
+		String proofFileReference, String proofFileName) {
 }

@@ -6,6 +6,8 @@ export interface RecordAdjustmentRequest {
 	reason: string;
 	approvedBy: number;
 	adjustmentDate: string;
+	proofFileReference?: string | null;
+	proofFileName?: string | null;
 }
 
 export interface AdjustmentResponse {
@@ -15,6 +17,8 @@ export interface AdjustmentResponse {
 	reason: string;
 	approvedBy: number;
 	adjustmentDate: string;
+	proofFileReference: string | null;
+	proofFileName: string | null;
 }
 
 export function recordAdjustment(request: RecordAdjustmentRequest): Promise<AdjustmentResponse> {

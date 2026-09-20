@@ -25,6 +25,17 @@ export function submitJobApplication(request: SubmitJobApplicationRequest): Prom
 	return api.post<JobApplicationResponse>("/api/v1/job-applications", request);
 }
 
+export interface PublicSubjectResponse {
+	id: number;
+	name: string;
+}
+
+/** Public, unauthenticated - same trust tier as submitJobApplication. Feeds the /careers
+ * form's specialization dropdown from the hiring org's subject catalog. */
+export function listPublicSubjects(organisationSlug: string): Promise<PublicSubjectResponse[]> {
+	return api.get<PublicSubjectResponse[]>(`/api/v1/job-applications/subjects?organisationSlug=${encodeURIComponent(organisationSlug)}`);
+}
+
 export function listJobApplications(status?: string): Promise<JobApplicationResponse[]> {
 	const params = new URLSearchParams();
 	if (status) params.set("status", status);

@@ -12,6 +12,7 @@ export interface RecordPaymentRequest {
 	paymentDate: string;
 	remarks?: string | null;
 	allocations: AllocationEntry[];
+	paymentReference?: string | null;
 }
 
 export interface PaymentResponse {
@@ -23,6 +24,7 @@ export interface PaymentResponse {
 	paymentDate: string;
 	status: string;
 	remarks: string | null;
+	paymentReference: string | null;
 }
 
 export function recordPayment(request: RecordPaymentRequest): Promise<PaymentResponse> {

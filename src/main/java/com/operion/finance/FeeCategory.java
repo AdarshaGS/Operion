@@ -30,10 +30,18 @@ public class FeeCategory extends TenantScopedEntity {
 	@Column(nullable = false, length = 20)
 	private FeeCategoryStatus status;
 
-	public FeeCategory(String code, String name, String description) {
+	/** Distinguishes Transport (and other typed) categories from general ones, so
+	 * category-specific flows (e.g. transport assignment) can filter to the right fee
+	 * structures instead of matching on free-text name/code. Per #285. */
+	@Enumerated(EnumType.STRING)
+	@Column(name = "category_type", nullable = false, length = 20)
+	private FeeCategoryType categoryType;
+
+	public FeeCategory(String code, String name, String description, FeeCategoryType categoryType) {
 		this.code = code;
 		this.name = name;
 		this.description = description;
 		this.status = FeeCategoryStatus.ACTIVE;
+		this.categoryType = categoryType;
 	}
 }

@@ -34,8 +34,8 @@ public class RefundController {
 		Invoice invoice = invoiceRepository.findById(request.invoiceId())
 				.orElseThrow(() -> new IllegalArgumentException("No invoice with id " + request.invoiceId()));
 
-		Refund refund = feeService.recordRefund(
-				payment, invoice, request.amount(), request.reason(), request.approvedBy(), request.refundDate());
+		Refund refund = feeService.recordRefund(payment, invoice, request.amount(), request.reason(), request.approvedBy(),
+				request.refundDate(), request.proofFileReference(), request.proofFileName());
 		return RefundResponse.from(refund);
 	}
 }

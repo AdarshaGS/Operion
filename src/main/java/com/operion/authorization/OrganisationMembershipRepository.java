@@ -38,4 +38,20 @@ public interface OrganisationMembershipRepository extends JpaRepository<Organisa
 			  AND r.status = com.operion.authorization.RoleStatus.ACTIVE
 			""")
 	Set<String> findActivePermissionCodesForUser(@Param("userId") Long userId);
+
+	/**
+	 * Active memberships eligible to hold the given permission - either directly via their
+	 * role's permission set, or as an Owner (who bypasses granular checks entirely, same
+	 * rule as {@link PermissionInterceptor}). Backs approver pickers (#280) that need to
+	 * list "who can approve this", not just check a single caller.
+	 */
+	@Query("""
+			SELECT DISTINCT m FROM OrganisationMembership m
+			JOIN m.role r
+			LEFT JOIN r.permissions p
+			WHERE m.status = com.operion.authorization.MembershipStatus.ACTIVE
+			  AND r.status = com.operion.authorization.RoleStatus.ACTIVE
+			  AND (m.owner = true OR p.code = :permissionCode)
+			""")
+	List<OrganisationMembership> findActiveMembersWithPermission(@Param("permissionCode") String permissionCode);
 }

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import Alert from "@mui/material/Alert";
+import Autocomplete from "@mui/material/Autocomplete";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Checkbox from "@mui/material/Checkbox";
@@ -26,6 +27,10 @@ import { listCampuses, type CampusResponse } from "../../api/campuses";
 import { ApiError } from "../../api/client";
 import { listItemCategories, type ItemCategoryResponse } from "../../api/itemCategories";
 import { createItem, listItems, listLowStockItems, type ItemResponse } from "../../api/items";
+
+/** Suggestions only - Item.unit is a free-text column (no backend catalog), so schools can
+ * still type anything here. */
+const UNIT_SUGGESTIONS = ["Piece", "Box", "Pack", "Kg", "Litre", "Set"];
 
 export function ItemsPanel() {
 	const navigate = useNavigate();
@@ -195,7 +200,13 @@ export function ItemsPanel() {
 						</TextField>
 						<TextField label="Code" placeholder="STA-001" value={code} onChange={(e) => setCode(e.target.value)} required fullWidth />
 						<TextField label="Name" placeholder="A4 Paper Ream" value={name} onChange={(e) => setName(e.target.value)} required fullWidth />
-						<TextField label="Unit" placeholder="PCS" value={unit} onChange={(e) => setUnit(e.target.value)} required fullWidth />
+						<Autocomplete
+							freeSolo
+							options={UNIT_SUGGESTIONS}
+							inputValue={unit}
+							onInputChange={(_event, value) => setUnit(value)}
+							renderInput={(params) => <TextField {...params} label="Unit" placeholder="Piece" required fullWidth />}
+						/>
 						<TextField label="Description" value={description} onChange={(e) => setDescription(e.target.value)} fullWidth />
 						<TextField
 							label="Reorder level (optional)"

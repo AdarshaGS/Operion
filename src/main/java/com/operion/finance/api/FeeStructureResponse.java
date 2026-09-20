@@ -6,12 +6,13 @@ import java.util.List;
 import com.operion.finance.FeeStructure;
 import com.operion.finance.FeeStructureInstallment;
 
-public record FeeStructureResponse(Long id, Long feeStructureGroupId, Long feeCategoryId,
-		BigDecimal amount, String status, List<FeeStructureInstallmentResponse> installments) {
+public record FeeStructureResponse(Long id, Long feeStructureGroupId, Long feeCategoryId, BigDecimal amount, String status,
+		List<FeeStructureInstallmentResponse> installments, String paymentFrequency, BigDecimal oneShotDiscountAmount) {
 
 	static FeeStructureResponse from(FeeStructure structure, List<FeeStructureInstallment> installments) {
 		return new FeeStructureResponse(structure.getId(), structure.getFeeStructureGroup().getId(),
 				structure.getFeeCategory().getId(), structure.getAmount(), structure.getStatus().name(),
-				installments.stream().map(FeeStructureInstallmentResponse::from).toList());
+				installments.stream().map(FeeStructureInstallmentResponse::from).toList(),
+				structure.getPaymentFrequency().name(), structure.getOneShotDiscountAmount());
 	}
 }

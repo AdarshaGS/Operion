@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
+import { useNavigate } from "react-router-dom";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -22,10 +23,11 @@ import { type CampusResponse, listCampuses } from "../../api/campuses";
 import { ApiError } from "../../api/client";
 import { changeVehicleStatus, createVehicle, listVehicles, type VehicleResponse } from "../../api/vehicles";
 
-const VEHICLE_TYPES = ["BUS", "VAN", "CAR"];
+const VEHICLE_TYPES = ["BUS", "VAN", "CAR", "OTHER"];
 const VEHICLE_STATUSES = ["ACTIVE", "MAINTENANCE", "INACTIVE", "RETIRED"];
 
 export function VehiclesPanel() {
+	const navigate = useNavigate();
 	const [vehicles, setVehicles] = useState<VehicleResponse[]>([]);
 	const [campuses, setCampuses] = useState<CampusResponse[]>([]);
 	const [error, setError] = useState<string | null>(null);
@@ -107,12 +109,17 @@ export function VehiclesPanel() {
 							</TableHead>
 							<TableBody>
 								{vehicles.map((vehicle) => (
-									<TableRow key={vehicle.id}>
+									<TableRow
+										key={vehicle.id}
+										hover
+										sx={{ cursor: "pointer" }}
+										onClick={() => navigate(`/transport/vehicles/${vehicle.id}`)}
+									>
 										<TableCell>{vehicle.registrationNumber}</TableCell>
 										<TableCell>{vehicle.vehicleType}</TableCell>
 										<TableCell>{vehicle.capacity}</TableCell>
 										<TableCell>{campusName(vehicle.campusId)}</TableCell>
-										<TableCell>
+										<TableCell onClick={(e) => e.stopPropagation()}>
 											<TextField
 												select
 												size="small"

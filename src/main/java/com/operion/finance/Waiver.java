@@ -43,11 +43,23 @@ public class Waiver extends TenantScopedEntity {
 	@Column(name = "waiver_date", nullable = false)
 	private LocalDate waiverDate;
 
-	public Waiver(Invoice invoice, BigDecimal amount, String reason, Long approvedBy, LocalDate waiverDate) {
+	/** Nullable - an uploaded supporting document reference (see AssetStorageService), not
+	 * every approval has one on file. Per #280. */
+	@Column(name = "proof_file_reference")
+	private String proofFileReference;
+
+	/** Nullable - the original filename, for display; see proofFileReference. */
+	@Column(name = "proof_file_name")
+	private String proofFileName;
+
+	public Waiver(Invoice invoice, BigDecimal amount, String reason, Long approvedBy, LocalDate waiverDate,
+			String proofFileReference, String proofFileName) {
 		this.invoice = invoice;
 		this.amount = amount;
 		this.reason = reason;
 		this.approvedBy = approvedBy;
 		this.waiverDate = waiverDate;
+		this.proofFileReference = proofFileReference;
+		this.proofFileName = proofFileName;
 	}
 }

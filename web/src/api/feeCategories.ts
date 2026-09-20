@@ -4,6 +4,7 @@ export interface CreateFeeCategoryRequest {
 	code: string;
 	name: string;
 	description?: string | null;
+	categoryType: string;
 }
 
 export interface FeeCategoryResponse {
@@ -12,6 +13,7 @@ export interface FeeCategoryResponse {
 	name: string;
 	description: string | null;
 	status: string;
+	categoryType: string;
 }
 
 export function createFeeCategory(request: CreateFeeCategoryRequest): Promise<FeeCategoryResponse> {

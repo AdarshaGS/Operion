@@ -44,11 +44,11 @@ class FeeTenantIsolationTest {
 	void queriesOnlySeeTheCurrentTenantsFeeCategories() {
 		Organisation orgA = organisationRepository.save(new Organisation("A School", "A School Trust", "fee-iso-a-school"));
 		TenantContext.set(orgA.getId(), null);
-		feeService.createCategory("TUITION", "Tuition Fee", null);
+		feeService.createCategory("TUITION", "Tuition Fee", null, FeeCategoryType.GENERAL);
 
 		Organisation orgB = organisationRepository.save(new Organisation("B School", "B School Trust", "fee-iso-b-school"));
 		TenantContext.set(orgB.getId(), null);
-		feeService.createCategory("TUITION", "Tuition Fee", null);
+		feeService.createCategory("TUITION", "Tuition Fee", null, FeeCategoryType.GENERAL);
 
 		TenantContext.set(orgA.getId(), null);
 		List<FeeCategory> visibleToA = feeCategoryRepository.findAll();

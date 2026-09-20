@@ -3,6 +3,7 @@ package com.operion.hr.api;
 import java.util.List;
 
 import com.operion.authorization.RequirePermission;
+import com.operion.common.imports.ImportRowResult;
 import com.operion.hr.DocumentVerificationStatus;
 import com.operion.hr.EmploymentType;
 import com.operion.hr.HrService;
@@ -13,6 +14,7 @@ import com.operion.hr.StaffDocumentRepository;
 import com.operion.hr.StaffDocumentStatus;
 import com.operion.hr.StaffExitRepository;
 import com.operion.hr.StaffExitType;
+import com.operion.hr.StaffImportService;
 import com.operion.hr.StaffProfile;
 import com.operion.hr.StaffProfileRepository;
 import com.operion.hr.StaffProfileStatus;
@@ -31,6 +33,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/v1/hr/staff")
@@ -47,12 +50,13 @@ public class StaffProfileController {
 	private final CampusRepository campusRepository;
 	private final DesignationRepository designationRepository;
 	private final DepartmentRepository departmentRepository;
+	private final StaffImportService staffImportService;
 
 	public StaffProfileController(HrService hrService, StaffProfileRepository staffProfileRepository,
 			StaffDocumentRepository staffDocumentRepository, StaffAssignmentRepository staffAssignmentRepository,
 			StaffExitRepository staffExitRepository, StaffBankDetailRepository staffBankDetailRepository,
 			PersonRepository personRepository, CampusRepository campusRepository, DesignationRepository designationRepository,
-			DepartmentRepository departmentRepository) {
+			DepartmentRepository departmentRepository, StaffImportService staffImportService) {
 		this.hrService = hrService;
 		this.staffProfileRepository = staffProfileRepository;
 		this.staffDocumentRepository = staffDocumentRepository;
@@ -63,6 +67,7 @@ public class StaffProfileController {
 		this.campusRepository = campusRepository;
 		this.designationRepository = designationRepository;
 		this.departmentRepository = departmentRepository;
+		this.staffImportService = staffImportService;
 	}
 
 	@PostMapping
@@ -178,6 +183,23 @@ public class StaffProfileController {
 				.orElseThrow(() -> new IllegalArgumentException("No staff document with id " + documentId));
 		return StaffDocumentResponse.from(
 				hrService.verifyDocument(document, DocumentVerificationStatus.valueOf(request.verificationStatus()), request.verifiedBy()));
+	}
+
+	/** Bulk staff import (validate-then-confirm) - reuses the same Person+StaffProfile write
+	 * path as create() above, one row at a time; see StaffImportService/StaffRowImportService
+	 * for the per-row transaction isolation that makes a partial import safe. */
+	@PostMapping("/import")
+	@RequirePermission("HR_STAFF_MANAGE")
+	public List<ImportRowResult> importFile(@RequestParam("file") MultipartFile file,
+			@RequestParam(defaultValue = "false") boolean validateOnly) {
+		return staffImportService.importFile(file, validateOnly);
+	}
+
+	/** Inherits this controller's class-level HR_VIEW gate, same reuse-not-a-new-permission
+	 * convention as StudentController.export(). */
+	@GetMapping("/export")
+	public List<StaffExportResponse> export() {
+		return staffProfileRepository.findAll().stream().map(StaffExportResponse::from).toList();
 	}
 
 	private StaffProfile findStaffProfile(Long id) {

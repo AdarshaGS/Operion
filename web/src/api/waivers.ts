@@ -6,6 +6,8 @@ export interface RecordWaiverRequest {
 	reason: string;
 	approvedBy: number;
 	waiverDate: string;
+	proofFileReference?: string | null;
+	proofFileName?: string | null;
 }
 
 export interface WaiverResponse {
@@ -15,6 +17,8 @@ export interface WaiverResponse {
 	reason: string;
 	approvedBy: number;
 	waiverDate: string;
+	proofFileReference: string | null;
+	proofFileName: string | null;
 }
 
 export function recordWaiver(request: RecordWaiverRequest): Promise<WaiverResponse> {

@@ -55,14 +55,26 @@ public class Payment extends TenantScopedEntity {
 	/** Nullable. */
 	private String remarks;
 
+	/** Nullable - the mode-specific reference the payer quotes (UPI UTR, cheque number,
+	 * bank transfer reference, card/gateway transaction id); not applicable to CASH. Per
+	 * #282. */
+	@Column(name = "payment_reference", length = 100)
+	private String paymentReference;
+
 	public Payment(AcademicYear academicYear, String receiptNumber, BigDecimal amount, PaymentMethod paymentMethod,
 			LocalDate paymentDate, String remarks) {
+		this(academicYear, receiptNumber, amount, paymentMethod, paymentDate, remarks, null);
+	}
+
+	public Payment(AcademicYear academicYear, String receiptNumber, BigDecimal amount, PaymentMethod paymentMethod,
+			LocalDate paymentDate, String remarks, String paymentReference) {
 		this.academicYear = academicYear;
 		this.receiptNumber = receiptNumber;
 		this.amount = amount;
 		this.paymentMethod = paymentMethod;
 		this.paymentDate = paymentDate;
 		this.remarks = remarks;
+		this.paymentReference = paymentReference;
 		this.status = PaymentStatus.CLEARED;
 	}
 

@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import Alert from "@mui/material/Alert";
+import Autocomplete from "@mui/material/Autocomplete";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Checkbox from "@mui/material/Checkbox";
@@ -25,7 +26,9 @@ import { Can } from "../../auth/Can";
 import { useAuth } from "../../auth/AuthContext";
 import { recordAdjustment } from "../../api/adjustments";
 import { ApiError } from "../../api/client";
+import { uploadAsset } from "../../api/assets";
 import { assignFee, listFeeAssignments, type StudentFeeAssignmentResponse } from "../../api/feeAssignments";
+import { listFeeApprovers, type FeeApproverResponse } from "../../api/feeApprovers";
 import { listFeeCategories, type FeeCategoryResponse } from "../../api/feeCategories";
 import { listFeeStructureGroups } from "../../api/feeStructureGroups";
 import { listFeeStructures, type FeeStructureResponse } from "../../api/feeStructures";
@@ -36,6 +39,13 @@ import { recordWaiver } from "../../api/waivers";
 import { colors } from "../../theme";
 
 const PAYMENT_METHODS = ["CASH", "CHEQUE", "UPI", "CARD", "BANK_TRANSFER"];
+
+const PAYMENT_REFERENCE_LABEL: Record<string, string> = {
+	UPI: "UTR number",
+	CHEQUE: "Cheque number",
+	BANK_TRANSFER: "Reference number",
+	CARD: "Transaction ID",
+};
 
 const ASSIGNMENT_STATUS_LABEL: Record<string, string> = { ACTIVE: "Active", SUPERSEDED: "Superseded" };
 const ASSIGNMENT_STATUS_COLOR: Record<string, "success" | "default"> = { ACTIVE: "success", SUPERSEDED: "default" };
@@ -71,6 +81,7 @@ export function StudentFeesPanel({ studentEnrollmentId, academicYearId, schoolCl
 	const [payments, setPayments] = useState<PaymentResponse[]>([]);
 	const [feeStructures, setFeeStructures] = useState<FeeStructureResponse[]>([]);
 	const [categories, setCategories] = useState<FeeCategoryResponse[]>([]);
+	const [feeApprovers, setFeeApprovers] = useState<FeeApproverResponse[]>([]);
 	const [error, setError] = useState<string | null>(null);
 
 	const [assignDialogOpen, setAssignDialogOpen] = useState(false);
@@ -87,6 +98,7 @@ export function StudentFeesPanel({ studentEnrollmentId, academicYearId, schoolCl
 	const [paymentMethod, setPaymentMethod] = useState("CASH");
 	const [paymentDate, setPaymentDate] = useState(today());
 	const [paymentRemarks, setPaymentRemarks] = useState("");
+	const [paymentReference, setPaymentReference] = useState("");
 	const [allocations, setAllocations] = useState<Record<number, string>>({});
 	const [receiptDialogPayment, setReceiptDialogPayment] = useState<PaymentResponse | null>(null);
 
@@ -95,16 +107,22 @@ export function StudentFeesPanel({ studentEnrollmentId, academicYearId, schoolCl
 	const [refundAmount, setRefundAmount] = useState("");
 	const [refundReason, setRefundReason] = useState("");
 	const [refundApprovedBy, setRefundApprovedBy] = useState("");
+	const [refundProofFileReference, setRefundProofFileReference] = useState<string | null>(null);
+	const [refundProofFileName, setRefundProofFileName] = useState<string | null>(null);
 
 	const [adjustmentDialogInvoice, setAdjustmentDialogInvoice] = useState<InvoiceResponse | null>(null);
 	const [adjustmentAmount, setAdjustmentAmount] = useState("");
 	const [adjustmentReason, setAdjustmentReason] = useState("");
 	const [adjustmentApprovedBy, setAdjustmentApprovedBy] = useState("");
+	const [adjustmentProofFileReference, setAdjustmentProofFileReference] = useState<string | null>(null);
+	const [adjustmentProofFileName, setAdjustmentProofFileName] = useState<string | null>(null);
 
 	const [waiverDialogInvoice, setWaiverDialogInvoice] = useState<InvoiceResponse | null>(null);
 	const [waiverAmount, setWaiverAmount] = useState("");
 	const [waiverReason, setWaiverReason] = useState("");
 	const [waiverApprovedBy, setWaiverApprovedBy] = useState("");
+	const [waiverProofFileReference, setWaiverProofFileReference] = useState<string | null>(null);
+	const [waiverProofFileName, setWaiverProofFileName] = useState<string | null>(null);
 
 	const [submitting, setSubmitting] = useState(false);
 
@@ -128,10 +146,26 @@ export function StudentFeesPanel({ studentEnrollmentId, academicYearId, schoolCl
 			.then(setFeeStructures)
 			.catch(() => {});
 		listFeeCategories().then(setCategories).catch(() => {});
+		listFeeApprovers().then(setFeeApprovers).catch(() => {});
 	}, [academicYearId, schoolClassId]);
 
 	function structureFor(id: number): FeeStructureResponse | undefined {
 		return feeStructures.find((s) => s.id === id);
+	}
+
+	function approverFor(userId: string): FeeApproverResponse | null {
+		return feeApprovers.find((a) => String(a.userId) === userId) ?? null;
+	}
+
+	async function handleProofSelected(file: File | null, setReference: (v: string | null) => void, setName: (v: string | null) => void) {
+		if (!file) return;
+		try {
+			const uploaded = await uploadAsset(file);
+			setReference(uploaded.reference);
+			setName(file.name);
+		} catch (err) {
+			setError(err instanceof ApiError ? err.message : "Failed to upload proof");
+		}
 	}
 
 	function categoryName(feeCategoryId: number): string {
@@ -195,6 +229,7 @@ export function StudentFeesPanel({ studentEnrollmentId, academicYearId, schoolCl
 		setPaymentMethod("CASH");
 		setPaymentDate(today());
 		setPaymentRemarks("");
+		setPaymentReference("");
 		setAllocations({});
 		setPaymentDialogOpen(true);
 	}
@@ -222,6 +257,7 @@ export function StudentFeesPanel({ studentEnrollmentId, academicYearId, schoolCl
 			}));
 			const payment = await recordPayment({
 				academicYearId,
+				paymentReference: paymentMethod === "CASH" ? null : paymentReference || null,
 				amount: Number(paymentAmount),
 				paymentMethod,
 				paymentDate,
@@ -255,6 +291,8 @@ export function StudentFeesPanel({ studentEnrollmentId, academicYearId, schoolCl
 		setRefundAmount("");
 		setRefundReason("");
 		setRefundApprovedBy("");
+		setRefundProofFileReference(null);
+		setRefundProofFileName(null);
 		setRefundDialogPayment(payment);
 	}
 
@@ -270,6 +308,8 @@ export function StudentFeesPanel({ studentEnrollmentId, academicYearId, schoolCl
 				reason: refundReason,
 				approvedBy: Number(refundApprovedBy),
 				refundDate: today(),
+				proofFileReference: refundProofFileReference,
+				proofFileName: refundProofFileName,
 			});
 			setRefundDialogPayment(null);
 			refresh();
@@ -284,6 +324,8 @@ export function StudentFeesPanel({ studentEnrollmentId, academicYearId, schoolCl
 		setAdjustmentAmount("");
 		setAdjustmentReason("");
 		setAdjustmentApprovedBy("");
+		setAdjustmentProofFileReference(null);
+		setAdjustmentProofFileName(null);
 		setAdjustmentDialogInvoice(invoice);
 	}
 
@@ -298,6 +340,8 @@ export function StudentFeesPanel({ studentEnrollmentId, academicYearId, schoolCl
 				reason: adjustmentReason,
 				approvedBy: Number(adjustmentApprovedBy),
 				adjustmentDate: today(),
+				proofFileReference: adjustmentProofFileReference,
+				proofFileName: adjustmentProofFileName,
 			});
 			setAdjustmentDialogInvoice(null);
 			refresh();
@@ -312,6 +356,8 @@ export function StudentFeesPanel({ studentEnrollmentId, academicYearId, schoolCl
 		setWaiverAmount(String(invoice.outstanding));
 		setWaiverReason("");
 		setWaiverApprovedBy("");
+		setWaiverProofFileReference(null);
+		setWaiverProofFileName(null);
 		setWaiverDialogInvoice(invoice);
 	}
 
@@ -326,6 +372,8 @@ export function StudentFeesPanel({ studentEnrollmentId, academicYearId, schoolCl
 				reason: waiverReason,
 				approvedBy: Number(waiverApprovedBy),
 				waiverDate: today(),
+				proofFileReference: waiverProofFileReference,
+				proofFileName: waiverProofFileName,
 			});
 			setWaiverDialogInvoice(null);
 			refresh();
@@ -571,9 +619,30 @@ export function StudentFeesPanel({ studentEnrollmentId, academicYearId, schoolCl
 						<Typography variant="caption" color="text.secondary">
 							Optional discount — requires both a reason and an approver
 						</Typography>
+						{feeStructureId && structureFor(Number(feeStructureId))?.oneShotDiscountAmount && (
+							<Button
+								size="small"
+								variant="outlined"
+								sx={{ alignSelf: "flex-start" }}
+								onClick={() => {
+									const structure = structureFor(Number(feeStructureId));
+									if (!structure?.oneShotDiscountAmount) return;
+									setDiscountAmount(String(structure.oneShotDiscountAmount));
+									setDiscountReason("One-shot payment discount");
+								}}
+							>
+								Use one-shot discount ({structureFor(Number(feeStructureId))?.oneShotDiscountAmount})
+							</Button>
+						)}
 						<TextField label="Discount amount" type="number" value={discountAmount} onChange={(e) => setDiscountAmount(e.target.value)} fullWidth />
 						<TextField label="Discount reason" value={discountReason} onChange={(e) => setDiscountReason(e.target.value)} fullWidth />
-						<TextField label="Approved by (user id)" type="number" value={approvedBy} onChange={(e) => setApprovedBy(e.target.value)} fullWidth />
+						<Autocomplete
+							options={feeApprovers}
+							getOptionLabel={(option) => option.name}
+							value={approverFor(approvedBy)}
+							onChange={(_, value) => setApprovedBy(value ? String(value.userId) : "")}
+							renderInput={(params) => <TextField {...params} label="Approved by" />}
+						/>
 					</Stack>
 				</DialogContent>
 				<DialogActions>
@@ -625,6 +694,14 @@ export function StudentFeesPanel({ studentEnrollmentId, academicYearId, schoolCl
 								))}
 							</TextField>
 						</Box>
+						{PAYMENT_REFERENCE_LABEL[paymentMethod] && (
+							<TextField
+								label={PAYMENT_REFERENCE_LABEL[paymentMethod]}
+								value={paymentReference}
+								onChange={(e) => setPaymentReference(e.target.value)}
+								fullWidth
+							/>
+						)}
 						<TextField
 							label="Payment date"
 							type="date"
@@ -709,7 +786,21 @@ export function StudentFeesPanel({ studentEnrollmentId, academicYearId, schoolCl
 						</TextField>
 						<TextField label="Amount" type="number" value={refundAmount} onChange={(e) => setRefundAmount(e.target.value)} required fullWidth />
 						<TextField label="Reason" value={refundReason} onChange={(e) => setRefundReason(e.target.value)} required fullWidth />
-						<TextField label="Approved by (user id)" type="number" value={refundApprovedBy} onChange={(e) => setRefundApprovedBy(e.target.value)} required fullWidth />
+						<Autocomplete
+							options={feeApprovers}
+							getOptionLabel={(option) => option.name}
+							value={approverFor(refundApprovedBy)}
+							onChange={(_, value) => setRefundApprovedBy(value ? String(value.userId) : "")}
+							renderInput={(params) => <TextField {...params} label="Approved by" required />}
+						/>
+						<Button component="label" variant="outlined" size="small">
+							{refundProofFileName ?? "Attach proof (optional)"}
+							<input
+								type="file"
+								hidden
+								onChange={(e) => handleProofSelected(e.target.files?.[0] ?? null, setRefundProofFileReference, setRefundProofFileName)}
+							/>
+						</Button>
 					</Stack>
 				</DialogContent>
 				<DialogActions>
@@ -729,14 +820,23 @@ export function StudentFeesPanel({ studentEnrollmentId, academicYearId, schoolCl
 						</Typography>
 						<TextField label="Amount" type="number" value={adjustmentAmount} onChange={(e) => setAdjustmentAmount(e.target.value)} required fullWidth />
 						<TextField label="Reason" value={adjustmentReason} onChange={(e) => setAdjustmentReason(e.target.value)} required fullWidth />
-						<TextField
-							label="Approved by (user id)"
-							type="number"
-							value={adjustmentApprovedBy}
-							onChange={(e) => setAdjustmentApprovedBy(e.target.value)}
-							required
-							fullWidth
+						<Autocomplete
+							options={feeApprovers}
+							getOptionLabel={(option) => option.name}
+							value={approverFor(adjustmentApprovedBy)}
+							onChange={(_, value) => setAdjustmentApprovedBy(value ? String(value.userId) : "")}
+							renderInput={(params) => <TextField {...params} label="Approved by" required />}
 						/>
+						<Button component="label" variant="outlined" size="small">
+							{adjustmentProofFileName ?? "Attach proof (optional)"}
+							<input
+								type="file"
+								hidden
+								onChange={(e) =>
+									handleProofSelected(e.target.files?.[0] ?? null, setAdjustmentProofFileReference, setAdjustmentProofFileName)
+								}
+							/>
+						</Button>
 					</Stack>
 				</DialogContent>
 				<DialogActions>
@@ -756,14 +856,21 @@ export function StudentFeesPanel({ studentEnrollmentId, academicYearId, schoolCl
 						</Typography>
 						<TextField label="Amount" type="number" value={waiverAmount} onChange={(e) => setWaiverAmount(e.target.value)} required fullWidth />
 						<TextField label="Reason" value={waiverReason} onChange={(e) => setWaiverReason(e.target.value)} required fullWidth />
-						<TextField
-							label="Approved by (user id)"
-							type="number"
-							value={waiverApprovedBy}
-							onChange={(e) => setWaiverApprovedBy(e.target.value)}
-							required
-							fullWidth
+						<Autocomplete
+							options={feeApprovers}
+							getOptionLabel={(option) => option.name}
+							value={approverFor(waiverApprovedBy)}
+							onChange={(_, value) => setWaiverApprovedBy(value ? String(value.userId) : "")}
+							renderInput={(params) => <TextField {...params} label="Approved by" required />}
 						/>
+						<Button component="label" variant="outlined" size="small">
+							{waiverProofFileName ?? "Attach proof (optional)"}
+							<input
+								type="file"
+								hidden
+								onChange={(e) => handleProofSelected(e.target.files?.[0] ?? null, setWaiverProofFileReference, setWaiverProofFileName)}
+							/>
+						</Button>
 					</Stack>
 				</DialogContent>
 				<DialogActions>

@@ -21,6 +21,11 @@ import {
 	type StudentTransportAssignmentResponse,
 } from "../../api/transportAssignments";
 import { listStudents, type StudentResponse } from "../../api/students";
+import { listSchoolClasses } from "../../api/schoolClasses";
+import { listSections, type SectionResponse } from "../../api/sections";
+import { listFeeStructureGroups } from "../../api/feeStructureGroups";
+import { listFeeStructures, type FeeStructureResponse } from "../../api/feeStructures";
+import { listFeeCategories, type FeeCategoryResponse } from "../../api/feeCategories";
 
 export function StudentAssignmentPanel() {
 	const [students, setStudents] = useState<StudentResponse[]>([]);
@@ -36,6 +41,10 @@ export function StudentAssignmentPanel() {
 	const [usesDrop, setUsesDrop] = useState(true);
 	const [effectiveFrom, setEffectiveFrom] = useState(new Date().toISOString().slice(0, 10));
 
+	const [feeCategories, setFeeCategories] = useState<FeeCategoryResponse[]>([]);
+	const [transportFeeStructures, setTransportFeeStructures] = useState<FeeStructureResponse[]>([]);
+	const [feeStructureId, setFeeStructureId] = useState("");
+
 	const [assignment, setAssignment] = useState<StudentTransportAssignmentResponse | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	const [submitting, setSubmitting] = useState(false);
@@ -44,11 +53,14 @@ export function StudentAssignmentPanel() {
 		listStudents().then(setStudents).catch(() => {});
 		listPersons().then(setPersons).catch(() => {});
 		listRoutes().then(setRoutes).catch(() => {});
+		listFeeCategories().then(setFeeCategories).catch(() => {});
 	}, []);
 
 	useEffect(() => {
 		setEnrollmentId(null);
 		setAssignment(null);
+		setTransportFeeStructures([]);
+		setFeeStructureId("");
 		if (!studentId) return;
 		// Refetch routes each time a student is picked, not just at mount - a route added
 		// in the sibling RoutesPanel on the same page must show up here without a remount.
@@ -61,6 +73,7 @@ export function StudentAssignmentPanel() {
 					return;
 				}
 				setEnrollmentId(current.id);
+				loadTransportFeeStructures(current.academicYearId, current.sectionId);
 				return listStudentAssignment(current.id);
 			})
 			.then((assignments) => {
@@ -68,6 +81,35 @@ export function StudentAssignmentPanel() {
 			})
 			.catch((err) => setError(err instanceof ApiError ? err.message : "Failed to load student"));
 	}, [studentId]);
+
+	// Resolves the enrollment's class (same list+find tradeoff as FeeCollectionPage - no
+	// GET-by-id for Section/SchoolClass yet), then surfaces only Transport-typed fee
+	// structures already configured for that class/year (#285), so admins pick from the
+	// right list instead of every fee structure in the school.
+	async function loadTransportFeeStructures(academicYearId: number, sectionId: number) {
+		try {
+			const classes = await listSchoolClasses();
+			let schoolClassId: number | null = null;
+			for (const schoolClass of classes) {
+				const sections: SectionResponse[] = await listSections(schoolClass.id);
+				if (sections.some((s) => s.id === sectionId)) {
+					schoolClassId = schoolClass.id;
+					break;
+				}
+			}
+			if (!schoolClassId) return;
+			const groups = await listFeeStructureGroups(academicYearId, schoolClassId);
+			const structuresByGroup = await Promise.all(groups.map((group) => listFeeStructures(group.id)));
+			const structures = structuresByGroup.flat();
+			setTransportFeeStructures(structures);
+		} catch {
+			// Non-critical to the assignment flow - leave the fee structure picker empty.
+		}
+	}
+
+	function categoryType(feeCategoryId: number): string {
+		return feeCategories.find((c) => c.id === feeCategoryId)?.categoryType ?? "GENERAL";
+	}
 
 	useEffect(() => {
 		setRouteStopId("");
@@ -99,8 +141,10 @@ export function StudentAssignmentPanel() {
 				usesPickup,
 				usesDrop,
 				effectiveFrom,
+				feeStructureId: feeStructureId ? Number(feeStructureId) : null,
 			});
 			setAssignment(created);
+			setFeeStructureId("");
 		} catch (err) {
 			setError(err instanceof ApiError ? err.message : "Failed to assign transport");
 		} finally {
@@ -141,7 +185,8 @@ export function StudentAssignmentPanel() {
 						<Typography>
 							{routeName(assignment.routeId)} — {assignment.usesPickup ? "Pickup" : ""}
 							{assignment.usesPickup && assignment.usesDrop ? " & " : ""}
-							{assignment.usesDrop ? "Drop" : ""}
+							{assignment.usesDrop ? "Drop" : ""} — active since {assignment.effectiveFrom}
+							{assignment.effectiveTo ? ` until ${assignment.effectiveTo}` : ""}
 						</Typography>
 						<Chip label={assignment.status} size="small" />
 						<Button size="small" color="error" onClick={handleEnd} disabled={submitting}>
@@ -178,6 +223,27 @@ export function StudentAssignmentPanel() {
 							<FormControlLabel control={<Checkbox checked={usesPickup} onChange={(e) => setUsesPickup(e.target.checked)} />} label="Pickup" />
 							<FormControlLabel control={<Checkbox checked={usesDrop} onChange={(e) => setUsesDrop(e.target.checked)} />} label="Drop" />
 						</Box>
+						<TextField
+							select
+							label="Transport fee (optional)"
+							value={feeStructureId}
+							onChange={(e) => setFeeStructureId(e.target.value)}
+							fullWidth
+							helperText={
+								transportFeeStructures.filter((s) => categoryType(s.feeCategoryId) === "TRANSPORT").length === 0
+									? "No Transport fee structure set up for this student's class yet"
+									: undefined
+							}
+						>
+							<MenuItem value="">None</MenuItem>
+							{transportFeeStructures
+								.filter((s) => categoryType(s.feeCategoryId) === "TRANSPORT")
+								.map((structure) => (
+									<MenuItem key={structure.id} value={structure.id}>
+										{`Fee structure #${structure.id} — ₹${structure.amount}`}
+									</MenuItem>
+								))}
+						</TextField>
 						<TextField
 							label="Effective from"
 							type="date"

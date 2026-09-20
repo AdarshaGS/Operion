@@ -44,12 +44,24 @@ public class Refund extends TenantScopedEntity {
 	@Column(name = "refund_date", nullable = false)
 	private LocalDate refundDate;
 
-	public Refund(Payment payment, Invoice invoice, BigDecimal amount, String reason, Long approvedBy, LocalDate refundDate) {
+	/** Nullable - an uploaded supporting document reference (see AssetStorageService), not
+	 * every approval has one on file. Per #280. */
+	@Column(name = "proof_file_reference")
+	private String proofFileReference;
+
+	/** Nullable - the original filename, for display; see proofFileReference. */
+	@Column(name = "proof_file_name")
+	private String proofFileName;
+
+	public Refund(Payment payment, Invoice invoice, BigDecimal amount, String reason, Long approvedBy, LocalDate refundDate,
+			String proofFileReference, String proofFileName) {
 		this.payment = payment;
 		this.invoice = invoice;
 		this.amount = amount;
 		this.reason = reason;
 		this.approvedBy = approvedBy;
 		this.refundDate = refundDate;
+		this.proofFileReference = proofFileReference;
+		this.proofFileName = proofFileName;
 	}
 }

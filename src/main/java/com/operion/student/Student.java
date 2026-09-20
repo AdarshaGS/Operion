@@ -87,10 +87,19 @@ public class Student extends TenantScopedEntity {
 	@Column(nullable = false, length = 20)
 	private StudentStatus status;
 
+	/** Nullable JSON object, e.g. {"blood_group": "O+"} - org-defined fields (see #146's
+	 * com.operion.customfield.CustomFieldDefinition, entityType "STUDENT"), keyed by each
+	 * definition's fieldKey. Stored as a plain String and (de)serialized by StudentService
+	 * via Jackson at the API boundary, same "manual String<->JSON at read/write time, no
+	 * Hibernate JSON-type mapping" convention as AuditLog.beforeValue/afterValue - this is
+	 * the second use of that pattern, not a new one. */
+	@Column(name = "custom_fields", columnDefinition = "json")
+	private String customFields;
+
 	public Student(Person person, String studentId, String admissionNumber, LocalDate admissionDate,
 			String admissionSource, String previousSchool, String tcNumber, Double entranceScore, String bloodGroup,
 			String category, String nationality, String remarks, String medicalAlerts, String emergencyContactName,
-			String emergencyContactPhone) {
+			String emergencyContactPhone, String customFields) {
 		this.person = person;
 		this.studentId = studentId;
 		this.admissionNumber = admissionNumber;
@@ -106,6 +115,7 @@ public class Student extends TenantScopedEntity {
 		this.medicalAlerts = medicalAlerts;
 		this.emergencyContactName = emergencyContactName;
 		this.emergencyContactPhone = emergencyContactPhone;
+		this.customFields = customFields;
 		this.status = StudentStatus.ADMITTED;
 	}
 
@@ -113,7 +123,7 @@ public class Student extends TenantScopedEntity {
 	 * exclusions as UpdateStudentRequest. */
 	public void update(String admissionSource, String previousSchool, String tcNumber, Double entranceScore,
 			String bloodGroup, String category, String nationality, String remarks, String medicalAlerts,
-			String emergencyContactName, String emergencyContactPhone) {
+			String emergencyContactName, String emergencyContactPhone, String customFields) {
 		this.admissionSource = admissionSource;
 		this.previousSchool = previousSchool;
 		this.tcNumber = tcNumber;
@@ -125,6 +135,7 @@ public class Student extends TenantScopedEntity {
 		this.medicalAlerts = medicalAlerts;
 		this.emergencyContactName = emergencyContactName;
 		this.emergencyContactPhone = emergencyContactPhone;
+		this.customFields = customFields;
 	}
 
 	public void activate() {

@@ -35,7 +35,8 @@ public class WaiverController {
 		Invoice invoice = invoiceRepository.findById(request.invoiceId())
 				.orElseThrow(() -> new IllegalArgumentException("No invoice with id " + request.invoiceId()));
 
-		Waiver waiver = feeService.recordWaiver(invoice, request.amount(), request.reason(), request.approvedBy(), request.waiverDate());
+		Waiver waiver = feeService.recordWaiver(invoice, request.amount(), request.reason(), request.approvedBy(), request.waiverDate(),
+				request.proofFileReference(), request.proofFileName());
 		return WaiverResponse.from(waiver);
 	}
 

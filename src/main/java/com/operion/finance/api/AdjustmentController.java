@@ -35,7 +35,8 @@ public class AdjustmentController {
 		Invoice invoice = invoiceRepository.findById(request.invoiceId())
 				.orElseThrow(() -> new IllegalArgumentException("No invoice with id " + request.invoiceId()));
 
-		Adjustment adjustment = feeService.recordAdjustment(invoice, request.amount(), request.reason(), request.approvedBy(), request.adjustmentDate());
+		Adjustment adjustment = feeService.recordAdjustment(invoice, request.amount(), request.reason(), request.approvedBy(),
+				request.adjustmentDate(), request.proofFileReference(), request.proofFileName());
 		return AdjustmentResponse.from(adjustment);
 	}
 

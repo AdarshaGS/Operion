@@ -27,6 +27,7 @@ import com.operion.organisation.OrganisationRepository;
 import com.operion.audit.AuditLogRepository;
 import com.operion.audit.AuditLogService;
 import com.operion.finance.FeeCategory;
+import com.operion.finance.FeeCategoryType;
 import com.operion.finance.FeeService;
 import com.operion.finance.FeeStructure;
 import com.operion.finance.FeeStructureGroup;
@@ -298,7 +299,7 @@ class StudentTransportAssignmentTest {
 	void assigningWithAFeeStructureLinksAStudentFeeAssignment() {
 		Fixture fixture = setUpFixture("transport-assign-with-fee");
 		FeeStructureGroup feeStructureGroup = feeService.createFeeStructureGroup("Grade 5 Annual Fees 2025-26", fixture.year(), fixture.schoolClass());
-		FeeCategory category = feeService.createCategory("TRANSPORT", "Transport", null);
+		FeeCategory category = feeService.createCategory("TRANSPORT", "Transport", null, FeeCategoryType.TRANSPORT);
 		FeeStructure feeStructure = feeService.createFeeStructure(feeStructureGroup, category,
 				new BigDecimal("500.00"), List.of(new FeeService.InstallmentInput(1, LocalDate.of(2025, 7, 1), new BigDecimal("500.00"))));
 

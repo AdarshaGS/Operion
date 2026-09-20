@@ -9,6 +9,7 @@ import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import NotificationsActiveIcon from "@mui/icons-material/NotificationsActive";
+import SettingsIcon from "@mui/icons-material/Settings";
 import { Can } from "../../auth/Can";
 import { ApiError } from "../../api/client";
 import { listStudentEnrollments, type StudentEnrollmentResponse } from "../../api/enrollments";
@@ -77,11 +78,18 @@ export function FeeCollectionPage() {
 				<Stack spacing={2}>
 					<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
 						<Typography variant="h6">Collect fee</Typography>
-						<Can anyOf={["FEE_REMINDER_SEND"]}>
-							<Button size="small" startIcon={<NotificationsActiveIcon />} onClick={() => navigate("/fees/demand")}>
-								Overdue &amp; reminders
-							</Button>
-						</Can>
+						<Stack direction="row" spacing={1}>
+							<Can anyOf={["FEE_STRUCTURE_MANAGE"]}>
+								<Button size="small" startIcon={<SettingsIcon />} onClick={() => navigate("/fees/setup")}>
+									Fee structure setup
+								</Button>
+							</Can>
+							<Can anyOf={["FEE_REMINDER_SEND"]}>
+								<Button size="small" startIcon={<NotificationsActiveIcon />} onClick={() => navigate("/fees/demand")}>
+									Overdue &amp; reminders
+								</Button>
+							</Can>
+						</Stack>
 					</Box>
 					<TextField select label="Student" value={studentId} onChange={(e) => setStudentId(e.target.value)} sx={{ maxWidth: 400 }}>
 						{students.map((student) => (

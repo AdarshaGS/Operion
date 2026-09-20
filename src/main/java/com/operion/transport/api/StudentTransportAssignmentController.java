@@ -83,6 +83,14 @@ public class StudentTransportAssignmentController {
 				.toList();
 	}
 
+	@GetMapping("/by-vehicle")
+	public List<RouteRosterEntryResponse> byVehicle(@RequestParam Long vehicleId) {
+		return studentTransportAssignmentRepository.findByRouteVehicleIdAndStatus(vehicleId, TransportAssignmentStatus.ACTIVE).stream()
+				.map(RouteRosterEntryResponse::from)
+				.sorted(Comparator.comparingInt(RouteRosterEntryResponse::sequenceNumber).thenComparing(RouteRosterEntryResponse::studentName))
+				.toList();
+	}
+
 	@PostMapping("/{id}/reassign")
 	@RequirePermission("TRANSPORT_ASSIGNMENT_MANAGE")
 	public StudentTransportAssignmentResponse reassignRoute(@PathVariable Long id, @RequestBody ReassignRouteRequest request) {

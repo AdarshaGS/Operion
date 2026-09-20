@@ -142,7 +142,7 @@ class InvoiceAndPaymentTest {
 		StudentEnrollment enrollment = studentService.enroll(student, academicYear, section, 12, LocalDate.of(2025, 6, 1));
 
 		FeeStructureGroup feeStructureGroup = feeService.createFeeStructureGroup("Grade 5 Annual Fees 2025-26", academicYear, schoolClass);
-		FeeCategory feeCategory = feeService.createCategory("TUITION", "Tuition Fee", null);
+		FeeCategory feeCategory = feeService.createCategory("TUITION", "Tuition Fee", null, FeeCategoryType.GENERAL);
 		FeeStructure feeStructure = feeService.createFeeStructure(feeStructureGroup, feeCategory, new BigDecimal("10000.00"),
 				List.of(new InstallmentInput(1, LocalDate.of(2025, 6, 15), new BigDecimal("5000.00")),
 						new InstallmentInput(2, LocalDate.of(2025, 10, 15), new BigDecimal("5000.00"))));
@@ -221,7 +221,7 @@ class InvoiceAndPaymentTest {
 				LocalDate.of(2025, 6, 20), null, List.of(new AllocationInput(invoice.getId(), new BigDecimal("4500.00"))));
 
 		Invoice paidInvoice = invoiceRepository.findById(invoice.getId()).orElseThrow();
-		Refund refund = feeService.recordRefund(payment, paidInvoice, new BigDecimal("1500.00"), "Overpayment", 9L, LocalDate.of(2025, 6, 25));
+		Refund refund = feeService.recordRefund(payment, paidInvoice, new BigDecimal("1500.00"), "Overpayment", 9L, LocalDate.of(2025, 6, 25), null, null);
 
 		assertThat(refund.getAmount()).isEqualByComparingTo("1500.00");
 		Invoice reloadedInvoice = invoiceRepository.findById(invoice.getId()).orElseThrow();

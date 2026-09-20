@@ -144,7 +144,7 @@ class AdjustmentAndWaiverTest {
 		StudentEnrollment enrollment = studentService.enroll(student, academicYear, section, 12, LocalDate.of(2025, 6, 1));
 
 		FeeStructureGroup feeStructureGroup = feeService.createFeeStructureGroup("Grade 5 Annual Fees 2025-26", academicYear, schoolClass);
-		FeeCategory feeCategory = feeService.createCategory("TUITION", "Tuition Fee", null);
+		FeeCategory feeCategory = feeService.createCategory("TUITION", "Tuition Fee", null, FeeCategoryType.GENERAL);
 		FeeStructure feeStructure = feeService.createFeeStructure(feeStructureGroup, feeCategory, new BigDecimal("10000.00"),
 				List.of(new InstallmentInput(1, LocalDate.of(2025, 6, 15), new BigDecimal("10000.00"))));
 
@@ -161,14 +161,14 @@ class AdjustmentAndWaiverTest {
 	void adjustmentCanIncreaseOrDecreaseWhatsOwedAdditively() {
 		Fixture fixture = setUpFixture("fee-adjustment-increase-school", "ADM-350");
 
-		Adjustment increase = feeService.recordAdjustment(fixture.invoice(), new BigDecimal("500.00"), "Billing correction - missed lab fee", 7L, LocalDate.of(2025, 6, 20));
+		Adjustment increase = feeService.recordAdjustment(fixture.invoice(), new BigDecimal("500.00"), "Billing correction - missed lab fee", 7L, LocalDate.of(2025, 6, 20), null, null);
 		assertThat(increase.getAmount()).isEqualByComparingTo("500.00");
 
 		Invoice afterIncrease = invoiceRepository.findById(fixture.invoice().getId()).orElseThrow();
 		assertThat(afterIncrease.getTotalAmount()).isEqualByComparingTo("9500.00");
 		assertThat(afterIncrease.getStatus()).isEqualTo(InvoiceStatus.ISSUED);
 
-		feeService.recordAdjustment(afterIncrease, new BigDecimal("-200.00"), "Correction reversed partially", 7L, LocalDate.of(2025, 6, 21));
+		feeService.recordAdjustment(afterIncrease, new BigDecimal("-200.00"), "Correction reversed partially", 7L, LocalDate.of(2025, 6, 21), null, null);
 		Invoice afterDecrease = invoiceRepository.findById(fixture.invoice().getId()).orElseThrow();
 		assertThat(afterDecrease.getTotalAmount()).isEqualByComparingTo("9300.00");
 		assertThat(adjustmentRepository.findByInvoiceId(fixture.invoice().getId())).hasSize(2);
@@ -181,7 +181,7 @@ class AdjustmentAndWaiverTest {
 				List.of(new AllocationInput(fixture.invoice().getId(), new BigDecimal("9000.00"))));
 		Invoice paidInvoice = invoiceRepository.findById(fixture.invoice().getId()).orElseThrow();
 
-		assertThatThrownBy(() -> feeService.recordAdjustment(paidInvoice, new BigDecimal("-500.00"), "Too large a correction", 7L, LocalDate.of(2025, 6, 22)))
+		assertThatThrownBy(() -> feeService.recordAdjustment(paidInvoice, new BigDecimal("-500.00"), "Too large a correction", 7L, LocalDate.of(2025, 6, 22), null, null))
 				.isInstanceOf(IllegalArgumentException.class);
 	}
 
@@ -193,10 +193,10 @@ class AdjustmentAndWaiverTest {
 		Invoice partiallyPaidInvoice = invoiceRepository.findById(fixture.invoice().getId()).orElseThrow();
 		assertThat(partiallyPaidInvoice.getOutstanding()).isEqualByComparingTo("7000.00");
 
-		assertThatThrownBy(() -> feeService.recordWaiver(partiallyPaidInvoice, new BigDecimal("8000.00"), "Hardship waiver", 7L, LocalDate.of(2025, 6, 23)))
+		assertThatThrownBy(() -> feeService.recordWaiver(partiallyPaidInvoice, new BigDecimal("8000.00"), "Hardship waiver", 7L, LocalDate.of(2025, 6, 23), null, null))
 				.isInstanceOf(IllegalArgumentException.class);
 
-		Waiver waiver = feeService.recordWaiver(partiallyPaidInvoice, new BigDecimal("7000.00"), "Hardship waiver", 7L, LocalDate.of(2025, 6, 23));
+		Waiver waiver = feeService.recordWaiver(partiallyPaidInvoice, new BigDecimal("7000.00"), "Hardship waiver", 7L, LocalDate.of(2025, 6, 23), null, null);
 		assertThat(waiver.getAmount()).isEqualByComparingTo("7000.00");
 
 		Invoice fullyResolvedInvoice = invoiceRepository.findById(fixture.invoice().getId()).orElseThrow();

@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import Alert from "@mui/material/Alert";
+import Autocomplete from "@mui/material/Autocomplete";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
@@ -21,6 +22,10 @@ import Typography from "@mui/material/Typography";
 import AddIcon from "@mui/icons-material/Add";
 import { createBook, listBooks, type BookResponse } from "../../api/books";
 import { ApiError } from "../../api/client";
+
+/** Suggestions only - Book.category is a free-text column (no backend catalog), so schools
+ * can still type anything here. */
+const CATEGORY_SUGGESTIONS = ["Textbook", "Reference", "Fiction", "Non-fiction", "Magazine", "Other"];
 
 export function BooksPanel() {
 	const navigate = useNavigate();
@@ -109,7 +114,13 @@ export function BooksPanel() {
 						<TextField label="Title" value={title} onChange={(e) => setTitle(e.target.value)} required autoFocus fullWidth />
 						<TextField label="Author" value={author} onChange={(e) => setAuthor(e.target.value)} fullWidth />
 						<TextField label="ISBN" value={isbn} onChange={(e) => setIsbn(e.target.value)} fullWidth />
-						<TextField label="Category" value={category} onChange={(e) => setCategory(e.target.value)} fullWidth />
+						<Autocomplete
+							freeSolo
+							options={CATEGORY_SUGGESTIONS}
+							inputValue={category}
+							onInputChange={(_event, value) => setCategory(value)}
+							renderInput={(params) => <TextField {...params} label="Category" fullWidth />}
+						/>
 					</Stack>
 				</DialogContent>
 				<DialogActions>

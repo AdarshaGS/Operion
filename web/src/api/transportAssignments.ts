@@ -48,6 +48,10 @@ export interface RouteRosterEntryResponse {
 	usesDrop: boolean;
 }
 
+export function listVehicleRoster(vehicleId: number): Promise<RouteRosterEntryResponse[]> {
+	return api.get<RouteRosterEntryResponse[]>(`/api/v1/transport/assignments/by-vehicle?vehicleId=${vehicleId}`);
+}
+
 export function listRouteRoster(routeId: number): Promise<RouteRosterEntryResponse[]> {
 	return api.get<RouteRosterEntryResponse[]>(`/api/v1/transport/assignments/by-route?routeId=${routeId}`);
 }

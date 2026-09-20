@@ -125,13 +125,14 @@ public class StudentController {
 		return StudentResponse.from(updated);
 	}
 
-	/** Bulk CSV admission (#28) - reuses the same Person+Student write path as admit()
-	 * above, one row at a time; see StudentImportService/StudentRowImportService for the
-	 * per-row transaction isolation that makes a partial import safe. */
+	/** Bulk admission from a .csv or .xlsx upload (#28, #287) - reuses the same
+	 * Person+Student write path as admit() above, one row at a time; see
+	 * StudentImportService/StudentRowImportService for the per-row transaction isolation
+	 * that makes a partial import safe. */
 	@PostMapping("/import")
 	@RequirePermission("STUDENT_MANAGE")
-	public List<StudentImportRowResult> importCsv(@RequestParam("file") MultipartFile file) {
-		return studentImportService.importCsv(file);
+	public List<StudentImportRowResult> importFile(@RequestParam("file") MultipartFile file) {
+		return studentImportService.importFile(file);
 	}
 
 	/** Inherits this controller's class-level STUDENT_VIEW gate (#147's "permission-

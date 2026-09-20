@@ -7,6 +7,7 @@ import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
+import MenuItem from "@mui/material/MenuItem";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Table from "@mui/material/Table";
@@ -21,6 +22,8 @@ import AddIcon from "@mui/icons-material/Add";
 import { ApiError } from "../../api/client";
 import { createFeeCategory, listFeeCategories, type FeeCategoryResponse } from "../../api/feeCategories";
 
+const CATEGORY_TYPES = ["GENERAL", "TRANSPORT"];
+
 export function FeeCategoriesPanel() {
 	const [categories, setCategories] = useState<FeeCategoryResponse[]>([]);
 	const [error, setError] = useState<string | null>(null);
@@ -28,6 +31,7 @@ export function FeeCategoriesPanel() {
 	const [code, setCode] = useState("");
 	const [name, setName] = useState("");
 	const [description, setDescription] = useState("");
+	const [categoryType, setCategoryType] = useState("GENERAL");
 	const [submitting, setSubmitting] = useState(false);
 
 	function refresh() {
@@ -42,10 +46,11 @@ export function FeeCategoriesPanel() {
 		event.preventDefault();
 		setSubmitting(true);
 		try {
-			await createFeeCategory({ code, name, description: description || null });
+			await createFeeCategory({ code, name, description: description || null, categoryType });
 			setCode("");
 			setName("");
 			setDescription("");
+			setCategoryType("GENERAL");
 			setDialogOpen(false);
 			refresh();
 		} catch (err) {
@@ -74,6 +79,7 @@ export function FeeCategoriesPanel() {
 								<TableCell>Code</TableCell>
 								<TableCell>Name</TableCell>
 								<TableCell>Description</TableCell>
+								<TableCell>Type</TableCell>
 								<TableCell>Status</TableCell>
 							</TableRow>
 						</TableHead>
@@ -83,6 +89,7 @@ export function FeeCategoriesPanel() {
 									<TableCell>{category.code}</TableCell>
 									<TableCell>{category.name}</TableCell>
 									<TableCell>{category.description ?? "—"}</TableCell>
+									<TableCell>{category.categoryType}</TableCell>
 									<TableCell>
 										<Chip label={category.status} size="small" />
 									</TableCell>
@@ -100,6 +107,13 @@ export function FeeCategoriesPanel() {
 						<TextField label="Code" placeholder="TUITION" value={code} onChange={(e) => setCode(e.target.value)} required autoFocus fullWidth />
 						<TextField label="Name" placeholder="Tuition Fee" value={name} onChange={(e) => setName(e.target.value)} required fullWidth />
 						<TextField label="Description" value={description} onChange={(e) => setDescription(e.target.value)} fullWidth />
+						<TextField select label="Type" value={categoryType} onChange={(e) => setCategoryType(e.target.value)} required fullWidth>
+							{CATEGORY_TYPES.map((type) => (
+								<MenuItem key={type} value={type}>
+									{type}
+								</MenuItem>
+							))}
+						</TextField>
 					</Stack>
 				</DialogContent>
 				<DialogActions>

@@ -1,182 +1,108 @@
-import { useState } from "react";
-import Alert from "@mui/material/Alert";
+import { useEffect, useState } from "react";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
-import Chip from "@mui/material/Chip";
-import CircularProgress from "@mui/material/CircularProgress";
-import Divider from "@mui/material/Divider";
-import Paper from "@mui/material/Paper";
+import Grid from "@mui/material/Grid";
 import Stack from "@mui/material/Stack";
-import Table from "@mui/material/Table";
-import TableBody from "@mui/material/TableBody";
-import TableCell from "@mui/material/TableCell";
-import TableContainer from "@mui/material/TableContainer";
-import TableHead from "@mui/material/TableHead";
-import TableRow from "@mui/material/TableRow";
+import Tab from "@mui/material/Tab";
+import Tabs from "@mui/material/Tabs";
 import Typography from "@mui/material/Typography";
-import CloudUploadIcon from "@mui/icons-material/CloudUpload";
-import DownloadIcon from "@mui/icons-material/Download";
+import HistoryIcon from "@mui/icons-material/History";
 import FileDownloadIcon from "@mui/icons-material/FileDownload";
-import {
-	exportStudents,
-	importStudents,
-	STUDENT_IMPORT_TEMPLATE_HEADERS,
-	type StudentImportRowResult,
-} from "../../api/students";
-import { ApiError } from "../../api/client";
-import { downloadCsvFile, toCsv } from "../../utils/csv";
+import { dismissSetupProgress, getDashboardSummary, type SetupChecklist } from "../../api/dashboard";
+import { SetupProgress } from "../dashboard/SetupProgress";
+import { IMPORT_GROUP_DESCRIPTIONS, IMPORT_GROUP_LABELS, IMPORT_GROUP_ORDER } from "./imports/ImportConfig";
+import { IMPORT_ENTITIES } from "./imports/importEntities";
+import { ImportCard } from "./imports/ImportCard";
+import { ImportHistoryDialog } from "./imports/ImportHistoryDialog";
 
-const TEMPLATE_EXAMPLE_ROW = [
-	"Asha",
-	"Rao",
-	"2012-04-18",
-	"FEMALE",
-	"asha.rao@example.com",
-	"9876500000",
-	"ADM-2026-001",
-	"2026-06-01",
-	"WALK_IN",
-	"",
-	"",
-	"",
-	"O+",
-	"General",
-	"Indian",
-	"",
-];
+const TABS = ["import", "export"] as const;
+type TabKey = (typeof TABS)[number];
 
-function downloadTemplate() {
-	const csv = [STUDENT_IMPORT_TEMPLATE_HEADERS.join(","), TEMPLATE_EXAMPLE_ROW.join(",")].join("\n");
-	downloadCsvFile("students-import-template.csv", csv);
-}
-
-/** Imports & exports settings section (#147) - Students only for v1, per that issue's
- * own scope. Import is per-row (StudentImportRowResult), so a partial batch is visible
- * rather than silently all-or-nothing. */
+/** Imports & exports settings section - a migration/onboarding center covering every
+ * bulk-importable entity (see imports/importEntities.tsx), not just Students (#147's
+ * original v1 scope). One generic ImportWorkflowDialog (validate -> preview -> confirm)
+ * drives every card; the onboarding card reuses the dashboard's own real setup-progress
+ * signal rather than fabricating a separate one. */
 export function ImportsExportsPanel() {
-	const [importing, setImporting] = useState(false);
-	const [results, setResults] = useState<StudentImportRowResult[] | null>(null);
-	const [importError, setImportError] = useState<string | null>(null);
-	const [exporting, setExporting] = useState(false);
-	const [exportError, setExportError] = useState<string | null>(null);
+	const [tab, setTab] = useState<TabKey>("import");
+	const [historyOpen, setHistoryOpen] = useState(false);
+	const [checklist, setChecklist] = useState<SetupChecklist | null>(null);
 
-	async function handleFileSelected(file: File) {
-		setImporting(true);
-		setImportError(null);
-		setResults(null);
-		try {
-			const rowResults = await importStudents(file);
-			setResults(rowResults);
-		} catch (err) {
-			setImportError(err instanceof ApiError ? err.message : "Import failed");
-		} finally {
-			setImporting(false);
-		}
+	useEffect(() => {
+		getDashboardSummary()
+			.then((summary) => setChecklist(summary.setupChecklist))
+			.catch(() => undefined);
+	}, []);
+
+	function handleDismissSetupProgress() {
+		setChecklist(null);
+		dismissSetupProgress().catch(() => undefined);
 	}
-
-	async function handleExport() {
-		setExporting(true);
-		setExportError(null);
-		try {
-			const rows = await exportStudents();
-			downloadCsvFile(
-				"students.csv",
-				toCsv(
-					["id", "firstName", "lastName", "email", "phone", "admissionNumber", "admissionDate", "bloodGroup", "category", "status"],
-					rows,
-				),
-			);
-		} catch (err) {
-			setExportError(err instanceof ApiError ? err.message : "Export failed");
-		} finally {
-			setExporting(false);
-		}
-	}
-
-	const successCount = results?.filter((r) => r.success).length ?? 0;
-	const failureCount = results ? results.length - successCount : 0;
 
 	return (
-		<Paper sx={{ p: 3 }}>
-			<Stack spacing={3}>
+		<Stack spacing={3}>
+			<Stack direction="row" justifyContent="space-between" alignItems="flex-start" sx={{ flexWrap: "wrap", gap: 2 }}>
 				<Box>
-					<Typography variant="h6">Imports & exports</Typography>
+					<Typography variant="h5">Imports & exports</Typography>
 					<Typography variant="body2" color="text.secondary">
-						Bulk-import students from a CSV, or export existing student records.
+						Import existing school data or export your data. Use templates to bulk upload and save time.
 					</Typography>
 				</Box>
-
-				<Stack spacing={2}>
-					<Typography variant="subtitle1">Students</Typography>
-
-					<Stack direction="row" spacing={2} sx={{ flexWrap: "wrap" }}>
-						<Button variant="outlined" startIcon={<DownloadIcon />} onClick={downloadTemplate}>
-							Download CSV template
-						</Button>
-
-						<Button component="label" variant="contained" startIcon={importing ? <CircularProgress size={16} color="inherit" /> : <CloudUploadIcon />} disabled={importing}>
-							Import students
-							<input
-								type="file"
-								hidden
-								accept=".csv,text/csv"
-								onChange={(event) => {
-									const file = event.target.files?.[0];
-									if (file) {
-										handleFileSelected(file);
-									}
-									event.target.value = "";
-								}}
-							/>
-						</Button>
-
-						<Button
-							variant="outlined"
-							startIcon={exporting ? <CircularProgress size={16} /> : <FileDownloadIcon />}
-							onClick={handleExport}
-							disabled={exporting}
-						>
-							Export students
-						</Button>
-					</Stack>
-
-					{importError && <Alert severity="error">{importError}</Alert>}
-					{exportError && <Alert severity="error">{exportError}</Alert>}
-
-					{results && (
-						<>
-							<Divider />
-							<Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
-								<Typography variant="body2">Import result:</Typography>
-								<Chip label={`${successCount} created`} color="success" size="small" />
-								{failureCount > 0 && <Chip label={`${failureCount} failed`} color="error" size="small" />}
-							</Stack>
-							<TableContainer>
-								<Table size="small">
-									<TableHead>
-										<TableRow>
-											<TableCell>Row</TableCell>
-											<TableCell>Status</TableCell>
-											<TableCell>Message</TableCell>
-										</TableRow>
-									</TableHead>
-									<TableBody>
-										{results.map((result) => (
-											<TableRow key={result.row}>
-												<TableCell>{result.row}</TableCell>
-												<TableCell>
-													<Chip label={result.success ? "Created" : "Failed"} color={result.success ? "success" : "error"} size="small" />
-												</TableCell>
-												<TableCell>{result.message}</TableCell>
-											</TableRow>
-										))}
-									</TableBody>
-								</Table>
-							</TableContainer>
-						</>
-					)}
-				</Stack>
+				<Button variant="outlined" startIcon={<HistoryIcon />} onClick={() => setHistoryOpen(true)}>
+					View import history
+				</Button>
 			</Stack>
-		</Paper>
+
+			{checklist && <SetupProgress checklist={checklist} onDismiss={handleDismissSetupProgress} />}
+
+			<Tabs value={tab} onChange={(_, value) => setTab(value)}>
+				<Tab label="Import data" value="import" />
+				<Tab label="Export data" value="export" />
+			</Tabs>
+
+			{tab === "import" && (
+				<Stack spacing={4}>
+					{IMPORT_GROUP_ORDER.map((group) => {
+						const entities = IMPORT_ENTITIES.filter((entity) => entity.group === group);
+						if (entities.length === 0) return null;
+						return (
+							<Box key={group}>
+								<Typography variant="h6">{IMPORT_GROUP_LABELS[group]}</Typography>
+								<Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+									{IMPORT_GROUP_DESCRIPTIONS[group]}
+								</Typography>
+								<Grid container spacing={2}>
+									{entities.map((entity) => (
+										<Grid key={entity.key} size={{ xs: 12, sm: 6, md: 4 }}>
+											<ImportCard config={entity} />
+										</Grid>
+									))}
+								</Grid>
+							</Box>
+						);
+					})}
+				</Stack>
+			)}
+
+			{tab === "export" && (
+				<Grid container spacing={2}>
+					{IMPORT_ENTITIES.filter((entity) => entity.exportData).map((entity) => (
+						<Grid key={entity.key} size={{ xs: 12, sm: 6, md: 4 }}>
+							<Button
+								fullWidth
+								variant="outlined"
+								startIcon={<FileDownloadIcon />}
+								sx={{ justifyContent: "flex-start", py: 1.5 }}
+								onClick={() => entity.exportData?.()}
+							>
+								{entity.label}
+							</Button>
+						</Grid>
+					))}
+				</Grid>
+			)}
+
+			<ImportHistoryDialog open={historyOpen} onClose={() => setHistoryOpen(false)} />
+		</Stack>
 	);
 }

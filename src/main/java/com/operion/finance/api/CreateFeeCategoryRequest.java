@@ -1,4 +1,6 @@
 package com.operion.finance.api;
 
-public record CreateFeeCategoryRequest(String code, String name, String description) {
+import com.operion.finance.FeeCategoryType;
+
+public record CreateFeeCategoryRequest(String code, String name, String description, FeeCategoryType categoryType) {
 }

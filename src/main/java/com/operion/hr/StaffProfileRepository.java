@@ -15,5 +15,7 @@ public interface StaffProfileRepository extends JpaRepository<StaffProfile, Long
 
 	Optional<StaffProfile> findByPersonId(Long personId);
 
+	Optional<StaffProfile> findByEmployeeCode(String employeeCode);
+
 	long countByStatus(StaffProfileStatus status);
 }

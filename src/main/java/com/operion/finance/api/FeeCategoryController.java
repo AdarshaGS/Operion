@@ -29,7 +29,7 @@ public class FeeCategoryController {
 	@PostMapping
 	@RequirePermission("FEE_CATEGORY_MANAGE")
 	public FeeCategoryResponse create(@RequestBody CreateFeeCategoryRequest request) {
-		FeeCategory category = feeService.createCategory(request.code(), request.name(), request.description());
+		FeeCategory category = feeService.createCategory(request.code(), request.name(), request.description(), request.categoryType());
 		return FeeCategoryResponse.from(category);
 	}
 

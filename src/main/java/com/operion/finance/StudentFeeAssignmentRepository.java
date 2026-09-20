@@ -9,4 +9,6 @@ public interface StudentFeeAssignmentRepository extends JpaRepository<StudentFee
 	List<StudentFeeAssignment> findByStudentEnrollmentId(Long studentEnrollmentId);
 
 	List<StudentFeeAssignment> findByStudentEnrollmentIdAndStatus(Long studentEnrollmentId, StudentFeeAssignmentStatus status);
+
+	List<StudentFeeAssignment> findByFeeStructure_FeeCategory_Id(Long feeCategoryId);
 }

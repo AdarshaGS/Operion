@@ -7,6 +7,8 @@ export interface RecordRefundRequest {
 	reason: string;
 	approvedBy: number;
 	refundDate: string;
+	proofFileReference?: string | null;
+	proofFileName?: string | null;
 }
 
 export interface RefundResponse {
@@ -17,6 +19,8 @@ export interface RefundResponse {
 	reason: string;
 	approvedBy: number;
 	refundDate: string;
+	proofFileReference: string | null;
+	proofFileName: string | null;
 }
 
 export function recordRefund(request: RecordRefundRequest): Promise<RefundResponse> {

@@ -42,11 +42,23 @@ public class Adjustment extends TenantScopedEntity {
 	@Column(name = "adjustment_date", nullable = false)
 	private LocalDate adjustmentDate;
 
-	public Adjustment(Invoice invoice, BigDecimal amount, String reason, Long approvedBy, LocalDate adjustmentDate) {
+	/** Nullable - an uploaded supporting document reference (see AssetStorageService), not
+	 * every approval has one on file. Per #280. */
+	@Column(name = "proof_file_reference")
+	private String proofFileReference;
+
+	/** Nullable - the original filename, for display; see proofFileReference. */
+	@Column(name = "proof_file_name")
+	private String proofFileName;
+
+	public Adjustment(Invoice invoice, BigDecimal amount, String reason, Long approvedBy, LocalDate adjustmentDate,
+			String proofFileReference, String proofFileName) {
 		this.invoice = invoice;
 		this.amount = amount;
 		this.reason = reason;
 		this.approvedBy = approvedBy;
 		this.adjustmentDate = adjustmentDate;
+		this.proofFileReference = proofFileReference;
+		this.proofFileName = proofFileName;
 	}
 }

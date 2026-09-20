@@ -77,7 +77,7 @@ class FeeStructureTest {
 		GradeLevel grade5 = gradeLevelRepository.save(new GradeLevel("Grade 5", 5, null));
 		SchoolClass schoolClass = schoolClassRepository.save(new SchoolClass(academicYear, campus, grade5, null));
 		FeeStructureGroup feeStructureGroup = feeService.createFeeStructureGroup("Grade 5 Annual Fees 2025-26", academicYear, schoolClass);
-		FeeCategory feeCategory = feeService.createCategory("TUITION", "Tuition Fee", null);
+		FeeCategory feeCategory = feeService.createCategory("TUITION", "Tuition Fee", null, FeeCategoryType.GENERAL);
 
 		return new Fixture(feeStructureGroup, feeCategory);
 	}

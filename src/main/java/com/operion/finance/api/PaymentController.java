@@ -52,7 +52,7 @@ public class PaymentController {
 				.toList();
 
 		Payment payment = feeService.recordPayment(academicYear, request.amount(), PaymentMethod.valueOf(request.paymentMethod()),
-				request.paymentDate(), request.remarks(), allocations);
+				request.paymentDate(), request.remarks(), allocations, request.paymentReference());
 		return PaymentResponse.from(payment);
 	}
 

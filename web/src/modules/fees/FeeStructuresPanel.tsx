@@ -33,6 +33,7 @@ import { createFeeStructure, listFeeStructures, type FeeStructureResponse, type 
 import { listSchoolClasses, type SchoolClassResponse } from "../../api/schoolClasses";
 
 const EMPTY_INSTALLMENT: InstallmentEntry = { installmentNumber: 1, dueDate: "", amount: 0 };
+const PAYMENT_FREQUENCIES = ["MONTHLY", "QUARTERLY", "HALF_YEARLY", "ONE_SHOT"];
 
 export function FeeStructuresPanel() {
 	const [academicYears, setAcademicYears] = useState<AcademicYearResponse[]>([]);
@@ -52,6 +53,8 @@ export function FeeStructuresPanel() {
 	const [feeCategoryId, setFeeCategoryId] = useState("");
 	const [amount, setAmount] = useState("");
 	const [installments, setInstallments] = useState<InstallmentEntry[]>([{ ...EMPTY_INSTALLMENT }]);
+	const [paymentFrequency, setPaymentFrequency] = useState("MONTHLY");
+	const [oneShotDiscountAmount, setOneShotDiscountAmount] = useState("");
 	const [submitting, setSubmitting] = useState(false);
 
 	useEffect(() => {
@@ -119,6 +122,8 @@ export function FeeStructuresPanel() {
 		setFeeCategoryId("");
 		setAmount("");
 		setInstallments([{ ...EMPTY_INSTALLMENT }]);
+		setPaymentFrequency("MONTHLY");
+		setOneShotDiscountAmount("");
 		setDialogOpen(true);
 	}
 
@@ -144,6 +149,8 @@ export function FeeStructuresPanel() {
 				feeCategoryId: Number(feeCategoryId),
 				amount: Number(amount),
 				installments,
+				paymentFrequency,
+				oneShotDiscountAmount: oneShotDiscountAmount ? Number(oneShotDiscountAmount) : null,
 			});
 			setDialogOpen(false);
 			refreshStructures();
@@ -217,6 +224,8 @@ export function FeeStructuresPanel() {
 										<TableCell>Category</TableCell>
 										<TableCell>Amount</TableCell>
 										<TableCell>Installments</TableCell>
+										<TableCell>Frequency</TableCell>
+										<TableCell>One-shot discount</TableCell>
 										<TableCell>Status</TableCell>
 									</TableRow>
 								</TableHead>
@@ -226,6 +235,8 @@ export function FeeStructuresPanel() {
 											<TableCell>{categoryName(structure.feeCategoryId)}</TableCell>
 											<TableCell>{structure.amount}</TableCell>
 											<TableCell>{structure.installments.length}</TableCell>
+											<TableCell>{structure.paymentFrequency}</TableCell>
+											<TableCell>{structure.oneShotDiscountAmount ?? "—"}</TableCell>
 											<TableCell>
 												<Chip label={structure.status} size="small" />
 											</TableCell>
@@ -271,6 +282,29 @@ export function FeeStructuresPanel() {
 							))}
 						</TextField>
 						<TextField label="Total amount" type="number" value={amount} onChange={(e) => setAmount(e.target.value)} required fullWidth />
+						<Box sx={{ display: "flex", gap: 2 }}>
+							<TextField
+								select
+								label="Payment frequency"
+								value={paymentFrequency}
+								onChange={(e) => setPaymentFrequency(e.target.value)}
+								fullWidth
+							>
+								{PAYMENT_FREQUENCIES.map((frequency) => (
+									<MenuItem key={frequency} value={frequency}>
+										{frequency}
+									</MenuItem>
+								))}
+							</TextField>
+							<TextField
+								label="One-shot discount (optional)"
+								type="number"
+								value={oneShotDiscountAmount}
+								onChange={(e) => setOneShotDiscountAmount(e.target.value)}
+								helperText="Flat amount off when paid in full instead of by installment"
+								fullWidth
+							/>
+						</Box>
 
 						<Typography variant="subtitle2">Installments</Typography>
 						{installments.map((installment, index) => (

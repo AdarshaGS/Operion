@@ -43,11 +43,13 @@ import { MarketingPage } from "./marketing/MarketingPage";
 import { DashboardPage } from "./modules/dashboard/DashboardPage";
 import { MembersPage } from "./modules/members/MembersPage";
 import { StructureSetupPage } from "./modules/setup/StructureSetupPage";
+import { ReviewSchoolSetupPage } from "./modules/onboarding/ReviewSchoolSetupPage";
 import { ProfilePage } from "./modules/profile/ProfilePage";
 import { SettingsPage } from "./modules/settings/SettingsPage";
 import { SettingsSectionPage } from "./modules/settings/SettingsSectionPage";
 import { UserDetailPage } from "./modules/settings/UserDetailPage";
 import { RouteDetailPage } from "./modules/transport/RouteDetailPage";
+import { VehicleDetailPage } from "./modules/transport/VehicleDetailPage";
 import { TransportPage } from "./modules/transport/TransportPage";
 import { StudentCreatePage } from "./modules/students/StudentCreatePage";
 import { StudentDetailPage } from "./modules/students/StudentDetailPage";
@@ -108,6 +110,7 @@ function App() {
 							<Route path="/messaging" element={<MessagingPage />} />
 							<Route path="/transport" element={<TransportPage />} />
 							<Route path="/transport/routes/:routeId" element={<RouteDetailPage />} />
+							<Route path="/transport/vehicles/:vehicleId" element={<VehicleDetailPage />} />
 							<Route path="/library" element={<LibraryPage />} />
 							<Route path="/library/books/:bookId" element={<BookDetailPage />} />
 							<Route path="/inventory" element={<InventoryPage />} />
@@ -126,6 +129,7 @@ function App() {
 							<Route path="/members/invite" element={<MembersPage autoOpenInvite />} />
 							<Route path="/members/:userId" element={<UserDetailPage />} />
 							<Route path="/setup/structure" element={<StructureSetupPage />} />
+							<Route path="/setup/review" element={<ReviewSchoolSetupPage />} />
 							<Route path="/profile" element={<ProfilePage />} />
 							<Route path="/settings" element={<SettingsPage />} />
 							<Route path="/settings/users/:userId" element={<UserDetailPage />} />

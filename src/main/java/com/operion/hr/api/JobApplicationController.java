@@ -2,12 +2,16 @@ package com.operion.hr.api;
 
 import java.util.List;
 
+import com.operion.academic.SubjectRepository;
+import com.operion.academic.SubjectStatus;
 import com.operion.authorization.RequirePermission;
 import com.operion.common.TenantContext;
 import com.operion.hr.HrService;
 import com.operion.hr.JobApplication;
 import com.operion.hr.JobApplicationRepository;
 import com.operion.hr.JobApplicationStatus;
+import com.operion.organisation.Organisation;
+import com.operion.organisation.OrganisationRepository;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -22,7 +26,10 @@ import org.springframework.web.bind.annotation.RestController;
  * but submit() goes further: it's whitelisted as fully unauthenticated in
  * JwtAuthenticationInterceptor.isPublic(), same shape as /api/v1/auth/claim-invite).
  * decidedBy on approve/reject always comes from TenantContext, never a request body
- * field - see TransferRequestController's identical note.
+ * field - see TransferRequestController's identical note. subjectsForOrganisation() is
+ * whitelisted the same way (#286) - the public form needs the hiring org's subject catalog
+ * to populate its specialization dropdown, same trust tier as submit() itself, and returns
+ * only id/name (PublicSubjectResponse), not the full authenticated SubjectResponse shape.
  */
 @RestController
 @RequestMapping("/api/v1/job-applications")
@@ -30,10 +37,15 @@ public class JobApplicationController {
 
 	private final HrService hrService;
 	private final JobApplicationRepository jobApplicationRepository;
+	private final OrganisationRepository organisationRepository;
+	private final SubjectRepository subjectRepository;
 
-	public JobApplicationController(HrService hrService, JobApplicationRepository jobApplicationRepository) {
+	public JobApplicationController(HrService hrService, JobApplicationRepository jobApplicationRepository,
+			OrganisationRepository organisationRepository, SubjectRepository subjectRepository) {
 		this.hrService = hrService;
 		this.jobApplicationRepository = jobApplicationRepository;
+		this.organisationRepository = organisationRepository;
+		this.subjectRepository = subjectRepository;
 	}
 
 	@PostMapping
@@ -41,6 +53,14 @@ public class JobApplicationController {
 		JobApplication jobApplication = hrService.submitJobApplication(
 				request.organisationSlug(), request.applicantName(), request.email(), request.specialization(), request.yearsExperience());
 		return JobApplicationResponse.from(jobApplication);
+	}
+
+	@GetMapping("/subjects")
+	public List<PublicSubjectResponse> subjectsForOrganisation(@RequestParam String organisationSlug) {
+		Organisation organisation = organisationRepository.findBySlug(organisationSlug)
+				.orElseThrow(() -> new IllegalArgumentException("No organisation with slug " + organisationSlug));
+		TenantContext.set(organisation.getId(), null);
+		return subjectRepository.findByStatus(SubjectStatus.ACTIVE).stream().map(PublicSubjectResponse::from).toList();
 	}
 
 	@GetMapping

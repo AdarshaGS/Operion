@@ -1,28 +1,39 @@
 import { useState, type FormEvent } from "react";
 import Alert from "@mui/material/Alert";
+import Autocomplete from "@mui/material/Autocomplete";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
-import { submitJobApplication } from "../api/jobApplications";
+import { listPublicSubjects, submitJobApplication, type PublicSubjectResponse } from "../api/jobApplications";
 import { ApiError } from "../api/client";
 import { Wordmark } from "../branding/Wordmark";
 import { colors } from "../theme";
 
 /** Public, unauthenticated - same trust tier as ClaimInvitePage. A generic "apply for
- * an open role" form, not tied to any one vertical - specialization is free text so
- * the same pipeline works whatever role an org is hiring for. */
+ * an open role" form, not tied to any one vertical - specialization is a freeSolo
+ * Autocomplete: options come from the org's subject catalog once its slug resolves
+ * (#286), but typing a value that isn't in the catalog is still allowed, since not
+ * every org has one, and this pipeline covers non-teaching roles too. */
 export function JobApplicationPage() {
 	const [organisationSlug, setOrganisationSlug] = useState("");
 	const [applicantName, setApplicantName] = useState("");
 	const [email, setEmail] = useState("");
 	const [specialization, setSpecialization] = useState("");
+	const [subjects, setSubjects] = useState<PublicSubjectResponse[]>([]);
 	const [yearsExperience, setYearsExperience] = useState("");
 	const [error, setError] = useState<string | null>(null);
 	const [submitted, setSubmitted] = useState(false);
 	const [submitting, setSubmitting] = useState(false);
+
+	function loadSubjects() {
+		if (!organisationSlug.trim()) return;
+		listPublicSubjects(organisationSlug.trim())
+			.then(setSubjects)
+			.catch(() => setSubjects([]));
+	}
 
 	async function handleSubmit(event: FormEvent) {
 		event.preventDefault();
@@ -69,6 +80,7 @@ export function JobApplicationPage() {
 								label="Organisation slug"
 								value={organisationSlug}
 								onChange={(e) => setOrganisationSlug(e.target.value)}
+								onBlur={loadSubjects}
 								required
 								autoFocus
 								autoComplete="off"
@@ -79,11 +91,14 @@ export function JobApplicationPage() {
 							/>
 							<TextField label="Full name" value={applicantName} onChange={(e) => setApplicantName(e.target.value)} required />
 							<TextField label="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-							<TextField
-								label="Specialization"
-								value={specialization}
-								onChange={(e) => setSpecialization(e.target.value)}
-								helperText="Subjects, skills, or area of expertise"
+							<Autocomplete
+								freeSolo
+								options={subjects.map((s) => s.name)}
+								inputValue={specialization}
+								onInputChange={(_, value) => setSpecialization(value)}
+								renderInput={(params) => (
+									<TextField {...params} label="Specialization" helperText="Subjects, skills, or area of expertise" />
+								)}
 							/>
 							<TextField
 								label="Years of experience"

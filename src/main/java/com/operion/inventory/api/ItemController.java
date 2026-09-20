@@ -3,10 +3,12 @@ package com.operion.inventory.api;
 import java.util.List;
 
 import com.operion.authorization.RequirePermission;
+import com.operion.common.imports.ImportRowResult;
 import com.operion.inventory.InventoryService;
 import com.operion.inventory.Item;
 import com.operion.inventory.ItemCategory;
 import com.operion.inventory.ItemCategoryRepository;
+import com.operion.inventory.ItemImportService;
 import com.operion.inventory.ItemRepository;
 import com.operion.inventory.ItemStatus;
 import com.operion.organisation.Campus;
@@ -18,6 +20,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/v1/inventory/items")
@@ -28,13 +31,15 @@ public class ItemController {
 	private final ItemRepository itemRepository;
 	private final ItemCategoryRepository itemCategoryRepository;
 	private final CampusRepository campusRepository;
+	private final ItemImportService itemImportService;
 
 	public ItemController(InventoryService inventoryService, ItemRepository itemRepository,
-			ItemCategoryRepository itemCategoryRepository, CampusRepository campusRepository) {
+			ItemCategoryRepository itemCategoryRepository, CampusRepository campusRepository, ItemImportService itemImportService) {
 		this.inventoryService = inventoryService;
 		this.itemRepository = itemRepository;
 		this.itemCategoryRepository = itemCategoryRepository;
 		this.campusRepository = campusRepository;
+		this.itemImportService = itemImportService;
 	}
 
 	@PostMapping
@@ -75,6 +80,22 @@ public class ItemController {
 		Item item = findItem(id);
 		Campus campus = campusRepository.findById(campusId).orElseThrow(() -> new IllegalArgumentException("No campus with id " + campusId));
 		return new BalanceResponse(item.getId(), campus.getId(), inventoryService.getBalance(item, campus));
+	}
+
+	/** Bulk CSV/Excel import (Imports & exports rebuild), same validate-then-confirm shape
+	 * as StudentController's import endpoint - see ItemImportService/ItemRowImportService
+	 * for the per-row transaction isolation. */
+	@PostMapping("/import")
+	@RequirePermission("INVENTORY_CATALOG_MANAGE")
+	public List<ImportRowResult> importFile(@RequestParam("file") MultipartFile file,
+			@RequestParam(defaultValue = "false") boolean validateOnly) {
+		return itemImportService.importFile(file, validateOnly);
+	}
+
+	/** Inherits this controller's class-level INVENTORY_VIEW gate. */
+	@GetMapping("/export")
+	public List<ItemExportResponse> export() {
+		return itemRepository.findAll().stream().map(ItemExportResponse::from).toList();
 	}
 
 	private Item findItem(Long id) {

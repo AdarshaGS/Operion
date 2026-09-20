@@ -41,10 +41,29 @@ public class FeeStructure extends TenantScopedEntity {
 	@Column(nullable = false, length = 20)
 	private FeeStructureStatus status;
 
+	/** Display/reporting label only - see PaymentFrequency's own javadoc. Per #281. */
+	@Enumerated(EnumType.STRING)
+	@Column(name = "payment_frequency", nullable = false, length = 20)
+	private PaymentFrequency paymentFrequency;
+
+	/** Nullable - a flat discount an admin can define for payers who clear the whole
+	 * FeeStructure.amount in one go instead of per-installment. Surfaced as a pre-fillable
+	 * option on StudentFeeAssignment's existing discount mechanism (StudentFeesPanel), not
+	 * applied automatically - a discount still needs its own reason/approver either way. */
+	@Column(name = "one_shot_discount_amount", precision = 10, scale = 2)
+	private BigDecimal oneShotDiscountAmount;
+
 	public FeeStructure(FeeStructureGroup feeStructureGroup, FeeCategory feeCategory, BigDecimal amount) {
+		this(feeStructureGroup, feeCategory, amount, PaymentFrequency.MONTHLY, null);
+	}
+
+	public FeeStructure(FeeStructureGroup feeStructureGroup, FeeCategory feeCategory, BigDecimal amount,
+			PaymentFrequency paymentFrequency, BigDecimal oneShotDiscountAmount) {
 		this.feeStructureGroup = feeStructureGroup;
 		this.feeCategory = feeCategory;
 		this.amount = amount;
 		this.status = FeeStructureStatus.ACTIVE;
+		this.paymentFrequency = paymentFrequency;
+		this.oneShotDiscountAmount = oneShotDiscountAmount;
 	}
 }

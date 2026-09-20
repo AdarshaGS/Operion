@@ -79,7 +79,7 @@ class StudentImportServiceTest {
 
 		MockMultipartFile file = new MockMultipartFile("file", "students.csv", "text/csv", csv.getBytes(StandardCharsets.UTF_8));
 
-		List<StudentImportRowResult> results = studentImportService.importCsv(file);
+		List<StudentImportRowResult> results = studentImportService.importFile(file);
 
 		assertThat(results).hasSize(3);
 		assertThat(results.get(0).success()).isTrue();
@@ -108,7 +108,7 @@ class StudentImportServiceTest {
 
 		MockMultipartFile file = new MockMultipartFile("file", "students.csv", "text/csv", csv.getBytes(StandardCharsets.UTF_8));
 
-		List<StudentImportRowResult> results = studentImportService.importCsv(file);
+		List<StudentImportRowResult> results = studentImportService.importFile(file);
 
 		assertThat(results).hasSize(1);
 		assertThat(results.get(0).success()).isTrue();

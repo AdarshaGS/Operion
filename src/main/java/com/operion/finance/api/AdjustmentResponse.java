@@ -5,10 +5,11 @@ import java.time.LocalDate;
 
 import com.operion.finance.Adjustment;
 
-public record AdjustmentResponse(Long id, Long invoiceId, BigDecimal amount, String reason, Long approvedBy, LocalDate adjustmentDate) {
+public record AdjustmentResponse(Long id, Long invoiceId, BigDecimal amount, String reason, Long approvedBy, LocalDate adjustmentDate,
+		String proofFileReference, String proofFileName) {
 
 	static AdjustmentResponse from(Adjustment adjustment) {
-		return new AdjustmentResponse(adjustment.getId(), adjustment.getInvoice().getId(),
-				adjustment.getAmount(), adjustment.getReason(), adjustment.getApprovedBy(), adjustment.getAdjustmentDate());
+		return new AdjustmentResponse(adjustment.getId(), adjustment.getInvoice().getId(), adjustment.getAmount(), adjustment.getReason(),
+				adjustment.getApprovedBy(), adjustment.getAdjustmentDate(), adjustment.getProofFileReference(), adjustment.getProofFileName());
 	}
 }

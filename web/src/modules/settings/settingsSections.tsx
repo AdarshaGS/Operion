@@ -15,6 +15,7 @@ import NotificationsIcon from "@mui/icons-material/Notifications";
 import RuleIcon from "@mui/icons-material/Rule";
 import SecurityIcon from "@mui/icons-material/Security";
 import TuneIcon from "@mui/icons-material/Tune";
+import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
 import WorkIcon from "@mui/icons-material/Work";
 import { AcademicYearsPanel } from "./AcademicYearsPanel";
 import { AuditLogsPanel } from "./AuditLogsPanel";
@@ -22,6 +23,7 @@ import { BusinessSettingsPanel } from "./BusinessSettingsPanel";
 import { CampusesPanel } from "./CampusesPanel";
 import { DepartmentsPanel } from "./DepartmentsPanel";
 import { DesignationsPanel } from "./DesignationsPanel";
+import { SchoolTemplatePanel } from "./SchoolTemplatePanel";
 import { ExternalServicesPanel } from "./ExternalServicesPanel";
 import { IdCardStudioPanel } from "./IdCardStudioPanel";
 import { ImportsExportsPanel } from "./ImportsExportsPanel";
@@ -92,6 +94,13 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
 				description: "Manage staff designations",
 				icon: <WorkIcon />,
 				panel: <DesignationsPanel />,
+			},
+			{
+				key: "school-template",
+				label: "School setup template",
+				description: "Pre-fill grades, departments, designations, roles, fee and inventory categories, and a default grading scale",
+				icon: <AutoAwesomeIcon />,
+				panel: <SchoolTemplatePanel />,
 			},
 		],
 	},
@@ -184,7 +193,7 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
 			{
 				key: "imports-exports",
 				label: "Imports & exports",
-				description: "Bulk import students from CSV, or export existing records",
+				description: "Bulk import school data from Excel/CSV, or export existing records",
 				icon: <ImportExportIcon />,
 				panel: <ImportsExportsPanel />,
 			},

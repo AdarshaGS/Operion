@@ -61,7 +61,7 @@ public class StudentService {
 		String studentId = studentIdGenerator.next(admissionDate);
 		Student student = studentRepository.save(new Student(person, studentId, resolvedAdmissionNumber, admissionDate,
 				admissionSource, previousSchool, tcNumber, entranceScore, bloodGroup, category, nationality, remarks,
-				medicalAlerts, emergencyContactName, emergencyContactPhone));
+				medicalAlerts, emergencyContactName, emergencyContactPhone, null));
 		auditLogService.record("Student", student.getId(), "STUDENT_ADMITTED", null, student.getStatus());
 		return student;
 	}
@@ -71,7 +71,7 @@ public class StudentService {
 			Double entranceScore, String bloodGroup, String category, String nationality, String remarks,
 			String medicalAlerts, String emergencyContactName, String emergencyContactPhone) {
 		student.update(admissionSource, previousSchool, tcNumber, entranceScore, bloodGroup, category, nationality,
-				remarks, medicalAlerts, emergencyContactName, emergencyContactPhone);
+				remarks, medicalAlerts, emergencyContactName, emergencyContactPhone, student.getCustomFields());
 		Student saved = studentRepository.save(student);
 		auditLogService.record("Student", saved.getId(), "STUDENT_UPDATED", null, null);
 		return saved;

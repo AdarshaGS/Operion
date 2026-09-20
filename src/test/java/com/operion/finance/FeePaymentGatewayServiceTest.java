@@ -155,7 +155,7 @@ class FeePaymentGatewayServiceTest {
 		StudentEnrollment enrollment = studentService.enroll(student, academicYear, section, 7, LocalDate.of(2025, 6, 1));
 
 		FeeStructureGroup feeStructureGroup = feeService.createFeeStructureGroup("Grade 7 Annual Fees 2025-26", academicYear, schoolClass);
-		FeeCategory feeCategory = feeService.createCategory("TUITION", "Tuition Fee", null);
+		FeeCategory feeCategory = feeService.createCategory("TUITION", "Tuition Fee", null, FeeCategoryType.GENERAL);
 		FeeStructure feeStructure = feeService.createFeeStructure(feeStructureGroup, feeCategory, new BigDecimal("5000.00"),
 				List.of(new InstallmentInput(1, LocalDate.of(2025, 6, 15), new BigDecimal("5000.00"))));
 		StudentFeeAssignment assignment = feeService.assignFee(enrollment, feeStructure, null, null, null);
