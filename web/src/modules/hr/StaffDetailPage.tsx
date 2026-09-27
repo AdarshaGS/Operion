@@ -26,6 +26,7 @@ import { Can } from "../../auth/Can";
 import { useAuth } from "../../auth/AuthContext";
 import { MemberStatusChip } from "../../components/MemberStatusChip";
 import { StaffInviteDialog } from "../../components/StaffInviteDialog";
+import { BorrowerLoanHistoryPanel } from "../library/BorrowerLoanHistoryPanel";
 import { listAcademicYears, type AcademicYearResponse } from "../../api/academicYears";
 import { ApiError } from "../../api/client";
 import { listCampuses, type CampusResponse } from "../../api/campuses";
@@ -768,6 +769,8 @@ export function StaffDetailPage() {
 					)}
 				</Stack>
 			</Paper>
+
+			{person && <BorrowerLoanHistoryPanel personId={person.id} />}
 
 			<Dialog
 				open={documentDialogOpen}

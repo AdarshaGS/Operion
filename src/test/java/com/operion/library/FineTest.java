@@ -66,7 +66,7 @@ class FineTest {
 
 		Campus campus = campusRepository.save(new Campus("Main Campus", "MAIN"));
 		Book book = bookRepository.save(new Book(null, "The Pragmatic Programmer", "Hunt & Thomas", null, "Reference", null));
-		BookCopy copy = bookCopyRepository.save(new BookCopy(book, campus, "ACC-100", null));
+		BookCopy copy = bookCopyRepository.save(new BookCopy(book, campus, "ACC-100", null, null));
 		Person borrower = personRepository.save(new Person("Ira", "Shah"));
 
 		return libraryService.issue(copy, borrower, LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 15));

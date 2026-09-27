@@ -30,6 +30,7 @@ import { listSchoolClasses, type SchoolClassResponse } from "../../api/schoolCla
 import { listSections, type SectionResponse } from "../../api/sections";
 import { getStudent, updateStudent, type StudentResponse } from "../../api/students";
 import { resolveAssetUrl, uploadAsset } from "../../api/assets";
+import { BorrowerLoanHistoryPanel } from "../library/BorrowerLoanHistoryPanel";
 import { StudentAttendanceSummaryPanel } from "./StudentAttendanceSummaryPanel";
 import { StudentDocumentsPanel } from "./StudentDocumentsPanel";
 import { StudentGuardiansPanel } from "./StudentGuardiansPanel";
@@ -547,6 +548,8 @@ export function StudentDetailPage() {
 			<StudentDocumentsPanel studentId={student.id} />
 
 			<StudentTransferPanel studentId={student.id} />
+
+			<BorrowerLoanHistoryPanel personId={student.personId} />
 		</Stack>
 	);
 }

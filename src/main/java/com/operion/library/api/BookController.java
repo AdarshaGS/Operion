@@ -16,6 +16,7 @@ import com.operion.organisation.CampusRepository;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -55,6 +56,14 @@ public class BookController {
 		return bookRepository.findByStatus(BookStatus.ACTIVE).stream().map(BookResponse::from).toList();
 	}
 
+	@PutMapping("/{id}")
+	@RequirePermission("LIBRARY_CATALOG_MANAGE")
+	public BookResponse update(@PathVariable Long id, @RequestBody UpdateBookRequest request) {
+		Book book = libraryService.updateBook(findBook(id), request.isbn(), request.title(), request.author(),
+				request.publisher(), request.category(), request.edition());
+		return BookResponse.from(book);
+	}
+
 	@PostMapping("/{id}/withdraw")
 	@RequirePermission("LIBRARY_CATALOG_MANAGE")
 	public BookResponse withdraw(@PathVariable Long id) {
@@ -67,13 +76,22 @@ public class BookController {
 		Book book = findBook(id);
 		Campus campus = campusRepository.findById(request.campusId())
 				.orElseThrow(() -> new IllegalArgumentException("No campus with id " + request.campusId()));
-		BookCopy copy = libraryService.addCopy(book, campus, request.accessionNumber(), request.acquiredDate());
+		BookCopy copy = libraryService.addCopy(book, campus, request.accessionNumber(), request.acquiredDate(), request.shelfLocation());
 		return BookCopyResponse.from(copy);
 	}
 
 	@GetMapping("/{id}/copies")
 	public List<BookCopyResponse> listCopies(@PathVariable Long id) {
 		return bookCopyRepository.findByBookId(id).stream().map(BookCopyResponse::from).toList();
+	}
+
+	@PutMapping("/{id}/copies/{copyId}/shelf-location")
+	@RequirePermission("LIBRARY_CATALOG_MANAGE")
+	public BookCopyResponse updateCopyShelfLocation(@PathVariable Long id, @PathVariable Long copyId,
+			@RequestBody UpdateShelfLocationRequest request) {
+		BookCopy copy = bookCopyRepository.findById(copyId)
+				.orElseThrow(() -> new IllegalArgumentException("No book copy with id " + copyId));
+		return BookCopyResponse.from(libraryService.updateCopyShelfLocation(copy, request.shelfLocation()));
 	}
 
 	/** Bulk CSV/Excel import (Imports & exports rebuild), same validate-then-confirm shape

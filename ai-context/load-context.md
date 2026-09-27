@@ -74,6 +74,7 @@ Conceptual module layout: organisation, identity, authorization, academic, stude
 
 ## How to work with me
 
+- **Codebase exploration**: use `/graphify query "<question>"` (graphify-out/graph.json already exists — query it directly, don't rebuild unless it's gone stale) before reaching for manual `grep`/`find`/`cat` chains to answer "how does X work" / "what calls Y" / "where does Z live" questions — cheaper in tokens and usually faster. Fall back to direct `Read`/`Bash` only for what graphify's query can't answer (exact current file content before editing, running builds/tests, anything the graph hasn't indexed since its last run). There is no invokable `codegraph` CLI/tool in this environment despite the `.codegraph/` folder in the repo root (an IDE-side indexer stub, gitignored, nothing to query it with) — graphify is the actual tool for this.
 - One module at a time, never the whole app.
 - New module: cover business purpose, actors, entity model, DB schema, constraints, APIs, security, implementation plan, test cases — then wait for a decision before moving on.
 - Per entity: ownership, scope (org/campus/academic-year/global), lifecycle, relationships, history-preservation need, uniqueness, indexing, authorization, audit needs.

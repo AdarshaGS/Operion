@@ -51,6 +51,9 @@ class BorrowRecordLifecycleTest {
 	@Autowired
 	private LibraryService libraryService;
 
+	@Autowired
+	private LibrarySettingsRepository librarySettingsRepository;
+
 	@AfterEach
 	void clearTenant() {
 		TenantContext.clear();
@@ -65,7 +68,7 @@ class BorrowRecordLifecycleTest {
 
 		Campus campus = campusRepository.save(new Campus("Main Campus", "MAIN"));
 		Book book = bookRepository.save(new Book("978-0-13-468599-1", "Effective Java", "Joshua Bloch", "Addison-Wesley", "Reference", "3rd"));
-		BookCopy copy = bookCopyRepository.save(new BookCopy(book, campus, "ACC-001", LocalDate.of(2020, 1, 1)));
+		BookCopy copy = bookCopyRepository.save(new BookCopy(book, campus, "ACC-001", LocalDate.of(2020, 1, 1), null));
 
 		Person borrowerA = personRepository.save(new Person("Ira", "Shah"));
 		Person borrowerB = personRepository.save(new Person("Vikram", "Rao"));
@@ -97,7 +100,7 @@ class BorrowRecordLifecycleTest {
 		Fixture fixture = setUpFixture("library-return-then-reissue");
 		BorrowRecord first = libraryService.issue(fixture.copy(), fixture.borrowerA(), LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 15));
 
-		libraryService.returnCopy(first, LocalDate.of(2026, 1, 10));
+		libraryService.returnCopy(first, LocalDate.of(2026, 1, 10), false);
 		assertThat(first.getStatus()).isEqualTo(BorrowStatus.RETURNED);
 		assertThat(fixture.copy().getStatus()).isEqualTo(BookCopyStatus.AVAILABLE);
 
@@ -120,8 +123,80 @@ class BorrowRecordLifecycleTest {
 	void returningAnAlreadyReturnedRecordIsRejected() {
 		Fixture fixture = setUpFixture("library-double-return");
 		BorrowRecord record = libraryService.issue(fixture.copy(), fixture.borrowerA(), LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 15));
-		libraryService.returnCopy(record, LocalDate.of(2026, 1, 10));
+		libraryService.returnCopy(record, LocalDate.of(2026, 1, 10), false);
 
-		assertThatThrownBy(() -> libraryService.returnCopy(record, LocalDate.of(2026, 1, 11))).isInstanceOf(IllegalStateException.class);
+		assertThatThrownBy(() -> libraryService.returnCopy(record, LocalDate.of(2026, 1, 11), false)).isInstanceOf(IllegalStateException.class);
+	}
+
+	@Test
+	void returningACopyAsDamagedLeavesItDamagedNotAvailable() {
+		Fixture fixture = setUpFixture("library-return-damaged");
+		BorrowRecord record = libraryService.issue(fixture.copy(), fixture.borrowerA(), LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 15));
+
+		libraryService.returnCopy(record, LocalDate.of(2026, 1, 10), true);
+
+		assertThat(record.getStatus()).isEqualTo(BorrowStatus.RETURNED);
+		assertThat(fixture.copy().getStatus()).isEqualTo(BookCopyStatus.DAMAGED);
+	}
+
+	@Test
+	void markDamagedClosesTheLoanAndLeavesTheCopyDamaged() {
+		Fixture fixture = setUpFixture("library-mark-damaged");
+		BorrowRecord record = libraryService.issue(fixture.copy(), fixture.borrowerA(), LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 15));
+
+		libraryService.markDamaged(record);
+
+		assertThat(record.getStatus()).isEqualTo(BorrowStatus.RETURNED);
+		assertThat(fixture.copy().getStatus()).isEqualTo(BookCopyStatus.DAMAGED);
+	}
+
+	@Test
+	void issueDefaultsDueDateFromConfiguredBorrowingPeriodWhenNotProvided() {
+		Fixture fixture = setUpFixture("library-default-due-date");
+
+		BorrowRecord record = libraryService.issue(fixture.copy(), fixture.borrowerA(), LocalDate.of(2026, 1, 1), null);
+
+		assertThat(record.getDueDate()).isEqualTo(LocalDate.of(2026, 1, 1).plusDays(LibrarySettings.DEFAULT_BORROWING_PERIOD_DAYS_STUDENT));
+	}
+
+	@Test
+	void issueRejectsWhenBorrowerIsAtTheirMaxConcurrentLoans() {
+		Organisation organisation = organisationRepository.save(new Organisation("Test School", "Test School Trust", "library-max-loans"));
+		TenantContext.set(organisation.getId(), null);
+		Campus campus = campusRepository.save(new Campus("Main Campus", "MAIN"));
+		Person borrower = personRepository.save(new Person("Ira", "Shah"));
+
+		for (int i = 0; i < LibrarySettings.DEFAULT_MAX_LOANS_STUDENT; i++) {
+			Book book = bookRepository.save(new Book(null, "Book " + i, null, null, null, null));
+			BookCopy copy = bookCopyRepository.save(new BookCopy(book, campus, "ACC-" + i, null, null));
+			libraryService.issue(copy, borrower, LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 15));
+		}
+
+		Book oneMore = bookRepository.save(new Book(null, "One more book", null, null, null, null));
+		BookCopy oneMoreCopy = bookCopyRepository.save(new BookCopy(oneMore, campus, "ACC-extra", null, null));
+
+		assertThatThrownBy(() -> libraryService.issue(oneMoreCopy, borrower, LocalDate.of(2026, 1, 1), LocalDate.of(2026, 1, 15)))
+				.isInstanceOf(IllegalStateException.class);
+	}
+
+	@Test
+	void issueRejectsWhenBorrowerHasAnOverdueBookAndTheRuleIsEnabled() {
+		Organisation organisation = organisationRepository.save(new Organisation("Test School", "Test School Trust", "library-block-overdue"));
+		TenantContext.set(organisation.getId(), null);
+		LibrarySettings settings = new LibrarySettings();
+		settings.setBlockIssueOnOverdue(true);
+		librarySettingsRepository.save(settings);
+
+		Campus campus = campusRepository.save(new Campus("Main Campus", "MAIN"));
+		Person borrower = personRepository.save(new Person("Ira", "Shah"));
+		Book overdueBook = bookRepository.save(new Book(null, "Overdue Book", null, null, null, null));
+		BookCopy overdueCopy = bookCopyRepository.save(new BookCopy(overdueBook, campus, "ACC-overdue", null, null));
+		libraryService.issue(overdueCopy, borrower, LocalDate.of(2020, 1, 1), LocalDate.of(2020, 1, 15));
+
+		Book anotherBook = bookRepository.save(new Book(null, "Another Book", null, null, null, null));
+		BookCopy anotherCopy = bookCopyRepository.save(new BookCopy(anotherBook, campus, "ACC-another", null, null));
+
+		assertThatThrownBy(() -> libraryService.issue(anotherCopy, borrower, LocalDate.now(), LocalDate.now().plusDays(14)))
+				.isInstanceOf(IllegalStateException.class);
 	}
 }

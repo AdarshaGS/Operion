@@ -2,12 +2,14 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
+import Checkbox from "@mui/material/Checkbox";
 import Chip from "@mui/material/Chip";
 import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
 import Divider from "@mui/material/Divider";
+import FormControlLabel from "@mui/material/FormControlLabel";
 import MenuItem from "@mui/material/MenuItem";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
@@ -18,6 +20,7 @@ import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
+import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import AddIcon from "@mui/icons-material/Add";
 import { type BookCopyResponse, type BookResponse, listBookCopies, listBooks } from "../../api/books";
@@ -53,6 +56,10 @@ export function BorrowPanel() {
 	const [availableCopies, setAvailableCopies] = useState<BookCopyResponse[]>([]);
 	const [bookCopyId, setBookCopyId] = useState("");
 	const [dueDate, setDueDate] = useState("");
+
+	const [returnRecord, setReturnRecord] = useState<BorrowRecordResponse | null>(null);
+	const [returnDamaged, setReturnDamaged] = useState(false);
+	const [returnFineAmount, setReturnFineAmount] = useState("");
 
 	const [lastRecord, setLastRecord] = useState<BorrowRecordResponse | null>(null);
 	const [fines, setFines] = useState<FineResponse[]>([]);
@@ -109,7 +116,7 @@ export function BorrowPanel() {
 				bookCopyId: Number(bookCopyId),
 				borrowerPersonId: Number(issueBorrowerId),
 				borrowedDate: todayIso(),
-				dueDate,
+				dueDate: dueDate || null,
 			});
 			setIssueDialogOpen(false);
 			refreshBorrows();
@@ -120,14 +127,29 @@ export function BorrowPanel() {
 		}
 	}
 
-	async function handleReturn(id: number) {
+	function openReturnDialog(record: BorrowRecordResponse) {
+		setReturnRecord(record);
+		setReturnDamaged(false);
+		setReturnFineAmount("");
+	}
+
+	async function handleReturn(event: FormEvent) {
+		event.preventDefault();
+		if (!returnRecord) return;
+		setSubmitting(true);
 		try {
-			const record = await returnBook(id, todayIso());
+			const record = await returnBook(returnRecord.id, todayIso(), returnDamaged);
+			if (returnDamaged && returnFineAmount) {
+				await raiseFine({ borrowRecordId: record.id, amount: Number(returnFineAmount), reason: "DAMAGED" });
+			}
+			setReturnRecord(null);
 			setLastRecord(record);
-			setFines(await listFinesForRecord(id));
+			setFines(await listFinesForRecord(record.id));
 			refreshBorrows();
 		} catch (err) {
 			setError(err instanceof ApiError ? err.message : "Failed to return book");
+		} finally {
+			setSubmitting(false);
 		}
 	}
 
@@ -174,6 +196,13 @@ export function BorrowPanel() {
 	}
 
 	const today = todayIso();
+	const issueDisabledReason = !issueBorrowerId
+		? "Select a borrower first"
+		: !bookId
+			? "Select a book first"
+			: !bookCopyId
+				? "No available copy selected"
+				: null;
 
 	return (
 		<Paper sx={{ p: 3 }}>
@@ -226,7 +255,7 @@ export function BorrowPanel() {
 											{record.dueDate < today && <Chip label="Overdue" size="small" color="error" sx={{ ml: 1 }} />}
 										</TableCell>
 										<TableCell>
-											<Button size="small" onClick={() => handleReturn(record.id)}>
+											<Button size="small" onClick={() => openReturnDialog(record)}>
 												Return
 											</Button>
 											<Button size="small" color="error" onClick={() => handleMarkLost(record.id)}>
@@ -332,16 +361,16 @@ export function BorrowPanel() {
 							{availableCopies.map((copy) => (
 								<MenuItem key={copy.id} value={copy.id}>
 									{copy.accessionNumber}
+									{copy.shelfLocation ? ` — ${copy.shelfLocation}` : ""}
 								</MenuItem>
 							))}
 						</TextField>
 						{bookId && availableCopies.length === 0 && <Alert severity="warning">No available copies for this book.</Alert>}
 						<TextField
-							label="Due date"
+							label="Due date (optional - defaults from borrowing policy)"
 							type="date"
 							value={dueDate}
 							onChange={(e) => setDueDate(e.target.value)}
-							required
 							slotProps={{ inputLabel: { shrink: true } }}
 							fullWidth
 						/>
@@ -349,8 +378,42 @@ export function BorrowPanel() {
 				</DialogContent>
 				<DialogActions>
 					<Button onClick={() => setIssueDialogOpen(false)}>Cancel</Button>
-					<Button type="submit" variant="contained" disabled={submitting || !issueBorrowerId || !bookCopyId}>
-						Issue
+					<Tooltip title={issueDisabledReason ?? ""} disableHoverListener={!issueDisabledReason}>
+						<span>
+							<Button type="submit" variant="contained" disabled={submitting || !!issueDisabledReason}>
+								Issue
+							</Button>
+						</span>
+					</Tooltip>
+				</DialogActions>
+			</Dialog>
+
+			<Dialog open={!!returnRecord} onClose={() => setReturnRecord(null)} component="form" onSubmit={handleReturn} fullWidth maxWidth="xs">
+				<DialogTitle>Return book</DialogTitle>
+				<DialogContent>
+					<Stack spacing={2} sx={{ mt: 1 }}>
+						<Typography variant="body2" color="text.secondary">
+							{returnRecord?.bookTitle} ({returnRecord?.accessionNumber}) — {returnRecord?.borrowerName}
+						</Typography>
+						<FormControlLabel
+							control={<Checkbox checked={returnDamaged} onChange={(e) => setReturnDamaged(e.target.checked)} />}
+							label="Copy came back damaged"
+						/>
+						{returnDamaged && (
+							<TextField
+								label="Damage fine amount (optional)"
+								type="number"
+								value={returnFineAmount}
+								onChange={(e) => setReturnFineAmount(e.target.value)}
+								fullWidth
+							/>
+						)}
+					</Stack>
+				</DialogContent>
+				<DialogActions>
+					<Button onClick={() => setReturnRecord(null)}>Cancel</Button>
+					<Button type="submit" variant="contained" disabled={submitting}>
+						Return
 					</Button>
 				</DialogActions>
 			</Dialog>

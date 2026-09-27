@@ -55,4 +55,13 @@ public class Book extends TenantScopedEntity {
 	public void withdraw() {
 		this.status = BookStatus.WITHDRAWN;
 	}
+
+	public void update(String isbn, String title, String author, String publisher, String category, String edition) {
+		this.isbn = isbn;
+		this.title = title;
+		this.author = author;
+		this.publisher = publisher;
+		this.category = category;
+		this.edition = edition;
+	}
 }

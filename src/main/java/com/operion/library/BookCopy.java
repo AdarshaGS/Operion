@@ -45,15 +45,24 @@ public class BookCopy extends TenantScopedEntity {
 	@Column(name = "acquired_date")
 	private LocalDate acquiredDate;
 
-	public BookCopy(Book book, Campus campus, String accessionNumber, LocalDate acquiredDate) {
+	/** Nullable - where this specific copy sits at its campus, per #167. */
+	@Column(name = "shelf_location")
+	private String shelfLocation;
+
+	public BookCopy(Book book, Campus campus, String accessionNumber, LocalDate acquiredDate, String shelfLocation) {
 		this.book = book;
 		this.campus = campus;
 		this.accessionNumber = accessionNumber;
 		this.status = BookCopyStatus.AVAILABLE;
 		this.acquiredDate = acquiredDate;
+		this.shelfLocation = shelfLocation;
 	}
 
 	public void changeStatus(BookCopyStatus status) {
 		this.status = status;
+	}
+
+	public void updateShelfLocation(String shelfLocation) {
+		this.shelfLocation = shelfLocation;
 	}
 }
