@@ -9,6 +9,7 @@ import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
+import MenuItem from "@mui/material/MenuItem";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Table from "@mui/material/Table";
@@ -22,11 +23,14 @@ import Typography from "@mui/material/Typography";
 import AddIcon from "@mui/icons-material/Add";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { ApiError } from "../../api/client";
+import { getDriverProfile, upsertDriverProfile, type DriverProfileResponse } from "../../api/driverProfiles";
+import { listPersons, type PersonResponse } from "../../api/persons";
 import { listVehicleRoster, type RouteRosterEntryResponse } from "../../api/transportAssignments";
 import {
 	addVehicleDocument,
 	listVehicleDocuments,
 	listVehicles,
+	reassignCrew,
 	verifyVehicleDocument,
 	type VehicleDocumentResponse,
 	type VehicleResponse,
@@ -40,6 +44,15 @@ function documentExpiryChip(expiryDate: string | null) {
 	return <Chip label={`Expires ${expiryDate}`} size="small" variant="outlined" />;
 }
 
+function licenceChip(profile: DriverProfileResponse | null) {
+	if (!profile) return <Chip label="No licence on file" size="small" variant="outlined" />;
+	const daysUntil = (new Date(profile.licenceExpiryDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24);
+	const label = `${profile.licenceNumber} — expires ${profile.licenceExpiryDate}`;
+	if (daysUntil < 0) return <Chip label={label} size="small" color="error" />;
+	if (daysUntil <= 30) return <Chip label={label} size="small" color="warning" />;
+	return <Chip label={label} size="small" variant="outlined" />;
+}
+
 /** No GET-by-id exists for Vehicle - resolving via list+find, same tradeoff documented for
  * RouteDetailPage at this data scale. */
 export function VehicleDetailPage() {
@@ -47,8 +60,11 @@ export function VehicleDetailPage() {
 	const navigate = useNavigate();
 
 	const [vehicle, setVehicle] = useState<VehicleResponse | null>(null);
+	const [persons, setPersons] = useState<PersonResponse[]>([]);
 	const [roster, setRoster] = useState<RouteRosterEntryResponse[]>([]);
 	const [documents, setDocuments] = useState<VehicleDocumentResponse[]>([]);
+	const [driverProfile, setDriverProfile] = useState<DriverProfileResponse | null>(null);
+	const [attendantProfile, setAttendantProfile] = useState<DriverProfileResponse | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [submitting, setSubmitting] = useState(false);
@@ -59,15 +75,25 @@ export function VehicleDetailPage() {
 	const [fileReference, setFileReference] = useState("");
 	const [documentExpiryDate, setDocumentExpiryDate] = useState("");
 
+	const [crewDialogOpen, setCrewDialogOpen] = useState(false);
+	const [crewDriverPersonId, setCrewDriverPersonId] = useState("");
+	const [crewAttendantPersonId, setCrewAttendantPersonId] = useState("");
+
+	const [licenceDialogPersonId, setLicenceDialogPersonId] = useState<number | null>(null);
+	const [licenceNumber, setLicenceNumber] = useState("");
+	const [licenceExpiryDate, setLicenceExpiryDate] = useState("");
+
 	useEffect(() => {
 		if (!vehicleId) return;
 		listVehicles()
 			.then((vehicles) => {
 				const found = vehicles.find((v) => v.id === Number(vehicleId));
 				setVehicle(found ?? null);
+				refreshLicences(found ?? null);
 			})
 			.catch((err) => setError(err instanceof ApiError ? err.message : "Failed to load vehicle"))
 			.finally(() => setLoading(false));
+		listPersons().then(setPersons).catch(() => {});
 		listVehicleRoster(Number(vehicleId))
 			.then(setRoster)
 			.catch((err) => setError(err instanceof ApiError ? err.message : "Failed to load student roster"));
@@ -79,6 +105,65 @@ export function VehicleDetailPage() {
 		listVehicleDocuments(Number(vehicleId))
 			.then(setDocuments)
 			.catch((err) => setError(err instanceof ApiError ? err.message : "Failed to load documents"));
+	}
+
+	function refreshLicences(currentVehicle: VehicleResponse | null) {
+		if (currentVehicle?.driverPersonId) {
+			getDriverProfile(currentVehicle.driverPersonId).then(setDriverProfile).catch(() => setDriverProfile(null));
+		} else {
+			setDriverProfile(null);
+		}
+		if (currentVehicle?.attendantPersonId) {
+			getDriverProfile(currentVehicle.attendantPersonId).then(setAttendantProfile).catch(() => setAttendantProfile(null));
+		} else {
+			setAttendantProfile(null);
+		}
+	}
+
+	function personName(id: number | null): string {
+		if (!id) return "—";
+		const person = persons.find((p) => p.id === id);
+		return person ? `${person.firstName} ${person.lastName}` : `Person #${id}`;
+	}
+
+	async function handleReassignCrew(event: FormEvent) {
+		event.preventDefault();
+		if (!vehicleId) return;
+		setSubmitting(true);
+		try {
+			const updated = await reassignCrew(Number(vehicleId), {
+				driverPersonId: crewDriverPersonId ? Number(crewDriverPersonId) : null,
+				attendantPersonId: crewAttendantPersonId ? Number(crewAttendantPersonId) : null,
+			});
+			setVehicle(updated);
+			refreshLicences(updated);
+			setCrewDialogOpen(false);
+		} catch (err) {
+			setError(err instanceof ApiError ? err.message : "Failed to reassign crew");
+		} finally {
+			setSubmitting(false);
+		}
+	}
+
+	function openLicenceDialog(personId: number, existing: DriverProfileResponse | null) {
+		setLicenceDialogPersonId(personId);
+		setLicenceNumber(existing?.licenceNumber ?? "");
+		setLicenceExpiryDate(existing?.licenceExpiryDate ?? "");
+	}
+
+	async function handleSaveLicence(event: FormEvent) {
+		event.preventDefault();
+		if (!licenceDialogPersonId) return;
+		setSubmitting(true);
+		try {
+			await upsertDriverProfile(licenceDialogPersonId, { licenceNumber, licenceExpiryDate });
+			setLicenceDialogPersonId(null);
+			refreshLicences(vehicle);
+		} catch (err) {
+			setError(err instanceof ApiError ? err.message : "Failed to save licence");
+		} finally {
+			setSubmitting(false);
+		}
 	}
 
 	async function handleAddDocument(event: FormEvent) {
@@ -130,6 +215,45 @@ export function VehicleDetailPage() {
 			</Typography>
 
 			{error && <Alert severity="error">{error}</Alert>}
+
+			<Paper sx={{ p: 3 }}>
+				<Stack spacing={2}>
+					<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+						<Typography variant="h6">Crew</Typography>
+						<Button
+							size="small"
+							onClick={() => {
+								setCrewDriverPersonId(vehicle?.driverPersonId ? String(vehicle.driverPersonId) : "");
+								setCrewAttendantPersonId(vehicle?.attendantPersonId ? String(vehicle.attendantPersonId) : "");
+								setCrewDialogOpen(true);
+							}}
+						>
+							Reassign crew
+						</Button>
+					</Box>
+
+					<Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+						<Typography sx={{ minWidth: 90 }}>Driver</Typography>
+						<Typography>{personName(vehicle?.driverPersonId ?? null)}</Typography>
+						{licenceChip(driverProfile)}
+						{vehicle?.driverPersonId && (
+							<Button size="small" onClick={() => openLicenceDialog(vehicle.driverPersonId!, driverProfile)}>
+								Edit licence
+							</Button>
+						)}
+					</Box>
+					<Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+						<Typography sx={{ minWidth: 90 }}>Attendant</Typography>
+						<Typography>{personName(vehicle?.attendantPersonId ?? null)}</Typography>
+						{licenceChip(attendantProfile)}
+						{vehicle?.attendantPersonId && (
+							<Button size="small" onClick={() => openLicenceDialog(vehicle.attendantPersonId!, attendantProfile)}>
+								Edit licence
+							</Button>
+						)}
+					</Box>
+				</Stack>
+			</Paper>
 
 			<Paper sx={{ p: 3 }}>
 				<Stack spacing={2}>
@@ -266,6 +390,93 @@ export function VehicleDetailPage() {
 					<Button onClick={() => setDocumentDialogOpen(false)}>Cancel</Button>
 					<Button type="submit" variant="contained" disabled={submitting}>
 						Add
+					</Button>
+				</DialogActions>
+			</Dialog>
+
+			<Dialog
+				open={crewDialogOpen}
+				onClose={() => setCrewDialogOpen(false)}
+				component="form"
+				onSubmit={handleReassignCrew}
+				fullWidth
+				maxWidth="xs"
+			>
+				<DialogTitle>Reassign crew</DialogTitle>
+				<DialogContent>
+					<Stack spacing={2} sx={{ mt: 1 }}>
+						<TextField
+							select
+							label="Driver"
+							value={crewDriverPersonId}
+							onChange={(e) => setCrewDriverPersonId(e.target.value)}
+							fullWidth
+						>
+							<MenuItem value="">None</MenuItem>
+							{persons.map((person) => (
+								<MenuItem key={person.id} value={person.id}>
+									{person.firstName} {person.lastName}
+								</MenuItem>
+							))}
+						</TextField>
+						<TextField
+							select
+							label="Attendant"
+							value={crewAttendantPersonId}
+							onChange={(e) => setCrewAttendantPersonId(e.target.value)}
+							fullWidth
+						>
+							<MenuItem value="">None</MenuItem>
+							{persons.map((person) => (
+								<MenuItem key={person.id} value={person.id}>
+									{person.firstName} {person.lastName}
+								</MenuItem>
+							))}
+						</TextField>
+					</Stack>
+				</DialogContent>
+				<DialogActions>
+					<Button onClick={() => setCrewDialogOpen(false)}>Cancel</Button>
+					<Button type="submit" variant="contained" disabled={submitting}>
+						Save
+					</Button>
+				</DialogActions>
+			</Dialog>
+
+			<Dialog
+				open={licenceDialogPersonId !== null}
+				onClose={() => setLicenceDialogPersonId(null)}
+				component="form"
+				onSubmit={handleSaveLicence}
+				fullWidth
+				maxWidth="xs"
+			>
+				<DialogTitle>Edit licence</DialogTitle>
+				<DialogContent>
+					<Stack spacing={2} sx={{ mt: 1 }}>
+						<TextField
+							label="Licence number"
+							value={licenceNumber}
+							onChange={(e) => setLicenceNumber(e.target.value)}
+							required
+							autoFocus
+							fullWidth
+						/>
+						<TextField
+							label="Licence expiry date"
+							type="date"
+							value={licenceExpiryDate}
+							onChange={(e) => setLicenceExpiryDate(e.target.value)}
+							slotProps={{ inputLabel: { shrink: true } }}
+							required
+							fullWidth
+						/>
+					</Stack>
+				</DialogContent>
+				<DialogActions>
+					<Button onClick={() => setLicenceDialogPersonId(null)}>Cancel</Button>
+					<Button type="submit" variant="contained" disabled={submitting}>
+						Save
 					</Button>
 				</DialogActions>
 			</Dialog>

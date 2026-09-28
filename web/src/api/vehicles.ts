@@ -32,6 +32,15 @@ export function changeVehicleStatus(id: number, status: string): Promise<Vehicle
 	return api.post<VehicleResponse>(`/api/v1/transport/vehicles/${id}/status`, { status });
 }
 
+export interface ReassignCrewRequest {
+	driverPersonId?: number | null;
+	attendantPersonId?: number | null;
+}
+
+export function reassignCrew(id: number, request: ReassignCrewRequest): Promise<VehicleResponse> {
+	return api.post<VehicleResponse>(`/api/v1/transport/vehicles/${id}/crew`, request);
+}
+
 export interface AddVehicleDocumentRequest {
 	documentType: string;
 	fileReference: string;

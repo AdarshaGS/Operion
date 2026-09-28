@@ -34,14 +34,15 @@ public class TransportService {
 	private final TripLogRepository tripLogRepository;
 	private final StudentTripAttendanceRepository studentTripAttendanceRepository;
 	private final VehicleDocumentRepository vehicleDocumentRepository;
+	private final DriverProfileRepository driverProfileRepository;
 	private final FeeService feeService;
 	private final TransportNotificationService transportNotificationService;
 
 	public TransportService(VehicleRepository vehicleRepository, RouteRepository routeRepository,
 			RouteStopRepository routeStopRepository, StudentTransportAssignmentRepository studentTransportAssignmentRepository,
 			TripLogRepository tripLogRepository, StudentTripAttendanceRepository studentTripAttendanceRepository,
-			VehicleDocumentRepository vehicleDocumentRepository, FeeService feeService,
-			TransportNotificationService transportNotificationService) {
+			VehicleDocumentRepository vehicleDocumentRepository, DriverProfileRepository driverProfileRepository,
+			FeeService feeService, TransportNotificationService transportNotificationService) {
 		this.vehicleRepository = vehicleRepository;
 		this.routeRepository = routeRepository;
 		this.routeStopRepository = routeStopRepository;
@@ -49,6 +50,7 @@ public class TransportService {
 		this.tripLogRepository = tripLogRepository;
 		this.studentTripAttendanceRepository = studentTripAttendanceRepository;
 		this.vehicleDocumentRepository = vehicleDocumentRepository;
+		this.driverProfileRepository = driverProfileRepository;
 		this.feeService = feeService;
 		this.transportNotificationService = transportNotificationService;
 	}
@@ -199,6 +201,18 @@ public class TransportService {
 	public VehicleDocument verifyVehicleDocument(VehicleDocument document, DocumentVerificationStatus verificationStatus, Long verifiedBy) {
 		document.verify(verificationStatus, verifiedBy, Instant.now());
 		return vehicleDocumentRepository.save(document);
+	}
+
+	/** Upserts - one row per Person, same "one row, update in place" convention as
+	 * StaffBankDetail, since a licence renewal is a correction to the current record. */
+	@Transactional
+	public DriverProfile upsertDriverProfile(Person person, String licenceNumber, LocalDate licenceExpiryDate) {
+		return driverProfileRepository.findByPersonId(person.getId())
+				.map(existing -> {
+					existing.update(licenceNumber, licenceExpiryDate);
+					return driverProfileRepository.save(existing);
+				})
+				.orElseGet(() -> driverProfileRepository.save(new DriverProfile(person, licenceNumber, licenceExpiryDate)));
 	}
 
 	public TripLog cancelTrip(TripLog tripLog, String remarks) {
