@@ -8,6 +8,7 @@ import java.time.LocalTime;
 import com.operion.common.JpaConfig;
 import com.operion.common.MultiTenancyConfig;
 import com.operion.common.TenantContext;
+import com.operion.communication.CommunicationService;
 import com.operion.finance.FeeService;
 import com.operion.organisation.Campus;
 import com.operion.organisation.CampusRepository;
@@ -27,7 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
  * TransportService.addStop happily appends stops in order via the same route.
  */
 @DataJpaTest
-@Import({ MultiTenancyConfig.class, JpaConfig.class, TransportService.class, FeeService.class })
+@Import({ MultiTenancyConfig.class, JpaConfig.class, TransportService.class, FeeService.class, TransportNotificationService.class, CommunicationService.class })
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class RouteStopSequenceTest {
 

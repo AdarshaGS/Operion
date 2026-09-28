@@ -12,6 +12,7 @@ import com.operion.common.imports.ImportRowResult;
 import com.operion.common.imports.ImportRowStatus;
 import com.operion.common.imports.ImportRunRepository;
 import com.operion.common.imports.ImportRunService;
+import com.operion.communication.CommunicationService;
 import com.operion.finance.FeeService;
 import com.operion.organisation.Campus;
 import com.operion.organisation.CampusRepository;
@@ -34,8 +35,8 @@ import org.springframework.transaction.annotation.Transactional;
  * StudentImportServiceTest.
  */
 @DataJpaTest
-@Import({ MultiTenancyConfig.class, JpaConfig.class, FeeService.class, TransportService.class, VehicleRouteRowImportService.class,
-		VehicleRouteImportService.class, ImportRunService.class })
+@Import({ MultiTenancyConfig.class, JpaConfig.class, FeeService.class, TransportService.class, TransportNotificationService.class,
+		CommunicationService.class, VehicleRouteRowImportService.class, VehicleRouteImportService.class, ImportRunService.class })
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class VehicleRouteImportServiceTest {
 

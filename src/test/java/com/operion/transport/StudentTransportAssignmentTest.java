@@ -16,6 +16,8 @@ import com.operion.academic.SectionRepository;
 import com.operion.common.JpaConfig;
 import com.operion.common.MultiTenancyConfig;
 import com.operion.common.TenantContext;
+import com.operion.communication.CommunicationService;
+import com.operion.communication.NotificationRecipientRepository;
 import com.operion.identity.Person;
 import com.operion.identity.PersonRepository;
 import com.operion.organisation.AcademicYear;
@@ -33,6 +35,11 @@ import com.operion.finance.FeeCategoryType;
 import com.operion.finance.FeeService;
 import com.operion.finance.FeeStructure;
 import com.operion.finance.FeeStructureGroup;
+import com.operion.parent.Guardian;
+import com.operion.parent.GuardianRelationshipType;
+import com.operion.parent.GuardianRepository;
+import com.operion.parent.StudentGuardian;
+import com.operion.parent.StudentGuardianRepository;
 import com.operion.student.Student;
 import com.operion.student.StudentDocumentRepository;
 import com.operion.student.StudentEnrollment;
@@ -59,7 +66,7 @@ import tools.jackson.databind.ObjectMapper;
  * enrollment up for a fresh assignment.
  */
 @DataJpaTest
-@Import({ MultiTenancyConfig.class, JpaConfig.class, TransportService.class, FeeService.class, StudentIdGenerator.class })
+@Import({ MultiTenancyConfig.class, JpaConfig.class, TransportService.class, FeeService.class, StudentIdGenerator.class, TransportNotificationService.class, CommunicationService.class })
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class StudentTransportAssignmentTest {
 
@@ -121,6 +128,15 @@ class StudentTransportAssignmentTest {
 
 	@Autowired
 	private RouteStopRepository routeStopRepository;
+
+	@Autowired
+	private GuardianRepository guardianRepository;
+
+	@Autowired
+	private StudentGuardianRepository studentGuardianRepository;
+
+	@Autowired
+	private NotificationRecipientRepository notificationRecipientRepository;
 
 	@BeforeEach
 	void setUpStudentService() {
@@ -325,5 +341,62 @@ class StudentTransportAssignmentTest {
 				fixture.enrollment(), fixture.route(), fixture.stop(), true, true, LocalDate.of(2025, 6, 1));
 
 		assertThat(assignment.getStudentFeeAssignment()).isNull();
+	}
+
+	@Test
+	void reassigningRouteNotifiesTheStudentsGuardianWhoOptedIn() {
+		Fixture fixture = setUpFixture("transport-reassign-notifies-guardian");
+		Person guardianPerson = personRepository.save(new Person("Meera", "Shah"));
+		guardianPerson.setEmail("meera.shah@example.com");
+		personRepository.save(guardianPerson);
+		Guardian guardian = guardianRepository.save(new Guardian(guardianPerson, null));
+		studentGuardianRepository.save(new StudentGuardian(
+				fixture.enrollment().getStudent(), guardian, GuardianRelationshipType.MOTHER, true, true, true, true, 1));
+
+		StudentTransportAssignment assignment = transportService.assignStudent(
+				fixture.enrollment(), fixture.route(), fixture.stop(), true, true, LocalDate.of(2025, 6, 1));
+		RouteStop newStop = routeStopRepository.save(new RouteStop(fixture.route(), "Gate 2", 2, null, null, null, null));
+
+		transportService.reassignRoute(assignment, fixture.route(), newStop, LocalDate.of(2025, 9, 1));
+
+		assertThat(notificationRecipientRepository.findByPersonIdOrderByCreatedAtDesc(guardianPerson.getId())).hasSize(1);
+	}
+
+	@Test
+	void reassigningRouteSkipsAGuardianWhoHasNotOptedIntoCommunication() {
+		Fixture fixture = setUpFixture("transport-reassign-guardian-opted-out");
+		Person guardianPerson = personRepository.save(new Person("Nikhil", "Shah"));
+		guardianPerson.setEmail("nikhil.shah@example.com");
+		personRepository.save(guardianPerson);
+		Guardian guardian = guardianRepository.save(new Guardian(guardianPerson, null));
+		studentGuardianRepository.save(new StudentGuardian(
+				fixture.enrollment().getStudent(), guardian, GuardianRelationshipType.FATHER, true, true, true, false, 1));
+
+		StudentTransportAssignment assignment = transportService.assignStudent(
+				fixture.enrollment(), fixture.route(), fixture.stop(), true, true, LocalDate.of(2025, 6, 1));
+		RouteStop newStop = routeStopRepository.save(new RouteStop(fixture.route(), "Gate 2", 2, null, null, null, null));
+
+		transportService.reassignRoute(assignment, fixture.route(), newStop, LocalDate.of(2025, 9, 1));
+
+		assertThat(notificationRecipientRepository.findByPersonIdOrderByCreatedAtDesc(guardianPerson.getId())).isEmpty();
+	}
+
+	@Test
+	void cancellingATripNotifiesGuardiansOfEveryStudentActiveOnThatRoute() {
+		Fixture fixture = setUpFixture("transport-cancel-trip-notifies-guardian");
+		Person guardianPerson = personRepository.save(new Person("Kavya", "Iyer"));
+		guardianPerson.setEmail("kavya.iyer@example.com");
+		personRepository.save(guardianPerson);
+		Guardian guardian = guardianRepository.save(new Guardian(guardianPerson, null));
+		studentGuardianRepository.save(new StudentGuardian(
+				fixture.enrollment().getStudent(), guardian, GuardianRelationshipType.MOTHER, true, true, true, true, 1));
+		transportService.assignStudent(fixture.enrollment(), fixture.route(), fixture.stop(), true, true, LocalDate.of(2025, 6, 1));
+
+		Vehicle vehicle = transportService.createVehicle(fixture.route().getCampus(), "KA-01-AB-2222", VehicleType.BUS, 40, null, null);
+		TripLog trip = transportService.scheduleTrip(fixture.route(), vehicle, null, LocalDate.of(2025, 7, 1), TripType.PICKUP);
+
+		transportService.cancelTrip(trip, "vehicle breakdown");
+
+		assertThat(notificationRecipientRepository.findByPersonIdOrderByCreatedAtDesc(guardianPerson.getId())).hasSize(1);
 	}
 }

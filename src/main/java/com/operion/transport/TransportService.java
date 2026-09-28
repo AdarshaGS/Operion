@@ -2,6 +2,7 @@ package com.operion.transport;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.List;
 
 import com.operion.finance.FeeService;
 import com.operion.finance.FeeStructure;
@@ -17,7 +18,9 @@ import org.springframework.transaction.annotation.Transactional;
  * trip logs. Enforces one ACTIVE assignment per StudentEnrollment (service-level, same
  * convention as StudentEnrollment.is_current / StudentGuardian.is_primary_guardian)
  * and that a route belongs to the same campus as the student's current class - a
- * student shouldn't ride a route registered to a different campus.
+ * student shouldn't ride a route registered to a different campus. A trip cancellation
+ * or a route/stop reassignment also fires a guardian notification via
+ * TransportNotificationService - see #159.
  */
 @Service
 public class TransportService {
@@ -28,16 +31,18 @@ public class TransportService {
 	private final StudentTransportAssignmentRepository studentTransportAssignmentRepository;
 	private final TripLogRepository tripLogRepository;
 	private final FeeService feeService;
+	private final TransportNotificationService transportNotificationService;
 
 	public TransportService(VehicleRepository vehicleRepository, RouteRepository routeRepository,
 			RouteStopRepository routeStopRepository, StudentTransportAssignmentRepository studentTransportAssignmentRepository,
-			TripLogRepository tripLogRepository, FeeService feeService) {
+			TripLogRepository tripLogRepository, FeeService feeService, TransportNotificationService transportNotificationService) {
 		this.vehicleRepository = vehicleRepository;
 		this.routeRepository = routeRepository;
 		this.routeStopRepository = routeStopRepository;
 		this.studentTransportAssignmentRepository = studentTransportAssignmentRepository;
 		this.tripLogRepository = tripLogRepository;
 		this.feeService = feeService;
+		this.transportNotificationService = transportNotificationService;
 	}
 
 	public Vehicle createVehicle(Campus campus, String registrationNumber, VehicleType vehicleType, int capacity,
@@ -117,8 +122,10 @@ public class TransportService {
 		studentTransportAssignmentRepository.save(assignment);
 
 		requireVehicleCapacity(route);
-		return studentTransportAssignmentRepository.save(new StudentTransportAssignment(
+		StudentTransportAssignment reassigned = studentTransportAssignmentRepository.save(new StudentTransportAssignment(
 				assignment.getStudentEnrollment(), route, routeStop, assignment.isUsesPickup(), assignment.isUsesDrop(), effectiveFrom));
+		transportNotificationService.notifyRouteReassigned(reassigned);
+		return reassigned;
 	}
 
 	public StudentTransportAssignment updateAssignmentLegs(StudentTransportAssignment assignment, boolean usesPickup, boolean usesDrop) {
@@ -147,7 +154,11 @@ public class TransportService {
 
 	public TripLog cancelTrip(TripLog tripLog, String remarks) {
 		tripLog.cancel(remarks);
-		return tripLogRepository.save(tripLog);
+		TripLog cancelled = tripLogRepository.save(tripLog);
+		List<StudentTransportAssignment> affected =
+				studentTransportAssignmentRepository.findByRouteIdAndStatus(cancelled.getRoute().getId(), TransportAssignmentStatus.ACTIVE);
+		transportNotificationService.notifyTripCancelled(affected);
+		return cancelled;
 	}
 
 	private void requireStopOnRoute(Route route, RouteStop routeStop) {
