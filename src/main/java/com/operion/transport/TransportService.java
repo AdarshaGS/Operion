@@ -1,5 +1,6 @@
 package com.operion.transport;
 
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.ArrayList;
@@ -32,19 +33,22 @@ public class TransportService {
 	private final StudentTransportAssignmentRepository studentTransportAssignmentRepository;
 	private final TripLogRepository tripLogRepository;
 	private final StudentTripAttendanceRepository studentTripAttendanceRepository;
+	private final VehicleDocumentRepository vehicleDocumentRepository;
 	private final FeeService feeService;
 	private final TransportNotificationService transportNotificationService;
 
 	public TransportService(VehicleRepository vehicleRepository, RouteRepository routeRepository,
 			RouteStopRepository routeStopRepository, StudentTransportAssignmentRepository studentTransportAssignmentRepository,
 			TripLogRepository tripLogRepository, StudentTripAttendanceRepository studentTripAttendanceRepository,
-			FeeService feeService, TransportNotificationService transportNotificationService) {
+			VehicleDocumentRepository vehicleDocumentRepository, FeeService feeService,
+			TransportNotificationService transportNotificationService) {
 		this.vehicleRepository = vehicleRepository;
 		this.routeRepository = routeRepository;
 		this.routeStopRepository = routeStopRepository;
 		this.studentTransportAssignmentRepository = studentTransportAssignmentRepository;
 		this.tripLogRepository = tripLogRepository;
 		this.studentTripAttendanceRepository = studentTripAttendanceRepository;
+		this.vehicleDocumentRepository = vehicleDocumentRepository;
 		this.feeService = feeService;
 		this.transportNotificationService = transportNotificationService;
 	}
@@ -177,6 +181,24 @@ public class TransportService {
 	}
 
 	public record BoardingMark(StudentEnrollment studentEnrollment, BoardingStatus status, String remarks) {
+	}
+
+	/** Re-upload supersedes any prior ACTIVE document of the same type, same pattern as
+	 * HrService.addDocument/StudentService.addDocument. */
+	@Transactional
+	public VehicleDocument addVehicleDocument(Vehicle vehicle, String documentType, String fileReference, String fileName,
+			String mimeType, LocalDate expiryDate) {
+		vehicleDocumentRepository.findByVehicleIdAndDocumentTypeAndStatus(vehicle.getId(), documentType, VehicleDocumentStatus.ACTIVE)
+				.ifPresent(existing -> {
+					existing.supersede();
+					vehicleDocumentRepository.save(existing);
+				});
+		return vehicleDocumentRepository.save(new VehicleDocument(vehicle, documentType, fileReference, fileName, mimeType, expiryDate));
+	}
+
+	public VehicleDocument verifyVehicleDocument(VehicleDocument document, DocumentVerificationStatus verificationStatus, Long verifiedBy) {
+		document.verify(verificationStatus, verifiedBy, Instant.now());
+		return vehicleDocumentRepository.save(document);
 	}
 
 	public TripLog cancelTrip(TripLog tripLog, String remarks) {

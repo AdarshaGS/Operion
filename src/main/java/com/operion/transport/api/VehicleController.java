@@ -8,8 +8,12 @@ import com.operion.identity.Person;
 import com.operion.identity.PersonRepository;
 import com.operion.organisation.Campus;
 import com.operion.organisation.CampusRepository;
+import com.operion.transport.DocumentVerificationStatus;
 import com.operion.transport.TransportService;
 import com.operion.transport.Vehicle;
+import com.operion.transport.VehicleDocument;
+import com.operion.transport.VehicleDocumentRepository;
+import com.operion.transport.VehicleDocumentStatus;
 import com.operion.transport.VehicleRepository;
 import com.operion.transport.VehicleRouteImportService;
 import com.operion.transport.VehicleStatus;
@@ -36,14 +40,17 @@ public class VehicleController {
 	private final CampusRepository campusRepository;
 	private final PersonRepository personRepository;
 	private final VehicleRouteImportService vehicleRouteImportService;
+	private final VehicleDocumentRepository vehicleDocumentRepository;
 
 	public VehicleController(TransportService transportService, VehicleRepository vehicleRepository,
-			CampusRepository campusRepository, PersonRepository personRepository, VehicleRouteImportService vehicleRouteImportService) {
+			CampusRepository campusRepository, PersonRepository personRepository, VehicleRouteImportService vehicleRouteImportService,
+			VehicleDocumentRepository vehicleDocumentRepository) {
 		this.transportService = transportService;
 		this.vehicleRepository = vehicleRepository;
 		this.campusRepository = campusRepository;
 		this.personRepository = personRepository;
 		this.vehicleRouteImportService = vehicleRouteImportService;
+		this.vehicleDocumentRepository = vehicleDocumentRepository;
 	}
 
 	@PostMapping
@@ -94,6 +101,31 @@ public class VehicleController {
 	@GetMapping("/export")
 	public List<VehicleExportResponse> export() {
 		return vehicleRepository.findAll().stream().map(VehicleExportResponse::from).toList();
+	}
+
+	@PostMapping("/{id}/documents")
+	@RequirePermission("TRANSPORT_VEHICLE_MANAGE")
+	public VehicleDocumentResponse addDocument(@PathVariable Long id, @RequestBody AddVehicleDocumentRequest request) {
+		Vehicle vehicle = findVehicle(id);
+		VehicleDocument document = transportService.addVehicleDocument(
+				vehicle, request.documentType(), request.fileReference(), request.fileName(), request.mimeType(), request.expiryDate());
+		return VehicleDocumentResponse.from(document);
+	}
+
+	@GetMapping("/{id}/documents")
+	public List<VehicleDocumentResponse> listDocuments(@PathVariable Long id) {
+		return vehicleDocumentRepository.findByVehicleIdAndStatus(id, VehicleDocumentStatus.ACTIVE).stream()
+				.map(VehicleDocumentResponse::from)
+				.toList();
+	}
+
+	@PostMapping("/documents/{documentId}/verify")
+	@RequirePermission("TRANSPORT_VEHICLE_MANAGE")
+	public VehicleDocumentResponse verifyDocument(@PathVariable Long documentId, @RequestBody VerifyVehicleDocumentRequest request) {
+		VehicleDocument document = vehicleDocumentRepository.findById(documentId)
+				.orElseThrow(() -> new IllegalArgumentException("No vehicle document with id " + documentId));
+		return VehicleDocumentResponse.from(
+				transportService.verifyVehicleDocument(document, DocumentVerificationStatus.valueOf(request.verificationStatus()), request.verifiedBy()));
 	}
 
 	private Vehicle findVehicle(Long id) {

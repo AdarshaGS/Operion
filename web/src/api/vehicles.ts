@@ -31,3 +31,42 @@ export function listVehicles(): Promise<VehicleResponse[]> {
 export function changeVehicleStatus(id: number, status: string): Promise<VehicleResponse> {
 	return api.post<VehicleResponse>(`/api/v1/transport/vehicles/${id}/status`, { status });
 }
+
+export interface AddVehicleDocumentRequest {
+	documentType: string;
+	fileReference: string;
+	fileName: string;
+	mimeType?: string | null;
+	expiryDate?: string | null;
+}
+
+export interface VehicleDocumentResponse {
+	id: number;
+	vehicleId: number;
+	documentType: string;
+	fileReference: string;
+	fileName: string;
+	mimeType: string | null;
+	expiryDate: string | null;
+	verificationStatus: string;
+	verifiedBy: number | null;
+	verifiedAt: string | null;
+	status: string;
+}
+
+export interface VerifyVehicleDocumentRequest {
+	verificationStatus: string;
+	verifiedBy: number;
+}
+
+export function addVehicleDocument(vehicleId: number, request: AddVehicleDocumentRequest): Promise<VehicleDocumentResponse> {
+	return api.post<VehicleDocumentResponse>(`/api/v1/transport/vehicles/${vehicleId}/documents`, request);
+}
+
+export function listVehicleDocuments(vehicleId: number): Promise<VehicleDocumentResponse[]> {
+	return api.get<VehicleDocumentResponse[]>(`/api/v1/transport/vehicles/${vehicleId}/documents`);
+}
+
+export function verifyVehicleDocument(documentId: number, request: VerifyVehicleDocumentRequest): Promise<VehicleDocumentResponse> {
+	return api.post<VehicleDocumentResponse>(`/api/v1/transport/vehicles/documents/${documentId}/verify`, request);
+}
