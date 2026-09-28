@@ -15,6 +15,8 @@ import com.operion.academic.SchoolClass;
 import com.operion.academic.SchoolClassRepository;
 import com.operion.audit.AuditLogRepository;
 import com.operion.audit.AuditLogService;
+import com.operion.customfield.CustomFieldDefinitionRepository;
+import com.operion.customfield.CustomFieldService;
 import com.operion.common.JpaConfig;
 import com.operion.common.MultiTenancyConfig;
 import com.operion.common.TenantContext;
@@ -94,6 +96,9 @@ class OpeningBalanceRowImportServiceTest {
 	private AuditLogRepository auditLogRepository;
 
 	@Autowired
+	private CustomFieldDefinitionRepository customFieldDefinitionRepository;
+
+	@Autowired
 	private StudentFeeAssignmentRepository studentFeeAssignmentRepository;
 
 	@Autowired
@@ -108,7 +113,8 @@ class OpeningBalanceRowImportServiceTest {
 
 	private String setUpFixture(String orgSlug, String admissionNumber, boolean withFeeStructureGroup) {
 		studentService = new StudentService(studentRepository, studentEnrollmentRepository, studentDocumentRepository, studentExitRepository,
-				null, null, studentIdGenerator, new AuditLogService(auditLogRepository, new ObjectMapper()));
+				null, null, studentIdGenerator, new AuditLogService(auditLogRepository, new ObjectMapper()),
+			new CustomFieldService(customFieldDefinitionRepository, new ObjectMapper()));
 
 		Organisation organisation = organisationRepository.save(new Organisation("Test School", "Test School Trust", orgSlug));
 		TenantContext.set(organisation.getId(), null);

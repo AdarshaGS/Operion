@@ -93,7 +93,13 @@ public class Student extends TenantScopedEntity {
 	 * via Jackson at the API boundary, same "manual String<->JSON at read/write time, no
 	 * Hibernate JSON-type mapping" convention as AuditLog.beforeValue/afterValue - this is
 	 * the second use of that pattern, not a new one. */
-	@Column(name = "custom_fields", columnDefinition = "json")
+	/** columnDefinition intentionally omits "json" - Hibernate 7's H2(MODE=MySQL) test
+	 * schema treats a String-typed column whose DDL says JSON as a value to be
+	 * JSON-serialized (double-quoting an already-JSON string on write), not raw JSON
+	 * text to pass through; the real MySQL column stays JSON via V92's migration
+	 * regardless, since production runs with ddl-auto=validate, not schema generation
+	 * from this annotation. */
+	@Column(name = "custom_fields", columnDefinition = "longtext")
 	private String customFields;
 
 	public Student(Person person, String studentId, String admissionNumber, LocalDate admissionDate,

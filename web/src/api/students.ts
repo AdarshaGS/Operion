@@ -19,6 +19,8 @@ export interface CreateStudentRequest {
 	medicalAlerts?: string | null;
 	emergencyContactName?: string | null;
 	emergencyContactPhone?: string | null;
+	/** Keyed by each ACTIVE "STUDENT" CustomFieldDefinition's fieldKey (#146). */
+	customFields?: Record<string, unknown> | null;
 }
 
 export interface StudentResponse {
@@ -40,6 +42,7 @@ export interface StudentResponse {
 	emergencyContactName: string | null;
 	emergencyContactPhone: string | null;
 	status: string;
+	customFields: Record<string, unknown>;
 }
 
 export function admitStudent(request: CreateStudentRequest): Promise<StudentResponse> {
@@ -66,6 +69,8 @@ export interface UpdateStudentRequest {
 	medicalAlerts?: string | null;
 	emergencyContactName?: string | null;
 	emergencyContactPhone?: string | null;
+	/** Replaces the full set of stored values (#146) - omit a previously-set key to clear it. */
+	customFields?: Record<string, unknown> | null;
 }
 
 export function updateStudent(id: number, request: UpdateStudentRequest): Promise<StudentResponse> {

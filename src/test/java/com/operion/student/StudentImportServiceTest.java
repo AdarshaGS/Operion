@@ -10,6 +10,8 @@ import com.operion.audit.AuditLogService;
 import com.operion.common.JpaConfig;
 import com.operion.common.MultiTenancyConfig;
 import com.operion.common.TenantContext;
+import com.operion.customfield.CustomFieldDefinitionRepository;
+import com.operion.customfield.CustomFieldService;
 import com.operion.identity.PersonRepository;
 import com.operion.organisation.Organisation;
 import com.operion.organisation.OrganisationRepository;
@@ -41,12 +43,18 @@ class StudentImportServiceTest {
 
 	/** AuditLogService.class alone can't be @Imported directly - its ObjectMapper param
 	 * isn't autoconfigured under @DataJpaTest, same reason other tests in this codebase
-	 * construct it manually rather than relying on Spring for it. */
+	 * construct it manually rather than relying on Spring for it. StudentService now also
+	 * needs a CustomFieldService bean (#146) for the same reason. */
 	@TestConfiguration
 	static class AuditLogServiceTestConfig {
 		@Bean
 		AuditLogService auditLogService(AuditLogRepository auditLogRepository) {
 			return new AuditLogService(auditLogRepository, new ObjectMapper());
+		}
+
+		@Bean
+		CustomFieldService customFieldService(CustomFieldDefinitionRepository customFieldDefinitionRepository) {
+			return new CustomFieldService(customFieldDefinitionRepository, new ObjectMapper());
 		}
 	}
 
@@ -114,5 +122,24 @@ class StudentImportServiceTest {
 		assertThat(results.get(0).success()).isTrue();
 		assertThat(studentRepository.findAll()).singleElement().extracting(Student::getAdmissionNumber).satisfies(
 				admissionNumber -> assertThat((String) admissionNumber).startsWith("STU-2026-"));
+	}
+
+	/** #287 - a typo'd or missing required column is reported clearly up front instead of
+	 * every data row failing with the same generic "firstName is required" message. */
+	@Test
+	void reportsAClearErrorForMismatchedColumnsInsteadOfProcessingRows() {
+		Organisation organisation = organisationRepository.save(new Organisation("Test School", "Test Trust", "iso-test-import-cols"));
+		TenantContext.set(organisation.getId(), null);
+
+		String csv = String.join("\n", "First Name,lastName,admissionDate", "Asha,Rao,2026-06-01");
+
+		MockMultipartFile file = new MockMultipartFile("file", "students.csv", "text/csv", csv.getBytes(StandardCharsets.UTF_8));
+
+		List<StudentImportRowResult> results = studentImportService.importFile(file);
+
+		assertThat(results).hasSize(1);
+		assertThat(results.get(0).success()).isFalse();
+		assertThat(results.get(0).message()).contains("unrecognized column(s): First Name").contains("firstName");
+		assertThat(studentRepository.findAll()).isEmpty();
 	}
 }

@@ -15,6 +15,8 @@ import com.operion.academic.SchoolClassRepository;
 import com.operion.attendance.AttendanceService.StudentAttendanceMark;
 import com.operion.audit.AuditLogRepository;
 import com.operion.audit.AuditLogService;
+import com.operion.customfield.CustomFieldDefinitionRepository;
+import com.operion.customfield.CustomFieldService;
 import com.operion.common.JpaConfig;
 import com.operion.common.MultiTenancyConfig;
 import com.operion.common.TenantContext;
@@ -114,12 +116,16 @@ class StudentAttendanceLifecycleTest {
 	@Autowired
 	private AuditLogRepository auditLogRepository;
 
+	@Autowired
+	private CustomFieldDefinitionRepository customFieldDefinitionRepository;
+
 	@BeforeEach
 	void setUpAttendanceService() {
 		attendanceService = new AttendanceService(studentAttendanceRepository, classAttendanceRegisterRepository,
 				attendanceCorrectionRepository, staffAttendanceRepository, new AuditLogService(auditLogRepository, new ObjectMapper()));
 		studentService = new StudentService(studentRepository, studentEnrollmentRepository, studentDocumentRepository,
-			studentExitRepository, null, null, studentIdGenerator, new AuditLogService(auditLogRepository, new ObjectMapper()));
+			studentExitRepository, null, null, studentIdGenerator, new AuditLogService(auditLogRepository, new ObjectMapper()),
+			new CustomFieldService(customFieldDefinitionRepository, new ObjectMapper()));
 	}
 
 	@AfterEach

@@ -11,6 +11,7 @@ import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { getAcademicSetupStatus } from "../../api/academicSetupStatus";
+import { CustomFieldsFormSection } from "../../components/CustomFieldsFormSection";
 import { listAcademicYears, type AcademicYearResponse } from "../../api/academicYears";
 import { ApiError } from "../../api/client";
 import { createEnrollment } from "../../api/enrollments";
@@ -91,6 +92,7 @@ export function StudentCreatePage() {
 	const [academicYears, setAcademicYears] = useState<AcademicYearResponse[]>([]);
 	const [schoolClasses, setSchoolClasses] = useState<SchoolClassResponse[]>([]);
 	const [sections, setSections] = useState<SectionResponse[]>([]);
+	const [customFields, setCustomFields] = useState<Record<string, unknown>>({});
 
 	useEffect(() => {
 		getAcademicSetupStatus()
@@ -156,6 +158,7 @@ export function StudentCreatePage() {
 				medicalAlerts: form.medicalAlerts || null,
 				emergencyContactName: form.emergencyContactName || null,
 				emergencyContactPhone: form.emergencyContactPhone || null,
+				customFields,
 			});
 			await createEnrollment(student.id, {
 				academicYearId: Number(form.academicYearId),
@@ -336,6 +339,8 @@ export function StudentCreatePage() {
 							fullWidth
 						/>
 					</Box>
+
+					<CustomFieldsFormSection entityType="STUDENT" values={customFields} onChange={setCustomFields} />
 
 					<Box sx={{ display: "flex", gap: 2, justifyContent: "flex-end" }}>
 						<Button onClick={() => navigate("/students")}>Cancel</Button>

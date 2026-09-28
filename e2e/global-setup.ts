@@ -11,6 +11,7 @@ import type { FullConfig } from "@playwright/test";
 import {
 	admitStudent,
 	createAcademicYear,
+	markAcademicYearCurrent,
 	createGradeLevel,
 	createPerson,
 	createSchoolClass,
@@ -127,6 +128,9 @@ export default async function globalSetup(_config: FullConfig): Promise<void> {
 	const className = "E2E Grade 1";
 	const sectionName = "A";
 	const academicYear = await createAcademicYear(ownerToken, academicYearName, "2026-06-01", "2027-03-31");
+	// Required for AcademicSetupStatusController's `configured` check (existsByCurrentTrue())
+	// - without this, /students/new's prerequisite check blocks every student-admission spec.
+	await markAcademicYearCurrent(ownerToken, academicYear.id);
 	const gradeLevel = await createGradeLevel(ownerToken, "E2E Grade 1", 1, "PRIMARY");
 	const schoolClass = await createSchoolClass(ownerToken, academicYear.id, campusId, gradeLevel.id, className);
 	const section = await createSection(ownerToken, schoolClass.id, sectionName, 40, "Room 1");

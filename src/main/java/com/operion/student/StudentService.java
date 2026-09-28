@@ -3,9 +3,12 @@ package com.operion.student;
 import java.time.Instant;
 import java.time.LocalDate;
 
+import java.util.Map;
+
 import com.operion.academic.Section;
 import com.operion.audit.AuditLogService;
 import com.operion.common.TenantContext;
+import com.operion.customfield.CustomFieldService;
 import com.operion.identity.Person;
 import com.operion.organisation.AcademicYear;
 import com.operion.organisation.DocumentNumberFormatter;
@@ -32,12 +35,17 @@ public class StudentService {
 	private final OrganisationBrandingRepository organisationBrandingRepository;
 	private final StudentIdGenerator studentIdGenerator;
 	private final AuditLogService auditLogService;
+	private final CustomFieldService customFieldService;
+
+	/** entityType key this module registers its custom fields under - see
+	 * CustomFieldDefinition's class comment. */
+	private static final String CUSTOM_FIELD_ENTITY_TYPE = "STUDENT";
 
 	public StudentService(StudentRepository studentRepository, StudentEnrollmentRepository studentEnrollmentRepository,
 			StudentDocumentRepository studentDocumentRepository, StudentExitRepository studentExitRepository,
 			StudentAdmissionCounterRepository studentAdmissionCounterRepository,
 			OrganisationBrandingRepository organisationBrandingRepository, StudentIdGenerator studentIdGenerator,
-			AuditLogService auditLogService) {
+			AuditLogService auditLogService, CustomFieldService customFieldService) {
 		this.studentRepository = studentRepository;
 		this.studentEnrollmentRepository = studentEnrollmentRepository;
 		this.studentDocumentRepository = studentDocumentRepository;
@@ -46,6 +54,7 @@ public class StudentService {
 		this.organisationBrandingRepository = organisationBrandingRepository;
 		this.studentIdGenerator = studentIdGenerator;
 		this.auditLogService = auditLogService;
+		this.customFieldService = customFieldService;
 	}
 
 	/** {@code admissionNumber} is auto-generated from the org's configured format (#142) when null/blank;
@@ -56,22 +65,42 @@ public class StudentService {
 			String previousSchool, String tcNumber, Double entranceScore, String bloodGroup, String category,
 			String nationality, String remarks, String medicalAlerts, String emergencyContactName,
 			String emergencyContactPhone) {
+		return admit(person, admissionNumber, admissionDate, admissionSource, previousSchool, tcNumber, entranceScore,
+				bloodGroup, category, nationality, remarks, medicalAlerts, emergencyContactName, emergencyContactPhone, null);
+	}
+
+	@Transactional
+	public Student admit(Person person, String admissionNumber, LocalDate admissionDate, String admissionSource,
+			String previousSchool, String tcNumber, Double entranceScore, String bloodGroup, String category,
+			String nationality, String remarks, String medicalAlerts, String emergencyContactName,
+			String emergencyContactPhone, Map<String, Object> customFields) {
 		String resolvedAdmissionNumber =
 				admissionNumber != null && !admissionNumber.isBlank() ? admissionNumber : nextAdmissionNumber(admissionDate);
 		String studentId = studentIdGenerator.next(admissionDate);
+		String customFieldsJson = customFieldService.validateAndSerialize(CUSTOM_FIELD_ENTITY_TYPE, customFields);
 		Student student = studentRepository.save(new Student(person, studentId, resolvedAdmissionNumber, admissionDate,
 				admissionSource, previousSchool, tcNumber, entranceScore, bloodGroup, category, nationality, remarks,
-				medicalAlerts, emergencyContactName, emergencyContactPhone, null));
+				medicalAlerts, emergencyContactName, emergencyContactPhone, customFieldsJson));
 		auditLogService.record("Student", student.getId(), "STUDENT_ADMITTED", null, student.getStatus());
 		return student;
+	}
+
+	public Student update(Student student, String admissionSource, String previousSchool, String tcNumber,
+			Double entranceScore, String bloodGroup, String category, String nationality, String remarks,
+			String medicalAlerts, String emergencyContactName, String emergencyContactPhone) {
+		return update(student, admissionSource, previousSchool, tcNumber, entranceScore, bloodGroup, category,
+				nationality, remarks, medicalAlerts, emergencyContactName, emergencyContactPhone,
+				customFieldService.deserialize(student.getCustomFields()));
 	}
 
 	@Transactional
 	public Student update(Student student, String admissionSource, String previousSchool, String tcNumber,
 			Double entranceScore, String bloodGroup, String category, String nationality, String remarks,
-			String medicalAlerts, String emergencyContactName, String emergencyContactPhone) {
+			String medicalAlerts, String emergencyContactName, String emergencyContactPhone,
+			Map<String, Object> customFields) {
+		String customFieldsJson = customFieldService.validateAndSerialize(CUSTOM_FIELD_ENTITY_TYPE, customFields);
 		student.update(admissionSource, previousSchool, tcNumber, entranceScore, bloodGroup, category, nationality,
-				remarks, medicalAlerts, emergencyContactName, emergencyContactPhone, student.getCustomFields());
+				remarks, medicalAlerts, emergencyContactName, emergencyContactPhone, customFieldsJson);
 		Student saved = studentRepository.save(student);
 		auditLogService.record("Student", saved.getId(), "STUDENT_UPDATED", null, null);
 		return saved;

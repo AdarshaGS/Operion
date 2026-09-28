@@ -6,9 +6,12 @@ import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import com.operion.common.CsvUtil;
 import com.operion.student.api.StudentImportRowResult;
@@ -30,6 +33,16 @@ import org.springframework.web.multipart.MultipartFile;
  */
 @Service
 public class StudentImportService {
+
+	/** Mirrors STUDENT_IMPORT_TEMPLATE_HEADERS in web/src/api/students.ts and the fields
+	 * StudentRowImportService.importRow actually reads (#287) - kept here rather than
+	 * generalized into the shared ImportFileParser/ImportRowResult classes per the
+	 * decision to leave this importer's own parsing untouched. */
+	private static final Set<String> KNOWN_HEADERS = Set.of("firstName", "lastName", "dateOfBirth", "gender", "email", "phone",
+			"admissionNumber", "admissionDate", "admissionSource", "previousSchool", "tcNumber", "entranceScore", "bloodGroup",
+			"category", "nationality", "remarks");
+
+	private static final Set<String> REQUIRED_HEADERS = Set.of("firstName", "admissionDate");
 
 	private final StudentRowImportService rowImportService;
 
@@ -53,12 +66,21 @@ public class StudentImportService {
 		throw new IllegalArgumentException("Unsupported file type '" + filename + "' - upload a .csv or .xlsx file");
 	}
 
+	/** Validates headers once, up front, rather than letting every data row fail with
+	 * the same generic "X is required" message when the real problem is a typo'd or
+	 * missing column (#287). Reported as a single row-1 result so it renders through
+	 * the same per-row result list the import dialog already displays. */
 	private List<StudentImportRowResult> importRows(List<List<String>> rows) {
 		List<StudentImportRowResult> results = new ArrayList<>();
 		if (rows.isEmpty()) {
 			return results;
 		}
 		List<String> headers = rows.get(0);
+		String headerError = validateHeaders(headers);
+		if (headerError != null) {
+			results.add(new StudentImportRowResult(1, false, headerError, null));
+			return results;
+		}
 		for (int i = 1; i < rows.size(); i++) {
 			List<String> values = rows.get(i);
 			if (values.stream().allMatch(String::isBlank)) {
@@ -117,5 +139,28 @@ public class StudentImportService {
 			row.put(headers.get(i).trim(), values.get(i));
 		}
 		return row;
+	}
+
+	private static String validateHeaders(List<String> headers) {
+		Set<String> trimmedHeaders = headers.stream().map(String::trim).collect(Collectors.toCollection(LinkedHashSet::new));
+
+		Set<String> unrecognized = trimmedHeaders.stream().filter(h -> !KNOWN_HEADERS.contains(h)).collect(Collectors.toCollection(LinkedHashSet::new));
+		Set<String> missingRequired = REQUIRED_HEADERS.stream().filter(h -> !trimmedHeaders.contains(h)).collect(Collectors.toCollection(LinkedHashSet::new));
+
+		if (missingRequired.isEmpty() && unrecognized.isEmpty()) {
+			return null;
+		}
+		StringBuilder message = new StringBuilder("Column mismatch - ");
+		if (!missingRequired.isEmpty()) {
+			message.append("missing required column(s): ").append(String.join(", ", missingRequired));
+		}
+		if (!unrecognized.isEmpty()) {
+			if (!missingRequired.isEmpty()) {
+				message.append("; ");
+			}
+			message.append("unrecognized column(s): ").append(String.join(", ", unrecognized));
+		}
+		message.append(". Expected columns: ").append(String.join(", ", KNOWN_HEADERS));
+		return message.toString();
 	}
 }

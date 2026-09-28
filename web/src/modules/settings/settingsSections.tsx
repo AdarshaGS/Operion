@@ -6,6 +6,7 @@ import CableIcon from "@mui/icons-material/Cable";
 import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
 import CreditCardIcon from "@mui/icons-material/CreditCard";
 import DescriptionIcon from "@mui/icons-material/Description";
+import DynamicFormIcon from "@mui/icons-material/DynamicForm";
 import EventNoteIcon from "@mui/icons-material/EventNote";
 import GroupIcon from "@mui/icons-material/Group";
 import HistoryIcon from "@mui/icons-material/History";
@@ -21,6 +22,7 @@ import { AcademicYearsPanel } from "./AcademicYearsPanel";
 import { AuditLogsPanel } from "./AuditLogsPanel";
 import { BusinessSettingsPanel } from "./BusinessSettingsPanel";
 import { CampusesPanel } from "./CampusesPanel";
+import { CustomFieldsPanel } from "./CustomFieldsPanel";
 import { DepartmentsPanel } from "./DepartmentsPanel";
 import { DesignationsPanel } from "./DesignationsPanel";
 import { SchoolTemplatePanel } from "./SchoolTemplatePanel";
@@ -183,6 +185,13 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
 				description: "Message templates - channel credentials and who may send live under Integrations & Roles",
 				icon: <NotificationsIcon />,
 				panel: <NotificationSettingsPanel />,
+			},
+			{
+				key: "custom-fields",
+				label: "Custom fields",
+				description: "Add your own extra fields to records like Student, without a code change",
+				icon: <DynamicFormIcon />,
+				panel: <CustomFieldsPanel />,
 			},
 		],
 	},

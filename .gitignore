@@ -48,3 +48,5 @@ graphify-out/
 /node_modules/
 /e2e/node_modules/
 /test-results/
+/.mcp
+/tools

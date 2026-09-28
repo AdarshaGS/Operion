@@ -14,6 +14,8 @@ import com.operion.common.TenantContext;
 import com.operion.common.imports.ImportRowResult;
 import com.operion.common.imports.ImportRowStatus;
 import com.operion.common.imports.ImportRunService;
+import com.operion.customfield.CustomFieldDefinitionRepository;
+import com.operion.customfield.CustomFieldService;
 import com.operion.identity.Person;
 import com.operion.identity.PersonRepository;
 import com.operion.organisation.AcademicYear;
@@ -59,6 +61,11 @@ class StudentEnrolmentImportServiceTest {
 		@Bean
 		AuditLogService auditLogService(AuditLogRepository auditLogRepository) {
 			return new AuditLogService(auditLogRepository, new ObjectMapper());
+		}
+
+		@Bean
+		CustomFieldService customFieldService(CustomFieldDefinitionRepository customFieldDefinitionRepository) {
+			return new CustomFieldService(customFieldDefinitionRepository, new ObjectMapper());
 		}
 	}
 

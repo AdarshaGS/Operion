@@ -7,6 +7,7 @@ import java.util.stream.Collectors;
 
 import com.operion.authorization.RequirePermission;
 import com.operion.common.api.PageResponse;
+import com.operion.customfield.CustomFieldService;
 import com.operion.identity.Person;
 import com.operion.identity.PersonRepository;
 import com.operion.parent.StudentGuardian;
@@ -46,16 +47,19 @@ public class StudentController {
 	private final StudentImportService studentImportService;
 	private final StudentEnrollmentRepository studentEnrollmentRepository;
 	private final StudentGuardianRepository studentGuardianRepository;
+	private final CustomFieldService customFieldService;
 
 	public StudentController(StudentService studentService, StudentRepository studentRepository,
 			PersonRepository personRepository, StudentImportService studentImportService,
-			StudentEnrollmentRepository studentEnrollmentRepository, StudentGuardianRepository studentGuardianRepository) {
+			StudentEnrollmentRepository studentEnrollmentRepository, StudentGuardianRepository studentGuardianRepository,
+			CustomFieldService customFieldService) {
 		this.studentService = studentService;
 		this.studentRepository = studentRepository;
 		this.personRepository = personRepository;
 		this.studentImportService = studentImportService;
 		this.studentEnrollmentRepository = studentEnrollmentRepository;
 		this.studentGuardianRepository = studentGuardianRepository;
+		this.customFieldService = customFieldService;
 	}
 
 	@PostMapping
@@ -67,8 +71,9 @@ public class StudentController {
 		Student student = studentService.admit(person, request.admissionNumber(), request.admissionDate(),
 				request.admissionSource(), request.previousSchool(), request.tcNumber(), request.entranceScore(),
 				request.bloodGroup(), request.category(), request.nationality(), request.remarks(),
-				request.medicalAlerts(), request.emergencyContactName(), request.emergencyContactPhone());
-		return StudentResponse.from(student);
+				request.medicalAlerts(), request.emergencyContactName(), request.emergencyContactPhone(),
+				request.customFields());
+		return StudentResponse.from(student, customFieldService);
 	}
 
 	@GetMapping
@@ -110,7 +115,7 @@ public class StudentController {
 	public StudentResponse get(@PathVariable Long studentId) {
 		Student student = studentRepository.findById(studentId)
 				.orElseThrow(() -> new IllegalArgumentException("No student with id " + studentId));
-		return StudentResponse.from(student);
+		return StudentResponse.from(student, customFieldService);
 	}
 
 	@PatchMapping("/{studentId}")
@@ -121,8 +126,8 @@ public class StudentController {
 		Student updated = studentService.update(student, request.admissionSource(), request.previousSchool(),
 				request.tcNumber(), request.entranceScore(), request.bloodGroup(), request.category(),
 				request.nationality(), request.remarks(), request.medicalAlerts(), request.emergencyContactName(),
-				request.emergencyContactPhone());
-		return StudentResponse.from(updated);
+				request.emergencyContactPhone(), request.customFields());
+		return StudentResponse.from(updated, customFieldService);
 	}
 
 	/** Bulk admission from a .csv or .xlsx upload (#28, #287) - reuses the same

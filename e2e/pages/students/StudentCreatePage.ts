@@ -14,8 +14,11 @@ export class StudentCreatePage {
 	constructor(private readonly page: Page) {}
 
 	async fill(input: NewStudentInput) {
-		await this.page.getByLabel("First name").fill(input.firstName);
-		await this.page.getByLabel("Last name").fill(input.lastName);
+		// exact: true - the real form also has "Guardian first/last name" fields, whose
+		// accessible names otherwise substring-match "First/Last name" under Playwright's
+		// default (non-exact) getByLabel matching.
+		await this.page.getByLabel("First name", { exact: true }).fill(input.firstName);
+		await this.page.getByLabel("Last name", { exact: true }).fill(input.lastName);
 		if (input.dateOfBirth) await this.page.getByLabel("Date of birth").fill(input.dateOfBirth);
 		if (input.gender) await this.page.getByLabel("Gender").fill(input.gender);
 		await this.page.getByLabel("Admission number").fill(input.admissionNumber);

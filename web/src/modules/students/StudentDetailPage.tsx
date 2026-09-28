@@ -30,6 +30,7 @@ import { listSchoolClasses, type SchoolClassResponse } from "../../api/schoolCla
 import { listSections, type SectionResponse } from "../../api/sections";
 import { getStudent, updateStudent, type StudentResponse } from "../../api/students";
 import { resolveAssetUrl, uploadAsset } from "../../api/assets";
+import { CustomFieldsDisplay, CustomFieldsFormSection } from "../../components/CustomFieldsFormSection";
 import { BorrowerLoanHistoryPanel } from "../library/BorrowerLoanHistoryPanel";
 import { StudentAttendanceSummaryPanel } from "./StudentAttendanceSummaryPanel";
 import { StudentDocumentsPanel } from "./StudentDocumentsPanel";
@@ -202,6 +203,7 @@ function EditStudentDialog({ open, onClose, onSaved, student, person }: EditStud
 	const [medicalAlerts, setMedicalAlerts] = useState(student.medicalAlerts ?? "");
 	const [emergencyContactName, setEmergencyContactName] = useState(student.emergencyContactName ?? "");
 	const [emergencyContactPhone, setEmergencyContactPhone] = useState(student.emergencyContactPhone ?? "");
+	const [customFields, setCustomFields] = useState<Record<string, unknown>>(student.customFields ?? {});
 
 	const [error, setError] = useState<string | null>(null);
 	const [submitting, setSubmitting] = useState(false);
@@ -223,6 +225,7 @@ function EditStudentDialog({ open, onClose, onSaved, student, person }: EditStud
 		setMedicalAlerts(student.medicalAlerts ?? "");
 		setEmergencyContactName(student.emergencyContactName ?? "");
 		setEmergencyContactPhone(student.emergencyContactPhone ?? "");
+		setCustomFields(student.customFields ?? {});
 		setError(null);
 	}, [open, person, student]);
 
@@ -253,6 +256,7 @@ function EditStudentDialog({ open, onClose, onSaved, student, person }: EditStud
 					medicalAlerts: medicalAlerts || null,
 					emergencyContactName: emergencyContactName || null,
 					emergencyContactPhone: emergencyContactPhone || null,
+					customFields,
 				}),
 			]);
 			onSaved();
@@ -345,6 +349,8 @@ function EditStudentDialog({ open, onClose, onSaved, student, person }: EditStud
 							/>
 						</Grid>
 					</Grid>
+
+					<CustomFieldsFormSection entityType="STUDENT" values={customFields} onChange={setCustomFields} />
 				</Stack>
 			</DialogContent>
 			<DialogActions>
@@ -537,6 +543,7 @@ export function StudentDetailPage() {
 						<Grid size={4}>
 							<Field label="Emergency contact phone" value={student.emergencyContactPhone} />
 						</Grid>
+						<CustomFieldsDisplay entityType="STUDENT" values={student.customFields} />
 					</Grid>
 				</Stack>
 			</Paper>

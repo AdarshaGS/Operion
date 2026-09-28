@@ -17,6 +17,8 @@ import com.operion.academic.Subject;
 import com.operion.academic.SubjectRepository;
 import com.operion.audit.AuditLogRepository;
 import com.operion.audit.AuditLogService;
+import com.operion.customfield.CustomFieldDefinitionRepository;
+import com.operion.customfield.CustomFieldService;
 import com.operion.common.JpaConfig;
 import com.operion.common.MultiTenancyConfig;
 import com.operion.common.TenantContext;
@@ -114,6 +116,9 @@ class ReportCardTest {
 	private AuditLogRepository auditLogRepository;
 
 	@Autowired
+	private CustomFieldDefinitionRepository customFieldDefinitionRepository;
+
+	@Autowired
 	private StudentRepository studentRepository;
 
 	@Autowired
@@ -134,7 +139,8 @@ class ReportCardTest {
 				gradingScaleBandRepository, marksEntryRepository, marksEntryRegisterRepository, reportCardRepository,
 				examinationSettingsRepository, new AuditLogService(auditLogRepository, new ObjectMapper()));
 		studentService = new StudentService(studentRepository, studentEnrollmentRepository, studentDocumentRepository,
-			studentExitRepository, null, null, studentIdGenerator, new AuditLogService(auditLogRepository, new ObjectMapper()));
+			studentExitRepository, null, null, studentIdGenerator, new AuditLogService(auditLogRepository, new ObjectMapper()),
+			new CustomFieldService(customFieldDefinitionRepository, new ObjectMapper()));
 	}
 
 	@AfterEach

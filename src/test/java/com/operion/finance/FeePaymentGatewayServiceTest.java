@@ -30,6 +30,8 @@ import com.operion.organisation.Organisation;
 import com.operion.organisation.OrganisationRepository;
 import com.operion.audit.AuditLogRepository;
 import com.operion.audit.AuditLogService;
+import com.operion.customfield.CustomFieldDefinitionRepository;
+import com.operion.customfield.CustomFieldService;
 import com.operion.student.Student;
 import com.operion.student.StudentDocumentRepository;
 import com.operion.student.StudentEnrollment;
@@ -115,12 +117,16 @@ class FeePaymentGatewayServiceTest {
 	@Autowired
 	private AuditLogRepository auditLogRepository;
 
+	@Autowired
+	private CustomFieldDefinitionRepository customFieldDefinitionRepository;
+
 	private final StubRazorpayGateway gateway = new StubRazorpayGateway();
 
 	@BeforeEach
 	void setUpStudentService() {
 		studentService = new StudentService(studentRepository, studentEnrollmentRepository, studentDocumentRepository,
-			studentExitRepository, null, null, studentIdGenerator, new AuditLogService(auditLogRepository, new ObjectMapper()));
+			studentExitRepository, null, null, studentIdGenerator, new AuditLogService(auditLogRepository, new ObjectMapper()),
+			new CustomFieldService(customFieldDefinitionRepository, new ObjectMapper()));
 	}
 
 	private FeePaymentGatewayService gatewayService() {

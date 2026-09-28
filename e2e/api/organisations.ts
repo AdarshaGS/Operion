@@ -57,6 +57,13 @@ export function createAcademicYear(token: string, name: string, startDate: strin
 	return api.post<AcademicYearResponse>("/api/v1/academic-years", { name, startDate, endDate }, token);
 }
 
+/** AcademicYear starts DRAFT/not-current (see its own constructor) - AcademicSetupStatusController's
+ * `configured` requires existsByCurrentTrue(), so global-setup must call this or every
+ * student-admission flow's prerequisite check blocks it. */
+export function markAcademicYearCurrent(token: string, id: number) {
+	return api.post<AcademicYearResponse>(`/api/v1/academic-years/${id}/mark-current`, undefined, token);
+}
+
 export interface GradeLevelResponse {
 	id: number;
 	name: string;
