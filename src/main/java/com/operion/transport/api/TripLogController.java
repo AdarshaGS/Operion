@@ -6,8 +6,13 @@ import java.util.List;
 import com.operion.authorization.RequirePermission;
 import com.operion.identity.Person;
 import com.operion.identity.PersonRepository;
+import com.operion.student.StudentEnrollment;
+import com.operion.student.StudentEnrollmentRepository;
+import com.operion.transport.BoardingStatus;
 import com.operion.transport.Route;
 import com.operion.transport.RouteRepository;
+import com.operion.transport.StudentTripAttendanceRepository;
+import com.operion.transport.TransportService.BoardingMark;
 import com.operion.transport.TripLog;
 import com.operion.transport.TripLogRepository;
 import com.operion.transport.TripType;
@@ -32,14 +37,19 @@ public class TripLogController {
 	private final RouteRepository routeRepository;
 	private final VehicleRepository vehicleRepository;
 	private final PersonRepository personRepository;
+	private final StudentEnrollmentRepository studentEnrollmentRepository;
+	private final StudentTripAttendanceRepository studentTripAttendanceRepository;
 
 	public TripLogController(TransportService transportService, TripLogRepository tripLogRepository, RouteRepository routeRepository,
-			VehicleRepository vehicleRepository, PersonRepository personRepository) {
+			VehicleRepository vehicleRepository, PersonRepository personRepository, StudentEnrollmentRepository studentEnrollmentRepository,
+			StudentTripAttendanceRepository studentTripAttendanceRepository) {
 		this.transportService = transportService;
 		this.tripLogRepository = tripLogRepository;
 		this.routeRepository = routeRepository;
 		this.vehicleRepository = vehicleRepository;
 		this.personRepository = personRepository;
+		this.studentEnrollmentRepository = studentEnrollmentRepository;
+		this.studentTripAttendanceRepository = studentTripAttendanceRepository;
 	}
 
 	@PostMapping
@@ -76,6 +86,27 @@ public class TripLogController {
 	@RequirePermission("TRANSPORT_TRIP_LOG")
 	public TripLogResponse cancel(@PathVariable Long id, @RequestBody TripRemarksRequest request) {
 		return TripLogResponse.from(transportService.cancelTrip(findTripLog(id), request.remarks()));
+	}
+
+	@PostMapping("/{id}/boarding")
+	@RequirePermission("TRANSPORT_TRIP_LOG")
+	public List<StudentTripAttendanceResponse> markBoarding(@PathVariable Long id, @RequestBody MarkBoardingRequest request) {
+		TripLog tripLog = findTripLog(id);
+		List<BoardingMark> marks = request.marks().stream()
+				.map(entry -> new BoardingMark(findEnrollment(entry.studentEnrollmentId()),
+						BoardingStatus.valueOf(entry.boardingStatus()), entry.remarks()))
+				.toList();
+		return transportService.markBoarding(tripLog, marks).stream().map(StudentTripAttendanceResponse::from).toList();
+	}
+
+	@GetMapping("/{id}/boarding")
+	public List<StudentTripAttendanceResponse> boarding(@PathVariable Long id) {
+		return studentTripAttendanceRepository.findByTripLogId(id).stream().map(StudentTripAttendanceResponse::from).toList();
+	}
+
+	private StudentEnrollment findEnrollment(Long id) {
+		return studentEnrollmentRepository.findById(id)
+				.orElseThrow(() -> new IllegalArgumentException("No student enrollment with id " + id));
 	}
 
 	private TripLog findTripLog(Long id) {

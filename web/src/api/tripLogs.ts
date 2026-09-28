@@ -40,3 +40,27 @@ export function completeTrip(id: number, remarks: string): Promise<TripLogRespon
 export function cancelTrip(id: number, remarks: string): Promise<TripLogResponse> {
 	return api.post<TripLogResponse>(`/api/v1/transport/trip-logs/${id}/cancel`, { remarks });
 }
+
+export interface BoardingMarkEntry {
+	studentEnrollmentId: number;
+	boardingStatus: string;
+	remarks?: string | null;
+}
+
+export interface StudentTripAttendanceResponse {
+	id: number;
+	tripLogId: number;
+	studentEnrollmentId: number;
+	studentName: string;
+	admissionNumber: string;
+	boardingStatus: string;
+	remarks: string | null;
+}
+
+export function markBoarding(tripLogId: number, marks: BoardingMarkEntry[]): Promise<StudentTripAttendanceResponse[]> {
+	return api.post<StudentTripAttendanceResponse[]>(`/api/v1/transport/trip-logs/${tripLogId}/boarding`, { marks });
+}
+
+export function listBoarding(tripLogId: number): Promise<StudentTripAttendanceResponse[]> {
+	return api.get<StudentTripAttendanceResponse[]>(`/api/v1/transport/trip-logs/${tripLogId}/boarding`);
+}

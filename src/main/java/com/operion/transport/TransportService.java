@@ -2,6 +2,7 @@ package com.operion.transport;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.List;
 
 import com.operion.finance.FeeService;
@@ -30,17 +31,20 @@ public class TransportService {
 	private final RouteStopRepository routeStopRepository;
 	private final StudentTransportAssignmentRepository studentTransportAssignmentRepository;
 	private final TripLogRepository tripLogRepository;
+	private final StudentTripAttendanceRepository studentTripAttendanceRepository;
 	private final FeeService feeService;
 	private final TransportNotificationService transportNotificationService;
 
 	public TransportService(VehicleRepository vehicleRepository, RouteRepository routeRepository,
 			RouteStopRepository routeStopRepository, StudentTransportAssignmentRepository studentTransportAssignmentRepository,
-			TripLogRepository tripLogRepository, FeeService feeService, TransportNotificationService transportNotificationService) {
+			TripLogRepository tripLogRepository, StudentTripAttendanceRepository studentTripAttendanceRepository,
+			FeeService feeService, TransportNotificationService transportNotificationService) {
 		this.vehicleRepository = vehicleRepository;
 		this.routeRepository = routeRepository;
 		this.routeStopRepository = routeStopRepository;
 		this.studentTransportAssignmentRepository = studentTransportAssignmentRepository;
 		this.tripLogRepository = tripLogRepository;
+		this.studentTripAttendanceRepository = studentTripAttendanceRepository;
 		this.feeService = feeService;
 		this.transportNotificationService = transportNotificationService;
 	}
@@ -150,6 +154,29 @@ public class TransportService {
 	public TripLog completeTrip(TripLog tripLog, String remarks) {
 		tripLog.complete(remarks);
 		return tripLogRepository.save(tripLog);
+	}
+
+	/**
+	 * Inserts one boarding row per mark - rejects a student who already has a boarding
+	 * row for this trip; use a fresh call with the corrected status rather than a second
+	 * insert, same precedent as StudentAttendance/AttendanceService.markDailyAttendance.
+	 */
+	@Transactional
+	public List<StudentTripAttendance> markBoarding(TripLog tripLog, List<BoardingMark> marks) {
+		List<StudentTripAttendance> result = new ArrayList<>();
+		for (BoardingMark mark : marks) {
+			studentTripAttendanceRepository.findByTripLogIdAndStudentEnrollmentId(tripLog.getId(), mark.studentEnrollment().getId())
+					.ifPresent(existing -> {
+						throw new IllegalStateException("Student enrollment " + mark.studentEnrollment().getId()
+								+ " already has boarding marked for trip " + tripLog.getId());
+					});
+			result.add(studentTripAttendanceRepository.save(
+					new StudentTripAttendance(tripLog, mark.studentEnrollment(), mark.status(), mark.remarks())));
+		}
+		return result;
+	}
+
+	public record BoardingMark(StudentEnrollment studentEnrollment, BoardingStatus status, String remarks) {
 	}
 
 	public TripLog cancelTrip(TripLog tripLog, String remarks) {

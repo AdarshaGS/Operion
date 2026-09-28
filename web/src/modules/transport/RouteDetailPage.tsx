@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
+import Checkbox from "@mui/material/Checkbox";
 import Chip from "@mui/material/Chip";
 import CircularProgress from "@mui/material/CircularProgress";
 import Dialog from "@mui/material/Dialog";
@@ -25,7 +26,17 @@ import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { ApiError } from "../../api/client";
 import { addRouteStop, listRoutes, listRouteStops, type RouteResponse, type RouteStopResponse } from "../../api/transportRoutes";
 import { listRouteRoster, type RouteRosterEntryResponse } from "../../api/transportAssignments";
-import { cancelTrip, completeTrip, listTripLogs, scheduleTrip, startTrip, type TripLogResponse } from "../../api/tripLogs";
+import {
+	cancelTrip,
+	completeTrip,
+	listBoarding,
+	listTripLogs,
+	markBoarding,
+	scheduleTrip,
+	startTrip,
+	type StudentTripAttendanceResponse,
+	type TripLogResponse,
+} from "../../api/tripLogs";
 import { listVehicles, type VehicleResponse } from "../../api/vehicles";
 
 const TRIP_TYPES = ["PICKUP", "DROP"];
@@ -60,6 +71,11 @@ export function RouteDetailPage() {
 	const [tripType, setTripType] = useState("PICKUP");
 
 	const [submitting, setSubmitting] = useState(false);
+
+	const [boardingDialogOpen, setBoardingDialogOpen] = useState(false);
+	const [boardingTripId, setBoardingTripId] = useState<number | null>(null);
+	const [boardingExisting, setBoardingExisting] = useState<StudentTripAttendanceResponse[]>([]);
+	const [boardingMarks, setBoardingMarks] = useState<Record<number, boolean>>({});
 
 	useEffect(() => {
 		if (!routeId) return;
@@ -165,6 +181,41 @@ export function RouteDetailPage() {
 			refreshTrips();
 		} catch (err) {
 			setError(err instanceof ApiError ? err.message : "Failed to cancel trip");
+		}
+	}
+
+	async function openBoardingDialog(tripId: number) {
+		setBoardingTripId(tripId);
+		setBoardingDialogOpen(true);
+		try {
+			const existing = await listBoarding(tripId);
+			setBoardingExisting(existing);
+			const defaults: Record<number, boolean> = {};
+			roster.forEach((entry) => {
+				defaults[entry.studentEnrollmentId] = true;
+			});
+			setBoardingMarks(defaults);
+		} catch (err) {
+			setError(err instanceof ApiError ? err.message : "Failed to load boarding");
+		}
+	}
+
+	async function handleSubmitBoarding() {
+		if (!boardingTripId) return;
+		setSubmitting(true);
+		try {
+			await markBoarding(
+				boardingTripId,
+				roster.map((entry) => ({
+					studentEnrollmentId: entry.studentEnrollmentId,
+					boardingStatus: boardingMarks[entry.studentEnrollmentId] ? "BOARDED" : "NOT_BOARDED",
+				})),
+			);
+			setBoardingDialogOpen(false);
+		} catch (err) {
+			setError(err instanceof ApiError ? err.message : "Failed to mark boarding");
+		} finally {
+			setSubmitting(false);
 		}
 	}
 
@@ -330,6 +381,11 @@ export function RouteDetailPage() {
 														Complete
 													</Button>
 												)}
+												{(trip.status === "IN_PROGRESS" || trip.status === "COMPLETED") && (
+													<Button size="small" onClick={() => openBoardingDialog(trip.id)}>
+														Boarding
+													</Button>
+												)}
 											</TableCell>
 										</TableRow>
 									))}
@@ -406,6 +462,61 @@ export function RouteDetailPage() {
 					<Button type="submit" variant="contained" disabled={submitting || !tripVehicleId}>
 						Schedule
 					</Button>
+				</DialogActions>
+			</Dialog>
+
+			<Dialog open={boardingDialogOpen} onClose={() => setBoardingDialogOpen(false)} fullWidth maxWidth="xs">
+				<DialogTitle>Mark boarding</DialogTitle>
+				<DialogContent>
+					{boardingExisting.length > 0 ? (
+						<TableContainer sx={{ mt: 1 }}>
+							<Table size="small">
+								<TableHead>
+									<TableRow>
+										<TableCell>Student</TableCell>
+										<TableCell>Status</TableCell>
+									</TableRow>
+								</TableHead>
+								<TableBody>
+									{boardingExisting.map((entry) => (
+										<TableRow key={entry.id}>
+											<TableCell>{entry.studentName}</TableCell>
+											<TableCell>
+												<Chip
+													label={entry.boardingStatus === "BOARDED" ? "Boarded" : "Not boarded"}
+													size="small"
+													color={entry.boardingStatus === "BOARDED" ? "success" : "default"}
+												/>
+											</TableCell>
+										</TableRow>
+									))}
+								</TableBody>
+							</Table>
+						</TableContainer>
+					) : (
+						<Stack spacing={1} sx={{ mt: 1 }}>
+							{roster.length === 0 && <Alert severity="info">No students assigned to this route.</Alert>}
+							{roster.map((entry) => (
+								<Box key={entry.assignmentId} sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+									<Checkbox
+										checked={boardingMarks[entry.studentEnrollmentId] ?? true}
+										onChange={(e) =>
+											setBoardingMarks((prev) => ({ ...prev, [entry.studentEnrollmentId]: e.target.checked }))
+										}
+									/>
+									<Typography variant="body2">{entry.studentName}</Typography>
+								</Box>
+							))}
+						</Stack>
+					)}
+				</DialogContent>
+				<DialogActions>
+					<Button onClick={() => setBoardingDialogOpen(false)}>{boardingExisting.length > 0 ? "Close" : "Cancel"}</Button>
+					{boardingExisting.length === 0 && (
+						<Button variant="contained" onClick={handleSubmitBoarding} disabled={submitting || roster.length === 0}>
+							Save
+						</Button>
+					)}
 				</DialogActions>
 			</Dialog>
 		</Stack>

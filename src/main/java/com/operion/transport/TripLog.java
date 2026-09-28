@@ -17,12 +17,12 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 /**
- * A trip actually run on a route - header-only for v1 (no per-student boarding record;
- * that's a StudentTripAttendance seam deferred to v2, same split as
- * ClassAttendanceRegister/StudentAttendance, per the design sign-off). vehicle and
- * driver are snapshotted at creation, not read live off Route/Vehicle, since the
- * covering vehicle/driver on a given day may differ from the route's current default
- * (substitute driver, breakdown cover).
+ * A trip actually run on a route. Per-student boarding is a separate
+ * StudentTripAttendance row keyed on (this trip, studentEnrollment) - same split as
+ * ClassAttendanceRegister/StudentAttendance - marked via TransportService.markBoarding
+ * (#158). vehicle and driver are snapshotted at creation, not read live off
+ * Route/Vehicle, since the covering vehicle/driver on a given day may differ from the
+ * route's current default (substitute driver, breakdown cover).
  */
 @Getter
 @Entity
