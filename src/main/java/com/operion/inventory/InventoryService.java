@@ -29,16 +29,19 @@ public class InventoryService {
 	private final StockIssueRepository stockIssueRepository;
 	private final StockAdjustmentRepository stockAdjustmentRepository;
 	private final StockTransferRepository stockTransferRepository;
+	private final AssetRepository assetRepository;
 
 	public InventoryService(ItemCategoryRepository itemCategoryRepository, ItemRepository itemRepository,
 			StockEntryRepository stockEntryRepository, StockIssueRepository stockIssueRepository,
-			StockAdjustmentRepository stockAdjustmentRepository, StockTransferRepository stockTransferRepository) {
+			StockAdjustmentRepository stockAdjustmentRepository, StockTransferRepository stockTransferRepository,
+			AssetRepository assetRepository) {
 		this.itemCategoryRepository = itemCategoryRepository;
 		this.itemRepository = itemRepository;
 		this.stockEntryRepository = stockEntryRepository;
 		this.stockIssueRepository = stockIssueRepository;
 		this.stockAdjustmentRepository = stockAdjustmentRepository;
 		this.stockTransferRepository = stockTransferRepository;
+		this.assetRepository = assetRepository;
 	}
 
 	public ItemCategory createCategory(String code, String name, String description) {
@@ -177,5 +180,20 @@ public class InventoryService {
 		recordAdjustment(item, toCampus, quantity, StockAdjustmentReason.TRANSFER_IN, transferDate,
 				"Transfer from campus " + fromCampus.getId() + detail);
 		return stockTransferRepository.save(new StockTransfer(item, fromCampus, toCampus, quantity, transferDate, remarks));
+	}
+
+	public Asset createAsset(Item item, Campus campus, String assetTag, LocalDate purchaseDate, LocalDate warrantyExpiryDate) {
+		return assetRepository.save(new Asset(item, campus, assetTag, purchaseDate, warrantyExpiryDate));
+	}
+
+	public Asset changeAssetStatus(Asset asset, AssetStatus status) {
+		asset.changeStatus(status);
+		return assetRepository.save(asset);
+	}
+
+	public Asset assignAsset(Asset asset, Person assignedPerson, String assignedLocation) {
+		asset.setAssignedPerson(assignedPerson);
+		asset.setAssignedLocation(assignedLocation);
+		return assetRepository.save(asset);
 	}
 }

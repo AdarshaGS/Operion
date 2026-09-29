@@ -1,4 +1,5 @@
 import Stack from "@mui/material/Stack";
+import { AssetsPanel } from "./AssetsPanel";
 import { CustomersPanel } from "./CustomersPanel";
 import { ItemCategoriesPanel } from "./ItemCategoriesPanel";
 import { ItemsPanel } from "./ItemsPanel";
@@ -9,6 +10,7 @@ export function InventoryPage() {
 		<Stack spacing={3}>
 			<ItemCategoriesPanel />
 			<ItemsPanel />
+			<AssetsPanel />
 			<SuppliersPanel />
 			<CustomersPanel />
 		</Stack>

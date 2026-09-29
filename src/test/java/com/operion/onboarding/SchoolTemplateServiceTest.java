@@ -49,6 +49,7 @@ import com.operion.inventory.ItemRepository;
 import com.operion.inventory.StockAdjustmentRepository;
 import com.operion.inventory.StockEntryRepository;
 import com.operion.inventory.StockIssueRepository;
+import com.operion.inventory.AssetRepository;
 import com.operion.inventory.StockTransferRepository;
 import com.operion.organisation.Department;
 import com.operion.organisation.DepartmentRepository;
@@ -135,6 +136,8 @@ class SchoolTemplateServiceTest {
 	@Autowired
 	private StockTransferRepository stockTransferRepository;
 	@Autowired
+	private AssetRepository assetRepository;
+	@Autowired
 	private ExamRepository examRepository;
 	@Autowired
 	private ExamScheduleRepository examScheduleRepository;
@@ -172,7 +175,7 @@ class SchoolTemplateServiceTest {
 				paymentAllocationRepository, refundRepository, adjustmentRepository, waiverRepository, feeDocumentCounterRepository,
 				organisationBrandingRepository);
 		InventoryService inventoryService = new InventoryService(itemCategoryRepository, itemRepository, stockEntryRepository,
-				stockIssueRepository, stockAdjustmentRepository, stockTransferRepository);
+				stockIssueRepository, stockAdjustmentRepository, stockTransferRepository, assetRepository);
 		ExaminationService examinationService = new ExaminationService(examRepository, examScheduleRepository, gradingScaleRepository,
 				gradingScaleBandRepository, marksEntryRepository, marksEntryRegisterRepository, reportCardRepository,
 				examinationSettingsRepository, auditLogService);
