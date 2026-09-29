@@ -81,6 +81,31 @@ class RoleServiceTest {
 	}
 
 	@Test
+	void createDefaultsToNonPortalWhenFlagOmitted() {
+		Role role = roleService.create("Custom Role", "a custom role", Set.of());
+		assertThat(role.isPortal()).isFalse();
+	}
+
+	@Test
+	void createCanMarkARoleAsPortal() {
+		Role role = roleService.create("Guardian-like Role", "a portal role", Set.of(), true);
+		assertThat(role.isPortal()).isTrue();
+	}
+
+	@Test
+	void updatePortalFlagTogglesAndPersists() {
+		Long roleId = roleRepository.save(new Role("Front Desk", "desk", false)).getId();
+
+		Role updated = roleService.updatePortalFlag(roleId, true);
+		assertThat(updated.isPortal()).isTrue();
+		assertThat(roleRepository.findById(roleId).orElseThrow().isPortal()).isTrue();
+
+		Role reverted = roleService.updatePortalFlag(roleId, false);
+		assertThat(reverted.isPortal()).isFalse();
+		assertThat(roleRepository.findById(roleId).orElseThrow().isPortal()).isFalse();
+	}
+
+	@Test
 	void createRejectsAnUnknownPermissionCode() {
 		assertThatThrownBy(() -> roleService.create("Bad Role", "desc", Set.of("DOES_NOT_EXIST")))
 				.isInstanceOf(IllegalArgumentException.class);

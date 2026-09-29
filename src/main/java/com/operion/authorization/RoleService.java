@@ -24,10 +24,25 @@ public class RoleService {
 
 	@Transactional
 	public Role create(String name, String description, Set<String> permissionCodes) {
-		Role role = new Role(name, description, false);
+		return create(name, description, permissionCodes, false);
+	}
+
+	@Transactional
+	public Role create(String name, String description, Set<String> permissionCodes, boolean portal) {
+		Role role = new Role(name, description, false, false, portal);
 		resolvePermissions(permissionCodes).forEach(role::grant);
 		role = roleRepository.save(role);
 		auditLogService.record("Role", role.getId(), "CREATE", null, permissionCodes);
+		return role;
+	}
+
+	@Transactional
+	public Role updatePortalFlag(Long roleId, boolean portal) {
+		Role role = findOrThrow(roleId);
+		boolean before = role.isPortal();
+		role.setPortal(portal);
+		role = roleRepository.save(role);
+		auditLogService.record("Role", role.getId(), "PORTAL_FLAG_CHANGE", before, portal);
 		return role;
 	}
 

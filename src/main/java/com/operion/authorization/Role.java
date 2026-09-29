@@ -60,6 +60,14 @@ public class Role extends TenantScopedEntity {
 	@Column(name = "is_managed", nullable = false)
 	private boolean managed;
 
+	/** Org-set, generic signal (no hardcoded role name) that a session holding only this
+	 * role (plus other portal roles, and never alongside Owner) should land in a
+	 * self-service portal shell instead of the admin shell - see
+	 * {@code com.operion.portal.PortalIdentityService}. */
+	@Setter
+	@Column(name = "is_portal", nullable = false)
+	private boolean portal;
+
 	@Setter
 	@Enumerated(EnumType.STRING)
 	@Column(nullable = false, length = 20)
@@ -79,10 +87,15 @@ public class Role extends TenantScopedEntity {
 	}
 
 	public Role(String name, String description, boolean systemDefault, boolean managed) {
+		this(name, description, systemDefault, managed, false);
+	}
+
+	public Role(String name, String description, boolean systemDefault, boolean managed, boolean portal) {
 		this.name = name;
 		this.description = description;
 		this.systemDefault = systemDefault;
 		this.managed = managed;
+		this.portal = portal;
 		this.status = RoleStatus.ACTIVE;
 	}
 

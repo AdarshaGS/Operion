@@ -41,7 +41,8 @@ public class RoleController {
 	@PostMapping
 	@RequirePermission("ROLE_MANAGE")
 	public RoleResponse create(@RequestBody CreateRoleRequest request) {
-		return RoleResponse.from(roleService.create(request.name(), request.description(), request.permissionCodes()));
+		return RoleResponse.from(
+				roleService.create(request.name(), request.description(), request.permissionCodes(), request.portal()));
 	}
 
 	@PostMapping("/{id}/permissions")
@@ -54,6 +55,12 @@ public class RoleController {
 	@RequirePermission("ROLE_MANAGE")
 	public RoleResponse changeStatus(@PathVariable Long id, @RequestBody ChangeRoleStatusRequest request) {
 		return RoleResponse.from(roleService.changeStatus(id, RoleStatus.valueOf(request.status())));
+	}
+
+	@PostMapping("/{id}/portal")
+	@RequirePermission("ROLE_MANAGE")
+	public RoleResponse updatePortalFlag(@PathVariable Long id, @RequestBody UpdateRolePortalFlagRequest request) {
+		return RoleResponse.from(roleService.updatePortalFlag(id, request.portal()));
 	}
 
 	private Role findOrThrow(Long id) {
