@@ -4,6 +4,7 @@ export interface CreateRoleRequest {
 	name: string;
 	description: string;
 	permissionCodes: string[];
+	portal?: boolean;
 }
 
 export interface RoleResponse {
@@ -11,6 +12,7 @@ export interface RoleResponse {
 	name: string;
 	description: string;
 	systemDefault: boolean;
+	portal: boolean;
 	status: string;
 	permissionCodes: string[];
 }
@@ -29,4 +31,8 @@ export function updateRolePermissions(id: number, permissionCodes: string[]): Pr
 
 export function changeRoleStatus(id: number, status: "ACTIVE" | "INACTIVE"): Promise<RoleResponse> {
 	return api.post<RoleResponse>(`/api/v1/roles/${id}/status`, { status });
+}
+
+export function updateRolePortalFlag(id: number, portal: boolean): Promise<RoleResponse> {
+	return api.post<RoleResponse>(`/api/v1/roles/${id}/portal`, { portal });
 }

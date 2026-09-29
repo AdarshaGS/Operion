@@ -28,7 +28,14 @@ import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import { Can } from "../../auth/Can";
 import { ApiError } from "../../api/client";
 import { listPermissions, type PermissionResponse } from "../../api/permissions";
-import { changeRoleStatus, createRole, listRoles, updateRolePermissions, type RoleResponse } from "../../api/roles";
+import {
+	changeRoleStatus,
+	createRole,
+	listRoles,
+	updateRolePermissions,
+	updateRolePortalFlag,
+	type RoleResponse,
+} from "../../api/roles";
 
 function groupByModule(permissions: PermissionResponse[]): Map<string, PermissionResponse[]> {
 	const groups = new Map<string, PermissionResponse[]>();
@@ -124,6 +131,7 @@ export function RolesPanel() {
 	const [name, setName] = useState("");
 	const [description, setDescription] = useState("");
 	const [createSelected, setCreateSelected] = useState<Set<string>>(new Set());
+	const [createPortal, setCreatePortal] = useState(false);
 	const [submitting, setSubmitting] = useState(false);
 
 	const [editingRole, setEditingRole] = useState<RoleResponse | null>(null);
@@ -153,10 +161,11 @@ export function RolesPanel() {
 		event.preventDefault();
 		setSubmitting(true);
 		try {
-			await createRole({ name, description, permissionCodes: [...createSelected] });
+			await createRole({ name, description, permissionCodes: [...createSelected], portal: createPortal });
 			setName("");
 			setDescription("");
 			setCreateSelected(new Set());
+			setCreatePortal(false);
 			setCreateOpen(false);
 			refresh();
 		} catch (err) {
@@ -194,6 +203,15 @@ export function RolesPanel() {
 		}
 	}
 
+	async function togglePortal(role: RoleResponse) {
+		try {
+			await updateRolePortalFlag(role.id, !role.portal);
+			refresh();
+		} catch (err) {
+			setError(err instanceof ApiError ? err.message : "Failed to change role's portal flag");
+		}
+	}
+
 	return (
 		<Paper sx={{ p: 3 }}>
 			<Stack spacing={2}>
@@ -225,6 +243,7 @@ export function RolesPanel() {
 									<TableCell>
 										{role.name}
 										{role.systemDefault && <Chip label="system" size="small" sx={{ ml: 1 }} />}
+										{role.portal && <Chip label="portal" size="small" color="info" sx={{ ml: 1 }} />}
 									</TableCell>
 									<TableCell>{role.description}</TableCell>
 									<TableCell>{role.permissionCodes.length}</TableCell>
@@ -236,6 +255,11 @@ export function RolesPanel() {
 											<Button size="small" onClick={() => openEdit(role)}>
 												Edit permissions
 											</Button>
+											{!role.systemDefault && (
+												<Button size="small" onClick={() => togglePortal(role)}>
+													{role.portal ? "Unmark portal" : "Mark as portal role"}
+												</Button>
+											)}
 											{!role.systemDefault && (
 												<Button size="small" onClick={() => toggleStatus(role)}>
 													{role.status === "ACTIVE" ? "Deactivate" : "Reactivate"}
@@ -261,6 +285,10 @@ export function RolesPanel() {
 							onChange={(e) => setDescription(e.target.value)}
 							required
 							fullWidth
+						/>
+						<FormControlLabel
+							control={<Checkbox checked={createPortal} onChange={(e) => setCreatePortal(e.target.checked)} />}
+							label="Portal role — holders land in the self-service portal shell instead of the admin shell"
 						/>
 						<PermissionCheckboxes
 							permissions={permissions}

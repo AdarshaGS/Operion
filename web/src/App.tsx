@@ -9,6 +9,7 @@ import { IndexRedirect } from "./auth/IndexRedirect";
 import { LoginPage } from "./auth/LoginPage";
 import { ProtectedRoute } from "./auth/ProtectedRoute";
 import { ResetPasswordPage } from "./auth/ResetPasswordPage";
+import { AdminOnlyRoute } from "./auth/AdminOnlyRoute";
 import { AppLayout } from "./layout/AppLayout";
 import { AcademicSetupPage } from "./modules/academics/AcademicSetupPage";
 import { AcademicsPage } from "./modules/academics/AcademicsPage";
@@ -71,6 +72,11 @@ import { PlatformAuthProvider } from "./platform/auth/PlatformAuthContext";
 import { PlatformLoginPage } from "./platform/auth/PlatformLoginPage";
 import { PlatformProtectedRoute } from "./platform/auth/PlatformProtectedRoute";
 import { PlatformLayout } from "./platform/layout/PlatformLayout";
+import { PortalOnlyRoute } from "./portal/PortalOnlyRoute";
+import { PortalLayout } from "./portal/PortalLayout";
+import { PortalIndexRedirect } from "./portal/PortalIndexRedirect";
+import { GuardianDashboardPage } from "./portal/GuardianDashboardPage";
+import { TeacherDashboardPage } from "./portal/TeacherDashboardPage";
 
 function App() {
 	return (
@@ -86,6 +92,14 @@ function App() {
 					<Route path="/reset-password" element={<ResetPasswordPage />} />
 					<Route path="/verify-email" element={<EmailVerifyPage />} />
 					<Route element={<ProtectedRoute />}>
+						<Route element={<PortalOnlyRoute />}>
+							<Route element={<PortalLayout />}>
+								<Route path="/portal" element={<PortalIndexRedirect />} />
+								<Route path="/portal/guardian" element={<GuardianDashboardPage />} />
+								<Route path="/portal/teacher" element={<TeacherDashboardPage />} />
+							</Route>
+						</Route>
+						<Route element={<AdminOnlyRoute />}>
 						<Route element={<AppLayout />}>
 							<Route index element={<IndexRedirect />} />
 							<Route path="/dashboard" element={<DashboardPage />} />
@@ -134,6 +148,7 @@ function App() {
 							<Route path="/settings" element={<SettingsPage />} />
 							<Route path="/settings/users/:userId" element={<UserDetailPage />} />
 							<Route path="/settings/:section" element={<SettingsSectionPage />} />
+						</Route>
 						</Route>
 					</Route>
 					<Route path="/platform/login" element={<PlatformLoginPage />} />

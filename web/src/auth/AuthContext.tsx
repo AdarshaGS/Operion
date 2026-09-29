@@ -6,6 +6,7 @@ import {
 	logout as logoutRequest,
 	me as meRequest,
 } from "../api/auth";
+import { getPortalIdentity, type PortalIdentity } from "../api/portal";
 import { clearSession, getSession, setSession, type StoredSession } from "../api/tokenStore";
 
 export interface Profile {
@@ -22,6 +23,8 @@ interface AuthContextValue {
 	/** True once the initial /auth/me fetch (or its absence, when logged out) has resolved. */
 	permissionsLoaded: boolean;
 	profile: Profile | null;
+	/** Routing gate resolved alongside /auth/me - null until permissionsLoaded, or when logged out. */
+	portalIdentity: PortalIdentity | null;
 	hasPermission: (code: string) => boolean;
 	hasAnyPermission: (codes: string[]) => boolean;
 	login: (organisationSlug: string, email: string, password: string) => Promise<void>;
@@ -37,17 +40,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 	const [permissions, setPermissions] = useState<Set<string>>(new Set());
 	const [permissionsLoaded, setPermissionsLoaded] = useState(false);
 	const [profile, setProfile] = useState<Profile | null>(null);
+	const [portalIdentity, setPortalIdentity] = useState<PortalIdentity | null>(null);
 
 	useEffect(() => {
 		if (!session) {
 			setPermissions(new Set());
 			setProfile(null);
+			setPortalIdentity(null);
 			setPermissionsLoaded(true);
 			return;
 		}
 		setPermissionsLoaded(false);
-		meRequest()
-			.then((response) => {
+		Promise.all([meRequest(), getPortalIdentity()])
+			.then(([response, identity]) => {
 				setPermissions(new Set(response.permissions));
 				setProfile({
 					personId: response.personId,
@@ -56,6 +61,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 					roleNames: response.roleNames,
 					organisationName: response.organisationName,
 				});
+				setPortalIdentity(identity);
 			})
 			.finally(() => setPermissionsLoaded(true));
 	}, [session]);
@@ -114,6 +120,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 			isAuthenticated: session !== null,
 			permissionsLoaded,
 			profile,
+			portalIdentity,
 			hasPermission,
 			hasAnyPermission,
 			login,
@@ -121,7 +128,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 			claimStaffInvite,
 			logout,
 		}),
-		[session, permissionsLoaded, profile, hasPermission, hasAnyPermission, login, claimInvite, claimStaffInvite, logout],
+		[
+			session,
+			permissionsLoaded,
+			profile,
+			portalIdentity,
+			hasPermission,
+			hasAnyPermission,
+			login,
+			claimInvite,
+			claimStaffInvite,
+			logout,
+		],
 	);
 
 	return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
