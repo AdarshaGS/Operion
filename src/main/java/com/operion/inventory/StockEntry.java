@@ -44,13 +44,25 @@ public class StockEntry extends TenantScopedEntity {
 	@Column(name = "entry_date", nullable = false)
 	private LocalDate entryDate;
 
-	/** Nullable - free text, not a vendor entity. */
+	/** Nullable - free text, kept as a fallback for an ad-hoc source (donation, one-off
+	 * purchase) alongside the structured supplier link below, per the #173 decision. */
 	private String source;
+
+	/** Nullable - structured link, set when the receipt actually came from a catalogued
+	 * vendor; source stays free text for everything else. */
+	@ManyToOne
+	@JoinColumn(name = "supplier_id")
+	private Supplier supplier;
 
 	/** Nullable. */
 	private String remarks;
 
 	public StockEntry(Item item, Campus campus, int quantity, BigDecimal unitCost, LocalDate entryDate, String source, String remarks) {
+		this(item, campus, quantity, unitCost, entryDate, source, null, remarks);
+	}
+
+	public StockEntry(Item item, Campus campus, int quantity, BigDecimal unitCost, LocalDate entryDate, String source, Supplier supplier,
+			String remarks) {
 		if (quantity <= 0) {
 			throw new IllegalArgumentException("Stock entry quantity must be positive");
 		}
@@ -60,6 +72,7 @@ public class StockEntry extends TenantScopedEntity {
 		this.unitCost = unitCost;
 		this.entryDate = entryDate;
 		this.source = source;
+		this.supplier = supplier;
 		this.remarks = remarks;
 	}
 }

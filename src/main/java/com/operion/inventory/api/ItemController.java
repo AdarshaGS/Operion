@@ -11,6 +11,8 @@ import com.operion.inventory.ItemCategoryRepository;
 import com.operion.inventory.ItemImportService;
 import com.operion.inventory.ItemRepository;
 import com.operion.inventory.ItemStatus;
+import com.operion.inventory.Supplier;
+import com.operion.inventory.SupplierRepository;
 import com.operion.organisation.Campus;
 import com.operion.organisation.CampusRepository;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -32,14 +34,17 @@ public class ItemController {
 	private final ItemCategoryRepository itemCategoryRepository;
 	private final CampusRepository campusRepository;
 	private final ItemImportService itemImportService;
+	private final SupplierRepository supplierRepository;
 
 	public ItemController(InventoryService inventoryService, ItemRepository itemRepository,
-			ItemCategoryRepository itemCategoryRepository, CampusRepository campusRepository, ItemImportService itemImportService) {
+			ItemCategoryRepository itemCategoryRepository, CampusRepository campusRepository, ItemImportService itemImportService,
+			SupplierRepository supplierRepository) {
 		this.inventoryService = inventoryService;
 		this.itemRepository = itemRepository;
 		this.itemCategoryRepository = itemCategoryRepository;
 		this.campusRepository = campusRepository;
 		this.itemImportService = itemImportService;
+		this.supplierRepository = supplierRepository;
 	}
 
 	@PostMapping
@@ -47,8 +52,9 @@ public class ItemController {
 	public ItemResponse create(@RequestBody CreateItemRequest request) {
 		ItemCategory category = itemCategoryRepository.findById(request.categoryId())
 				.orElseThrow(() -> new IllegalArgumentException("No item category with id " + request.categoryId()));
+		Supplier defaultSupplier = request.defaultSupplierId() != null ? findSupplier(request.defaultSupplierId()) : null;
 		Item item = inventoryService.createItem(category, request.code(), request.name(), request.unit(), request.description(),
-				request.reorderLevel());
+				request.reorderLevel(), request.storageLocation(), defaultSupplier);
 		return ItemResponse.from(item);
 	}
 
@@ -67,6 +73,19 @@ public class ItemController {
 	@RequirePermission("INVENTORY_CATALOG_MANAGE")
 	public ItemResponse updateReorderLevel(@PathVariable Long id, @RequestBody UpdateItemReorderLevelRequest request) {
 		return ItemResponse.from(inventoryService.updateReorderLevel(findItem(id), request.reorderLevel()));
+	}
+
+	@PostMapping("/{id}/storage-location")
+	@RequirePermission("INVENTORY_CATALOG_MANAGE")
+	public ItemResponse updateStorageLocation(@PathVariable Long id, @RequestBody UpdateItemStorageLocationRequest request) {
+		return ItemResponse.from(inventoryService.updateStorageLocation(findItem(id), request.storageLocation()));
+	}
+
+	@PostMapping("/{id}/default-supplier")
+	@RequirePermission("INVENTORY_CATALOG_MANAGE")
+	public ItemResponse updateDefaultSupplier(@PathVariable Long id, @RequestBody UpdateItemDefaultSupplierRequest request) {
+		Supplier defaultSupplier = request.defaultSupplierId() != null ? findSupplier(request.defaultSupplierId()) : null;
+		return ItemResponse.from(inventoryService.updateDefaultSupplier(findItem(id), defaultSupplier));
 	}
 
 	@GetMapping("/low-stock")
@@ -100,5 +119,9 @@ public class ItemController {
 
 	private Item findItem(Long id) {
 		return itemRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("No item with id " + id));
+	}
+
+	private Supplier findSupplier(Long id) {
+		return supplierRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("No supplier with id " + id));
 	}
 }

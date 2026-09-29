@@ -1,5 +1,6 @@
 package com.operion.inventory;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 
 import com.operion.common.TenantScopedEntity;
@@ -45,10 +46,20 @@ public class StockIssue extends TenantScopedEntity {
 	/** Nullable. */
 	private String purpose;
 
+	/** Nullable - captured when known, same "issue cost" gap #173 closes for the entry
+	 * side's unitCost. */
+	@Column(name = "unit_cost", precision = 10, scale = 2)
+	private BigDecimal unitCost;
+
 	/** Nullable. */
 	private String remarks;
 
 	public StockIssue(Item item, Campus campus, int quantity, LocalDate issuedDate, String issuedTo, String purpose, String remarks) {
+		this(item, campus, quantity, issuedDate, issuedTo, purpose, null, remarks);
+	}
+
+	public StockIssue(Item item, Campus campus, int quantity, LocalDate issuedDate, String issuedTo, String purpose, BigDecimal unitCost,
+			String remarks) {
 		if (quantity <= 0) {
 			throw new IllegalArgumentException("Stock issue quantity must be positive");
 		}
@@ -58,6 +69,7 @@ public class StockIssue extends TenantScopedEntity {
 		this.issuedDate = issuedDate;
 		this.issuedTo = issuedTo;
 		this.purpose = purpose;
+		this.unitCost = unitCost;
 		this.remarks = remarks;
 	}
 }

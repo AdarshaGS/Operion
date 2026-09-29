@@ -42,11 +42,23 @@ public class Item extends TenantScopedEntity {
 	/** Nullable. */
 	private String description;
 
-	/** Nullable - no threshold set by default. Purely a stored value today; low-stock
-	 * reporting/auto-suggestion against it is Milestone 8/6 scope, not this one. */
+	/** Nullable - no threshold set by default. */
 	@Setter
 	@Column(name = "reorder_level")
 	private Integer reorderLevel;
+
+	/** Nullable - free text, same convention as unit/description; sub-campus structured
+	 * locations are #191's (deferred) scope, not this field's. */
+	@Setter
+	@Column(name = "storage_location")
+	private String storageLocation;
+
+	/** Nullable - the preferred/default vendor for this item, not a requirement to buy
+	 * from only this supplier; StockEntry.supplier is recorded per-receipt independently. */
+	@Setter
+	@ManyToOne
+	@JoinColumn(name = "default_supplier_id")
+	private Supplier defaultSupplier;
 
 	@Enumerated(EnumType.STRING)
 	@Column(nullable = false, length = 20)

@@ -40,8 +40,8 @@ public class StockIssueController {
 	public StockIssueResponse record(@RequestBody RecordStockIssueRequest request) {
 		Item item = findItem(request.itemId());
 		Campus campus = findCampus(request.campusId());
-		StockIssue issue = inventoryService.recordIssue(
-				item, campus, request.quantity(), request.issuedDate(), request.issuedTo(), request.purpose(), request.remarks());
+		StockIssue issue = inventoryService.recordIssue(item, campus, request.quantity(), request.issuedDate(), request.issuedTo(),
+				request.purpose(), request.unitCost(), request.remarks());
 		return StockIssueResponse.from(issue);
 	}
 

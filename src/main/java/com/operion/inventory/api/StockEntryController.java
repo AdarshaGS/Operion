@@ -8,6 +8,8 @@ import com.operion.inventory.Item;
 import com.operion.inventory.ItemRepository;
 import com.operion.inventory.StockEntry;
 import com.operion.inventory.StockEntryRepository;
+import com.operion.inventory.Supplier;
+import com.operion.inventory.SupplierRepository;
 import com.operion.organisation.Campus;
 import com.operion.organisation.CampusRepository;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -26,13 +28,15 @@ public class StockEntryController {
 	private final StockEntryRepository stockEntryRepository;
 	private final ItemRepository itemRepository;
 	private final CampusRepository campusRepository;
+	private final SupplierRepository supplierRepository;
 
 	public StockEntryController(InventoryService inventoryService, StockEntryRepository stockEntryRepository,
-			ItemRepository itemRepository, CampusRepository campusRepository) {
+			ItemRepository itemRepository, CampusRepository campusRepository, SupplierRepository supplierRepository) {
 		this.inventoryService = inventoryService;
 		this.stockEntryRepository = stockEntryRepository;
 		this.itemRepository = itemRepository;
 		this.campusRepository = campusRepository;
+		this.supplierRepository = supplierRepository;
 	}
 
 	@PostMapping
@@ -40,8 +44,9 @@ public class StockEntryController {
 	public StockEntryResponse record(@RequestBody RecordStockEntryRequest request) {
 		Item item = findItem(request.itemId());
 		Campus campus = findCampus(request.campusId());
+		Supplier supplier = request.supplierId() != null ? findSupplier(request.supplierId()) : null;
 		StockEntry entry = inventoryService.recordEntry(
-				item, campus, request.quantity(), request.unitCost(), request.entryDate(), request.source(), request.remarks());
+				item, campus, request.quantity(), request.unitCost(), request.entryDate(), request.source(), supplier, request.remarks());
 		return StockEntryResponse.from(entry);
 	}
 
@@ -56,5 +61,9 @@ public class StockEntryController {
 
 	private Campus findCampus(Long id) {
 		return campusRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("No campus with id " + id));
+	}
+
+	private Supplier findSupplier(Long id) {
+		return supplierRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("No supplier with id " + id));
 	}
 }

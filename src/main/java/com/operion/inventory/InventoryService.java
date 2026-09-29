@@ -41,8 +41,15 @@ public class InventoryService {
 	}
 
 	public Item createItem(ItemCategory category, String code, String name, String unit, String description, Integer reorderLevel) {
+		return createItem(category, code, name, unit, description, reorderLevel, null, null);
+	}
+
+	public Item createItem(ItemCategory category, String code, String name, String unit, String description, Integer reorderLevel,
+			String storageLocation, Supplier defaultSupplier) {
 		Item item = new Item(category, code, name, unit, description);
 		item.setReorderLevel(reorderLevel);
+		item.setStorageLocation(storageLocation);
+		item.setDefaultSupplier(defaultSupplier);
 		return itemRepository.save(item);
 	}
 
@@ -53,6 +60,16 @@ public class InventoryService {
 
 	public Item updateReorderLevel(Item item, Integer reorderLevel) {
 		item.setReorderLevel(reorderLevel);
+		return itemRepository.save(item);
+	}
+
+	public Item updateStorageLocation(Item item, String storageLocation) {
+		item.setStorageLocation(storageLocation);
+		return itemRepository.save(item);
+	}
+
+	public Item updateDefaultSupplier(Item item, Supplier defaultSupplier) {
+		item.setDefaultSupplier(defaultSupplier);
 		return itemRepository.save(item);
 	}
 
@@ -94,16 +111,27 @@ public class InventoryService {
 	}
 
 	public StockEntry recordEntry(Item item, Campus campus, int quantity, BigDecimal unitCost, LocalDate entryDate, String source, String remarks) {
-		return stockEntryRepository.save(new StockEntry(item, campus, quantity, unitCost, entryDate, source, remarks));
+		return recordEntry(item, campus, quantity, unitCost, entryDate, source, null, remarks);
+	}
+
+	public StockEntry recordEntry(Item item, Campus campus, int quantity, BigDecimal unitCost, LocalDate entryDate, String source,
+			Supplier supplier, String remarks) {
+		return stockEntryRepository.save(new StockEntry(item, campus, quantity, unitCost, entryDate, source, supplier, remarks));
 	}
 
 	@Transactional
 	public StockIssue recordIssue(Item item, Campus campus, int quantity, LocalDate issuedDate, String issuedTo, String purpose, String remarks) {
+		return recordIssue(item, campus, quantity, issuedDate, issuedTo, purpose, null, remarks);
+	}
+
+	@Transactional
+	public StockIssue recordIssue(Item item, Campus campus, int quantity, LocalDate issuedDate, String issuedTo, String purpose,
+			BigDecimal unitCost, String remarks) {
 		if (quantity > getBalance(item, campus)) {
 			throw new IllegalStateException(
 					"Cannot issue " + quantity + " of item " + item.getId() + " at campus " + campus.getId() + " - insufficient stock");
 		}
-		return stockIssueRepository.save(new StockIssue(item, campus, quantity, issuedDate, issuedTo, purpose, remarks));
+		return stockIssueRepository.save(new StockIssue(item, campus, quantity, issuedDate, issuedTo, purpose, unitCost, remarks));
 	}
 
 	@Transactional
