@@ -7,6 +7,7 @@ import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { listSections, type SectionResponse } from "../../api/sections";
+import { SectionTimetablePanel } from "./SectionTimetablePanel";
 import { TeacherAssignmentsPanel } from "./TeacherAssignmentsPanel";
 
 /** No GET-by-id exists for Section - resolving via list+find, same tradeoff documented
@@ -51,6 +52,7 @@ export function SectionDetailPage() {
 			</Typography>
 
 			<TeacherAssignmentsPanel sectionId={Number(sectionId)} />
+			<SectionTimetablePanel sectionId={Number(sectionId)} />
 		</Stack>
 	);
 }

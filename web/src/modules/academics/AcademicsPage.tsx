@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import Alert from "@mui/material/Alert";
 import MenuItem from "@mui/material/MenuItem";
 import Stack from "@mui/material/Stack";
@@ -11,11 +11,13 @@ import { listSections, type SectionResponse } from "../../api/sections";
 import { ClassSubjectsPanel } from "./ClassSubjectsPanel";
 import { GradeLevelsPanel } from "./GradeLevelsPanel";
 import { SchoolClassesPanel } from "./SchoolClassesPanel";
+import { PeriodsPanel } from "./PeriodsPanel";
 import { SectionsPanel } from "./SectionsPanel";
+import { SectionTimetablePanel } from "./SectionTimetablePanel";
 import { SubjectsPanel } from "./SubjectsPanel";
 import { TeacherAssignmentsPanel } from "./TeacherAssignmentsPanel";
 
-const TABS = ["gradeLevels", "sections", "subjects", "classOfferings", "teacherAssignments"] as const;
+const TABS = ["gradeLevels", "sections", "subjects", "classOfferings", "teacherAssignments", "periods", "timetable"] as const;
 type TabKey = (typeof TABS)[number];
 
 const TAB_LABELS: Record<TabKey, string> = {
@@ -24,6 +26,8 @@ const TAB_LABELS: Record<TabKey, string> = {
 	subjects: "Subjects",
 	classOfferings: "Class offerings",
 	teacherAssignments: "Teacher assignments",
+	periods: "Periods",
+	timetable: "Timetable",
 };
 
 function classLabel(schoolClass: SchoolClassResponse, gradeLevelsById: Map<number, GradeLevelResponse>): string {
@@ -89,7 +93,9 @@ function ClassOfferingsTab() {
 	);
 }
 
-function TeacherAssignmentsTab() {
+/** Class-offering + section picker around a per-section panel - shared by the Teacher
+ * assignments and Timetable tabs, since both are scoped to one section. */
+function SectionScopedTab({ noun, render }: { noun: string; render: (sectionId: number) => ReactNode }) {
 	const { schoolClasses, gradeLevelsById } = useSchoolClassOptions();
 	const [schoolClassId, setSchoolClassId] = useState("");
 	const [sectionId, setSectionId] = useState("");
@@ -134,10 +140,18 @@ function TeacherAssignmentsTab() {
 				</TextField>
 			</Stack>
 
-			{!sectionId && <Alert severity="info">Select a class offering and section to view and manage teacher assignments.</Alert>}
-			{sectionId && <TeacherAssignmentsPanel sectionId={Number(sectionId)} />}
+			{!sectionId && <Alert severity="info">Select a class offering and section to view and manage {noun}.</Alert>}
+			{sectionId && render(Number(sectionId))}
 		</Stack>
 	);
+}
+
+function TeacherAssignmentsTab() {
+	return <SectionScopedTab noun="teacher assignments" render={(sectionId) => <TeacherAssignmentsPanel sectionId={sectionId} />} />;
+}
+
+function TimetableTab() {
+	return <SectionScopedTab noun="its timetable" render={(sectionId) => <SectionTimetablePanel sectionId={sectionId} />} />;
 }
 
 /** Tabbed configuration area (#246) - Grade levels -> Sections -> Subjects -> Class
@@ -161,6 +175,8 @@ export function AcademicsPage() {
 			{tab === "subjects" && <SubjectsPanel />}
 			{tab === "classOfferings" && <ClassOfferingsTab />}
 			{tab === "teacherAssignments" && <TeacherAssignmentsTab />}
+			{tab === "periods" && <PeriodsPanel />}
+			{tab === "timetable" && <TimetableTab />}
 		</Stack>
 	);
 }

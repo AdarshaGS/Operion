@@ -26,6 +26,7 @@ import { Can } from "../../auth/Can";
 import { useAuth } from "../../auth/AuthContext";
 import { MemberStatusChip } from "../../components/MemberStatusChip";
 import { StaffInviteDialog } from "../../components/StaffInviteDialog";
+import { TeacherTimetablePanel } from "../academics/TeacherTimetablePanel";
 import { BorrowerLoanHistoryPanel } from "../library/BorrowerLoanHistoryPanel";
 import { listAcademicYears, type AcademicYearResponse } from "../../api/academicYears";
 import { ApiError } from "../../api/client";
@@ -771,6 +772,12 @@ export function StaffDetailPage() {
 			</Paper>
 
 			{person && <BorrowerLoanHistoryPanel personId={person.id} />}
+
+			{person && (
+				<Can anyOf={["TIMETABLE_VIEW"]}>
+					<TeacherTimetablePanel personId={person.id} />
+				</Can>
+			)}
 
 			<Dialog
 				open={documentDialogOpen}
