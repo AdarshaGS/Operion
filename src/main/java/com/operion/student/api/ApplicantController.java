@@ -1,15 +1,24 @@
 package com.operion.student.api;
 
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
+import com.operion.common.api.PageResponse;
 import com.operion.authorization.RequirePermission;
 import com.operion.identity.Person;
 import com.operion.identity.PersonRepository;
 import com.operion.student.Applicant;
 import com.operion.student.ApplicantRepository;
 import com.operion.student.ApplicantService;
+import com.operion.student.ApplicantStatus;
 import com.operion.student.Student;
 import jakarta.validation.Valid;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -45,15 +54,60 @@ public class ApplicantController {
 	}
 
 	@GetMapping
-	public List<ApplicantResponse> list() {
-		return applicantRepository.findAll().stream().map(ApplicantResponse::from).toList();
+	public PageResponse<ApplicantResponse> list(@RequestParam(required = false) String status,
+			@RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "25") int size) {
+		PageRequest pageable = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 100),
+				Sort.by(Sort.Direction.DESC, "inquiryDate", "id"));
+		Page<Applicant> result;
+		if (status == null || status.isBlank() || status.equalsIgnoreCase("ALL")) {
+			result = applicantRepository.findAll(pageable);
+		} else {
+			ApplicantStatus parsed;
+			try {
+				parsed = ApplicantStatus.valueOf(status.toUpperCase());
+			} catch (IllegalArgumentException ex) {
+				throw new IllegalStateException("Unknown applicant status " + status);
+			}
+			result = applicantRepository.findByStatus(parsed, pageable);
+		}
+		return PageResponse.from(result.map(ApplicantResponse::from));
+	}
+
+	@GetMapping("/status-counts")
+	public Map<String, Long> statusCounts() {
+		return applicantService.statusCounts();
+	}
+
+	@PostMapping("/{id}/start-review")
+	@RequirePermission("STUDENT_MANAGE")
+	public ApplicantResponse startReview(@PathVariable Long id) {
+		return ApplicantResponse.from(applicantService.startReview(findOrThrow(id)));
 	}
 
 	@PostMapping("/{id}/reject")
 	@RequirePermission("STUDENT_MANAGE")
-	public ApplicantResponse reject(@PathVariable Long id) {
+	public ApplicantResponse reject(@PathVariable Long id, @Valid @RequestBody RejectApplicantRequest request) {
+		return ApplicantResponse.from(applicantService.reject(findOrThrow(id), request.reason()));
+	}
+
+	@GetMapping("/{id}/documents")
+	public List<ApplicantDocumentEntry> documents(@PathVariable Long id) {
+		findOrThrow(id);
+		return toEntries(applicantService.documents(id));
+	}
+
+	@PutMapping("/{id}/documents")
+	@RequirePermission("STUDENT_MANAGE")
+	public List<ApplicantDocumentEntry> updateDocuments(@PathVariable Long id,
+			@Valid @RequestBody List<@Valid ApplicantDocumentEntry> entries) {
 		Applicant applicant = findOrThrow(id);
-		return ApplicantResponse.from(applicantService.reject(applicant));
+		Map<String, Boolean> changes = entries.stream()
+				.collect(Collectors.toMap(ApplicantDocumentEntry::docType, ApplicantDocumentEntry::received, (a, b) -> b));
+		return toEntries(applicantService.updateDocuments(applicant, changes));
+	}
+
+	private static List<ApplicantDocumentEntry> toEntries(Map<String, Boolean> documents) {
+		return documents.entrySet().stream().map(e -> new ApplicantDocumentEntry(e.getKey(), e.getValue())).toList();
 	}
 
 	@PostMapping("/{id}/convert")

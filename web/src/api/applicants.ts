@@ -1,4 +1,4 @@
-import { api } from "./client";
+import { api, type PageResponse } from "./client";
 import type { CreateStudentRequest, StudentResponse } from "./students";
 
 export interface CreateApplicantRequest {
@@ -26,7 +26,8 @@ export function inquireApplicant(request: CreateApplicantRequest): Promise<Appli
 }
 
 export function listApplicants(): Promise<ApplicantResponse[]> {
-	return api.get<ApplicantResponse[]>("/api/v1/applicants");
+	// The list endpoint is paged now (#219); this legacy caller only wants the first page of INQUIRY rows.
+	return api.get<PageResponse<ApplicantResponse>>("/api/v1/applicants?status=INQUIRY&size=100").then((page) => page.content);
 }
 
 export function rejectApplicant(id: number): Promise<ApplicantResponse> {

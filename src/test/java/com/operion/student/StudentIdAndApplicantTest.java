@@ -63,6 +63,9 @@ class StudentIdAndApplicantTest {
 	@Autowired
 	private ApplicantRepository applicantRepository;
 
+	@Autowired
+	private ApplicantDocumentRepository applicantDocumentRepository;
+
 	private StudentService studentService;
 	private ApplicantService applicantService;
 
@@ -71,7 +74,8 @@ class StudentIdAndApplicantTest {
 		studentService = new StudentService(studentRepository, studentEnrollmentRepository, studentDocumentRepository,
 				studentExitRepository, null, null, studentIdGenerator, new AuditLogService(auditLogRepository, new ObjectMapper()),
 			new CustomFieldService(customFieldDefinitionRepository, new ObjectMapper()));
-		applicantService = new ApplicantService(applicantRepository, studentService);
+		applicantService = new ApplicantService(applicantRepository, studentService, applicantDocumentRepository,
+				new AuditLogService(auditLogRepository, new ObjectMapper()));
 	}
 
 	@AfterEach
@@ -125,6 +129,6 @@ class StudentIdAndApplicantTest {
 		applicantService.convert(applicant, "ADM-201", LocalDate.of(2026, 5, 1), null, null, null, null, null, null,
 				null, null, null, null, null);
 
-		assertThatThrownBy(() -> applicantService.reject(applicant)).isInstanceOf(IllegalStateException.class);
+		assertThatThrownBy(() -> applicantService.reject(applicant, "no")).isInstanceOf(IllegalStateException.class);
 	}
 }

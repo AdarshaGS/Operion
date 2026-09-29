@@ -11,6 +11,8 @@ import { ProtectedRoute } from "./auth/ProtectedRoute";
 import { ResetPasswordPage } from "./auth/ResetPasswordPage";
 import { AdminOnlyRoute } from "./auth/AdminOnlyRoute";
 import { AppLayout } from "./layout/AppLayout";
+import { PublicAdmissionPage } from "./admissions/PublicAdmissionPage";
+import { AdmissionsPage } from "./modules/admissions/AdmissionsPage";
 import { AcademicSetupPage } from "./modules/academics/AcademicSetupPage";
 import { AcademicsPage } from "./modules/academics/AcademicsPage";
 import { SchoolClassSectionsPage } from "./modules/academics/SchoolClassSectionsPage";
@@ -88,6 +90,7 @@ function App() {
 					<Route path="/login" element={<LoginPage />} />
 					<Route path="/claim-invite" element={<ClaimInvitePage />} />
 					<Route path="/claim-staff-invite" element={<ClaimStaffInvitePage />} />
+					<Route path="/apply/:orgSlug" element={<PublicAdmissionPage />} />
 					<Route path="/careers" element={<JobApplicationPage />} />
 					<Route path="/forgot-password" element={<ForgotPasswordPage />} />
 					<Route path="/reset-password" element={<ResetPasswordPage />} />
@@ -108,6 +111,7 @@ function App() {
 							<Route path="/students" element={<StudentListPage />} />
 							<Route path="/students/new" element={<StudentCreatePage />} />
 							<Route path="/students/:studentId" element={<StudentDetailPage />} />
+							<Route path="/admissions" element={<AdmissionsPage />} />
 							<Route path="/academics" element={<AcademicsPage />} />
 							<Route path="/academics/setup" element={<AcademicSetupPage />} />
 							<Route path="/academics/classes/:classId" element={<SchoolClassSectionsPage />} />

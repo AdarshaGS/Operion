@@ -95,4 +95,14 @@ class ClaimInvitePublicAccessTest {
 						.content("{\"organisationSlug\":\"no-such-org\",\"email\":\"nobody@example.com\"}"))
 				.andExpect(status().isOk());
 	}
+
+	@Test
+	void publicAdmissionInquiryRoutesAreReachableWithoutABearerToken() throws Exception {
+		mockMvc.perform(get("/api/v1/public/orgs/no-such-org/admission-inquiries/form-options"))
+				.andExpect(status().isNotFound());
+		mockMvc.perform(post("/api/v1/public/orgs/no-such-org/admission-inquiries")
+						.contentType(MediaType.APPLICATION_JSON)
+						.content("{\"firstName\":\"A\",\"lastName\":\"B\",\"dateOfBirth\":\"2018-01-01\",\"guardianName\":\"G\",\"guardianPhone\":\"1\"}"))
+				.andExpect(status().isNotFound());
+	}
 }

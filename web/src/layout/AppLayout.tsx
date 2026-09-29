@@ -21,6 +21,7 @@ import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import DashboardIcon from "@mui/icons-material/Dashboard";
 import SchoolIcon from "@mui/icons-material/School";
+import HowToRegIcon from "@mui/icons-material/HowToReg";
 import ClassIcon from "@mui/icons-material/Class";
 import EventAvailableIcon from "@mui/icons-material/EventAvailable";
 import PaymentsIcon from "@mui/icons-material/Payments";
@@ -107,6 +108,7 @@ const NAV_GROUPS: NavGroup[] = [
 		label: "Academics",
 		items: [
 			{ label: "Students", path: "/students", icon: <SchoolIcon />, built: true, requiredPermissions: ["STUDENT_VIEW"] },
+			{ label: "Admissions", path: "/admissions", icon: <HowToRegIcon />, built: true, requiredPermissions: ["STUDENT_VIEW"] },
 			{
 				label: "Academics",
 				path: "/academics",

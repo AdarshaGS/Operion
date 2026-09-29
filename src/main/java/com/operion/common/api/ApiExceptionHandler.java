@@ -4,6 +4,7 @@ import java.util.Map;
 
 import com.operion.authorization.AuthorizationDeniedException;
 import com.operion.finance.PaymentGatewayException;
+import com.operion.common.TooManyRequestsException;
 import com.operion.common.WebhookVerificationException;
 import com.operion.identity.auth.AuthenticationFailedException;
 import com.operion.platform.auth.PlatformAuthenticationFailedException;
@@ -37,6 +38,11 @@ class ApiExceptionHandler {
 	@ExceptionHandler(IllegalArgumentException.class)
 	ResponseEntity<Map<String, String>> notFound(IllegalArgumentException ex) {
 		return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", ex.getMessage()));
+	}
+
+	@ExceptionHandler(TooManyRequestsException.class)
+	ResponseEntity<Map<String, String>> tooManyRequests(TooManyRequestsException ex) {
+		return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(Map.of("error", ex.getMessage()));
 	}
 
 	@ExceptionHandler(IllegalStateException.class)

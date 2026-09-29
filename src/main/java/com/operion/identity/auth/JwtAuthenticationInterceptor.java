@@ -97,6 +97,10 @@ public class JwtAuthenticationInterceptor implements HandlerInterceptor {
 		if (path.startsWith("/api/v1/fees/payment-links/") || path.startsWith("/api/v1/webhooks/")) {
 			return true;
 		}
+		// Public admission inquiry form (#218/#219): org resolved by slug in the path, no login.
+		if (path.matches("/api/v1/public/orgs/[^/]+/admission-inquiries(/form-options)?")) {
+			return true;
+		}
 		if (path.equals("/api/v1/organisations") && "POST".equalsIgnoreCase(request.getMethod())) {
 			return true;
 		}

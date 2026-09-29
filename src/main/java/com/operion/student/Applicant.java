@@ -1,7 +1,9 @@
 package com.operion.student;
 
+import java.time.Instant;
 import java.time.LocalDate;
 
+import com.operion.academic.GradeLevel;
 import com.operion.common.TenantScopedEntity;
 import com.operion.identity.Person;
 import jakarta.persistence.Column;
@@ -45,6 +47,26 @@ public class Applicant extends TenantScopedEntity {
 	@Column(nullable = false, length = 20)
 	private ApplicantStatus status;
 
+	/** Nullable - the grade the guardian is applying for (public inquiry form). */
+	@ManyToOne
+	@JoinColumn(name = "desired_grade_id")
+	private GradeLevel desiredGrade;
+
+	@Column(name = "guardian_name")
+	private String guardianName;
+
+	@Column(name = "guardian_phone")
+	private String guardianPhone;
+
+	@Column(name = "guardian_email")
+	private String guardianEmail;
+
+	@Column(name = "rejection_reason")
+	private String rejectionReason;
+
+	@Column(name = "reviewed_at")
+	private Instant reviewedAt;
+
 	public Applicant(Person person, LocalDate inquiryDate, String source, String notes) {
 		this.person = person;
 		this.inquiryDate = inquiryDate;
@@ -53,16 +75,36 @@ public class Applicant extends TenantScopedEntity {
 		this.status = ApplicantStatus.INQUIRY;
 	}
 
-	public void reject() {
+	public void recordInquiryDetails(GradeLevel desiredGrade, String guardianName, String guardianPhone, String guardianEmail) {
+		this.desiredGrade = desiredGrade;
+		this.guardianName = guardianName;
+		this.guardianPhone = guardianPhone;
+		this.guardianEmail = guardianEmail;
+	}
+
+	public void startReview() {
 		if (status != ApplicantStatus.INQUIRY) {
-			throw new IllegalStateException("Only an applicant still under inquiry can be rejected");
+			throw new IllegalStateException("Only an applicant still at inquiry can be moved to review");
+		}
+		this.status = ApplicantStatus.UNDER_REVIEW;
+		this.reviewedAt = Instant.now();
+	}
+
+	public void reject(String reason) {
+		if (status != ApplicantStatus.INQUIRY && status != ApplicantStatus.UNDER_REVIEW) {
+			throw new IllegalStateException("Only an applicant at inquiry or under review can be rejected");
+		}
+		if (reason == null || reason.isBlank()) {
+			throw new IllegalStateException("A rejection reason is required");
 		}
 		this.status = ApplicantStatus.REJECTED;
+		this.rejectionReason = reason.trim();
+		this.reviewedAt = Instant.now();
 	}
 
 	public void markConverted() {
-		if (status != ApplicantStatus.INQUIRY) {
-			throw new IllegalStateException("Only an applicant still under inquiry can be converted");
+		if (status != ApplicantStatus.INQUIRY && status != ApplicantStatus.UNDER_REVIEW) {
+			throw new IllegalStateException("Only an applicant at inquiry or under review can be converted");
 		}
 		this.status = ApplicantStatus.CONVERTED;
 	}
