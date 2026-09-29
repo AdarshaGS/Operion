@@ -195,6 +195,24 @@ class FeeReminderServiceTest {
 	}
 
 	@Test
+	void notifiesAGuardianWhenAnInvoiceIsGenerated() {
+		Fixture fixture = setUpFixture("fee-invoice-generated-school", "ADM-362");
+		Person guardianPerson = personRepository.save(new Person("Deepa", "Nair"));
+		guardianPerson.setEmail("deepa.nair@example.com");
+		personRepository.save(guardianPerson);
+		Guardian guardian = guardianRepository.save(new Guardian(guardianPerson, null));
+		studentGuardianRepository.save(
+				new StudentGuardian(fixture.student(), guardian, GuardianRelationshipType.MOTHER, true, true, true, true, 1));
+
+		int notified = feeReminderService.notifyInvoiceGenerated(fixture.overdueInvoice());
+
+		assertThat(notified).isEqualTo(1);
+		List<NotificationRecipient> recipients = notificationRecipientRepository.findByPersonIdOrderByCreatedAtDesc(guardianPerson.getId());
+		assertThat(recipients).hasSize(1);
+		assertThat(recipients.get(0).getChannel()).isEqualTo(NotificationChannel.EMAIL);
+	}
+
+	@Test
 	void skipsAGuardianWhoHasNotOptedIntoCommunication() {
 		Fixture fixture = setUpFixture("fee-reminder-optout-school", "ADM-361");
 		Person guardianPerson = personRepository.save(new Person("Asha", "Nair"));

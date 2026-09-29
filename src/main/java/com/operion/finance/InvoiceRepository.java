@@ -37,4 +37,9 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
 			+ "ORDER BY i.dueDate ASC")
 	List<Invoice> findOverdue(
 			@Param("asOf") LocalDate asOf, @Param("schoolClassId") Long schoolClassId, @Param("studentEnrollmentId") Long studentEnrollmentId);
+
+	/** Feeds OverdueInvoiceReminderScheduler (#165) - every overdue invoice that hasn't had
+	 * its one-time automatic reminder sent yet. */
+	@Query("SELECT i FROM Invoice i WHERE i.amountPaid < i.totalAmount AND i.dueDate < :asOf AND i.overdueReminderSentAt IS NULL")
+	List<Invoice> findOverdueWithoutReminder(@Param("asOf") LocalDate asOf);
 }

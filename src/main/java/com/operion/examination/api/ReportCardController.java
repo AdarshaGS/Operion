@@ -12,6 +12,7 @@ import com.operion.examination.Exam;
 import com.operion.examination.ExamRepository;
 import com.operion.examination.ExamSchedule;
 import com.operion.examination.ExamScheduleRepository;
+import com.operion.examination.ExaminationNotificationService;
 import com.operion.examination.ExaminationService;
 import com.operion.examination.GradingScale;
 import com.operion.examination.GradingScaleRepository;
@@ -39,6 +40,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class ReportCardController {
 
 	private final ExaminationService examinationService;
+	private final ExaminationNotificationService examinationNotificationService;
 	private final ExamRepository examRepository;
 	private final ExamScheduleRepository examScheduleRepository;
 	private final GradingScaleRepository gradingScaleRepository;
@@ -48,12 +50,14 @@ public class ReportCardController {
 	private final OrganisationBrandingRepository organisationBrandingRepository;
 	private final DocumentTemplateRepository documentTemplateRepository;
 
-	public ReportCardController(ExaminationService examinationService, ExamRepository examRepository,
+	public ReportCardController(ExaminationService examinationService, ExaminationNotificationService examinationNotificationService,
+			ExamRepository examRepository,
 			ExamScheduleRepository examScheduleRepository, GradingScaleRepository gradingScaleRepository,
 			StudentEnrollmentRepository studentEnrollmentRepository, MarksEntryRepository marksEntryRepository,
 			ReportCardRepository reportCardRepository, OrganisationBrandingRepository organisationBrandingRepository,
 			DocumentTemplateRepository documentTemplateRepository) {
 		this.examinationService = examinationService;
+		this.examinationNotificationService = examinationNotificationService;
 		this.examRepository = examRepository;
 		this.examScheduleRepository = examScheduleRepository;
 		this.gradingScaleRepository = gradingScaleRepository;
@@ -75,6 +79,7 @@ public class ReportCardController {
 				.orElseThrow(() -> new IllegalArgumentException("No grading scale with id " + request.gradingScaleId()));
 
 		ReportCard reportCard = examinationService.publishReportCard(exam, enrollment, gradingScale);
+		examinationNotificationService.notifyResultPublished(reportCard);
 		return ReportCardResponse.from(reportCard);
 	}
 

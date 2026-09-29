@@ -5,6 +5,7 @@ import java.util.List;
 
 import com.operion.academic.Section;
 import com.operion.academic.SectionRepository;
+import com.operion.attendance.AttendanceAlertService;
 import com.operion.attendance.AttendanceCorrectionRepository;
 import com.operion.attendance.AttendanceService;
 import com.operion.attendance.AttendanceService.StudentAttendanceMark;
@@ -31,18 +32,21 @@ import org.springframework.web.bind.annotation.RestController;
 public class StudentAttendanceController {
 
 	private final AttendanceService attendanceService;
+	private final AttendanceAlertService attendanceAlertService;
 	private final SectionRepository sectionRepository;
 	private final StudentEnrollmentRepository studentEnrollmentRepository;
 	private final ClassAttendanceRegisterRepository classAttendanceRegisterRepository;
 	private final StudentAttendanceRepository studentAttendanceRepository;
 	private final AttendanceCorrectionRepository attendanceCorrectionRepository;
 
-	public StudentAttendanceController(AttendanceService attendanceService, SectionRepository sectionRepository,
+	public StudentAttendanceController(AttendanceService attendanceService, AttendanceAlertService attendanceAlertService,
+			SectionRepository sectionRepository,
 			StudentEnrollmentRepository studentEnrollmentRepository,
 			ClassAttendanceRegisterRepository classAttendanceRegisterRepository,
 			StudentAttendanceRepository studentAttendanceRepository,
 			AttendanceCorrectionRepository attendanceCorrectionRepository) {
 		this.attendanceService = attendanceService;
+		this.attendanceAlertService = attendanceAlertService;
 		this.sectionRepository = sectionRepository;
 		this.studentEnrollmentRepository = studentEnrollmentRepository;
 		this.classAttendanceRegisterRepository = classAttendanceRegisterRepository;
@@ -61,7 +65,12 @@ public class StudentAttendanceController {
 
 		ClassAttendanceRegister register = attendanceService.markDailyAttendance(
 				section.getSchoolClass().getAcademicYear(), section, request.attendanceDate(), marks);
-		return toRegisterResponse(register);
+		List<StudentAttendance> entries =
+				studentAttendanceRepository.findBySectionIdAndAttendanceDate(section.getId(), request.attendanceDate());
+		entries.stream()
+				.filter(entry -> entry.getAttendanceStatus() == AttendanceStatus.ABSENT)
+				.forEach(attendanceAlertService::notifyAbsence);
+		return AttendanceRegisterResponse.of(register, entries);
 	}
 
 	@PostMapping("/register/{registerId}/submit")
@@ -98,8 +107,11 @@ public class StudentAttendanceController {
 		StudentAttendance attendance = studentAttendanceRepository.findById(attendanceId)
 				.orElseThrow(() -> new IllegalArgumentException("No student attendance with id " + attendanceId));
 
-		StudentAttendance corrected =
-				attendanceService.correct(attendance, AttendanceStatus.valueOf(request.newStatus()), request.reason());
+		AttendanceStatus newStatus = AttendanceStatus.valueOf(request.newStatus());
+		StudentAttendance corrected = attendanceService.correct(attendance, newStatus, request.reason());
+		if (newStatus == AttendanceStatus.ABSENT) {
+			attendanceAlertService.notifyAbsence(corrected);
+		}
 		return StudentAttendanceResponse.from(corrected);
 	}
 

@@ -3,6 +3,7 @@ package com.operion.finance.api;
 import java.util.List;
 
 import com.operion.authorization.RequirePermission;
+import com.operion.finance.FeeReminderService;
 import com.operion.finance.FeeService;
 import com.operion.finance.FeeStructure;
 import com.operion.finance.FeeStructureInstallment;
@@ -27,15 +28,18 @@ import org.springframework.web.bind.annotation.RestController;
 public class StudentFeeAssignmentController {
 
 	private final FeeService feeService;
+	private final FeeReminderService feeReminderService;
 	private final StudentFeeAssignmentRepository studentFeeAssignmentRepository;
 	private final StudentEnrollmentRepository studentEnrollmentRepository;
 	private final FeeStructureRepository feeStructureRepository;
 	private final FeeStructureInstallmentRepository feeStructureInstallmentRepository;
 
-	public StudentFeeAssignmentController(FeeService feeService, StudentFeeAssignmentRepository studentFeeAssignmentRepository,
+	public StudentFeeAssignmentController(FeeService feeService, FeeReminderService feeReminderService,
+			StudentFeeAssignmentRepository studentFeeAssignmentRepository,
 			StudentEnrollmentRepository studentEnrollmentRepository, FeeStructureRepository feeStructureRepository,
 			FeeStructureInstallmentRepository feeStructureInstallmentRepository) {
 		this.feeService = feeService;
+		this.feeReminderService = feeReminderService;
 		this.studentFeeAssignmentRepository = studentFeeAssignmentRepository;
 		this.studentEnrollmentRepository = studentEnrollmentRepository;
 		this.feeStructureRepository = feeStructureRepository;
@@ -72,6 +76,7 @@ public class StudentFeeAssignmentController {
 				.orElseThrow(() -> new IllegalArgumentException("No fee structure installment with id " + request.feeStructureInstallmentId()));
 
 		Invoice invoice = feeService.generateInvoice(assignment, installment);
+		feeReminderService.notifyInvoiceGenerated(invoice);
 		return InvoiceResponse.from(invoice);
 	}
 

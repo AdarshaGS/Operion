@@ -32,6 +32,11 @@ public class FeeReminderService {
 	private static final String DEFAULT_BODY =
 			"This is a reminder that a fee installment for your ward is overdue. Please log in or contact the school office to clear the outstanding balance.";
 
+	private static final String INVOICE_GENERATED_TEMPLATE_CODE = "FEE_INVOICE_DUE";
+	private static final String INVOICE_GENERATED_SUBJECT = "New fee invoice";
+	private static final String INVOICE_GENERATED_BODY =
+			"A new fee invoice has been generated for your ward. Please log in to view the amount due and its due date.";
+
 	private final StudentGuardianRepository studentGuardianRepository;
 	private final NotificationTemplateRepository notificationTemplateRepository;
 	private final CommunicationService communicationService;
@@ -48,6 +53,18 @@ public class FeeReminderService {
 	@Transactional
 	public int sendOverdueReminder(Invoice invoice) {
 		Student student = invoice.getStudentFeeAssignment().getStudentEnrollment().getStudent();
+		return notifyGuardians(student, template(TEMPLATE_CODE, DEFAULT_SUBJECT, DEFAULT_BODY));
+	}
+
+	/** The "invoice generated -> payment due" half of #165 - fired once, right after
+	 * FeeService.generateInvoice succeeds. Returns how many guardians were notified. */
+	@Transactional
+	public int notifyInvoiceGenerated(Invoice invoice) {
+		Student student = invoice.getStudentFeeAssignment().getStudentEnrollment().getStudent();
+		return notifyGuardians(student, template(INVOICE_GENERATED_TEMPLATE_CODE, INVOICE_GENERATED_SUBJECT, INVOICE_GENERATED_BODY));
+	}
+
+	private int notifyGuardians(Student student, NotificationTemplate template) {
 		List<Person> recipients = studentGuardianRepository.findByStudentId(student.getId()).stream()
 				.filter(studentGuardian -> studentGuardian.getStatus() == StudentGuardianStatus.ACTIVE && studentGuardian.isCanReceiveCommunication())
 				.map(studentGuardian -> studentGuardian.getGuardian().getPerson())
@@ -56,13 +73,13 @@ public class FeeReminderService {
 		if (recipients.isEmpty()) {
 			return 0;
 		}
-		return communicationService.sendTemplatedNotification(reminderTemplate(), recipients).size();
+		return communicationService.sendTemplatedNotification(template, recipients).size();
 	}
 
 	/** Lazy, at most one row per organisation - same convention as ExaminationSettings. */
-	private NotificationTemplate reminderTemplate() {
-		return notificationTemplateRepository.findByCode(TEMPLATE_CODE)
+	private NotificationTemplate template(String code, String defaultSubject, String defaultBody) {
+		return notificationTemplateRepository.findByCode(code)
 				.orElseGet(() -> notificationTemplateRepository.save(
-						new NotificationTemplate(TEMPLATE_CODE, NotificationChannel.EMAIL, DEFAULT_SUBJECT, DEFAULT_BODY)));
+						new NotificationTemplate(code, NotificationChannel.EMAIL, defaultSubject, defaultBody)));
 	}
 }

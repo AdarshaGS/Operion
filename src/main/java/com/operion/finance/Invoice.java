@@ -1,6 +1,7 @@
 package com.operion.finance;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
 
 import com.operion.common.TenantScopedEntity;
@@ -61,6 +62,11 @@ public class Invoice extends TenantScopedEntity {
 	@Column(nullable = false, length = 20)
 	private InvoiceStatus status;
 
+	/** Nullable - set once OverdueInvoiceReminderScheduler has sent the one-time overdue
+	 * reminder for this invoice (#165), so a later poll never re-fires it. */
+	@Column(name = "overdue_reminder_sent_at")
+	private Instant overdueReminderSentAt;
+
 	public Invoice(AcademicYear academicYear, StudentFeeAssignment studentFeeAssignment,
 			FeeStructureInstallment feeStructureInstallment, String invoiceNumber, BigDecimal totalAmount, LocalDate dueDate) {
 		this.academicYear = academicYear;
@@ -110,6 +116,11 @@ public class Invoice extends TenantScopedEntity {
 		}
 		this.totalAmount = this.totalAmount.subtract(amount);
 		recomputeStatus();
+	}
+
+	/** Called by OverdueInvoiceReminderScheduler right after the reminder is actually sent. */
+	public void markOverdueReminderSent() {
+		this.overdueReminderSentAt = Instant.now();
 	}
 
 	private void recomputeStatus() {
