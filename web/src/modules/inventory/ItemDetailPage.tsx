@@ -37,6 +37,13 @@ import { recordStockAdjustment, listStockAdjustments, type StockAdjustmentRespon
 import { recordStockEntry, listStockEntries, type StockEntryResponse } from "../../api/stockEntries";
 import { recordStockIssue, listStockIssues, type StockIssueResponse } from "../../api/stockIssues";
 import { listSuppliers, type SupplierResponse } from "../../api/suppliers";
+import { listDepartments, type DepartmentResponse } from "../../api/departments";
+import { listPersons, type PersonResponse } from "../../api/persons";
+import { listStaffProfiles, type StaffProfileResponse } from "../../api/staffProfiles";
+import { StudentPicker } from "../../components/StudentPicker";
+import type { StudentListRowResponse } from "../../api/students";
+
+type RecipientType = "NONE" | "DEPARTMENT" | "STAFF" | "STUDENT";
 
 const ADJUSTMENT_REASONS = ["DAMAGE", "LOSS", "COUNT_CORRECTION", "OTHER"];
 
@@ -81,6 +88,12 @@ export function ItemDetailPage() {
 	const [issuedTo, setIssuedTo] = useState("");
 	const [purpose, setPurpose] = useState("");
 	const [issueUnitCost, setIssueUnitCost] = useState("");
+	const [recipientType, setRecipientType] = useState<RecipientType>("NONE");
+	const [recipientDepartmentId, setRecipientDepartmentId] = useState("");
+	const [recipientStaffPersonId, setRecipientStaffPersonId] = useState("");
+	const [recipientStudentId, setRecipientStudentId] = useState<number | "">("");
+	const [departments, setDepartments] = useState<DepartmentResponse[]>([]);
+	const [staffOptions, setStaffOptions] = useState<{ personId: number; label: string }[]>([]);
 
 	const [adjustmentDialogOpen, setAdjustmentDialogOpen] = useState(false);
 	const [quantityDelta, setQuantityDelta] = useState("");
@@ -102,6 +115,24 @@ export function ItemDetailPage() {
 		listCampuses().then(setCampuses).catch(() => {});
 		listSuppliers().then(setSuppliers).catch(() => {});
 	}, [itemId]);
+
+	useEffect(() => {
+		listDepartments().then(setDepartments).catch(() => {});
+		Promise.all([listStaffProfiles(), listPersons()])
+			.then(([staffProfiles, persons]: [StaffProfileResponse[], PersonResponse[]]) => {
+				const personById = new Map(persons.map((person) => [person.id, person]));
+				setStaffOptions(
+					staffProfiles
+						.filter((staff) => staff.status === "ACTIVE")
+						.map((staff) => {
+							const person = personById.get(staff.personId);
+							const label = person ? `${person.firstName}${person.lastName ? " " + person.lastName : ""}` : `Staff #${staff.personId}`;
+							return { personId: staff.personId, label: `${label} (${staff.designationName})` };
+						}),
+				);
+			})
+			.catch(() => setStaffOptions([]));
+	}, []);
 
 	function refreshAll() {
 		if (!itemId || !campusId) return;
@@ -131,7 +162,7 @@ export function ItemDetailPage() {
 				date: issue.issuedDate,
 				type: "ISSUE" as const,
 				quantity: -issue.quantity,
-				detail: issue.issuedTo,
+				detail: issue.departmentName ?? issue.recipientPersonName ?? issue.recipientStudentName ?? issue.issuedTo,
 			})),
 			...adjustments.map((adjustment) => ({
 				key: `adjustment-${adjustment.id}`,
@@ -190,11 +221,18 @@ export function ItemDetailPage() {
 				issuedTo,
 				purpose: purpose || null,
 				unitCost: issueUnitCost ? Number(issueUnitCost) : null,
+				departmentId: recipientType === "DEPARTMENT" && recipientDepartmentId ? Number(recipientDepartmentId) : null,
+				recipientPersonId: recipientType === "STAFF" && recipientStaffPersonId ? Number(recipientStaffPersonId) : null,
+				recipientStudentId: recipientType === "STUDENT" && recipientStudentId ? Number(recipientStudentId) : null,
 			});
 			setIssueQuantity("");
 			setIssuedTo("");
 			setPurpose("");
 			setIssueUnitCost("");
+			setRecipientType("NONE");
+			setRecipientDepartmentId("");
+			setRecipientStaffPersonId("");
+			setRecipientStudentId("");
 			setIssueDialogOpen(false);
 			refreshAll();
 		} catch (err) {
@@ -504,6 +542,58 @@ export function ItemDetailPage() {
 						<TextField label="Issued to" placeholder="Class 5B" value={issuedTo} onChange={(e) => setIssuedTo(e.target.value)} required fullWidth />
 						<TextField label="Purpose" value={purpose} onChange={(e) => setPurpose(e.target.value)} fullWidth />
 						<TextField label="Unit cost (optional)" type="number" value={issueUnitCost} onChange={(e) => setIssueUnitCost(e.target.value)} fullWidth />
+						<TextField
+							select
+							label="Link recipient (optional)"
+							value={recipientType}
+							onChange={(e) => {
+								setRecipientType(e.target.value as RecipientType);
+								setRecipientDepartmentId("");
+								setRecipientStaffPersonId("");
+								setRecipientStudentId("");
+							}}
+							fullWidth
+						>
+							<MenuItem value="NONE">None</MenuItem>
+							<MenuItem value="DEPARTMENT">Department</MenuItem>
+							<MenuItem value="STAFF">Staff member</MenuItem>
+							<MenuItem value="STUDENT">Student</MenuItem>
+						</TextField>
+						{recipientType === "DEPARTMENT" && (
+							<TextField
+								select
+								label="Department"
+								value={recipientDepartmentId}
+								onChange={(e) => setRecipientDepartmentId(e.target.value)}
+								fullWidth
+							>
+								{departments
+									.filter((department) => department.status === "ACTIVE")
+									.map((department) => (
+										<MenuItem key={department.id} value={department.id}>
+											{department.name}
+										</MenuItem>
+									))}
+							</TextField>
+						)}
+						{recipientType === "STAFF" && (
+							<TextField
+								select
+								label="Staff member"
+								value={recipientStaffPersonId}
+								onChange={(e) => setRecipientStaffPersonId(e.target.value)}
+								fullWidth
+							>
+								{staffOptions.map((staff) => (
+									<MenuItem key={staff.personId} value={staff.personId}>
+										{staff.label}
+									</MenuItem>
+								))}
+							</TextField>
+						)}
+						{recipientType === "STUDENT" && (
+							<StudentPicker value={recipientStudentId} onChange={(id) => setRecipientStudentId(id)} fullWidth />
+						)}
 					</Stack>
 				</DialogContent>
 				<DialogActions>

@@ -6,7 +6,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.operion.identity.Person;
 import com.operion.organisation.Campus;
+import com.operion.organisation.Department;
+import com.operion.student.Student;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -127,11 +130,21 @@ public class InventoryService {
 	@Transactional
 	public StockIssue recordIssue(Item item, Campus campus, int quantity, LocalDate issuedDate, String issuedTo, String purpose,
 			BigDecimal unitCost, String remarks) {
+		return recordIssue(item, campus, quantity, issuedDate, issuedTo, purpose, unitCost, null, null, null, remarks);
+	}
+
+	@Transactional
+	public StockIssue recordIssue(Item item, Campus campus, int quantity, LocalDate issuedDate, String issuedTo, String purpose,
+			BigDecimal unitCost, Department department, Person recipientPerson, Student recipientStudent, String remarks) {
 		if (quantity > getBalance(item, campus)) {
 			throw new IllegalStateException(
 					"Cannot issue " + quantity + " of item " + item.getId() + " at campus " + campus.getId() + " - insufficient stock");
 		}
-		return stockIssueRepository.save(new StockIssue(item, campus, quantity, issuedDate, issuedTo, purpose, unitCost, remarks));
+		StockIssue issue = new StockIssue(item, campus, quantity, issuedDate, issuedTo, purpose, unitCost, remarks);
+		issue.setDepartment(department);
+		issue.setRecipientPerson(recipientPerson);
+		issue.setRecipientStudent(recipientStudent);
+		return stockIssueRepository.save(issue);
 	}
 
 	@Transactional

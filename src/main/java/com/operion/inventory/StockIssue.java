@@ -4,7 +4,10 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 
 import com.operion.common.TenantScopedEntity;
+import com.operion.identity.Person;
 import com.operion.organisation.Campus;
+import com.operion.organisation.Department;
+import com.operion.student.Student;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.JoinColumn;
@@ -13,11 +16,15 @@ import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 /**
- * A stock issuance - campus-scoped, insert-only. issuedTo is free text ("Class 5B",
- * "Science Lab"), not a Person FK - most inventory issues go to a class/department/
- * purpose rather than a trackable individual. InventoryService blocks an issue that
+ * A stock issuance - campus-scoped, insert-only. issuedTo stays required free text
+ * ("Class 5B", "Science Lab") for the common non-individual case; department/
+ * recipientPerson (staff)/recipientStudent are optional structured links, at most one
+ * set (#174 - enforced in StockIssueController, the same "no dedicated service" shape
+ * as Customer's mutually-exclusive student/guardian), for when the recipient actually
+ * is a trackable department/staff member/student. InventoryService blocks an issue that
  * would take the computed balance negative.
  */
 @Getter
@@ -50,6 +57,24 @@ public class StockIssue extends TenantScopedEntity {
 	 * side's unitCost. */
 	@Column(name = "unit_cost", precision = 10, scale = 2)
 	private BigDecimal unitCost;
+
+	/** Nullable - set only when this issue's recipient is a specific department. */
+	@Setter
+	@ManyToOne
+	@JoinColumn(name = "department_id")
+	private Department department;
+
+	/** Nullable - set only when this issue's recipient is a specific staff member. */
+	@Setter
+	@ManyToOne
+	@JoinColumn(name = "recipient_person_id")
+	private Person recipientPerson;
+
+	/** Nullable - set only when this issue's recipient is a specific student. */
+	@Setter
+	@ManyToOne
+	@JoinColumn(name = "recipient_student_id")
+	private Student recipientStudent;
 
 	/** Nullable. */
 	private String remarks;

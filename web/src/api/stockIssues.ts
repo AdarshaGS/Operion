@@ -8,6 +8,9 @@ export interface RecordStockIssueRequest {
 	issuedTo: string;
 	purpose?: string | null;
 	unitCost?: number | null;
+	departmentId?: number | null;
+	recipientPersonId?: number | null;
+	recipientStudentId?: number | null;
 	remarks?: string | null;
 }
 
@@ -20,6 +23,12 @@ export interface StockIssueResponse {
 	issuedTo: string;
 	purpose: string | null;
 	unitCost: number | null;
+	departmentId: number | null;
+	departmentName: string | null;
+	recipientPersonId: number | null;
+	recipientPersonName: string | null;
+	recipientStudentId: number | null;
+	recipientStudentName: string | null;
 	remarks: string | null;
 }
 
