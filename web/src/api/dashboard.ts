@@ -47,6 +47,7 @@ export interface TransportSummary {
 export interface InventorySummary {
 	activeItems: number;
 	categories: number;
+	lowStockItems: number;
 }
 
 export interface CommunicationSummary {

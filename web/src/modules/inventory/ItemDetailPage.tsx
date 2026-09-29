@@ -249,8 +249,11 @@ export function ItemDetailPage() {
 							))}
 						</TextField>
 						{campusId && balance && (
-							<Typography variant="h6">
+							<Typography variant="h6" sx={{ display: "flex", alignItems: "center", gap: 1 }}>
 								Balance: <Chip label={balance.balance} color={balance.balance > 0 ? "success" : "default"} />
+								{item?.reorderLevel != null && balance.balance <= item.reorderLevel && (
+									<Chip label="Low stock" color="warning" size="small" />
+								)}
 							</Typography>
 						)}
 					</Box>

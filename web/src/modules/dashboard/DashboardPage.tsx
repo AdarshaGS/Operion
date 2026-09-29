@@ -106,6 +106,7 @@ function buildSections(summary: DashboardSummaryResponse): Section[] {
 			tiles: [
 				{ label: "Active items", value: summary.inventory.activeItems },
 				{ label: "Categories", value: summary.inventory.categories },
+				{ label: "Low stock items", value: summary.inventory.lowStockItems },
 			],
 		},
 		{
