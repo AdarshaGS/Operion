@@ -1,4 +1,5 @@
 import { api } from "./client";
+import type { LeaveTypeResponse } from "./leaveTypes";
 
 export type PortalSessionType = "ADMIN" | "PORTAL";
 
@@ -84,4 +85,62 @@ export function getChildReportCards(studentId: number): Promise<GuardianReportCa
 
 export function getPortalAnnouncements(): Promise<PortalAnnouncementSummary[]> {
 	return api.get<PortalAnnouncementSummary[]>("/api/v1/me/announcements");
+}
+
+export interface TeacherSectionSummary {
+	sectionId: number;
+	sectionName: string;
+	schoolClassDisplayName: string;
+	subjectName: string | null;
+	assignmentType: string;
+}
+
+export interface TeacherLeaveBalanceSummary {
+	leaveTypeId: number;
+	leaveTypeName: string;
+	allocatedDays: number;
+	remainingDays: number;
+}
+
+export interface TeacherLeaveRequestSummary {
+	id: number;
+	leaveTypeName: string;
+	startDate: string;
+	endDate: string;
+	numberOfDays: number;
+	status: string;
+	reason: string | null;
+}
+
+export interface RaiseOwnLeaveRequest {
+	leaveTypeId: number;
+	academicYearId: number;
+	startDate: string;
+	endDate: string;
+	numberOfDays: number;
+	reason: string | null;
+}
+
+/** Every call here is scoped server-side to the caller's own StaffProfile/TeacherAssignments
+ * - see TeacherPortalService. */
+export function getTeacherSections(): Promise<TeacherSectionSummary[]> {
+	return api.get<TeacherSectionSummary[]>("/api/v1/me/sections");
+}
+
+/** Catalog data, not HR_VIEW-gated like the admin-facing GET /api/v1/hr/leave-types -
+ * see TeacherPortalService.leaveTypeCatalog. */
+export function getPortalLeaveTypes(): Promise<LeaveTypeResponse[]> {
+	return api.get<LeaveTypeResponse[]>("/api/v1/me/leave-types");
+}
+
+export function getTeacherLeaveBalance(academicYearId: number): Promise<TeacherLeaveBalanceSummary[]> {
+	return api.get<TeacherLeaveBalanceSummary[]>(`/api/v1/me/leave-balance?academicYearId=${academicYearId}`);
+}
+
+export function getTeacherLeaveRequests(): Promise<TeacherLeaveRequestSummary[]> {
+	return api.get<TeacherLeaveRequestSummary[]>("/api/v1/me/leave-requests");
+}
+
+export function raiseOwnLeaveRequest(request: RaiseOwnLeaveRequest): Promise<TeacherLeaveRequestSummary> {
+	return api.post<TeacherLeaveRequestSummary>("/api/v1/me/leave-requests", request);
 }

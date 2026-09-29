@@ -6,6 +6,7 @@ import ButtonBase from "@mui/material/ButtonBase";
 import Stack from "@mui/material/Stack";
 import Toolbar from "@mui/material/Toolbar";
 import Typography from "@mui/material/Typography";
+import AccountCircleIcon from "@mui/icons-material/AccountCircle";
 import LogoutIcon from "@mui/icons-material/Logout";
 import { Wordmark } from "../branding/Wordmark";
 import { useAuth } from "../auth/AuthContext";
@@ -32,6 +33,14 @@ export function PortalLayout() {
 								{profile.personName}
 							</Typography>
 						)}
+						<Button
+							color="inherit"
+							size="small"
+							startIcon={<AccountCircleIcon fontSize="small" />}
+							onClick={() => navigate("/portal/profile")}
+						>
+							My profile
+						</Button>
 						<Button color="inherit" size="small" startIcon={<LogoutIcon fontSize="small" />} onClick={() => logout()}>
 							Sign out
 						</Button>

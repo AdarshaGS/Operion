@@ -46,6 +46,7 @@ import { MembersPage } from "./modules/members/MembersPage";
 import { StructureSetupPage } from "./modules/setup/StructureSetupPage";
 import { ReviewSchoolSetupPage } from "./modules/onboarding/ReviewSchoolSetupPage";
 import { ProfilePage } from "./modules/profile/ProfilePage";
+// ProfilePage is also mounted at /portal/profile below - see PortalLayout's link.
 import { SettingsPage } from "./modules/settings/SettingsPage";
 import { SettingsSectionPage } from "./modules/settings/SettingsSectionPage";
 import { UserDetailPage } from "./modules/settings/UserDetailPage";
@@ -97,6 +98,7 @@ function App() {
 								<Route path="/portal" element={<PortalIndexRedirect />} />
 								<Route path="/portal/guardian" element={<GuardianDashboardPage />} />
 								<Route path="/portal/teacher" element={<TeacherDashboardPage />} />
+								<Route path="/portal/profile" element={<ProfilePage />} />
 							</Route>
 						</Route>
 						<Route element={<AdminOnlyRoute />}>
