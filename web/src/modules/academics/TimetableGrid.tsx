@@ -28,13 +28,15 @@ interface TimetableGridProps {
 	renderEntry: (entry: TimetableEntryResponse) => ReactNode;
 	/** Optional - makes empty and filled cells clickable (the builder, #213). Absent = read-only view. */
 	onCellClick?: (day: string, period: PeriodResponse, entry: TimetableEntryResponse | undefined) => void;
+	/** Forces the Sunday column on - the builder needs it to place the first Sunday slot. */
+	showSunday?: boolean;
 }
 
 /** Shared weekly grid (periods down, weekdays across) behind the section timetable (#213/#214)
  * and teacher timetable (#215) - and the portal tiles that reuse it later. Read-only unless
  * onCellClick is supplied. */
-export function TimetableGrid({ periods, entries, renderEntry, onCellClick }: TimetableGridProps) {
-	const days = entries.some((entry) => entry.dayOfWeek === "SUNDAY") ? [...BASE_DAYS, "SUNDAY"] : BASE_DAYS;
+export function TimetableGrid({ periods, entries, renderEntry, onCellClick, showSunday }: TimetableGridProps) {
+	const days = showSunday || entries.some((entry) => entry.dayOfWeek === "SUNDAY") ? [...BASE_DAYS, "SUNDAY"] : BASE_DAYS;
 	const bySlot = new Map(entries.map((entry) => [`${entry.dayOfWeek}:${entry.periodId}`, entry]));
 
 	return (

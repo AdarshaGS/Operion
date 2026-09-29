@@ -2,5 +2,8 @@ package com.operion.timetable.api;
 
 import java.time.LocalTime;
 
-public record PeriodRequest(Integer ordinal, String label, LocalTime startTime, LocalTime endTime, Boolean breakSlot) {
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+
+public record PeriodRequest(@NotBlank String label, @NotNull LocalTime startTime, @NotNull LocalTime endTime, Boolean breakSlot) {
 }

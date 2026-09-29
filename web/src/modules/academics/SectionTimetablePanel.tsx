@@ -1,10 +1,13 @@
 import { useEffect, useState } from "react";
 import Alert from "@mui/material/Alert";
+import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
+import Checkbox from "@mui/material/Checkbox";
 import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
+import FormControlLabel from "@mui/material/FormControlLabel";
 import MenuItem from "@mui/material/MenuItem";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
@@ -46,6 +49,7 @@ export function SectionTimetablePanel({ sectionId }: { sectionId: number }) {
 	const [subjects, setSubjects] = useState<SubjectResponse[]>([]);
 	const [persons, setPersons] = useState<PersonResponse[]>([]);
 	const [error, setError] = useState<string | null>(null);
+	const [showSunday, setShowSunday] = useState(false);
 
 	const [slot, setSlot] = useState<Slot | null>(null);
 	const [pairKey, setPairKey] = useState("");
@@ -121,7 +125,15 @@ export function SectionTimetablePanel({ sectionId }: { sectionId: number }) {
 	return (
 		<Paper sx={{ p: 3 }}>
 			<Stack spacing={2}>
-				<Typography variant="h6">Timetable</Typography>
+				<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+					<Typography variant="h6">Timetable</Typography>
+					{canManage && (
+						<FormControlLabel
+							control={<Checkbox size="small" checked={showSunday} onChange={(e) => setShowSunday(e.target.checked)} />}
+							label="Sunday"
+						/>
+					)}
+				</Box>
 				{error && <Alert severity="error">{error}</Alert>}
 				{periods.length === 0 && <Alert severity="info">No periods are configured yet - set up the school day under Academics &gt; Periods.</Alert>}
 				{periods.length > 0 && (
@@ -129,6 +141,7 @@ export function SectionTimetablePanel({ sectionId }: { sectionId: number }) {
 						periods={periods}
 						entries={entries}
 						onCellClick={canManage ? openSlot : undefined}
+						showSunday={canManage && showSunday}
 						renderEntry={(entry) => (
 							<>
 								<Typography variant="body2" sx={{ fontWeight: 600 }}>

@@ -15,6 +15,7 @@ import com.operion.timetable.PeriodRepository;
 import com.operion.timetable.TimetableEntry;
 import com.operion.timetable.TimetableEntryRepository;
 import com.operion.timetable.TimetableService;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -53,17 +54,14 @@ public class TimetableController {
 
 	@PostMapping("/api/v1/timetable/periods")
 	@RequirePermission("TIMETABLE_MANAGE")
-	public PeriodResponse createPeriod(@RequestBody PeriodRequest request) {
-		if (request.ordinal() == null) {
-			throw new IllegalStateException("Period ordinal is required");
-		}
+	public PeriodResponse createPeriod(@Valid @RequestBody CreatePeriodRequest request) {
 		return PeriodResponse.from(timetableService.createPeriod(request.ordinal(), request.label(),
 				request.startTime(), request.endTime(), Boolean.TRUE.equals(request.breakSlot())));
 	}
 
 	@PutMapping("/api/v1/timetable/periods/{id}")
 	@RequirePermission("TIMETABLE_MANAGE")
-	public PeriodResponse updatePeriod(@PathVariable Long id, @RequestBody PeriodRequest request) {
+	public PeriodResponse updatePeriod(@PathVariable Long id, @Valid @RequestBody PeriodRequest request) {
 		return PeriodResponse.from(timetableService.updatePeriod(findPeriod(id), request.label(), request.startTime(),
 				request.endTime(), Boolean.TRUE.equals(request.breakSlot())));
 	}
@@ -91,7 +89,7 @@ public class TimetableController {
 
 	@PutMapping("/api/v1/sections/{sectionId}/timetable")
 	@RequirePermission("TIMETABLE_MANAGE")
-	public TimetableEntryResponse setEntry(@PathVariable Long sectionId, @RequestBody SetTimetableEntryRequest request) {
+	public TimetableEntryResponse setEntry(@PathVariable Long sectionId, @Valid @RequestBody SetTimetableEntryRequest request) {
 		Section section = sectionRepository.findById(sectionId)
 				.orElseThrow(() -> new IllegalArgumentException("No section with id " + sectionId));
 		Subject subject = subjectRepository.findById(request.subjectId())
