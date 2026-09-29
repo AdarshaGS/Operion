@@ -36,6 +36,7 @@ import {
 import { recordStockAdjustment, listStockAdjustments, type StockAdjustmentResponse } from "../../api/stockAdjustments";
 import { recordStockEntry, listStockEntries, type StockEntryResponse } from "../../api/stockEntries";
 import { recordStockIssue, listStockIssues, type StockIssueResponse } from "../../api/stockIssues";
+import { recordStockTransfer } from "../../api/stockTransfers";
 import { listSuppliers, type SupplierResponse } from "../../api/suppliers";
 import { listDepartments, type DepartmentResponse } from "../../api/departments";
 import { listPersons, type PersonResponse } from "../../api/persons";
@@ -99,6 +100,12 @@ export function ItemDetailPage() {
 	const [quantityDelta, setQuantityDelta] = useState("");
 	const [reason, setReason] = useState("COUNT_CORRECTION");
 	const [adjustmentDate, setAdjustmentDate] = useState(todayIso());
+
+	const [transferDialogOpen, setTransferDialogOpen] = useState(false);
+	const [transferToCampusId, setTransferToCampusId] = useState("");
+	const [transferQuantity, setTransferQuantity] = useState("");
+	const [transferDate, setTransferDate] = useState(todayIso());
+	const [transferRemarks, setTransferRemarks] = useState("");
 
 	useEffect(() => {
 		if (!itemId) return;
@@ -259,6 +266,31 @@ export function ItemDetailPage() {
 			refreshAll();
 		} catch (err) {
 			setError(err instanceof ApiError ? err.message : "Failed to record stock adjustment");
+		} finally {
+			setSubmitting(false);
+		}
+	}
+
+	async function handleRecordTransfer(event: FormEvent) {
+		event.preventDefault();
+		if (!itemId || !campusId || !transferToCampusId) return;
+		setSubmitting(true);
+		try {
+			await recordStockTransfer({
+				itemId: Number(itemId),
+				fromCampusId: Number(campusId),
+				toCampusId: Number(transferToCampusId),
+				quantity: Number(transferQuantity),
+				transferDate,
+				remarks: transferRemarks || null,
+			});
+			setTransferToCampusId("");
+			setTransferQuantity("");
+			setTransferRemarks("");
+			setTransferDialogOpen(false);
+			refreshAll();
+		} catch (err) {
+			setError(err instanceof ApiError ? err.message : "Failed to record stock transfer");
 		} finally {
 			setSubmitting(false);
 		}
@@ -431,6 +463,9 @@ export function ItemDetailPage() {
 								</Button>
 								<Button size="small" startIcon={<AddIcon />} onClick={() => setAdjustmentDialogOpen(true)}>
 									Record adjustment
+								</Button>
+								<Button size="small" startIcon={<AddIcon />} onClick={() => setTransferDialogOpen(true)}>
+									Transfer to another campus
 								</Button>
 							</Stack>
 						</Box>
@@ -647,6 +682,54 @@ export function ItemDetailPage() {
 					<Button onClick={() => setAdjustmentDialogOpen(false)}>Cancel</Button>
 					<Button type="submit" variant="contained" disabled={submitting || !quantityDelta}>
 						Record
+					</Button>
+				</DialogActions>
+			</Dialog>
+
+			<Dialog
+				open={transferDialogOpen}
+				onClose={() => setTransferDialogOpen(false)}
+				component="form"
+				onSubmit={handleRecordTransfer}
+				fullWidth
+				maxWidth="xs"
+			>
+				<DialogTitle>Transfer to another campus</DialogTitle>
+				<DialogContent>
+					<Stack spacing={2} sx={{ mt: 1 }}>
+						<TextField select label="To campus" value={transferToCampusId} onChange={(e) => setTransferToCampusId(e.target.value)} required autoFocus fullWidth>
+							{campuses
+								.filter((campus) => String(campus.id) !== campusId)
+								.map((campus) => (
+									<MenuItem key={campus.id} value={campus.id}>
+										{campus.name}
+									</MenuItem>
+								))}
+						</TextField>
+						<TextField
+							label="Quantity"
+							type="number"
+							value={transferQuantity}
+							onChange={(e) => setTransferQuantity(e.target.value)}
+							required
+							fullWidth
+						/>
+						<TextField
+							label="Transfer date"
+							type="date"
+							value={transferDate}
+							onChange={(e) => setTransferDate(e.target.value)}
+							required
+							slotProps={{ inputLabel: { shrink: true } }}
+							fullWidth
+						/>
+						<TextField label="Remarks" value={transferRemarks} onChange={(e) => setTransferRemarks(e.target.value)} fullWidth />
+					</Stack>
+				</DialogContent>
+				<DialogActions>
+					<Button onClick={() => setTransferDialogOpen(false)}>Cancel</Button>
+					<Button type="submit" variant="contained" disabled={submitting || !transferToCampusId || !transferQuantity}>
+						Transfer
 					</Button>
 				</DialogActions>
 			</Dialog>

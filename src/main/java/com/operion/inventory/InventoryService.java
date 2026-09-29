@@ -28,15 +28,17 @@ public class InventoryService {
 	private final StockEntryRepository stockEntryRepository;
 	private final StockIssueRepository stockIssueRepository;
 	private final StockAdjustmentRepository stockAdjustmentRepository;
+	private final StockTransferRepository stockTransferRepository;
 
 	public InventoryService(ItemCategoryRepository itemCategoryRepository, ItemRepository itemRepository,
 			StockEntryRepository stockEntryRepository, StockIssueRepository stockIssueRepository,
-			StockAdjustmentRepository stockAdjustmentRepository) {
+			StockAdjustmentRepository stockAdjustmentRepository, StockTransferRepository stockTransferRepository) {
 		this.itemCategoryRepository = itemCategoryRepository;
 		this.itemRepository = itemRepository;
 		this.stockEntryRepository = stockEntryRepository;
 		this.stockIssueRepository = stockIssueRepository;
 		this.stockAdjustmentRepository = stockAdjustmentRepository;
+		this.stockTransferRepository = stockTransferRepository;
 	}
 
 	public ItemCategory createCategory(String code, String name, String description) {
@@ -155,5 +157,25 @@ public class InventoryService {
 					"Adjustment of " + quantityDelta + " would take item " + item.getId() + " at campus " + campus.getId() + " negative");
 		}
 		return stockAdjustmentRepository.save(new StockAdjustment(item, campus, quantityDelta, reason, adjustmentDate, remarks));
+	}
+
+	/**
+	 * Records a transfer as one atomic operation: a TRANSFER_OUT adjustment at
+	 * fromCampus (rejected if it would take that campus's balance negative, the same
+	 * guard recordAdjustment already enforces), a TRANSFER_IN adjustment at toCampus, and
+	 * the StockTransfer audit row itself - same "audit trail entity + StockAdjustment for
+	 * the actual balance effect" split as PurchaseReturn (#175).
+	 */
+	@Transactional
+	public StockTransfer recordTransfer(Item item, Campus fromCampus, Campus toCampus, int quantity, LocalDate transferDate, String remarks) {
+		if (fromCampus.getId().equals(toCampus.getId())) {
+			throw new IllegalArgumentException("Cannot transfer stock to the same campus");
+		}
+		String detail = remarks != null ? ": " + remarks : "";
+		recordAdjustment(item, fromCampus, -quantity, StockAdjustmentReason.TRANSFER_OUT, transferDate,
+				"Transfer to campus " + toCampus.getId() + detail);
+		recordAdjustment(item, toCampus, quantity, StockAdjustmentReason.TRANSFER_IN, transferDate,
+				"Transfer from campus " + fromCampus.getId() + detail);
+		return stockTransferRepository.save(new StockTransfer(item, fromCampus, toCampus, quantity, transferDate, remarks));
 	}
 }
