@@ -7,6 +7,8 @@ export interface CreateItemRequest {
 	unit: string;
 	description?: string | null;
 	reorderLevel?: number | null;
+	storageLocation?: string | null;
+	defaultSupplierId?: number | null;
 }
 
 export interface ItemResponse {
@@ -17,6 +19,9 @@ export interface ItemResponse {
 	unit: string;
 	description: string | null;
 	reorderLevel: number | null;
+	storageLocation: string | null;
+	defaultSupplierId: number | null;
+	defaultSupplierName: string | null;
 	status: string;
 }
 
@@ -50,6 +55,14 @@ export function getItemBalance(itemId: number, campusId: number): Promise<Balanc
 
 export function updateItemReorderLevel(itemId: number, reorderLevel: number | null): Promise<ItemResponse> {
 	return api.post<ItemResponse>(`/api/v1/inventory/items/${itemId}/reorder-level`, { reorderLevel });
+}
+
+export function updateItemStorageLocation(itemId: number, storageLocation: string | null): Promise<ItemResponse> {
+	return api.post<ItemResponse>(`/api/v1/inventory/items/${itemId}/storage-location`, { storageLocation });
+}
+
+export function updateItemDefaultSupplier(itemId: number, defaultSupplierId: number | null): Promise<ItemResponse> {
+	return api.post<ItemResponse>(`/api/v1/inventory/items/${itemId}/default-supplier`, { defaultSupplierId });
 }
 
 export function listLowStockItems(campusId: number): Promise<LowStockItemResponse[]> {

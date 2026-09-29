@@ -27,6 +27,7 @@ import { listCampuses, type CampusResponse } from "../../api/campuses";
 import { ApiError } from "../../api/client";
 import { listItemCategories, type ItemCategoryResponse } from "../../api/itemCategories";
 import { createItem, listItems, listLowStockItems, type ItemResponse } from "../../api/items";
+import { listSuppliers, type SupplierResponse } from "../../api/suppliers";
 
 /** Suggestions only - Item.unit is a free-text column (no backend catalog), so schools can
  * still type anything here. */
@@ -37,6 +38,7 @@ export function ItemsPanel() {
 	const [items, setItems] = useState<ItemResponse[]>([]);
 	const [categories, setCategories] = useState<ItemCategoryResponse[]>([]);
 	const [campuses, setCampuses] = useState<CampusResponse[]>([]);
+	const [suppliers, setSuppliers] = useState<SupplierResponse[]>([]);
 	const [campusId, setCampusId] = useState("");
 	const [lowStockIds, setLowStockIds] = useState<Set<number>>(new Set());
 	const [showLowStockOnly, setShowLowStockOnly] = useState(false);
@@ -48,6 +50,8 @@ export function ItemsPanel() {
 	const [unit, setUnit] = useState("");
 	const [description, setDescription] = useState("");
 	const [reorderLevel, setReorderLevel] = useState("");
+	const [storageLocation, setStorageLocation] = useState("");
+	const [defaultSupplierId, setDefaultSupplierId] = useState("");
 	const [submitting, setSubmitting] = useState(false);
 
 	function refresh() {
@@ -62,6 +66,9 @@ export function ItemsPanel() {
 	}, []);
 	useEffect(() => {
 		listCampuses().then(setCampuses).catch(() => {});
+	}, []);
+	useEffect(() => {
+		listSuppliers().then(setSuppliers).catch(() => {});
 	}, []);
 	useEffect(() => {
 		if (!campusId) {
@@ -98,6 +105,8 @@ export function ItemsPanel() {
 				unit,
 				description: description || null,
 				reorderLevel: reorderLevel ? Number(reorderLevel) : null,
+				storageLocation: storageLocation || null,
+				defaultSupplierId: defaultSupplierId ? Number(defaultSupplierId) : null,
 			});
 			setCategoryId("");
 			setCode("");
@@ -105,6 +114,8 @@ export function ItemsPanel() {
 			setUnit("");
 			setDescription("");
 			setReorderLevel("");
+			setStorageLocation("");
+			setDefaultSupplierId("");
 			setDialogOpen(false);
 			refresh();
 		} catch (err) {
@@ -163,6 +174,7 @@ export function ItemsPanel() {
 								<TableCell>Category</TableCell>
 								<TableCell>Unit</TableCell>
 								<TableCell>Reorder level</TableCell>
+								<TableCell>Storage location</TableCell>
 								<TableCell>Status</TableCell>
 							</TableRow>
 						</TableHead>
@@ -174,6 +186,7 @@ export function ItemsPanel() {
 									<TableCell>{categoryLabel(item.categoryId)}</TableCell>
 									<TableCell>{item.unit}</TableCell>
 									<TableCell>{item.reorderLevel ?? "—"}</TableCell>
+									<TableCell>{item.storageLocation ?? "—"}</TableCell>
 									<TableCell>
 										<Stack direction="row" spacing={1}>
 											<Chip label={item.status} size="small" />
@@ -215,6 +228,29 @@ export function ItemsPanel() {
 							onChange={(e) => setReorderLevel(e.target.value)}
 							fullWidth
 						/>
+						<TextField
+							label="Storage location (optional)"
+							placeholder="Central Store - Rack 3"
+							value={storageLocation}
+							onChange={(e) => setStorageLocation(e.target.value)}
+							fullWidth
+						/>
+						<TextField
+							select
+							label="Default supplier (optional)"
+							value={defaultSupplierId}
+							onChange={(e) => setDefaultSupplierId(e.target.value)}
+							fullWidth
+						>
+							<MenuItem value="">None</MenuItem>
+							{suppliers
+								.filter((supplier) => supplier.status === "ACTIVE")
+								.map((supplier) => (
+									<MenuItem key={supplier.id} value={supplier.id}>
+										{supplier.name}
+									</MenuItem>
+								))}
+						</TextField>
 					</Stack>
 				</DialogContent>
 				<DialogActions>

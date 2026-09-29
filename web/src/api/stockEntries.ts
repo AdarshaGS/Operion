@@ -7,6 +7,7 @@ export interface RecordStockEntryRequest {
 	unitCost?: number | null;
 	entryDate: string;
 	source?: string | null;
+	supplierId?: number | null;
 	remarks?: string | null;
 }
 
@@ -18,6 +19,8 @@ export interface StockEntryResponse {
 	unitCost: number | null;
 	entryDate: string;
 	source: string | null;
+	supplierId: number | null;
+	supplierName: string | null;
 	remarks: string | null;
 }
 

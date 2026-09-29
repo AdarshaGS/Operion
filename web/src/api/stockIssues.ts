@@ -7,6 +7,7 @@ export interface RecordStockIssueRequest {
 	issuedDate: string;
 	issuedTo: string;
 	purpose?: string | null;
+	unitCost?: number | null;
 	remarks?: string | null;
 }
 
@@ -18,6 +19,7 @@ export interface StockIssueResponse {
 	issuedDate: string;
 	issuedTo: string;
 	purpose: string | null;
+	unitCost: number | null;
 	remarks: string | null;
 }
 

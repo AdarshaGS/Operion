@@ -24,10 +24,19 @@ import AddIcon from "@mui/icons-material/Add";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { listCampuses, type CampusResponse } from "../../api/campuses";
 import { ApiError } from "../../api/client";
-import { getItemBalance, listItems, updateItemReorderLevel, type BalanceResponse, type ItemResponse } from "../../api/items";
+import {
+	getItemBalance,
+	listItems,
+	updateItemDefaultSupplier,
+	updateItemReorderLevel,
+	updateItemStorageLocation,
+	type BalanceResponse,
+	type ItemResponse,
+} from "../../api/items";
 import { recordStockAdjustment, listStockAdjustments, type StockAdjustmentResponse } from "../../api/stockAdjustments";
 import { recordStockEntry, listStockEntries, type StockEntryResponse } from "../../api/stockEntries";
 import { recordStockIssue, listStockIssues, type StockIssueResponse } from "../../api/stockIssues";
+import { listSuppliers, type SupplierResponse } from "../../api/suppliers";
 
 const ADJUSTMENT_REASONS = ["DAMAGE", "LOSS", "COUNT_CORRECTION", "OTHER"];
 
@@ -43,6 +52,7 @@ export function ItemDetailPage() {
 
 	const [item, setItem] = useState<ItemResponse | null>(null);
 	const [campuses, setCampuses] = useState<CampusResponse[]>([]);
+	const [suppliers, setSuppliers] = useState<SupplierResponse[]>([]);
 	const [campusId, setCampusId] = useState("");
 	const [balance, setBalance] = useState<BalanceResponse | null>(null);
 	const [entries, setEntries] = useState<StockEntryResponse[]>([]);
@@ -53,18 +63,24 @@ export function ItemDetailPage() {
 	const [submitting, setSubmitting] = useState(false);
 	const [reorderLevelInput, setReorderLevelInput] = useState("");
 	const [reorderLevelSubmitting, setReorderLevelSubmitting] = useState(false);
+	const [storageLocationInput, setStorageLocationInput] = useState("");
+	const [storageLocationSubmitting, setStorageLocationSubmitting] = useState(false);
+	const [defaultSupplierInput, setDefaultSupplierInput] = useState("");
+	const [defaultSupplierSubmitting, setDefaultSupplierSubmitting] = useState(false);
 
 	const [entryDialogOpen, setEntryDialogOpen] = useState(false);
 	const [entryQuantity, setEntryQuantity] = useState("");
 	const [entryUnitCost, setEntryUnitCost] = useState("");
 	const [entryDate, setEntryDate] = useState(todayIso());
 	const [entrySource, setEntrySource] = useState("");
+	const [entrySupplierId, setEntrySupplierId] = useState("");
 
 	const [issueDialogOpen, setIssueDialogOpen] = useState(false);
 	const [issueQuantity, setIssueQuantity] = useState("");
 	const [issuedDate, setIssuedDate] = useState(todayIso());
 	const [issuedTo, setIssuedTo] = useState("");
 	const [purpose, setPurpose] = useState("");
+	const [issueUnitCost, setIssueUnitCost] = useState("");
 
 	const [adjustmentDialogOpen, setAdjustmentDialogOpen] = useState(false);
 	const [quantityDelta, setQuantityDelta] = useState("");
@@ -78,10 +94,13 @@ export function ItemDetailPage() {
 				const found = items.find((i) => i.id === Number(itemId));
 				setItem(found ?? null);
 				setReorderLevelInput(found?.reorderLevel != null ? String(found.reorderLevel) : "");
+				setStorageLocationInput(found?.storageLocation ?? "");
+				setDefaultSupplierInput(found?.defaultSupplierId != null ? String(found.defaultSupplierId) : "");
 			})
 			.catch((err) => setError(err instanceof ApiError ? err.message : "Failed to load item"))
 			.finally(() => setLoading(false));
 		listCampuses().then(setCampuses).catch(() => {});
+		listSuppliers().then(setSuppliers).catch(() => {});
 	}, [itemId]);
 
 	function refreshAll() {
@@ -105,7 +124,7 @@ export function ItemDetailPage() {
 				date: entry.entryDate,
 				type: "ENTRY" as const,
 				quantity: entry.quantity,
-				detail: entry.source ?? "—",
+				detail: entry.supplierName ?? entry.source ?? "—",
 			})),
 			...issues.map((issue) => ({
 				key: `issue-${issue.id}`,
@@ -143,10 +162,12 @@ export function ItemDetailPage() {
 				unitCost: entryUnitCost ? Number(entryUnitCost) : null,
 				entryDate,
 				source: entrySource || null,
+				supplierId: entrySupplierId ? Number(entrySupplierId) : null,
 			});
 			setEntryQuantity("");
 			setEntryUnitCost("");
 			setEntrySource("");
+			setEntrySupplierId("");
 			setEntryDialogOpen(false);
 			refreshAll();
 		} catch (err) {
@@ -168,10 +189,12 @@ export function ItemDetailPage() {
 				issuedDate,
 				issuedTo,
 				purpose: purpose || null,
+				unitCost: issueUnitCost ? Number(issueUnitCost) : null,
 			});
 			setIssueQuantity("");
 			setIssuedTo("");
 			setPurpose("");
+			setIssueUnitCost("");
 			setIssueDialogOpen(false);
 			refreshAll();
 		} catch (err) {
@@ -213,6 +236,32 @@ export function ItemDetailPage() {
 			setError(err instanceof ApiError ? err.message : "Failed to update reorder level");
 		} finally {
 			setReorderLevelSubmitting(false);
+		}
+	}
+
+	async function handleUpdateStorageLocation() {
+		if (!itemId) return;
+		setStorageLocationSubmitting(true);
+		try {
+			const updated = await updateItemStorageLocation(Number(itemId), storageLocationInput || null);
+			setItem(updated);
+		} catch (err) {
+			setError(err instanceof ApiError ? err.message : "Failed to update storage location");
+		} finally {
+			setStorageLocationSubmitting(false);
+		}
+	}
+
+	async function handleUpdateDefaultSupplier() {
+		if (!itemId) return;
+		setDefaultSupplierSubmitting(true);
+		try {
+			const updated = await updateItemDefaultSupplier(Number(itemId), defaultSupplierInput ? Number(defaultSupplierInput) : null);
+			setItem(updated);
+		} catch (err) {
+			setError(err instanceof ApiError ? err.message : "Failed to update default supplier");
+		} finally {
+			setDefaultSupplierSubmitting(false);
 		}
 	}
 
@@ -260,7 +309,7 @@ export function ItemDetailPage() {
 
 					{!campusId && <Alert severity="info">Pick a campus to view balance and stock activity.</Alert>}
 
-					<Box sx={{ display: "flex", gap: 2, alignItems: "center" }}>
+					<Box sx={{ display: "flex", gap: 2, alignItems: "center", flexWrap: "wrap" }}>
 						<TextField
 							label="Reorder level (optional)"
 							type="number"
@@ -274,6 +323,55 @@ export function ItemDetailPage() {
 							variant="outlined"
 							onClick={handleUpdateReorderLevel}
 							disabled={reorderLevelSubmitting || (item?.reorderLevel ?? null) === (reorderLevelInput ? Number(reorderLevelInput) : null)}
+						>
+							Update
+						</Button>
+					</Box>
+
+					<Box sx={{ display: "flex", gap: 2, alignItems: "center", flexWrap: "wrap" }}>
+						<TextField
+							label="Storage location (optional)"
+							value={storageLocationInput}
+							onChange={(e) => setStorageLocationInput(e.target.value)}
+							size="small"
+							sx={{ minWidth: 220 }}
+						/>
+						<Button
+							size="small"
+							variant="outlined"
+							onClick={handleUpdateStorageLocation}
+							disabled={storageLocationSubmitting || (item?.storageLocation ?? "") === storageLocationInput}
+						>
+							Update
+						</Button>
+					</Box>
+
+					<Box sx={{ display: "flex", gap: 2, alignItems: "center", flexWrap: "wrap" }}>
+						<TextField
+							select
+							label="Default supplier (optional)"
+							value={defaultSupplierInput}
+							onChange={(e) => setDefaultSupplierInput(e.target.value)}
+							size="small"
+							sx={{ minWidth: 220 }}
+						>
+							<MenuItem value="">None</MenuItem>
+							{suppliers
+								.filter((supplier) => supplier.status === "ACTIVE")
+								.map((supplier) => (
+									<MenuItem key={supplier.id} value={supplier.id}>
+										{supplier.name}
+									</MenuItem>
+								))}
+						</TextField>
+						<Button
+							size="small"
+							variant="outlined"
+							onClick={handleUpdateDefaultSupplier}
+							disabled={
+								defaultSupplierSubmitting ||
+								(item?.defaultSupplierId != null ? String(item.defaultSupplierId) : "") === defaultSupplierInput
+							}
 						>
 							Update
 						</Button>
@@ -355,6 +453,22 @@ export function ItemDetailPage() {
 							fullWidth
 						/>
 						<TextField label="Source" placeholder="Vendor / donation / transfer" value={entrySource} onChange={(e) => setEntrySource(e.target.value)} fullWidth />
+						<TextField
+							select
+							label="Supplier (optional)"
+							value={entrySupplierId}
+							onChange={(e) => setEntrySupplierId(e.target.value)}
+							fullWidth
+						>
+							<MenuItem value="">None</MenuItem>
+							{suppliers
+								.filter((supplier) => supplier.status === "ACTIVE")
+								.map((supplier) => (
+									<MenuItem key={supplier.id} value={supplier.id}>
+										{supplier.name}
+									</MenuItem>
+								))}
+						</TextField>
 					</Stack>
 				</DialogContent>
 				<DialogActions>
@@ -389,6 +503,7 @@ export function ItemDetailPage() {
 						/>
 						<TextField label="Issued to" placeholder="Class 5B" value={issuedTo} onChange={(e) => setIssuedTo(e.target.value)} required fullWidth />
 						<TextField label="Purpose" value={purpose} onChange={(e) => setPurpose(e.target.value)} fullWidth />
+						<TextField label="Unit cost (optional)" type="number" value={issueUnitCost} onChange={(e) => setIssueUnitCost(e.target.value)} fullWidth />
 					</Stack>
 				</DialogContent>
 				<DialogActions>
