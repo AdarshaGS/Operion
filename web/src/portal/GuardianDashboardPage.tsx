@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link as RouterLink } from "react-router-dom";
 import Alert from "@mui/material/Alert";
+import Button from "@mui/material/Button";
 import Box from "@mui/material/Box";
 import Chip from "@mui/material/Chip";
 import CircularProgress from "@mui/material/CircularProgress";
@@ -94,6 +96,11 @@ export function GuardianDashboardPage() {
 		<Stack spacing={3}>
 			<Stack direction={{ xs: "column", sm: "row" }} spacing={2} sx={{ alignItems: { sm: "center" }, justifyContent: "space-between" }}>
 				<Typography variant="h5">Parent portal</Typography>
+				{selectedStudentId !== null && (
+					<Button variant="outlined" size="small" component={RouterLink} to={`/portal/guardian/children/${selectedStudentId}/learning`}>
+						Homework &amp; learning
+					</Button>
+				)}
 				{children.length > 1 && (
 					<ToggleButtonGroup
 						value={selectedStudentId}

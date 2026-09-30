@@ -37,6 +37,8 @@ import { ItemDetailPage } from "./modules/inventory/ItemDetailPage";
 import { InventoryPage } from "./modules/inventory/InventoryPage";
 import { BookDetailPage } from "./modules/library/BookDetailPage";
 import { LibraryPage } from "./modules/library/LibraryPage";
+import { LearningPage } from "./modules/learning/LearningPage";
+import { ChildLearningPage } from "./portal/ChildLearningPage";
 import { MessagingPage } from "./modules/messaging/MessagingPage";
 import { PurchaseOrderDetailPage } from "./modules/purchase/PurchaseOrderDetailPage";
 import { PurchasePage } from "./modules/purchase/PurchasePage";
@@ -105,6 +107,8 @@ function App() {
 								<Route path="/portal" element={<PortalIndexRedirect />} />
 								<Route path="/portal/guardian" element={<GuardianDashboardPage />} />
 								<Route path="/portal/teacher" element={<TeacherDashboardPage />} />
+								<Route path="/portal/teaching" element={<LearningPage />} />
+								<Route path="/portal/guardian/children/:studentId/learning" element={<ChildLearningPage />} />
 								<Route path="/portal/payslips" element={<MyPayslipsPage />} />
 								<Route path="/portal/payslips/:payslipId" element={<MyPayslipPage />} />
 								<Route path="/portal/profile" element={<ProfilePage />} />
@@ -138,6 +142,7 @@ function App() {
 							<Route path="/transport/routes/:routeId" element={<RouteDetailPage />} />
 							<Route path="/transport/vehicles/:vehicleId" element={<VehicleDetailPage />} />
 							<Route path="/library" element={<LibraryPage />} />
+							<Route path="/learning" element={<LearningPage />} />
 							<Route path="/library/books/:bookId" element={<BookDetailPage />} />
 							<Route path="/inventory" element={<InventoryPage />} />
 							<Route path="/inventory/items/:itemId" element={<ItemDetailPage />} />

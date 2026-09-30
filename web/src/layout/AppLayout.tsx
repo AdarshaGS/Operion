@@ -30,6 +30,7 @@ import CampaignIcon from "@mui/icons-material/Campaign";
 import ChatIcon from "@mui/icons-material/Chat";
 import DirectionsBusIcon from "@mui/icons-material/DirectionsBus";
 import MenuBookIcon from "@mui/icons-material/MenuBook";
+import AutoStoriesIcon from "@mui/icons-material/AutoStories";
 import Inventory2Icon from "@mui/icons-material/Inventory2";
 import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
 import PointOfSaleIcon from "@mui/icons-material/PointOfSale";
@@ -127,6 +128,7 @@ const NAV_GROUPS: NavGroup[] = [
 			},
 			{ label: "Examinations", path: "/examinations", icon: <AssignmentIcon />, built: true, requiredPermissions: ["EXAM_VIEW"] },
 			{ label: "Library", path: "/library", icon: <MenuBookIcon />, built: true, requiredPermissions: ["LIBRARY_VIEW"] },
+			{ label: "Learning", path: "/learning", icon: <AutoStoriesIcon />, built: true, requiredPermissions: ["LEARNING_VIEW"] },
 		],
 	},
 	{

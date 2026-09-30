@@ -152,6 +152,15 @@ export function TeacherDashboardPage() {
 
 			<Paper sx={{ p: 2 }}>
 				<Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center" }}>
+					<Typography variant="subtitle1">Homework, quizzes &amp; learning materials</Typography>
+					<Button size="small" component={RouterLink} to="/portal/teaching">
+						Open
+					</Button>
+				</Stack>
+			</Paper>
+
+			<Paper sx={{ p: 2 }}>
+				<Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center" }}>
 					<Typography variant="subtitle1">Payslips</Typography>
 					<Button size="small" component={RouterLink} to="/portal/payslips">
 						View my payslips
