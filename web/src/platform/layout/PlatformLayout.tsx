@@ -24,6 +24,7 @@ import SellIcon from "@mui/icons-material/Sell";
 import SettingsIcon from "@mui/icons-material/Settings";
 import SupportAgentIcon from "@mui/icons-material/SupportAgent";
 import TimelineIcon from "@mui/icons-material/Timeline";
+import ViewKanbanIcon from "@mui/icons-material/ViewKanban";
 import LogoutIcon from "@mui/icons-material/Logout";
 import { Wordmark } from "../../branding/Wordmark";
 import { colors } from "../../theme";
@@ -52,7 +53,10 @@ const NAV_GROUPS: PlatformNavGroup[] = [
 		// PlatformExternalServiceController), so it lives as a section on each org's own
 		// OrganisationDetailPage instead of a single global page.
 		label: "Customers",
-		items: [{ label: "Organisations", path: "/platform/organisations", icon: <ApartmentIcon />, built: true }],
+		items: [
+			{ label: "Leads", path: "/platform/crm/leads", icon: <ViewKanbanIcon />, built: true },
+			{ label: "Organisations", path: "/platform/organisations", icon: <ApartmentIcon />, built: true },
+		],
 	},
 	{
 		label: "Billing",

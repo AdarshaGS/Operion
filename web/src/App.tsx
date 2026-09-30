@@ -64,6 +64,8 @@ import { StudentCreatePage } from "./modules/students/StudentCreatePage";
 import { StudentDetailPage } from "./modules/students/StudentDetailPage";
 import { StudentListPage } from "./modules/students/StudentListPage";
 import { ActivityPage } from "./platform/ActivityPage";
+import { LeadDetailPage } from "./platform/crm/LeadDetailPage";
+import { LeadsPage } from "./platform/crm/LeadsPage";
 import { DashboardPage as PlatformDashboardPage } from "./platform/DashboardPage";
 import { InvoicesPage } from "./platform/InvoicesPage";
 import { OrganisationDetailPage } from "./platform/OrganisationDetailPage";
@@ -178,6 +180,8 @@ function App() {
 							<Route path="/platform/dashboard" element={<PlatformDashboardPage />} />
 							<Route path="/platform/organisations" element={<OrganisationsPage />} />
 							<Route path="/platform/organisations/:organisationId" element={<OrganisationDetailPage />} />
+							<Route path="/platform/crm/leads" element={<LeadsPage />} />
+							<Route path="/platform/crm/leads/:leadId" element={<LeadDetailPage />} />
 							<Route path="/platform/plans" element={<PlansPage />} />
 							<Route path="/platform/subscriptions" element={<SubscriptionsPage />} />
 							<Route path="/platform/invoices" element={<InvoicesPage />} />

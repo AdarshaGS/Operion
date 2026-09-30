@@ -32,6 +32,9 @@ import { generateInvoice, listInvoices, markInvoicePaid, type PlatformInvoiceRes
 import { PlatformApiError } from "./api/platformClient";
 import { createSubscription, listSubscriptions, type SubscriptionResponse } from "./api/subscriptions";
 import { colors } from "../theme";
+import { ActivityTimeline } from "./crm/ActivityTimeline";
+import { ContactsSection } from "./crm/ContactsSection";
+import { TasksSection } from "./crm/TasksSection";
 
 const ORG_STATUS_COLOR: Record<string, "success" | "warning" | "error" | "default"> = {
 	TRIAL: "warning",
@@ -338,6 +341,10 @@ export function OrganisationDetailPage() {
 					)}
 				</Stack>
 			</Paper>
+
+			<ContactsSection owner={{ organisationId: orgId }} />
+			<TasksSection owner={{ organisationId: orgId }} />
+			<ActivityTimeline owner={{ organisationId: orgId }} />
 
 			<Dialog open={subDialogOpen} onClose={() => setSubDialogOpen(false)} component="form" onSubmit={handleSubscribe} fullWidth maxWidth="xs">
 				<DialogTitle>Start subscription</DialogTitle>

@@ -30,6 +30,7 @@ import { getMrr, listAllSubscriptions, type SubscriptionResponse } from "./api/s
 import { listUsage, type UsageResponse } from "./api/usage";
 import { describeActivity } from "./activityDescriptions";
 import { colors } from "../theme";
+import { PipelineSection } from "./crm/PipelineSection";
 
 const ORG_STATUSES = ["TRIAL", "ACTIVE", "SUSPENDED", "ARCHIVED"] as const;
 const GROWTH_WINDOW_OPTIONS = [3, 6, 12] as const;
@@ -416,6 +417,8 @@ export function DashboardPage() {
 							</Stack>
 						</Paper>
 					</Stack>
+
+					<PipelineSection />
 
 					<Box>
 						<Typography variant="h6" sx={{ mb: 1.5 }}>

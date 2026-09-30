@@ -15,7 +15,7 @@ export interface RoleResponse {
 }
 
 export function createRole(token: string, name: string, description: string, permissionCodes: string[]) {
-	return api.post<RoleResponse>("/api/v1/roles", { name, description, permissionCodes }, token);
+	return api.post<RoleResponse>("/api/v1/roles", { name, description, permissionCodes, portal: false }, token);
 }
 
 export interface StaffInviteResponse {
