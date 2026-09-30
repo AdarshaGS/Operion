@@ -84,7 +84,9 @@ class LeaderboardServiceTest extends LearningTestBase {
 
 	@Test
 	void rewardsAccumulateOnTheRewardTrackOnlyAndTeachersOfOtherSectionsCannotGrant() {
-		leaderboardService.grant(ashaTeachesMathsInA, sitaEnrollment.getId(), "Helpful", 5, null, Instant.now());
+		// The controller maps the granter's name after the service transaction ends, so it must be a loaded entity, not a proxy.
+		assertThat(leaderboardService.grant(ashaTeachesMathsInA, sitaEnrollment.getId(), "Helpful", 5, null, Instant.now()).getGrantedBy().getFirstName())
+				.isEqualTo("Asha");
 		leaderboardService.grant(admin, sitaEnrollment.getId(), "Neat work", 3, "Great notebook", Instant.now());
 		leaderboardService.grant(ashaTeachesMathsInA, raviEnrollment.getId(), "Punctual", 4, null, Instant.now());
 		var board = leaderboardService.studentBoard(ashaTeachesMathsInA, sectionA.getId(), Track.REWARD);

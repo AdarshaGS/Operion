@@ -124,7 +124,7 @@ public class LeaderboardService {
 			throw new IllegalArgumentException("The reason is too long");
 		}
 		return rewardRepository.save(new StudentReward(enrollment.getStudent(), title.trim(),
-				points, reason == null || reason.isBlank() ? null : reason.trim(), personRepository.getReferenceById(actor.personId()), now));
+				points, reason == null || reason.isBlank() ? null : reason.trim(), personRepository.findById(actor.personId()).orElseThrow(), now));
 	}
 
 	@Transactional(readOnly = true)

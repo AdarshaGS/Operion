@@ -73,7 +73,7 @@ public class LearningMaterialService {
 				.orElseThrow(() -> new IllegalArgumentException("Subject not found: " + subjectId));
 		requireCanWriteClass(actor, classId, subjectId);
 		return materialRepository.save(new LearningMaterial(schoolClass, subject, title.trim(), blankToNull(description), kind,
-				cleanRef, cleanUrl, personRepository.getReferenceById(actor.personId())));
+				cleanRef, cleanUrl, personRepository.findById(actor.personId()).orElseThrow()));
 	}
 
 	public LearningMaterial archive(LearningActor actor, Long materialId) {

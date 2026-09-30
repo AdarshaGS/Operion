@@ -70,7 +70,7 @@ public class HomeworkService {
 				.orElseThrow(() -> new IllegalArgumentException("Section not found: " + sectionId));
 		Subject subject = subjectRepository.findById(subjectId)
 				.orElseThrow(() -> new IllegalArgumentException("Subject not found: " + subjectId));
-		Person assignedBy = personRepository.getReferenceById(actor.personId());
+		Person assignedBy = personRepository.findById(actor.personId()).orElseThrow();
 		return homeworkRepository.save(new Homework(section, subject, title.trim(), blankToNull(description), dueDate,
 				blankToNull(attachmentRef), assignedBy));
 	}
@@ -152,12 +152,12 @@ public class HomeworkService {
 		boolean late = now.isAfter(homework.getDueDate().plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant());
 		Long studentId = enrollment.getStudent().getId();
 		HomeworkSubmission existing = submissionRepository.findByHomeworkIdAndStudentId(homeworkId, studentId).orElse(null);
-		Person by = personRepository.getReferenceById(child.guardianPersonId());
+		Person by = personRepository.findById(child.guardianPersonId()).orElseThrow();
 		if (existing != null) {
 			existing.resubmit(by, blankToNull(text), blankToNull(attachmentRef), now, late);
 			return existing;
 		}
-		return submissionRepository.save(new HomeworkSubmission(homework, studentRepository.getReferenceById(studentId), by,
+		return submissionRepository.save(new HomeworkSubmission(homework, studentRepository.findById(studentId).orElseThrow(), by,
 				blankToNull(text), blankToNull(attachmentRef), now, late));
 	}
 

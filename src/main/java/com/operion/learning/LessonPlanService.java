@@ -44,7 +44,7 @@ public class LessonPlanService {
 		Subject subject = subjectRepository.findById(subjectId)
 				.orElseThrow(() -> new IllegalArgumentException("Subject not found: " + subjectId));
 		return planRepository.save(new LessonPlan(section, subject, planDate, title.trim(), blankToNull(objectives),
-				blankToNull(activities), blankToNull(resources), personRepository.getReferenceById(actor.personId())));
+				blankToNull(activities), blankToNull(resources), personRepository.findById(actor.personId()).orElseThrow()));
 	}
 
 	public LessonPlan edit(LearningActor actor, Long planId, LocalDate planDate, String title, String objectives,
@@ -64,7 +64,7 @@ public class LessonPlanService {
 	public LessonPlan approve(LearningActor actor, Long planId, String note) {
 		actor.requireReviewer();
 		LessonPlan plan = find(planId);
-		plan.approve(personRepository.getReferenceById(actor.personId()), blankToNull(note), Instant.now());
+		plan.approve(personRepository.findById(actor.personId()).orElseThrow(), blankToNull(note), Instant.now());
 		return plan;
 	}
 
@@ -74,7 +74,7 @@ public class LessonPlanService {
 			throw new IllegalArgumentException("Tell the teacher what to change when rejecting a plan");
 		}
 		LessonPlan plan = find(planId);
-		plan.reject(personRepository.getReferenceById(actor.personId()), note.trim(), Instant.now());
+		plan.reject(personRepository.findById(actor.personId()).orElseThrow(), note.trim(), Instant.now());
 		return plan;
 	}
 

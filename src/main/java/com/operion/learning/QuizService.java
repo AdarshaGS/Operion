@@ -96,7 +96,7 @@ public class QuizService {
 		Subject subject = subjectRepository.findById(subjectId)
 				.orElseThrow(() -> new IllegalArgumentException("Subject not found: " + subjectId));
 		return quizRepository.save(new Quiz(section, subject, title.trim(), blankToNull(instructions), opensAt, closesAt,
-				personRepository.getReferenceById(actor.personId())));
+				personRepository.findById(actor.personId()).orElseThrow()));
 	}
 
 	public QuestionView addQuestion(LearningActor actor, Long quizId, String text, int marks, List<OptionInput> options) {
@@ -289,8 +289,8 @@ public class QuizService {
 			max += view.question().getMarks();
 			graded.add(new Object[] { view.question(), picked, correct, awarded });
 		}
-		QuizAttempt attempt = attemptRepository.save(new QuizAttempt(quiz, studentRepository.getReferenceById(studentId),
-				personRepository.getReferenceById(child.guardianPersonId()), now, score, max));
+		QuizAttempt attempt = attemptRepository.save(new QuizAttempt(quiz, studentRepository.findById(studentId).orElseThrow(),
+				personRepository.findById(child.guardianPersonId()).orElseThrow(), now, score, max));
 		for (Object[] g : graded) {
 			answerRepository.save(new QuizAttemptAnswer(attempt, (QuizQuestion) g[0], (QuizOption) g[1], (Boolean) g[2], (Integer) g[3]));
 		}
@@ -364,7 +364,7 @@ public class QuizService {
 			throw new IllegalArgumentException("Mark exactly one option as correct");
 		}
 		QuizQuestion question = questionRepository.save(new QuizQuestion(quiz, subject, ordinal, text.trim(), marks,
-				personRepository.getReferenceById(actor.personId())));
+				personRepository.findById(actor.personId()).orElseThrow()));
 		int i = 1;
 		for (OptionInput option : options) {
 			optionRepository.save(new QuizOption(question, i++, option.text().trim(), option.correct()));

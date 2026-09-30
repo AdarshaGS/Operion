@@ -107,7 +107,7 @@ public class AnswerSheetService {
 		}
 		AnswerSheet sheet = sheetRepository.findByExamScheduleIdAndStudentEnrollmentId(scheduleId, enrollmentId).orElse(null);
 		if (sheet == null) {
-			sheet = sheetRepository.save(new AnswerSheet(schedule, enrollment, personRepository.getReferenceById(actor.personId())));
+			sheet = sheetRepository.save(new AnswerSheet(schedule, enrollment, personRepository.findById(actor.personId()).orElseThrow()));
 		} else if (sheet.getStatus() != AnswerSheetStatus.UPLOADED) {
 			throw new IllegalStateException("This sheet is already marked; it can no longer be re-uploaded");
 		} else {
@@ -170,7 +170,7 @@ public class AnswerSheetService {
 			annotationRepository.save(new AnswerSheetAnnotation(byNumber.get(a.pageNumber()), a.kind(), a.x(), a.y(),
 					blankToNull(a.label()), a.kind() == AnnotationKind.MARKS ? a.marks() : null));
 		}
-		sheet.mark(total, blankToNull(overallRemarks), personRepository.getReferenceById(actor.personId()), now);
+		sheet.mark(total, blankToNull(overallRemarks), personRepository.findById(actor.personId()).orElseThrow(), now);
 		return detailOf(sheet);
 	}
 

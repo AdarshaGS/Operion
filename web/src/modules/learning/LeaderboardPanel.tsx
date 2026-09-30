@@ -82,7 +82,7 @@ export function LeaderboardPanel({ scope }: { scope: LearningScope }) {
 						</ToggleButtonGroup>
 						<Button startIcon={<EmojiEventsIcon />} variant="outlined" disabled={sectionId === ""} onClick={() => setGranting("pick")}>Grant reward</Button>
 					</Stack>
-					{entries.length === 0 && <Alert severity="info">No {TRACK_LABEL[track].toLowerCase()} results for this section yet.</Alert>}
+					{entries.length === 0 && <Alert severity="info">Nobody in this section has a {TRACK_LABEL[track].toLowerCase()} score yet.</Alert>}
 					{entries.length > 0 && (
 						<Table size="small">
 							<TableHead>
