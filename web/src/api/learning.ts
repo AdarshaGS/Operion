@@ -225,3 +225,179 @@ export function rejectLessonPlan(id: number, feedback: string): Promise<LessonPl
 export function getChildLessonPlans(studentId: number, from: string, to: string): Promise<LessonPlanResponse[]> {
 	return api.get<LessonPlanResponse[]>(`/api/v1/me/children/${studentId}/lesson-plans?from=${from}&to=${to}`);
 }
+
+// --- Quizzes (#227) ---
+
+export type QuizAvailability = "UPCOMING" | "OPEN" | "CLOSED";
+
+export interface QuizResponse {
+	id: number;
+	sectionId: number;
+	className: string;
+	sectionName: string;
+	subjectId: number;
+	subjectName: string;
+	title: string;
+	instructions: string | null;
+	opensAt: string;
+	closesAt: string;
+	status: "DRAFT" | "PUBLISHED";
+	availability: QuizAvailability;
+	questionCount: number;
+	totalMarks: number;
+	attempts: number;
+	enrolled: number;
+}
+
+export interface CreateQuizRequest {
+	sectionId: number;
+	subjectId: number;
+	title: string;
+	instructions?: string | null;
+	opensAt: string;
+	closesAt: string;
+}
+
+export interface OptionInput {
+	text: string;
+	correct: boolean;
+}
+
+export interface QuestionRequest {
+	subjectId?: number;
+	text: string;
+	marks: number;
+	options: OptionInput[];
+}
+
+export interface QuestionResponse {
+	id: number;
+	subjectId: number;
+	ordinal: number;
+	text: string;
+	marks: number;
+	options: { id: number; text: string; correct: boolean }[];
+}
+
+export interface QuizResultRow {
+	studentId: number;
+	studentName: string;
+	rollNumber: number | null;
+	attempted: boolean;
+	score: number | null;
+	maxScore: number | null;
+	percentage: number | null;
+	submittedAt: string | null;
+}
+
+export function listQuizzes(sectionId?: number): Promise<QuizResponse[]> {
+	return api.get<QuizResponse[]>(`/api/v1/learning/quizzes${sectionId ? `?sectionId=${sectionId}` : ""}`);
+}
+
+export function createQuiz(request: CreateQuizRequest): Promise<QuizResponse> {
+	return api.post<QuizResponse>("/api/v1/learning/quizzes", request);
+}
+
+export function getQuizQuestions(quizId: number): Promise<QuestionResponse[]> {
+	return api.get<QuestionResponse[]>(`/api/v1/learning/quizzes/${quizId}/questions`);
+}
+
+export function addQuizQuestion(quizId: number, request: QuestionRequest): Promise<QuestionResponse> {
+	return api.post<QuestionResponse>(`/api/v1/learning/quizzes/${quizId}/questions`, request);
+}
+
+export function addQuizQuestionFromBank(quizId: number, bankQuestionId: number): Promise<QuestionResponse> {
+	return api.post<QuestionResponse>(`/api/v1/learning/quizzes/${quizId}/questions/from-bank/${bankQuestionId}`);
+}
+
+export function removeQuizQuestion(quizId: number, questionId: number): Promise<void> {
+	return api.delete<void>(`/api/v1/learning/quizzes/${quizId}/questions/${questionId}`);
+}
+
+export function publishQuiz(quizId: number): Promise<QuizResponse> {
+	return api.post<QuizResponse>(`/api/v1/learning/quizzes/${quizId}/publish`);
+}
+
+export function getQuizResults(quizId: number): Promise<QuizResultRow[]> {
+	return api.get<QuizResultRow[]>(`/api/v1/learning/quizzes/${quizId}/results`);
+}
+
+export function listQuestionBank(subjectId?: number): Promise<QuestionResponse[]> {
+	return api.get<QuestionResponse[]>(`/api/v1/learning/question-bank${subjectId ? `?subjectId=${subjectId}` : ""}`);
+}
+
+export function addBankQuestion(request: QuestionRequest): Promise<QuestionResponse> {
+	return api.post<QuestionResponse>("/api/v1/learning/question-bank", request);
+}
+
+export function deleteBankQuestion(id: number): Promise<void> {
+	return api.delete<void>(`/api/v1/learning/question-bank/${id}`);
+}
+
+export interface ChildQuiz {
+	id: number;
+	subjectName: string;
+	title: string;
+	instructions: string | null;
+	opensAt: string;
+	closesAt: string;
+	availability: QuizAvailability;
+	questionCount: number;
+	totalMarks: number;
+	attempted: boolean;
+	score: number | null;
+	maxScore: number | null;
+}
+
+export interface AttemptQuestion {
+	id: number;
+	ordinal: number;
+	text: string;
+	marks: number;
+	options: { id: number; text: string }[];
+}
+
+export interface AttemptSummary {
+	quizId: number;
+	quizTitle: string;
+	subjectName: string;
+	score: number;
+	maxScore: number;
+	percentage: number;
+	submittedAt: string;
+}
+
+export interface AttemptResult {
+	summary: AttemptSummary;
+	correctAnswersShown: boolean;
+	answers: {
+		questionId: number;
+		text: string;
+		marks: number;
+		options: { id: number; text: string }[];
+		selectedOptionId: number | null;
+		correctOptionId: number | null;
+		correct: boolean;
+		marksAwarded: number;
+	}[];
+}
+
+export function getChildQuizzes(studentId: number): Promise<ChildQuiz[]> {
+	return api.get<ChildQuiz[]>(`/api/v1/me/children/${studentId}/quizzes`);
+}
+
+export function getChildQuizQuestions(studentId: number, quizId: number): Promise<AttemptQuestion[]> {
+	return api.get<AttemptQuestion[]>(`/api/v1/me/children/${studentId}/quizzes/${quizId}/questions`);
+}
+
+export function submitChildQuizAttempt(studentId: number, quizId: number, answers: { questionId: number; optionId: number | null }[]): Promise<AttemptSummary> {
+	return api.post<AttemptSummary>(`/api/v1/me/children/${studentId}/quizzes/${quizId}/attempt`, { answers });
+}
+
+export function getChildQuizResult(studentId: number, quizId: number): Promise<AttemptResult> {
+	return api.get<AttemptResult>(`/api/v1/me/children/${studentId}/quizzes/${quizId}/result`);
+}
+
+export function getChildQuizHistory(studentId: number): Promise<AttemptSummary[]> {
+	return api.get<AttemptSummary[]>(`/api/v1/me/children/${studentId}/quiz-history`);
+}

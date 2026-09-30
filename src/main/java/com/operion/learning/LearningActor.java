@@ -28,6 +28,11 @@ public record LearningActor(Long userId, Long personId, boolean manager, boolean
 				&& (t.subjectId() == null || t.subjectId().equals(subjectId)));
 	}
 
+	/** May author subject-level content (e.g. question bank) - teaches the subject anywhere, or is homeroom somewhere. */
+	public boolean canAuthorSubject(Long subjectId) {
+		return manager || teaching.stream().anyMatch(t -> t.subjectId() == null || t.subjectId().equals(subjectId));
+	}
+
 	public boolean teaches(Long sectionId) {
 		return teaching.stream().anyMatch(t -> t.sectionId().equals(sectionId));
 	}

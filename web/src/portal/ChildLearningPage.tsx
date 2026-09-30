@@ -9,8 +9,9 @@ import Typography from "@mui/material/Typography";
 import { ChildHomeworkPanel } from "../modules/learning/ChildHomeworkPanel";
 import { ChildLessonCalendarPanel } from "../modules/learning/ChildLessonCalendarPanel";
 import { ChildMaterialsPanel } from "../modules/learning/ChildMaterialsPanel";
+import { ChildQuizzesPanel } from "../modules/learning/ChildQuizzesPanel";
 
-type ChildTab = "homework" | "materials" | "calendar";
+type ChildTab = "homework" | "quizzes" | "materials" | "calendar";
 
 /** Everything a guardian does for a linked child under the learning features (students have no
  * login of their own). The studentId is verified server-side against the caller's StudentGuardian links. */
@@ -34,11 +35,13 @@ export function ChildLearningPage() {
 			<Box sx={{ borderBottom: 1, borderColor: "divider" }}>
 				<Tabs value={tab} onChange={handleChange} variant="scrollable" scrollButtons="auto">
 					<Tab label="Homework" value="homework" />
+					<Tab label="Quizzes" value="quizzes" />
 					<Tab label="Materials" value="materials" />
 					<Tab label="Lesson calendar" value="calendar" />
 				</Tabs>
 			</Box>
 			{tab === "homework" && <ChildHomeworkPanel studentId={id} />}
+			{tab === "quizzes" && <ChildQuizzesPanel studentId={id} />}
 			{tab === "materials" && <ChildMaterialsPanel studentId={id} />}
 			{tab === "calendar" && <ChildLessonCalendarPanel studentId={id} />}
 		</Stack>

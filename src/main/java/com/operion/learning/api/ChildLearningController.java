@@ -1,6 +1,9 @@
 package com.operion.learning.api;
 
+import java.time.Instant;
 import java.time.LocalDate;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.List;
 
 import com.operion.common.TenantContext;
@@ -8,6 +11,7 @@ import com.operion.learning.ChildAccessService;
 import com.operion.learning.HomeworkService;
 import com.operion.learning.LearningMaterialService;
 import com.operion.learning.LessonPlanService;
+import com.operion.learning.QuizService;
 import com.operion.storage.AssetStorageService;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -31,14 +35,16 @@ public class ChildLearningController {
 	private final HomeworkService homeworkService;
 	private final LearningMaterialService materialService;
 	private final LessonPlanService lessonPlanService;
+	private final QuizService quizService;
 	private final AssetStorageService storage;
 
 	public ChildLearningController(ChildAccessService childAccess, HomeworkService homeworkService,
-			LearningMaterialService materialService, LessonPlanService lessonPlanService, AssetStorageService storage) {
+			LearningMaterialService materialService, LessonPlanService lessonPlanService, QuizService quizService, AssetStorageService storage) {
 		this.childAccess = childAccess;
 		this.homeworkService = homeworkService;
 		this.materialService = materialService;
 		this.lessonPlanService = lessonPlanService;
+		this.quizService = quizService;
 		this.storage = storage;
 	}
 
@@ -71,5 +77,43 @@ public class ChildLearningController {
 			@RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
 		var child = childAccess.resolve(TenantContext.getActorId(), studentId);
 		return lessonPlanService.calendarForChild(child.enrollment(), from, to).stream().map(LessonPlanResponse::from).toList();
+	}
+
+	@GetMapping("/quizzes")
+	public List<ChildQuizResponses.ChildQuiz> quizzes(@PathVariable Long studentId) {
+		var child = childAccess.resolve(TenantContext.getActorId(), studentId);
+		return quizService.forChild(child.enrollment(), Instant.now()).stream().map(ChildQuizResponses.ChildQuiz::from).toList();
+	}
+
+	/** Only while the quiz is open and not yet attempted; the DTO carries no correctness. */
+	@GetMapping("/quizzes/{quizId}/questions")
+	public List<ChildQuizResponses.AttemptQuestion> quizQuestions(@PathVariable Long studentId, @PathVariable Long quizId) {
+		var child = childAccess.resolve(TenantContext.getActorId(), studentId);
+		return quizService.questionsToAttempt(child.enrollment(), quizId, Instant.now()).stream()
+				.map(ChildQuizResponses.AttemptQuestion::from).toList();
+	}
+
+	@PostMapping("/quizzes/{quizId}/attempt")
+	public ChildQuizResponses.AttemptSummary attemptQuiz(@PathVariable Long studentId, @PathVariable Long quizId,
+			@RequestBody ChildQuizResponses.AttemptRequest request) {
+		var child = childAccess.resolve(TenantContext.getActorId(), studentId);
+		Map<Long, Long> answers = new HashMap<>();
+		if (request.answers() != null) {
+			request.answers().stream().filter(a -> a.optionId() != null).forEach(a -> answers.put(a.questionId(), a.optionId()));
+		}
+		return ChildQuizResponses.AttemptSummary.from(quizService.submitAttempt(child, quizId, answers, Instant.now()));
+	}
+
+	@GetMapping("/quizzes/{quizId}/result")
+	public ChildQuizResponses.AttemptResult quizResult(@PathVariable Long studentId, @PathVariable Long quizId) {
+		var child = childAccess.resolve(TenantContext.getActorId(), studentId);
+		return ChildQuizResponses.AttemptResult.from(quizService.attemptDetail(child.enrollment(), quizId, Instant.now()));
+	}
+
+	/** The child's quiz history across every quiz, newest first. */
+	@GetMapping("/quiz-history")
+	public List<ChildQuizResponses.AttemptSummary> quizHistory(@PathVariable Long studentId) {
+		childAccess.resolve(TenantContext.getActorId(), studentId);
+		return quizService.history(studentId).stream().map(ChildQuizResponses.AttemptSummary::from).toList();
 	}
 }
