@@ -401,3 +401,82 @@ export function getChildQuizResult(studentId: number, quizId: number): Promise<A
 export function getChildQuizHistory(studentId: number): Promise<AttemptSummary[]> {
 	return api.get<AttemptSummary[]>(`/api/v1/me/children/${studentId}/quiz-history`);
 }
+
+// --- Answer sheets (#230) ---
+
+export type AnnotationKind = "TICK" | "CROSS" | "MARKS" | "COMMENT";
+
+export interface AnswerSheetSchedule {
+	id: number;
+	examName: string;
+	className: string;
+	sectionName: string | null;
+	subjectId: number;
+	subjectName: string;
+	examDate: string;
+	maxMarks: number;
+}
+
+export interface AnswerSheetRosterRow {
+	enrollmentId: number;
+	studentId: number;
+	studentName: string;
+	rollNumber: number | null;
+	sectionName: string;
+	sheetId: number | null;
+	status: "NOT_UPLOADED" | "UPLOADED" | "MARKED" | "RELEASED";
+	pages: number;
+	totalMarks: number | null;
+}
+
+export interface SheetAnnotation {
+	pageNumber: number;
+	kind: AnnotationKind;
+	/** Fractions (0..1) of the page image. */
+	x: number;
+	y: number;
+	label: string | null;
+	marks: number | null;
+}
+
+export interface AnswerSheet {
+	id: number;
+	examName: string;
+	subjectName: string;
+	studentName: string;
+	status: "UPLOADED" | "MARKED" | "RELEASED";
+	maxMarks: number;
+	totalMarks: number | null;
+	overallRemarks: string | null;
+	releasedAt: string | null;
+	pages: { id: number; pageNumber: number; url: string }[];
+	annotations: SheetAnnotation[];
+}
+
+export function listAnswerSheetSchedules(): Promise<AnswerSheetSchedule[]> {
+	return api.get<AnswerSheetSchedule[]>("/api/v1/learning/answer-sheets/schedules");
+}
+
+export function getAnswerSheetRoster(scheduleId: number): Promise<AnswerSheetRosterRow[]> {
+	return api.get<AnswerSheetRosterRow[]>(`/api/v1/learning/answer-sheets/schedules/${scheduleId}/roster`);
+}
+
+export function uploadAnswerSheet(scheduleId: number, enrollmentId: number, pageRefs: string[]): Promise<AnswerSheet> {
+	return api.post<AnswerSheet>(`/api/v1/learning/answer-sheets/schedules/${scheduleId}/upload`, { enrollmentId, pageRefs });
+}
+
+export function getAnswerSheet(id: number): Promise<AnswerSheet> {
+	return api.get<AnswerSheet>(`/api/v1/learning/answer-sheets/${id}`);
+}
+
+export function saveAnswerSheetMarking(id: number, annotations: SheetAnnotation[], totalMarks: number | null, overallRemarks: string | null): Promise<AnswerSheet> {
+	return api.put<AnswerSheet>(`/api/v1/learning/answer-sheets/${id}/marking`, { annotations, totalMarks, overallRemarks });
+}
+
+export function releaseAnswerSheet(id: number): Promise<AnswerSheet> {
+	return api.post<AnswerSheet>(`/api/v1/learning/answer-sheets/${id}/release`);
+}
+
+export function getChildAnswerSheets(studentId: number): Promise<AnswerSheet[]> {
+	return api.get<AnswerSheet[]>(`/api/v1/me/children/${studentId}/answer-sheets`);
+}

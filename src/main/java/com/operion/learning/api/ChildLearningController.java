@@ -7,6 +7,7 @@ import java.util.Map;
 import java.util.List;
 
 import com.operion.common.TenantContext;
+import com.operion.learning.AnswerSheetService;
 import com.operion.learning.ChildAccessService;
 import com.operion.learning.HomeworkService;
 import com.operion.learning.LearningMaterialService;
@@ -36,15 +37,17 @@ public class ChildLearningController {
 	private final LearningMaterialService materialService;
 	private final LessonPlanService lessonPlanService;
 	private final QuizService quizService;
+	private final AnswerSheetService answerSheetService;
 	private final AssetStorageService storage;
 
 	public ChildLearningController(ChildAccessService childAccess, HomeworkService homeworkService,
-			LearningMaterialService materialService, LessonPlanService lessonPlanService, QuizService quizService, AssetStorageService storage) {
+			LearningMaterialService materialService, LessonPlanService lessonPlanService, QuizService quizService, AnswerSheetService answerSheetService, AssetStorageService storage) {
 		this.childAccess = childAccess;
 		this.homeworkService = homeworkService;
 		this.materialService = materialService;
 		this.lessonPlanService = lessonPlanService;
 		this.quizService = quizService;
+		this.answerSheetService = answerSheetService;
 		this.storage = storage;
 	}
 
@@ -115,5 +118,12 @@ public class ChildLearningController {
 	public List<ChildQuizResponses.AttemptSummary> quizHistory(@PathVariable Long studentId) {
 		childAccess.resolve(TenantContext.getActorId(), studentId);
 		return quizService.history(studentId).stream().map(ChildQuizResponses.AttemptSummary::from).toList();
+	}
+
+	/** Marked answer sheets the teacher has released - never a sheet still being marked. */
+	@GetMapping("/answer-sheets")
+	public List<AnswerSheetResponses.SheetResponse> answerSheets(@PathVariable Long studentId) {
+		childAccess.resolve(TenantContext.getActorId(), studentId);
+		return answerSheetService.releasedForStudent(studentId).stream().map(d -> AnswerSheetResponses.SheetResponse.from(d, storage)).toList();
 	}
 }
