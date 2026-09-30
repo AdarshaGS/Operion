@@ -480,3 +480,75 @@ export function releaseAnswerSheet(id: number): Promise<AnswerSheet> {
 export function getChildAnswerSheets(studentId: number): Promise<AnswerSheet[]> {
 	return api.get<AnswerSheet[]>(`/api/v1/me/children/${studentId}/answer-sheets`);
 }
+
+// --- Leaderboards & rewards (#231) ---
+
+export type LeaderboardTrack = "QUIZ" | "ACADEMIC" | "REWARD";
+
+export interface StudentLeaderboardEntry {
+	rank: number;
+	studentId: number;
+	enrollmentId: number;
+	studentName: string;
+	rollNumber: number | null;
+	score: number;
+}
+
+export interface TeacherLeaderboardEntry {
+	rank: number;
+	teacherName: string;
+	points: number;
+	homeworkAssigned: number;
+	quizzesPublished: number;
+	materialsShared: number;
+	lessonPlansApproved: number;
+	sheetsReleased: number;
+}
+
+export interface Reward {
+	id: number;
+	studentId: number;
+	studentName: string;
+	title: string;
+	points: number;
+	reason: string | null;
+	grantedByName: string;
+	grantedAt: string;
+}
+
+export interface ChildStanding {
+	standings: Record<LeaderboardTrack, { rank: number | null; of: number; score: number | null }>;
+	rewardPoints: number;
+	rewards: Reward[];
+}
+
+export function getStudentLeaderboard(sectionId: number, track: LeaderboardTrack): Promise<StudentLeaderboardEntry[]> {
+	return api.get<StudentLeaderboardEntry[]>(`/api/v1/learning/leaderboard/students?sectionId=${sectionId}&track=${track}`);
+}
+
+export function getTeacherLeaderboard(): Promise<TeacherLeaderboardEntry[]> {
+	return api.get<TeacherLeaderboardEntry[]>("/api/v1/learning/leaderboard/teachers");
+}
+
+export function listSectionRewards(sectionId: number): Promise<Reward[]> {
+	return api.get<Reward[]>(`/api/v1/learning/rewards?sectionId=${sectionId}`);
+}
+
+export function grantReward(enrollmentId: number, title: string, points: number, reason: string | null): Promise<Reward> {
+	return api.post<Reward>("/api/v1/learning/rewards", { enrollmentId, title, points, reason });
+}
+
+export function getChildStanding(studentId: number): Promise<ChildStanding> {
+	return api.get<ChildStanding>(`/api/v1/me/children/${studentId}/standing`);
+}
+
+export interface SectionStudent {
+	enrollmentId: number;
+	studentId: number;
+	studentName: string;
+	rollNumber: number | null;
+}
+
+export function listSectionStudents(sectionId: number): Promise<SectionStudent[]> {
+	return api.get<SectionStudent[]>(`/api/v1/learning/sections/students?sectionId=${sectionId}`);
+}

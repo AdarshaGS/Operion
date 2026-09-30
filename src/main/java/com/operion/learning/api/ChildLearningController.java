@@ -10,6 +10,7 @@ import com.operion.common.TenantContext;
 import com.operion.learning.AnswerSheetService;
 import com.operion.learning.ChildAccessService;
 import com.operion.learning.HomeworkService;
+import com.operion.learning.LeaderboardService;
 import com.operion.learning.LearningMaterialService;
 import com.operion.learning.LessonPlanService;
 import com.operion.learning.QuizService;
@@ -38,16 +39,18 @@ public class ChildLearningController {
 	private final LessonPlanService lessonPlanService;
 	private final QuizService quizService;
 	private final AnswerSheetService answerSheetService;
+	private final LeaderboardService leaderboardService;
 	private final AssetStorageService storage;
 
 	public ChildLearningController(ChildAccessService childAccess, HomeworkService homeworkService,
-			LearningMaterialService materialService, LessonPlanService lessonPlanService, QuizService quizService, AnswerSheetService answerSheetService, AssetStorageService storage) {
+			LearningMaterialService materialService, LessonPlanService lessonPlanService, QuizService quizService, AnswerSheetService answerSheetService, LeaderboardService leaderboardService, AssetStorageService storage) {
 		this.childAccess = childAccess;
 		this.homeworkService = homeworkService;
 		this.materialService = materialService;
 		this.lessonPlanService = lessonPlanService;
 		this.quizService = quizService;
 		this.answerSheetService = answerSheetService;
+		this.leaderboardService = leaderboardService;
 		this.storage = storage;
 	}
 
@@ -125,5 +128,11 @@ public class ChildLearningController {
 	public List<AnswerSheetResponses.SheetResponse> answerSheets(@PathVariable Long studentId) {
 		childAccess.resolve(TenantContext.getActorId(), studentId);
 		return answerSheetService.releasedForStudent(studentId).stream().map(d -> AnswerSheetResponses.SheetResponse.from(d, storage)).toList();
+	}
+
+	@GetMapping("/standing")
+	public LeaderboardResponses.ChildStandingResponse standing(@PathVariable Long studentId) {
+		var child = childAccess.resolve(TenantContext.getActorId(), studentId);
+		return LeaderboardResponses.ChildStandingResponse.from(leaderboardService.standing(child.enrollment()), leaderboardService.rewardsOf(studentId));
 	}
 }
