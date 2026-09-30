@@ -22,8 +22,11 @@ public class AdjustmentController {
 	private final FeeService feeService;
 	private final InvoiceRepository invoiceRepository;
 	private final AdjustmentRepository adjustmentRepository;
+	private final FeeApproverPolicy feeApproverPolicy;
 
-	public AdjustmentController(FeeService feeService, InvoiceRepository invoiceRepository, AdjustmentRepository adjustmentRepository) {
+	public AdjustmentController(FeeService feeService, InvoiceRepository invoiceRepository, AdjustmentRepository adjustmentRepository,
+			FeeApproverPolicy feeApproverPolicy) {
+		this.feeApproverPolicy = feeApproverPolicy;
 		this.feeService = feeService;
 		this.invoiceRepository = invoiceRepository;
 		this.adjustmentRepository = adjustmentRepository;
@@ -35,6 +38,7 @@ public class AdjustmentController {
 		Invoice invoice = invoiceRepository.findById(request.invoiceId())
 				.orElseThrow(() -> new IllegalArgumentException("No invoice with id " + request.invoiceId()));
 
+		feeApproverPolicy.requireEligible(request.approvedBy());
 		Adjustment adjustment = feeService.recordAdjustment(invoice, request.amount(), request.reason(), request.approvedBy(),
 				request.adjustmentDate(), request.proofFileReference(), request.proofFileName());
 		return AdjustmentResponse.from(adjustment);

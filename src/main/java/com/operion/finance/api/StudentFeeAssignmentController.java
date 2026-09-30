@@ -33,11 +33,13 @@ public class StudentFeeAssignmentController {
 	private final StudentEnrollmentRepository studentEnrollmentRepository;
 	private final FeeStructureRepository feeStructureRepository;
 	private final FeeStructureInstallmentRepository feeStructureInstallmentRepository;
+	private final FeeApproverPolicy feeApproverPolicy;
 
 	public StudentFeeAssignmentController(FeeService feeService, FeeReminderService feeReminderService,
 			StudentFeeAssignmentRepository studentFeeAssignmentRepository,
 			StudentEnrollmentRepository studentEnrollmentRepository, FeeStructureRepository feeStructureRepository,
-			FeeStructureInstallmentRepository feeStructureInstallmentRepository) {
+			FeeStructureInstallmentRepository feeStructureInstallmentRepository, FeeApproverPolicy feeApproverPolicy) {
+		this.feeApproverPolicy = feeApproverPolicy;
 		this.feeService = feeService;
 		this.feeReminderService = feeReminderService;
 		this.studentFeeAssignmentRepository = studentFeeAssignmentRepository;
@@ -54,6 +56,7 @@ public class StudentFeeAssignmentController {
 		FeeStructure feeStructure = feeStructureRepository.findById(request.feeStructureId())
 				.orElseThrow(() -> new IllegalArgumentException("No fee structure with id " + request.feeStructureId()));
 
+		feeApproverPolicy.requireEligible(request.approvedBy());
 		StudentFeeAssignment assignment = feeService.assignFee(
 				enrollment, feeStructure, request.discountAmount(), request.discountReason(), request.approvedBy());
 		return StudentFeeAssignmentResponse.from(assignment);
@@ -63,6 +66,7 @@ public class StudentFeeAssignmentController {
 	@RequirePermission("FEE_ASSIGNMENT_MANAGE")
 	public StudentFeeAssignmentResponse revise(@PathVariable Long assignmentId, @RequestBody ReviseAssignmentRequest request) {
 		StudentFeeAssignment assignment = findAssignment(assignmentId);
+		feeApproverPolicy.requireEligible(request.approvedBy());
 		StudentFeeAssignment revised =
 				feeService.reviseAssignment(assignment, request.discountAmount(), request.discountReason(), request.approvedBy());
 		return StudentFeeAssignmentResponse.from(revised);

@@ -4,7 +4,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-import com.operion.authorization.OrganisationMembershipRepository;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -21,16 +20,16 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/fees/approvers")
 public class FeeApproverController {
 
-	private final OrganisationMembershipRepository membershipRepository;
+	private final FeeApproverPolicy feeApproverPolicy;
 
-	public FeeApproverController(OrganisationMembershipRepository membershipRepository) {
-		this.membershipRepository = membershipRepository;
+	public FeeApproverController(FeeApproverPolicy feeApproverPolicy) {
+		this.feeApproverPolicy = feeApproverPolicy;
 	}
 
 	@GetMapping
 	public List<FeeApproverResponse> list() {
 		Map<Long, FeeApproverResponse> byUserId = new LinkedHashMap<>();
-		membershipRepository.findActiveMembersWithPermission("FEE_STRUCTURE_MANAGE").stream()
+		feeApproverPolicy.eligibleMemberships().stream()
 				.map(FeeApproverResponse::from)
 				.forEach(approver -> byUserId.putIfAbsent(approver.userId(), approver));
 		return List.copyOf(byUserId.values());

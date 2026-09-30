@@ -47,6 +47,13 @@ const PAYMENT_REFERENCE_LABEL: Record<string, string> = {
 	CARD: "Transaction ID",
 };
 
+const PAYMENT_FREQUENCY_LABEL: Record<string, string> = {
+	MONTHLY: "Monthly",
+	QUARTERLY: "Quarterly",
+	HALF_YEARLY: "Half-yearly",
+	ONE_SHOT: "One-shot",
+};
+
 const ASSIGNMENT_STATUS_LABEL: Record<string, string> = { ACTIVE: "Active", SUPERSEDED: "Superseded" };
 const ASSIGNMENT_STATUS_COLOR: Record<string, "success" | "default"> = { ACTIVE: "success", SUPERSEDED: "default" };
 
@@ -412,6 +419,7 @@ export function StudentFeesPanel({ studentEnrollmentId, academicYearId, schoolCl
 								<TableHead>
 									<TableRow>
 										<TableCell>Structure</TableCell>
+										<TableCell>Frequency</TableCell>
 										<TableCell>Base</TableCell>
 										<TableCell>Discount</TableCell>
 										<TableCell>Effective</TableCell>
@@ -428,6 +436,7 @@ export function StudentFeesPanel({ studentEnrollmentId, academicYearId, schoolCl
 												return structure ? categoryName(structure.feeCategoryId) : `Structure #${assignment.feeStructureId}`;
 											})()}
 										</TableCell>
+											<TableCell>{PAYMENT_FREQUENCY_LABEL[structureFor(assignment.feeStructureId)?.paymentFrequency ?? ""] ?? "—"}</TableCell>
 											<TableCell>{assignment.baseAmount}</TableCell>
 											<TableCell>{assignment.discountAmount ?? "—"}</TableCell>
 											<TableCell>{assignment.effectiveAmount}</TableCell>
@@ -560,6 +569,7 @@ export function StudentFeesPanel({ studentEnrollmentId, academicYearId, schoolCl
 										<TableCell>Receipt #</TableCell>
 										<TableCell>Date</TableCell>
 										<TableCell>Method</TableCell>
+										<TableCell>Reference</TableCell>
 										<TableCell>Amount</TableCell>
 										<TableCell>Status</TableCell>
 										{(canRefund || canBounce) && <TableCell />}
@@ -571,6 +581,7 @@ export function StudentFeesPanel({ studentEnrollmentId, academicYearId, schoolCl
 											<TableCell>{payment.receiptNumber}</TableCell>
 											<TableCell>{payment.paymentDate}</TableCell>
 											<TableCell>{payment.paymentMethod}</TableCell>
+											<TableCell>{payment.paymentReference ?? "—"}</TableCell>
 											<TableCell>{currency(payment.amount)}</TableCell>
 											<TableCell>
 												<Chip

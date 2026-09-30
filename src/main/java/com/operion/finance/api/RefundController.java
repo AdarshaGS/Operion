@@ -19,8 +19,11 @@ public class RefundController {
 	private final FeeService feeService;
 	private final PaymentRepository paymentRepository;
 	private final InvoiceRepository invoiceRepository;
+	private final FeeApproverPolicy feeApproverPolicy;
 
-	public RefundController(FeeService feeService, PaymentRepository paymentRepository, InvoiceRepository invoiceRepository) {
+	public RefundController(FeeService feeService, PaymentRepository paymentRepository, InvoiceRepository invoiceRepository,
+			FeeApproverPolicy feeApproverPolicy) {
+		this.feeApproverPolicy = feeApproverPolicy;
 		this.feeService = feeService;
 		this.paymentRepository = paymentRepository;
 		this.invoiceRepository = invoiceRepository;
@@ -34,6 +37,7 @@ public class RefundController {
 		Invoice invoice = invoiceRepository.findById(request.invoiceId())
 				.orElseThrow(() -> new IllegalArgumentException("No invoice with id " + request.invoiceId()));
 
+		feeApproverPolicy.requireEligible(request.approvedBy());
 		Refund refund = feeService.recordRefund(payment, invoice, request.amount(), request.reason(), request.approvedBy(),
 				request.refundDate(), request.proofFileReference(), request.proofFileName());
 		return RefundResponse.from(refund);
