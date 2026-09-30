@@ -27,6 +27,7 @@ import { useAuth } from "../../auth/AuthContext";
 import { MemberStatusChip } from "../../components/MemberStatusChip";
 import { StaffInviteDialog } from "../../components/StaffInviteDialog";
 import { TeacherTimetablePanel } from "../academics/TeacherTimetablePanel";
+import { SalaryStructurePanel } from "../payroll/SalaryStructurePanel";
 import { BorrowerLoanHistoryPanel } from "../library/BorrowerLoanHistoryPanel";
 import { listAcademicYears, type AcademicYearResponse } from "../../api/academicYears";
 import { ApiError } from "../../api/client";
@@ -778,6 +779,10 @@ export function StaffDetailPage() {
 					<TeacherTimetablePanel personId={person.id} />
 				</Can>
 			)}
+
+			<Can anyOf={["PAYROLL_VIEW"]}>
+				<SalaryStructurePanel staffProfileId={Number(staffProfileId)} />
+			</Can>
 
 			<Dialog
 				open={documentDialogOpen}

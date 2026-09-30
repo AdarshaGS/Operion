@@ -34,6 +34,7 @@ import Inventory2Icon from "@mui/icons-material/Inventory2";
 import ShoppingCartIcon from "@mui/icons-material/ShoppingCart";
 import PointOfSaleIcon from "@mui/icons-material/PointOfSale";
 import BadgeIcon from "@mui/icons-material/Badge";
+import RequestQuoteIcon from "@mui/icons-material/RequestQuote";
 import AssessmentIcon from "@mui/icons-material/Assessment";
 import GroupIcon from "@mui/icons-material/Group";
 import SettingsIcon from "@mui/icons-material/Settings";
@@ -152,6 +153,7 @@ const NAV_GROUPS: NavGroup[] = [
 		label: "Administration",
 		items: [
 			{ label: "HR", path: "/hr", icon: <BadgeIcon />, built: true, requiredPermissions: ["HR_VIEW"] },
+			{ label: "Payroll", path: "/payroll", icon: <RequestQuoteIcon />, built: true, requiredPermissions: ["PAYROLL_VIEW"] },
 			{ label: "Members", path: "/members", icon: <GroupIcon />, built: true, requiredPermissions: ["MEMBERSHIP_VIEW"] },
 			/** Foundation-owned config (Campus/AcademicYear), not a domain module - kept here rather than mixed into
 			 * a module group. Campus/AcademicYear mutation endpoints reuse ORGANISATION_MANAGE but their listing

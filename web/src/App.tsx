@@ -28,6 +28,9 @@ import { FeeCollectionPage } from "./modules/fees/FeeCollectionPage";
 import { FeeDemandPage } from "./modules/fees/FeeDemandPage";
 import { FeesSetupPage } from "./modules/fees/FeesSetupPage";
 import { HrPage } from "./modules/hr/HrPage";
+import { PayrollPage } from "./modules/payroll/PayrollPage";
+import { PayrollRunDetailPage } from "./modules/payroll/PayrollRunDetailPage";
+import { PayslipPage } from "./modules/payroll/PayslipPage";
 import { StaffCreatePage } from "./modules/hr/StaffCreatePage";
 import { StaffDetailPage } from "./modules/hr/StaffDetailPage";
 import { ItemDetailPage } from "./modules/inventory/ItemDetailPage";
@@ -80,6 +83,7 @@ import { PortalLayout } from "./portal/PortalLayout";
 import { PortalIndexRedirect } from "./portal/PortalIndexRedirect";
 import { GuardianDashboardPage } from "./portal/GuardianDashboardPage";
 import { TeacherDashboardPage } from "./portal/TeacherDashboardPage";
+import { MyPayslipPage, MyPayslipsPage } from "./portal/MyPayslipsPage";
 
 function App() {
 	return (
@@ -101,6 +105,8 @@ function App() {
 								<Route path="/portal" element={<PortalIndexRedirect />} />
 								<Route path="/portal/guardian" element={<GuardianDashboardPage />} />
 								<Route path="/portal/teacher" element={<TeacherDashboardPage />} />
+								<Route path="/portal/payslips" element={<MyPayslipsPage />} />
+								<Route path="/portal/payslips/:payslipId" element={<MyPayslipPage />} />
 								<Route path="/portal/profile" element={<ProfilePage />} />
 							</Route>
 						</Route>
@@ -145,6 +151,9 @@ function App() {
 							<Route path="/hr" element={<HrPage />} />
 							<Route path="/hr/staff/new" element={<StaffCreatePage />} />
 							<Route path="/hr/staff/:staffProfileId" element={<StaffDetailPage />} />
+							<Route path="/payroll" element={<PayrollPage />} />
+							<Route path="/payroll/runs/:runId" element={<PayrollRunDetailPage />} />
+							<Route path="/payroll/payslips/:payslipId" element={<PayslipPage />} />
 							<Route path="/members" element={<MembersPage />} />
 							<Route path="/members/invite" element={<MembersPage autoOpenInvite />} />
 							<Route path="/members/:userId" element={<UserDetailPage />} />

@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
+import { Link as RouterLink } from "react-router-dom";
 import Alert from "@mui/material/Alert";
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
@@ -147,6 +148,15 @@ export function TeacherDashboardPage() {
 						))}
 					</Grid>
 				)}
+			</Paper>
+
+			<Paper sx={{ p: 2 }}>
+				<Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center" }}>
+					<Typography variant="subtitle1">Payslips</Typography>
+					<Button size="small" component={RouterLink} to="/portal/payslips">
+						View my payslips
+					</Button>
+				</Stack>
 			</Paper>
 
 			<Paper sx={{ p: 2 }}>
