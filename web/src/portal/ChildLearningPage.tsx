@@ -7,8 +7,9 @@ import Tab from "@mui/material/Tab";
 import Tabs from "@mui/material/Tabs";
 import Typography from "@mui/material/Typography";
 import { ChildHomeworkPanel } from "../modules/learning/ChildHomeworkPanel";
+import { ChildMaterialsPanel } from "../modules/learning/ChildMaterialsPanel";
 
-type ChildTab = "homework";
+type ChildTab = "homework" | "materials";
 
 /** Everything a guardian does for a linked child under the learning features (students have no
  * login of their own). The studentId is verified server-side against the caller's StudentGuardian links. */
@@ -32,9 +33,11 @@ export function ChildLearningPage() {
 			<Box sx={{ borderBottom: 1, borderColor: "divider" }}>
 				<Tabs value={tab} onChange={handleChange} variant="scrollable" scrollButtons="auto">
 					<Tab label="Homework" value="homework" />
+					<Tab label="Materials" value="materials" />
 				</Tabs>
 			</Box>
 			{tab === "homework" && <ChildHomeworkPanel studentId={id} />}
+			{tab === "materials" && <ChildMaterialsPanel studentId={id} />}
 		</Stack>
 	);
 }

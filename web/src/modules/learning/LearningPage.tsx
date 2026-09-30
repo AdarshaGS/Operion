@@ -6,9 +6,10 @@ import Stack from "@mui/material/Stack";
 import Tab from "@mui/material/Tab";
 import Tabs from "@mui/material/Tabs";
 import { HomeworkPanel } from "./HomeworkPanel";
+import { MaterialsPanel } from "./MaterialsPanel";
 import { useLearningScope } from "./useLearningScope";
 
-type LearningTab = "homework";
+type LearningTab = "homework" | "materials";
 
 /** Homework, quizzes, materials, lesson plans, answer sheets and leaderboards. Mounted both in the
  * admin shell (/learning) and the teacher portal (/portal/teaching) - the API scopes each caller. */
@@ -32,9 +33,11 @@ export function LearningPage() {
 			<Box sx={{ borderBottom: 1, borderColor: "divider" }}>
 				<Tabs value={tab} onChange={handleChange} variant="scrollable" scrollButtons="auto">
 					<Tab label="Homework" value="homework" />
+					<Tab label="Materials" value="materials" />
 				</Tabs>
 			</Box>
 			{tab === "homework" && <HomeworkPanel scope={scope} />}
+			{tab === "materials" && <MaterialsPanel scope={scope} />}
 		</Stack>
 	);
 }

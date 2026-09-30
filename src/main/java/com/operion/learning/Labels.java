@@ -1,5 +1,6 @@
 package com.operion.learning;
 
+import com.operion.academic.SchoolClass;
 import com.operion.academic.Section;
 import com.operion.identity.Person;
 import com.operion.storage.AssetStorageService;
@@ -11,7 +12,10 @@ public final class Labels {
 	}
 
 	public static String className(Section section) {
-		var schoolClass = section.getSchoolClass();
+		return className(section.getSchoolClass());
+	}
+
+	public static String className(SchoolClass schoolClass) {
 		return schoolClass.getDisplayName() != null && !schoolClass.getDisplayName().isBlank()
 				? schoolClass.getDisplayName()
 				: schoolClass.getGradeLevel().getName();

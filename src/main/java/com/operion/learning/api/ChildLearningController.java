@@ -5,6 +5,7 @@ import java.util.List;
 import com.operion.common.TenantContext;
 import com.operion.learning.ChildAccessService;
 import com.operion.learning.HomeworkService;
+import com.operion.learning.LearningMaterialService;
 import com.operion.storage.AssetStorageService;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -24,11 +25,14 @@ public class ChildLearningController {
 
 	private final ChildAccessService childAccess;
 	private final HomeworkService homeworkService;
+	private final LearningMaterialService materialService;
 	private final AssetStorageService storage;
 
-	public ChildLearningController(ChildAccessService childAccess, HomeworkService homeworkService, AssetStorageService storage) {
+	public ChildLearningController(ChildAccessService childAccess, HomeworkService homeworkService,
+			LearningMaterialService materialService, AssetStorageService storage) {
 		this.childAccess = childAccess;
 		this.homeworkService = homeworkService;
+		this.materialService = materialService;
 		this.storage = storage;
 	}
 
@@ -46,5 +50,11 @@ public class ChildLearningController {
 		var child = childAccess.resolve(TenantContext.getActorId(), studentId);
 		var submission = homeworkService.submitForChild(child, homeworkId, request.text(), request.attachmentRef());
 		return ChildHomeworkResponse.from(submission.getHomework(), submission, storage);
+	}
+
+	@GetMapping("/materials")
+	public List<MaterialResponse> materials(@PathVariable Long studentId) {
+		var child = childAccess.resolve(TenantContext.getActorId(), studentId);
+		return materialService.forChild(child.enrollment()).stream().map(m -> MaterialResponse.from(m, storage)).toList();
 	}
 }

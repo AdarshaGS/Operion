@@ -112,3 +112,48 @@ export function getChildHomework(studentId: number): Promise<ChildHomework[]> {
 export function submitChildHomework(studentId: number, homeworkId: number, text: string, attachmentRef: string | null): Promise<ChildHomework> {
 	return api.post<ChildHomework>(`/api/v1/me/children/${studentId}/homework/${homeworkId}/submission`, { text, attachmentRef });
 }
+
+// --- Learning materials (#228) ---
+
+export type MaterialKind = "FILE" | "LINK" | "NOTE";
+
+export interface MaterialResponse {
+	id: number;
+	classId: number;
+	className: string;
+	subjectId: number | null;
+	subjectName: string | null;
+	title: string;
+	description: string | null;
+	kind: MaterialKind;
+	fileUrl: string | null;
+	url: string | null;
+	uploadedByName: string;
+	status: "ACTIVE" | "ARCHIVED";
+}
+
+export interface CreateMaterialRequest {
+	classId: number;
+	subjectId?: number | null;
+	title: string;
+	description?: string | null;
+	kind: MaterialKind;
+	attachmentRef?: string | null;
+	url?: string | null;
+}
+
+export function listMaterials(classId?: number): Promise<MaterialResponse[]> {
+	return api.get<MaterialResponse[]>(`/api/v1/learning/materials${classId ? `?classId=${classId}` : ""}`);
+}
+
+export function createMaterial(request: CreateMaterialRequest): Promise<MaterialResponse> {
+	return api.post<MaterialResponse>("/api/v1/learning/materials", request);
+}
+
+export function archiveMaterial(id: number): Promise<MaterialResponse> {
+	return api.post<MaterialResponse>(`/api/v1/learning/materials/${id}/archive`);
+}
+
+export function getChildMaterials(studentId: number): Promise<MaterialResponse[]> {
+	return api.get<MaterialResponse[]>(`/api/v1/me/children/${studentId}/materials`);
+}
