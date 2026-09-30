@@ -43,4 +43,21 @@ public final class CsvUtil {
 		fields.add(current.toString());
 		return fields;
 	}
+
+	/** Inverse of {@link #parseLine}: quotes any field containing a comma, quote or line break. */
+	public static String formatLine(List<String> fields) {
+		StringBuilder line = new StringBuilder();
+		for (int i = 0; i < fields.size(); i++) {
+			if (i > 0) {
+				line.append(',');
+			}
+			String field = fields.get(i) == null ? "" : fields.get(i);
+			if (field.contains(",") || field.contains("\"") || field.contains("\n") || field.contains("\r")) {
+				line.append('"').append(field.replace("\"", "\"\"")).append('"');
+			} else {
+				line.append(field);
+			}
+		}
+		return line.toString();
+	}
 }

@@ -27,13 +27,13 @@ function formatOccurredAt(iso: string): string {
 /** Read-only viewer over the shared audit ledger (#145) - the write side
  * (AuditLogService.record) is already called from every module; this is purely the
  * read side, filterable by entity type / actor / date range. */
-export function AuditLogsPanel() {
+export function AuditLogsPanel({ defaultEntityType = "" }: { defaultEntityType?: string } = {}) {
 	const [rows, setRows] = useState<AuditLogResponse[]>([]);
 	const [totalElements, setTotalElements] = useState(0);
 	const [page, setPage] = useState(0);
 	const [entityTypes, setEntityTypes] = useState<string[]>([]);
 	const [users, setUsers] = useState<UserResponse[]>([]);
-	const [entityType, setEntityType] = useState("");
+	const [entityType, setEntityType] = useState(defaultEntityType);
 	const [actorUserId, setActorUserId] = useState("");
 	const [from, setFrom] = useState("");
 	const [to, setTo] = useState("");
@@ -95,7 +95,7 @@ export function AuditLogsPanel() {
 						sx={{ minWidth: 180 }}
 					>
 						<MenuItem value="">All</MenuItem>
-						{entityTypes.map((type) => (
+						{(entityType && !entityTypes.includes(entityType) ? [...entityTypes, entityType] : entityTypes).map((type) => (
 							<MenuItem key={type} value={type}>
 								{type}
 							</MenuItem>

@@ -1,6 +1,8 @@
 package com.operion.student;
 
 import java.time.LocalDate;
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.domain.Page;
@@ -16,6 +18,8 @@ public interface StudentRepository extends JpaRepository<Student, Long> {
 	Optional<Student> findByAdmissionNumber(String admissionNumber);
 
 	long countByStatus(StudentStatus status);
+
+	List<Student> findByStatusIn(Collection<StudentStatus> statuses);
 
 	/** Every filter is optional (null = "don't filter on this") - #245's search/filter
 	 * list. Joins to the student's *current* enrollment/section only, so class/section

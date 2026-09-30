@@ -16,6 +16,9 @@ import NotificationsIcon from "@mui/icons-material/Notifications";
 import RuleIcon from "@mui/icons-material/Rule";
 import SecurityIcon from "@mui/icons-material/Security";
 import TuneIcon from "@mui/icons-material/Tune";
+import GavelIcon from "@mui/icons-material/Gavel";
+import PrivacyTipIcon from "@mui/icons-material/PrivacyTip";
+import SyncAltIcon from "@mui/icons-material/SyncAlt";
 import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
 import WorkIcon from "@mui/icons-material/Work";
 import { AcademicYearsPanel } from "./AcademicYearsPanel";
@@ -34,7 +37,10 @@ import { NotificationSettingsPanel } from "./NotificationSettingsPanel";
 import { OrganisationBrandingPanel } from "./OrganisationBrandingPanel";
 import { OrganisationProfilePanel } from "./OrganisationProfilePanel";
 import { ProfileChangeRequestsPanel } from "./ProfileChangeRequestsPanel";
+import { PrivacyConsolePanel } from "./PrivacyConsolePanel";
+import { RegulatoryExportsPanel } from "./RegulatoryExportsPanel";
 import { RolesPanel } from "./RolesPanel";
+import { TransferConnectorsPanel } from "./TransferConnectorsPanel";
 import { UsersPanel } from "./UsersPanel";
 import { WorkingCalendarPanel } from "./WorkingCalendarPanel";
 
@@ -55,7 +61,7 @@ export interface SettingsGroup {
 /** Single source of truth for both the Settings landing page (SettingsPage) and each
  * section's own page (SettingsSectionPage) - one list drives the grouped tile grid and
  * the /settings/:section route so the two can't drift out of sync. Sections are grouped
- * under four labeled groups (Organisation / Access & Security / Configuration / System);
+ * under five labeled groups (Organisation / Access & Security / Configuration / Compliance / System);
  * a not-yet-built section slots into the group it belongs to as soon as it ships. */
 export const SETTINGS_GROUPS: SettingsGroup[] = [
 	{
@@ -192,6 +198,33 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
 				description: "Add your own extra fields to records like Student, without a code change",
 				icon: <DynamicFormIcon />,
 				panel: <CustomFieldsPanel />,
+			},
+		],
+	},
+	{
+		key: "compliance",
+		label: "Compliance",
+		sections: [
+			{
+				key: "privacy",
+				label: "Privacy & consent",
+				description: "Track consent, and handle requests to access, correct, export or delete personal data",
+				icon: <PrivacyTipIcon />,
+				panel: <PrivacyConsolePanel />,
+			},
+			{
+				key: "regulatory-exports",
+				label: "Regulatory exports",
+				description: "Map student or staff records onto an external reporting layout and download it as CSV",
+				icon: <GavelIcon />,
+				panel: <RegulatoryExportsPanel />,
+			},
+			{
+				key: "transfer-connectors",
+				label: "Transfer hand-offs",
+				description: "Prepare and track a transferred student's record for an external system",
+				icon: <SyncAltIcon />,
+				panel: <TransferConnectorsPanel />,
 			},
 		],
 	},
