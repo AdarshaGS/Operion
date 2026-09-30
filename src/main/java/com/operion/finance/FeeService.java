@@ -112,6 +112,13 @@ public class FeeService {
 	@Transactional
 	public StudentFeeAssignment assignFee(StudentEnrollment studentEnrollment, FeeStructure feeStructure,
 			BigDecimal discountAmount, String discountReason, Long approvedBy) {
+		return assignFee(studentEnrollment, feeStructure, discountAmount, discountReason, approvedBy, null, null, null);
+	}
+
+	@Transactional
+	public StudentFeeAssignment assignFee(StudentEnrollment studentEnrollment, FeeStructure feeStructure,
+			BigDecimal discountAmount, String discountReason, Long approvedBy, PaymentFrequency paymentFrequency,
+			String proofFileReference, String proofFileName) {
 		FeeStructureGroup feeStructureGroup = feeStructure.getFeeStructureGroup();
 		if (!studentEnrollment.getAcademicYear().getId().equals(feeStructureGroup.getAcademicYear().getId())) {
 			throw new IllegalArgumentException("Enrollment and fee structure are for different academic years");
@@ -125,7 +132,8 @@ public class FeeService {
 
 		BigDecimal effective = feeStructure.getAmount().subtract(discount);
 		return studentFeeAssignmentRepository.save(
-				new StudentFeeAssignment(studentEnrollment, feeStructure, feeStructure.getAmount(), discount, effective, discountReason, approvedBy));
+				new StudentFeeAssignment(studentEnrollment, feeStructure, feeStructure.getAmount(), discount, effective, discountReason, approvedBy,
+						paymentFrequency, proofFileReference, proofFileName));
 	}
 
 	/**
@@ -135,6 +143,16 @@ public class FeeService {
 	@Transactional
 	public StudentFeeAssignment reviseAssignment(
 			StudentFeeAssignment assignment, BigDecimal discountAmount, String discountReason, Long approvedBy) {
+		return reviseAssignment(assignment, discountAmount, discountReason, approvedBy, null, null, null);
+	}
+
+	/** A null paymentFrequency / proof keeps what the assignment already carries. */
+	@Transactional
+	public StudentFeeAssignment reviseAssignment(StudentFeeAssignment assignment, BigDecimal discountAmount, String discountReason,
+			Long approvedBy, PaymentFrequency paymentFrequency, String proofFileReference, String proofFileName) {
+		PaymentFrequency frequency = paymentFrequency != null ? paymentFrequency : assignment.getPaymentFrequency();
+		String proofRef = proofFileReference != null ? proofFileReference : assignment.getProofFileReference();
+		String proofName = proofFileReference != null ? proofFileName : assignment.getProofFileName();
 		BigDecimal discount = normalizeDiscount(discountAmount);
 		requireApprovalIfDiscounted(discount, discountReason, approvedBy);
 		BigDecimal effective = assignment.getBaseAmount().subtract(discount);
@@ -143,9 +161,11 @@ public class FeeService {
 			assignment.supersede();
 			studentFeeAssignmentRepository.save(assignment);
 			return studentFeeAssignmentRepository.save(new StudentFeeAssignment(assignment.getStudentEnrollment(),
-					assignment.getFeeStructure(), assignment.getBaseAmount(), discount, effective, discountReason, approvedBy));
+					assignment.getFeeStructure(), assignment.getBaseAmount(), discount, effective, discountReason, approvedBy,
+					frequency, proofRef, proofName));
 		}
 		assignment.updateDiscount(discount, effective, discountReason, approvedBy);
+		assignment.updateDetails(frequency, proofRef, proofName);
 		return studentFeeAssignmentRepository.save(assignment);
 	}
 
@@ -182,6 +202,12 @@ public class FeeService {
 	@Transactional
 	public Payment recordPayment(AcademicYear academicYear, BigDecimal amount, PaymentMethod paymentMethod, LocalDate paymentDate,
 			String remarks, List<AllocationInput> allocations, String paymentReference) {
+		return recordPayment(academicYear, amount, paymentMethod, paymentDate, remarks, allocations, paymentReference, null);
+	}
+
+	@Transactional
+	public Payment recordPayment(AcademicYear academicYear, BigDecimal amount, PaymentMethod paymentMethod, LocalDate paymentDate,
+			String remarks, List<AllocationInput> allocations, String paymentReference, String paymentBankName) {
 		BigDecimal allocatedTotal = allocations.stream().map(AllocationInput::amount).reduce(BigDecimal.ZERO, BigDecimal::add);
 		if (allocatedTotal.compareTo(amount) != 0) {
 			throw new IllegalArgumentException("Allocated amount (" + allocatedTotal + ") must equal the payment amount (" + amount + ")");
@@ -189,7 +215,7 @@ public class FeeService {
 
 		String receiptNumber = nextDocumentNumber(academicYear, FeeDocumentType.PAYMENT);
 		Payment payment = paymentRepository.save(
-				new Payment(academicYear, receiptNumber, amount, paymentMethod, paymentDate, remarks, paymentReference));
+				new Payment(academicYear, receiptNumber, amount, paymentMethod, paymentDate, remarks, paymentReference, paymentBankName));
 
 		for (AllocationInput input : allocations) {
 			Invoice invoice = invoiceRepository.findById(input.invoiceId())

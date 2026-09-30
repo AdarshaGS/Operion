@@ -6,6 +6,9 @@ export interface AssignFeeRequest {
 	discountAmount?: number | null;
 	discountReason?: string | null;
 	approvedBy?: number | null;
+	paymentFrequency?: string | null;
+	proofFileReference?: string | null;
+	proofFileName?: string | null;
 }
 
 export interface StudentFeeAssignmentResponse {
@@ -17,6 +20,9 @@ export interface StudentFeeAssignmentResponse {
 	effectiveAmount: number;
 	discountReason: string | null;
 	approvedBy: number | null;
+	paymentFrequency: string;
+	proofFileReference: string | null;
+	proofFileName: string | null;
 	status: string;
 }
 

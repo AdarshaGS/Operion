@@ -57,12 +57,34 @@ public class StudentFeeAssignment extends TenantScopedEntity {
 	@Column(name = "approved_by")
 	private Long approvedBy;
 
+	/** Nullable - the frequency the payer chose; null means the structure's own label applies.
+	 * Still a label only - due dates come from the structure's installments. Per #281. */
+	@Enumerated(EnumType.STRING)
+	@Column(name = "payment_frequency", length = 20)
+	private PaymentFrequency paymentFrequency;
+
+	/** Nullable - uploaded approval proof for the discount (asset reference + display name). Per #280. */
+	@Column(name = "proof_file_reference")
+	private String proofFileReference;
+
+	@Column(name = "proof_file_name")
+	private String proofFileName;
+
 	@Enumerated(EnumType.STRING)
 	@Column(nullable = false, length = 20)
 	private StudentFeeAssignmentStatus status;
 
 	public StudentFeeAssignment(StudentEnrollment studentEnrollment, FeeStructure feeStructure, BigDecimal baseAmount,
 			BigDecimal discountAmount, BigDecimal effectiveAmount, String discountReason, Long approvedBy) {
+		this(studentEnrollment, feeStructure, baseAmount, discountAmount, effectiveAmount, discountReason, approvedBy, null, null, null);
+	}
+
+	public StudentFeeAssignment(StudentEnrollment studentEnrollment, FeeStructure feeStructure, BigDecimal baseAmount,
+			BigDecimal discountAmount, BigDecimal effectiveAmount, String discountReason, Long approvedBy,
+			PaymentFrequency paymentFrequency, String proofFileReference, String proofFileName) {
+		this.paymentFrequency = paymentFrequency;
+		this.proofFileReference = proofFileReference;
+		this.proofFileName = proofFileName;
 		this.studentEnrollment = studentEnrollment;
 		this.feeStructure = feeStructure;
 		this.baseAmount = baseAmount;
@@ -82,6 +104,18 @@ public class StudentFeeAssignment extends TenantScopedEntity {
 		this.effectiveAmount = effectiveAmount;
 		this.discountReason = discountReason;
 		this.approvedBy = approvedBy;
+	}
+
+	/** Pre-invoice only, like updateDiscount. */
+	public void updateDetails(PaymentFrequency paymentFrequency, String proofFileReference, String proofFileName) {
+		this.paymentFrequency = paymentFrequency;
+		this.proofFileReference = proofFileReference;
+		this.proofFileName = proofFileName;
+	}
+
+	/** The payer's chosen frequency, falling back to the structure's own label. */
+	public PaymentFrequency effectiveFrequency() {
+		return paymentFrequency != null ? paymentFrequency : feeStructure.getPaymentFrequency();
 	}
 
 	public void supersede() {

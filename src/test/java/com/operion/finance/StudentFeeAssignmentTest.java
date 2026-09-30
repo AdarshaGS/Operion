@@ -187,4 +187,27 @@ class StudentFeeAssignmentTest {
 				.filteredOn(a -> a.getId().equals(revisedPreInvoice.getId()))
 				.allSatisfy(a -> assertThat(a.getStatus()).isEqualTo(StudentFeeAssignmentStatus.SUPERSEDED));
 	}
+
+	@Test
+	void payerChosenFrequencyAndDiscountProofPersistAndSurviveRevision() {
+		Fixture fixture = setUpFixture("fee-assignment-frequency-school", "ADM-202");
+
+		StudentFeeAssignment defaulted = feeService.assignFee(fixture.enrollment(), fixture.feeStructure(), null, null, null);
+		assertThat(defaulted.getPaymentFrequency()).isNull();
+		assertThat(defaulted.effectiveFrequency()).isEqualTo(PaymentFrequency.MONTHLY);
+
+		StudentFeeAssignment assignment = feeService.assignFee(fixture.enrollment(), fixture.feeStructure(), new BigDecimal("500.00"),
+				"One-shot payment discount", 42L, PaymentFrequency.ONE_SHOT, "asset-ref-1", "approval.pdf");
+		StudentFeeAssignment reloaded = studentFeeAssignmentRepository.findById(assignment.getId()).orElseThrow();
+		assertThat(reloaded.effectiveFrequency()).isEqualTo(PaymentFrequency.ONE_SHOT);
+		assertThat(reloaded.getProofFileReference()).isEqualTo("asset-ref-1");
+		assertThat(reloaded.getProofFileName()).isEqualTo("approval.pdf");
+
+		// A revision that names no frequency/proof keeps what the assignment already carries.
+		feeService.reviseAssignment(reloaded, new BigDecimal("600.00"), "One-shot payment discount", 42L);
+		StudentFeeAssignment revised = studentFeeAssignmentRepository.findById(assignment.getId()).orElseThrow();
+		assertThat(revised.getEffectiveAmount()).isEqualByComparingTo("9400.00");
+		assertThat(revised.effectiveFrequency()).isEqualTo(PaymentFrequency.ONE_SHOT);
+		assertThat(revised.getProofFileReference()).isEqualTo("asset-ref-1");
+	}
 }

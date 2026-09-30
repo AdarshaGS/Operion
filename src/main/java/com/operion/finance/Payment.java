@@ -66,8 +66,18 @@ public class Payment extends TenantScopedEntity {
 		this(academicYear, receiptNumber, amount, paymentMethod, paymentDate, remarks, null);
 	}
 
+	/** Nullable - the drawee bank, meaningful for CHEQUE only. Per #282. */
+	@Column(name = "payment_bank_name", length = 100)
+	private String paymentBankName;
+
 	public Payment(AcademicYear academicYear, String receiptNumber, BigDecimal amount, PaymentMethod paymentMethod,
 			LocalDate paymentDate, String remarks, String paymentReference) {
+		this(academicYear, receiptNumber, amount, paymentMethod, paymentDate, remarks, paymentReference, null);
+	}
+
+	public Payment(AcademicYear academicYear, String receiptNumber, BigDecimal amount, PaymentMethod paymentMethod,
+			LocalDate paymentDate, String remarks, String paymentReference, String paymentBankName) {
+		this.paymentBankName = paymentBankName;
 		this.academicYear = academicYear;
 		this.receiptNumber = receiptNumber;
 		this.amount = amount;

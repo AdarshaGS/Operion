@@ -92,6 +92,9 @@ class InvoiceAndPaymentTest {
 	private InvoiceRepository invoiceRepository;
 
 	@Autowired
+	private PaymentRepository paymentRepository;
+
+	@Autowired
 	private PaymentAllocationRepository paymentAllocationRepository;
 
 	@Autowired
@@ -199,6 +202,19 @@ class InvoiceAndPaymentTest {
 		assertThat(reloadedInvoice1.getStatus()).isEqualTo(InvoiceStatus.PAID);
 		assertThat(reloadedInvoice1.getOutstanding()).isEqualByComparingTo("0.00");
 		assertThat(reloadedInvoice2.getStatus()).isEqualTo(InvoiceStatus.PAID);
+	}
+
+	@Test
+	void chequePaymentPersistsItsNumberAndBankName() {
+		Fixture fixture = setUpFixture("fee-cheque-school", "ADM-304");
+		Invoice invoice = feeService.generateInvoice(fixture.assignment(), fixture.installments().get(0));
+		Payment payment = feeService.recordPayment(fixture.academicYear(), new BigDecimal("1000.00"), PaymentMethod.CHEQUE,
+				LocalDate.of(2025, 6, 20), null, List.of(new AllocationInput(invoice.getId(), new BigDecimal("1000.00"))),
+				"CHQ-000123", "State Bank");
+
+		Payment reloaded = paymentRepository.findById(payment.getId()).orElseThrow();
+		assertThat(reloaded.getPaymentReference()).isEqualTo("CHQ-000123");
+		assertThat(reloaded.getPaymentBankName()).isEqualTo("State Bank");
 	}
 
 	@Test

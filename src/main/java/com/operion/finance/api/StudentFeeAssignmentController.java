@@ -58,7 +58,8 @@ public class StudentFeeAssignmentController {
 
 		feeApproverPolicy.requireEligible(request.approvedBy());
 		StudentFeeAssignment assignment = feeService.assignFee(
-				enrollment, feeStructure, request.discountAmount(), request.discountReason(), request.approvedBy());
+				enrollment, feeStructure, request.discountAmount(), request.discountReason(), request.approvedBy(),
+				request.paymentFrequency(), request.proofFileReference(), request.proofFileName());
 		return StudentFeeAssignmentResponse.from(assignment);
 	}
 
@@ -68,7 +69,8 @@ public class StudentFeeAssignmentController {
 		StudentFeeAssignment assignment = findAssignment(assignmentId);
 		feeApproverPolicy.requireEligible(request.approvedBy());
 		StudentFeeAssignment revised =
-				feeService.reviseAssignment(assignment, request.discountAmount(), request.discountReason(), request.approvedBy());
+				feeService.reviseAssignment(assignment, request.discountAmount(), request.discountReason(), request.approvedBy(),
+						request.paymentFrequency(), request.proofFileReference(), request.proofFileName());
 		return StudentFeeAssignmentResponse.from(revised);
 	}
 

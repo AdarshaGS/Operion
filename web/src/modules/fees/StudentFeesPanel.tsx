@@ -106,6 +106,10 @@ export function StudentFeesPanel({ studentEnrollmentId, academicYearId, schoolCl
 	const [paymentDate, setPaymentDate] = useState(today());
 	const [paymentRemarks, setPaymentRemarks] = useState("");
 	const [paymentReference, setPaymentReference] = useState("");
+	const [paymentBankName, setPaymentBankName] = useState("");
+	const [assignFrequency, setAssignFrequency] = useState("");
+	const [assignProofFileReference, setAssignProofFileReference] = useState<string | null>(null);
+	const [assignProofFileName, setAssignProofFileName] = useState<string | null>(null);
 	const [allocations, setAllocations] = useState<Record<number, string>>({});
 	const [receiptDialogPayment, setReceiptDialogPayment] = useState<PaymentResponse | null>(null);
 
@@ -175,6 +179,16 @@ export function StudentFeesPanel({ studentEnrollmentId, academicYearId, schoolCl
 		}
 	}
 
+	function isTransport(feeStructureId: number): boolean {
+		const structure = structureFor(feeStructureId);
+		return !!structure && categories.find((c) => c.id === structure.feeCategoryId)?.categoryType === "TRANSPORT";
+	}
+
+	// Transport fees are kept apart from tuition/other fees so the two can be read (and chased) separately.
+	const activeAssignments = assignments.filter((a) => a.status === "ACTIVE");
+	const transportTotal = activeAssignments.filter((a) => isTransport(a.feeStructureId)).reduce((sum, a) => sum + Number(a.effectiveAmount), 0);
+	const generalTotal = activeAssignments.filter((a) => !isTransport(a.feeStructureId)).reduce((sum, a) => sum + Number(a.effectiveAmount), 0);
+
 	function categoryName(feeCategoryId: number): string {
 		return categories.find((c) => c.id === feeCategoryId)?.name ?? `Category #${feeCategoryId}`;
 	}
@@ -193,8 +207,14 @@ export function StudentFeesPanel({ studentEnrollmentId, academicYearId, schoolCl
 				discountAmount: discountAmount ? Number(discountAmount) : null,
 				discountReason: discountReason || null,
 				approvedBy: approvedBy ? Number(approvedBy) : null,
+				paymentFrequency: assignFrequency || null,
+				proofFileReference: assignProofFileReference,
+				proofFileName: assignProofFileName,
 			});
 			setFeeStructureId("");
+			setAssignFrequency("");
+			setAssignProofFileReference(null);
+			setAssignProofFileName(null);
 			setDiscountAmount("");
 			setDiscountReason("");
 			setApprovedBy("");
@@ -237,6 +257,7 @@ export function StudentFeesPanel({ studentEnrollmentId, academicYearId, schoolCl
 		setPaymentDate(today());
 		setPaymentRemarks("");
 		setPaymentReference("");
+		setPaymentBankName("");
 		setAllocations({});
 		setPaymentDialogOpen(true);
 	}
@@ -265,6 +286,7 @@ export function StudentFeesPanel({ studentEnrollmentId, academicYearId, schoolCl
 			const payment = await recordPayment({
 				academicYearId,
 				paymentReference: paymentMethod === "CASH" ? null : paymentReference || null,
+				paymentBankName: paymentMethod === "CHEQUE" ? paymentBankName || null : null,
 				amount: Number(paymentAmount),
 				paymentMethod,
 				paymentDate,
@@ -413,6 +435,13 @@ export function StudentFeesPanel({ studentEnrollmentId, academicYearId, schoolCl
 						<Alert severity="info">No fee structures exist for this student's class/year yet — add one under Fee structures first.</Alert>
 					)}
 
+					{transportTotal > 0 && (
+						<Stack direction="row" spacing={1}>
+							<Chip size="small" variant="outlined" label={`Tuition & other: ${currency(generalTotal)}`} />
+							<Chip size="small" variant="outlined" color="info" label={`Transport: ${currency(transportTotal)}`} />
+						</Stack>
+					)}
+
 					{assignments.length > 0 && (
 						<TableContainer>
 							<Table size="small">
@@ -435,8 +464,9 @@ export function StudentFeesPanel({ studentEnrollmentId, academicYearId, schoolCl
 												const structure = structureFor(assignment.feeStructureId);
 												return structure ? categoryName(structure.feeCategoryId) : `Structure #${assignment.feeStructureId}`;
 											})()}
+											{isTransport(assignment.feeStructureId) && <Chip label="Transport" size="small" color="info" sx={{ ml: 1 }} />}
 										</TableCell>
-											<TableCell>{PAYMENT_FREQUENCY_LABEL[structureFor(assignment.feeStructureId)?.paymentFrequency ?? ""] ?? "—"}</TableCell>
+											<TableCell>{PAYMENT_FREQUENCY_LABEL[assignment.paymentFrequency] ?? "—"}</TableCell>
 											<TableCell>{assignment.baseAmount}</TableCell>
 											<TableCell>{assignment.discountAmount ?? "—"}</TableCell>
 											<TableCell>{assignment.effectiveAmount}</TableCell>
@@ -581,7 +611,7 @@ export function StudentFeesPanel({ studentEnrollmentId, academicYearId, schoolCl
 											<TableCell>{payment.receiptNumber}</TableCell>
 											<TableCell>{payment.paymentDate}</TableCell>
 											<TableCell>{payment.paymentMethod}</TableCell>
-											<TableCell>{payment.paymentReference ?? "—"}</TableCell>
+											<TableCell>{payment.paymentReference ? (payment.paymentBankName ? `${payment.paymentReference} · ${payment.paymentBankName}` : payment.paymentReference) : "—"}</TableCell>
 											<TableCell>{currency(payment.amount)}</TableCell>
 											<TableCell>
 												<Chip
@@ -626,6 +656,21 @@ export function StudentFeesPanel({ studentEnrollmentId, academicYearId, schoolCl
 								</MenuItem>
 							))}
 						</TextField>
+						{feeStructureId && (
+							<TextField
+								select
+								label="Payment frequency"
+								value={assignFrequency || structureFor(Number(feeStructureId))?.paymentFrequency || ""}
+								onChange={(e) => setAssignFrequency(e.target.value)}
+								fullWidth
+							>
+								{Object.entries(PAYMENT_FREQUENCY_LABEL).map(([value, label]) => (
+									<MenuItem key={value} value={value}>
+										{label}
+									</MenuItem>
+								))}
+							</TextField>
+						)}
 						<Divider />
 						<Typography variant="caption" color="text.secondary">
 							Optional discount — requires both a reason and an approver
@@ -640,6 +685,7 @@ export function StudentFeesPanel({ studentEnrollmentId, academicYearId, schoolCl
 									if (!structure?.oneShotDiscountAmount) return;
 									setDiscountAmount(String(structure.oneShotDiscountAmount));
 									setDiscountReason("One-shot payment discount");
+									setAssignFrequency("ONE_SHOT");
 								}}
 							>
 								Use one-shot discount ({structureFor(Number(feeStructureId))?.oneShotDiscountAmount})
@@ -654,6 +700,14 @@ export function StudentFeesPanel({ studentEnrollmentId, academicYearId, schoolCl
 							onChange={(_, value) => setApprovedBy(value ? String(value.userId) : "")}
 							renderInput={(params) => <TextField {...params} label="Approved by" />}
 						/>
+						<Button component="label" variant="outlined" size="small">
+							{assignProofFileName ?? "Attach approval proof (optional)"}
+							<input
+								type="file"
+								hidden
+								onChange={(e) => handleProofSelected(e.target.files?.[0] ?? null, setAssignProofFileReference, setAssignProofFileName)}
+							/>
+						</Button>
 					</Stack>
 				</DialogContent>
 				<DialogActions>
@@ -712,6 +766,9 @@ export function StudentFeesPanel({ studentEnrollmentId, academicYearId, schoolCl
 								onChange={(e) => setPaymentReference(e.target.value)}
 								fullWidth
 							/>
+						)}
+						{paymentMethod === "CHEQUE" && (
+							<TextField label="Bank name" value={paymentBankName} onChange={(e) => setPaymentBankName(e.target.value)} fullWidth />
 						)}
 						<TextField
 							label="Payment date"
