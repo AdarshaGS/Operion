@@ -57,8 +57,16 @@ public class AuditLog {
 	@Column(name = "ip_address")
 	private String ipAddress;
 
+	@Column(name = "user_agent", length = 512)
+	private String userAgent;
+
 	public AuditLog(Long organisationId, Long actorUserId, String entityType, Long entityId,
 			String action, String beforeValue, String afterValue) {
+		this(organisationId, actorUserId, entityType, entityId, action, beforeValue, afterValue, null, null);
+	}
+
+	public AuditLog(Long organisationId, Long actorUserId, String entityType, Long entityId,
+			String action, String beforeValue, String afterValue, String ipAddress, String userAgent) {
 		this.organisationId = organisationId;
 		this.actorUserId = actorUserId;
 		this.entityType = entityType;
@@ -67,5 +75,7 @@ public class AuditLog {
 		this.beforeValue = beforeValue;
 		this.afterValue = afterValue;
 		this.occurredAt = Instant.now();
+		this.ipAddress = ipAddress;
+		this.userAgent = userAgent == null || userAgent.length() <= 512 ? userAgent : userAgent.substring(0, 512);
 	}
 }

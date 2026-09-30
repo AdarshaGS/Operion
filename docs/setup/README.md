@@ -100,3 +100,7 @@ Then log in with that organisation slug/email/password, either via `POST
 
 See also: [docs/development](../development) for day-to-day workflow, [docs/testing](../testing)
 for running the test suites, [docs/architecture](../architecture) for how the system fits together.
+
+## Backup and recovery
+
+See [backup-and-recovery.md](backup-and-recovery.md) for the production backup policy, restore steps, and the recovery-drill schedule.

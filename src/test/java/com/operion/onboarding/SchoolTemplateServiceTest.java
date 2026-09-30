@@ -173,7 +173,8 @@ class SchoolTemplateServiceTest {
 		FeeService feeService = new FeeService(feeCategoryRepository, feeStructureGroupRepository, feeStructureRepository,
 				feeStructureInstallmentRepository, studentFeeAssignmentRepository, invoiceRepository, paymentRepository,
 				paymentAllocationRepository, refundRepository, adjustmentRepository, waiverRepository, feeDocumentCounterRepository,
-				organisationBrandingRepository);
+				organisationBrandingRepository, new org.springframework.beans.factory.support.StaticListableBeanFactory(
+						java.util.Map.of("auditLogService", auditLogService)).getBeanProvider(com.operion.audit.AuditLogService.class));
 		InventoryService inventoryService = new InventoryService(itemCategoryRepository, itemRepository, stockEntryRepository,
 				stockIssueRepository, stockAdjustmentRepository, stockTransferRepository, assetRepository);
 		ExaminationService examinationService = new ExaminationService(examRepository, examScheduleRepository, gradingScaleRepository,

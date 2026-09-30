@@ -39,6 +39,9 @@ class AuthenticationServiceTest {
 	private static final BCryptPasswordEncoder ENCODER = new BCryptPasswordEncoder();
 
 	@Autowired
+	private LoginAttemptRepository loginAttemptRepository;
+
+	@Autowired
 	private OrganisationRepository organisationRepository;
 
 	@Autowired
@@ -84,7 +87,7 @@ class AuthenticationServiceTest {
 		Organisation organisation = newOrgWithMember("locked", "locked@auth-svc.test", "GoodPass123!", UserStatus.LOCKED);
 		TenantContext.clear();
 
-		assertThatThrownBy(() -> authenticationService(new LoginAttemptService(5, 15))
+		assertThatThrownBy(() -> authenticationService(new LoginAttemptService(loginAttemptRepository, 5, 15))
 				.login(organisation.getSlug(), "locked@auth-svc.test", "GoodPass123!"))
 				.isInstanceOf(AuthenticationFailedException.class);
 	}
@@ -94,7 +97,7 @@ class AuthenticationServiceTest {
 		Organisation organisation = newOrgWithMember("disabled", "disabled@auth-svc.test", "GoodPass123!", UserStatus.DISABLED);
 		TenantContext.clear();
 
-		assertThatThrownBy(() -> authenticationService(new LoginAttemptService(5, 15))
+		assertThatThrownBy(() -> authenticationService(new LoginAttemptService(loginAttemptRepository, 5, 15))
 				.login(organisation.getSlug(), "disabled@auth-svc.test", "GoodPass123!"))
 				.isInstanceOf(AuthenticationFailedException.class);
 	}
@@ -104,7 +107,7 @@ class AuthenticationServiceTest {
 		Organisation organisation = newOrgWithMember("active", "active@auth-svc.test", "GoodPass123!", UserStatus.ACTIVE);
 		TenantContext.clear();
 
-		LoginResult result = authenticationService(new LoginAttemptService(5, 15))
+		LoginResult result = authenticationService(new LoginAttemptService(loginAttemptRepository, 5, 15))
 				.login(organisation.getSlug(), "active@auth-svc.test", "GoodPass123!");
 
 		assertThat(result.organisationId()).isEqualTo(organisation.getId());
@@ -114,7 +117,7 @@ class AuthenticationServiceTest {
 	void repeatedFailedAttemptsLockTheAccountOutEvenForAFinallyCorrectPassword() {
 		Organisation organisation = newOrgWithMember("brute", "brute@auth-svc.test", "GoodPass123!", UserStatus.ACTIVE);
 		TenantContext.clear();
-		AuthenticationService service = authenticationService(new LoginAttemptService(3, 15));
+		AuthenticationService service = authenticationService(new LoginAttemptService(loginAttemptRepository, 3, 15));
 
 		for (int i = 0; i < 3; i++) {
 			assertThatThrownBy(() -> service.login(organisation.getSlug(), "brute@auth-svc.test", "WrongPass!"))
@@ -126,10 +129,19 @@ class AuthenticationServiceTest {
 	}
 
 	@Test
+	void lockoutSurvivesARestartBecauseStateLivesInTheDatabase() {
+		new LoginAttemptService(loginAttemptRepository, 2, 15).recordFailure("Restart@Auth-Svc.test");
+		new LoginAttemptService(loginAttemptRepository, 2, 15).recordFailure("restart@auth-svc.test");
+
+		// A brand-new service instance (as after a restart or on a second node) sees the lock.
+		assertThat(new LoginAttemptService(loginAttemptRepository, 2, 15).isLocked("restart@auth-svc.test")).isTrue();
+	}
+
+	@Test
 	void aSuccessfulLoginClearsAnyPriorFailedAttemptCount() {
 		Organisation organisation = newOrgWithMember("reset", "reset@auth-svc.test", "GoodPass123!", UserStatus.ACTIVE);
 		TenantContext.clear();
-		AuthenticationService service = authenticationService(new LoginAttemptService(3, 15));
+		AuthenticationService service = authenticationService(new LoginAttemptService(loginAttemptRepository, 3, 15));
 
 		assertThatThrownBy(() -> service.login(organisation.getSlug(), "reset@auth-svc.test", "WrongPass!"))
 				.isInstanceOf(AuthenticationFailedException.class);
@@ -150,7 +162,7 @@ class AuthenticationServiceTest {
 	void changePasswordUpdatesTheHashOnlyWhenTheCurrentPasswordMatches() {
 		newOrgWithMember("change-pw", "change-pw@auth-svc.test", "OldPass123!", UserStatus.ACTIVE);
 		User user = userRepository.findByEmail("change-pw@auth-svc.test").orElseThrow();
-		AuthenticationService service = authenticationService(new LoginAttemptService(5, 15));
+		AuthenticationService service = authenticationService(new LoginAttemptService(loginAttemptRepository, 5, 15));
 
 		// IllegalStateException (-> 409), not AuthenticationFailedException (-> 401) - see
 		// changePassword()'s own javadoc for why a 401 here would be a real client-side bug.

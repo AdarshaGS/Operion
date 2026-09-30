@@ -38,6 +38,7 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
 		response.setHeader(REQUEST_ID_HEADER, requestId);
 		MDC.put(MDC_KEY, requestId);
 
+		RequestOrigin.set(request.getRemoteAddr(), request.getHeader("User-Agent"));
 		long start = System.currentTimeMillis();
 		try {
 			filterChain.doFilter(request, response);
@@ -47,6 +48,7 @@ public class RequestLoggingFilter extends OncePerRequestFilter {
 			log.info("{} {} user={} status={} durationMs={}", request.getMethod(), request.getRequestURI(),
 					actorUserId != null ? actorUserId : "-", response.getStatus(), durationMs);
 			MDC.remove(MDC_KEY);
+			RequestOrigin.clear();
 		}
 	}
 }

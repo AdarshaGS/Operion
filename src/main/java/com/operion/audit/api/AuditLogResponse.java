@@ -5,10 +5,11 @@ import java.time.Instant;
 import com.operion.audit.AuditLog;
 
 public record AuditLogResponse(
-		Long id, Long organisationId, Long actorUserId, String entityType, Long entityId, String action, Instant occurredAt) {
+		Long id, Long organisationId, Long actorUserId, String entityType, Long entityId, String action, Instant occurredAt,
+		String ipAddress, String userAgent) {
 
 	public static AuditLogResponse from(AuditLog log) {
 		return new AuditLogResponse(log.getId(), log.getOrganisationId(), log.getActorUserId(), log.getEntityType(), log.getEntityId(),
-				log.getAction(), log.getOccurredAt());
+				log.getAction(), log.getOccurredAt(), log.getIpAddress(), log.getUserAgent());
 	}
 }

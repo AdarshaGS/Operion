@@ -1,5 +1,6 @@
 package com.operion.organisation.api;
 
+import com.operion.audit.AuditLogService;
 import com.operion.authorization.RequirePermission;
 import com.operion.common.TenantContext;
 import com.operion.organisation.OrganisationConfiguration;
@@ -21,8 +22,12 @@ public class OrganisationConfigurationController {
 
 	private final OrganisationConfigurationRepository configurationRepository;
 
-	public OrganisationConfigurationController(OrganisationConfigurationRepository configurationRepository) {
+	private final AuditLogService auditLogService;
+
+	public OrganisationConfigurationController(OrganisationConfigurationRepository configurationRepository,
+			AuditLogService auditLogService) {
 		this.configurationRepository = configurationRepository;
+		this.auditLogService = auditLogService;
 	}
 
 	@GetMapping
@@ -34,13 +39,16 @@ public class OrganisationConfigurationController {
 	@RequirePermission("ORGANISATION_MANAGE")
 	public OrganisationConfigurationResponse update(@RequestBody UpdateOrganisationConfigurationRequest request) {
 		OrganisationConfiguration configuration = currentConfiguration();
+		OrganisationConfigurationResponse before = OrganisationConfigurationResponse.from(configuration);
 		configuration.setTimezone(request.timezone());
 		configuration.setDefaultCurrency(request.defaultCurrency());
 		configuration.setDateFormat(request.dateFormat());
 		configuration.setWorkingDaysMask(request.workingDaysMask());
 		configuration.setLogoUrl(request.logoUrl());
 		configuration.setPrimaryColor(request.primaryColor());
-		return OrganisationConfigurationResponse.from(configurationRepository.save(configuration));
+		OrganisationConfigurationResponse after = OrganisationConfigurationResponse.from(configurationRepository.save(configuration));
+		auditLogService.record("OrganisationConfiguration", configuration.getOrganisationId(), "SETTINGS_UPDATED", before, after);
+		return after;
 	}
 
 	private OrganisationConfiguration currentConfiguration() {

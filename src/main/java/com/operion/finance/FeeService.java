@@ -7,12 +7,14 @@ import java.util.List;
 import java.util.Optional;
 
 import com.operion.academic.SchoolClass;
+import com.operion.audit.AuditLogService;
 import com.operion.common.TenantContext;
 import com.operion.organisation.AcademicYear;
 import com.operion.organisation.DocumentNumberFormatter;
 import com.operion.organisation.OrganisationBranding;
 import com.operion.organisation.OrganisationBrandingRepository;
 import com.operion.student.StudentEnrollment;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -39,13 +41,18 @@ public class FeeService {
 	private final WaiverRepository waiverRepository;
 	private final FeeDocumentCounterRepository feeDocumentCounterRepository;
 	private final OrganisationBrandingRepository organisationBrandingRepository;
+	// ObjectProvider, not AuditLogService directly: FeeService is @Import-ed into ~a dozen
+	// @DataJpaTest slices that have no ObjectMapper bean (see AuditLogService's dependency), so
+	// a hard dependency would break every one of them. Always present in the real app.
+	private final ObjectProvider<AuditLogService> auditLogService;
 
 	public FeeService(FeeCategoryRepository feeCategoryRepository, FeeStructureGroupRepository feeStructureGroupRepository,
 			FeeStructureRepository feeStructureRepository, FeeStructureInstallmentRepository feeStructureInstallmentRepository,
 			StudentFeeAssignmentRepository studentFeeAssignmentRepository, InvoiceRepository invoiceRepository,
 			PaymentRepository paymentRepository, PaymentAllocationRepository paymentAllocationRepository,
 			RefundRepository refundRepository, AdjustmentRepository adjustmentRepository, WaiverRepository waiverRepository,
-			FeeDocumentCounterRepository feeDocumentCounterRepository, OrganisationBrandingRepository organisationBrandingRepository) {
+			FeeDocumentCounterRepository feeDocumentCounterRepository, OrganisationBrandingRepository organisationBrandingRepository,
+			ObjectProvider<AuditLogService> auditLogService) {
 		this.feeCategoryRepository = feeCategoryRepository;
 		this.feeStructureGroupRepository = feeStructureGroupRepository;
 		this.feeStructureRepository = feeStructureRepository;
@@ -59,6 +66,11 @@ public class FeeService {
 		this.waiverRepository = waiverRepository;
 		this.feeDocumentCounterRepository = feeDocumentCounterRepository;
 		this.organisationBrandingRepository = organisationBrandingRepository;
+		this.auditLogService = auditLogService;
+	}
+
+	private void audit(String entityType, Long entityId, String action, Object before, Object after) {
+		auditLogService.ifAvailable(service -> service.record(entityType, entityId, action, before, after));
 	}
 
 	public FeeCategory createCategory(String code, String name, String description, FeeCategoryType categoryType) {
@@ -186,6 +198,7 @@ public class FeeService {
 			invoice.applyPayment(input.amount());
 			invoiceRepository.save(invoice);
 		}
+		audit("Payment", payment.getId(), "PAYMENT_RECORDED", null, amount);
 		return payment;
 	}
 
@@ -198,7 +211,9 @@ public class FeeService {
 			invoice.reversePayment(allocation.getAllocatedAmount());
 			invoiceRepository.save(invoice);
 		}
-		return paymentRepository.save(payment);
+		Payment saved = paymentRepository.save(payment);
+		audit("Payment", saved.getId(), "PAYMENT_BOUNCED", null, saved.getAmount());
+		return saved;
 	}
 
 	@Transactional
@@ -206,7 +221,9 @@ public class FeeService {
 			String proofFileReference, String proofFileName) {
 		invoice.reversePayment(amount);
 		invoiceRepository.save(invoice);
-		return refundRepository.save(new Refund(payment, invoice, amount, reason, approvedBy, refundDate, proofFileReference, proofFileName));
+		Refund refund = refundRepository.save(new Refund(payment, invoice, amount, reason, approvedBy, refundDate, proofFileReference, proofFileName));
+		audit("Refund", refund.getId(), "PAYMENT_REFUNDED", null, amount);
+		return refund;
 	}
 
 	/** Manual correction to what's owed on an invoice - amount may be positive or negative. Per #131. */
@@ -215,8 +232,10 @@ public class FeeService {
 			String proofFileReference, String proofFileName) {
 		invoice.applyAdjustment(amount);
 		invoiceRepository.save(invoice);
-		return adjustmentRepository.save(
+		Adjustment adjustment = adjustmentRepository.save(
 				new Adjustment(invoice, amount, reason, approvedBy, adjustmentDate, proofFileReference, proofFileName));
+		audit("Adjustment", adjustment.getId(), "INVOICE_ADJUSTED", null, amount);
+		return adjustment;
 	}
 
 	/** Forgives some or all of an already-issued invoice's outstanding balance. Per #131. */
@@ -225,7 +244,9 @@ public class FeeService {
 			String proofFileReference, String proofFileName) {
 		invoice.applyWaiver(amount);
 		invoiceRepository.save(invoice);
-		return waiverRepository.save(new Waiver(invoice, amount, reason, approvedBy, waiverDate, proofFileReference, proofFileName));
+		Waiver waiver = waiverRepository.save(new Waiver(invoice, amount, reason, approvedBy, waiverDate, proofFileReference, proofFileName));
+		audit("Waiver", waiver.getId(), "INVOICE_WAIVED", null, amount);
+		return waiver;
 	}
 
 	/** Atomic per-(organisation, academicYear, documentType) sequence - never SELECT MAX()+1.

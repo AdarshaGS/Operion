@@ -168,8 +168,11 @@ public class StudentService {
 		if (!newSection.getId().equals(current.getSection().getId())) {
 			assertCapacityAvailable(newSection);
 		}
+		Long previousSectionId = current.getSection().getId();
 		current.reassignSection(newSection);
-		return studentEnrollmentRepository.save(current);
+		StudentEnrollment saved = studentEnrollmentRepository.save(current);
+		auditLogService.record("StudentEnrollment", saved.getId(), "STUDENT_SECTION_REASSIGNED", previousSectionId, newSection.getId());
+		return saved;
 	}
 
 	/**

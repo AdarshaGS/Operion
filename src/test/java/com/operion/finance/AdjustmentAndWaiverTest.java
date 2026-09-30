@@ -20,6 +20,7 @@ import com.operion.customfield.CustomFieldService;
 import com.operion.common.JpaConfig;
 import com.operion.common.MultiTenancyConfig;
 import com.operion.common.TenantContext;
+import com.operion.audit.AuditLog;
 import com.operion.finance.FeeService.AllocationInput;
 import com.operion.finance.FeeService.InstallmentInput;
 import com.operion.identity.Person;
@@ -209,5 +210,27 @@ class AdjustmentAndWaiverTest {
 		assertThat(fullyResolvedInvoice.getOutstanding()).isEqualByComparingTo("0.00");
 		assertThat(fullyResolvedInvoice.getStatus()).isEqualTo(InvoiceStatus.PAID);
 		assertThat(waiverRepository.findByInvoiceId(fixture.invoice().getId())).hasSize(1);
+	}
+
+	@Test
+	void paymentRefundAdjustmentAndWaiverAreEachWrittenToTheAuditLog() {
+		Fixture fixture = setUpFixture("fee-audit-school", "ADM-353");
+		FeeService audited = feeService;
+		org.springframework.test.util.ReflectionTestUtils.setField(audited, "auditLogService",
+				new org.springframework.beans.factory.support.StaticListableBeanFactory(java.util.Map.of("a",
+						new AuditLogService(auditLogRepository, new ObjectMapper()))).getBeanProvider(AuditLogService.class));
+
+		Payment payment = audited.recordPayment(fixture.academicYear(), new BigDecimal("2000.00"), PaymentMethod.CASH,
+				LocalDate.of(2025, 6, 20), null, List.of(new AllocationInput(fixture.invoice().getId(), new BigDecimal("2000.00"))));
+		Invoice invoice = invoiceRepository.findById(fixture.invoice().getId()).orElseThrow();
+		audited.recordAdjustment(invoice, new BigDecimal("100.00"), "Fix", 7L, LocalDate.of(2025, 6, 21), null, null);
+		audited.recordWaiver(invoiceRepository.findById(invoice.getId()).orElseThrow(), new BigDecimal("50.00"), "Hardship", 7L,
+				LocalDate.of(2025, 6, 22), null, null);
+		audited.recordRefund(payment, invoiceRepository.findById(invoice.getId()).orElseThrow(), new BigDecimal("10.00"), "Overpaid",
+				7L, LocalDate.of(2025, 6, 23), null, null);
+		audited.bouncePayment(payment);
+
+		assertThat(auditLogRepository.findAll().stream().map(AuditLog::getAction).toList()).contains("PAYMENT_RECORDED",
+				"INVOICE_ADJUSTED", "INVOICE_WAIVED", "PAYMENT_REFUNDED", "PAYMENT_BOUNCED");
 	}
 }

@@ -7,6 +7,8 @@ export interface AuditLogResponse {
 	entityId: number;
 	action: string;
 	occurredAt: string;
+	ipAddress: string | null;
+	userAgent: string | null;
 }
 
 export interface AuditLogFilters {

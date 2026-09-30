@@ -32,6 +32,9 @@ class RefreshTokenServiceTest {
 	private static final BCryptPasswordEncoder ENCODER = new BCryptPasswordEncoder();
 
 	@Autowired
+	private LoginAttemptRepository loginAttemptRepository;
+
+	@Autowired
 	private OrganisationRepository organisationRepository;
 
 	@Autowired
@@ -85,7 +88,7 @@ class RefreshTokenServiceTest {
 
 		AuthenticationService authenticationService = new AuthenticationService(organisationRepository, userRepository,
 				membershipRepository, ENCODER, new JwtService("test-only-secret-not-for-real-use-but-still-32-bytes-min", 480),
-				service, new LoginAttemptService(5, 15));
+				service, new LoginAttemptService(loginAttemptRepository, 5, 15));
 
 		assertThatThrownBy(() -> authenticationService.refresh(organisation.getSlug(), issued.rawToken()))
 				.isInstanceOf(AuthenticationFailedException.class);
