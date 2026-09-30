@@ -63,6 +63,8 @@ abstract class LearningTestBase {
 	protected LearningActor ashaTeachesMathsInA;
 	protected LearningActor balaTeachesScienceInB;
 	protected LearningActor admin;
+	/** Holds LESSON_PLAN_REVIEW only - reviews, but has no learning view/manage access. */
+	protected LearningActor reviewer;
 
 	@BeforeEach
 	void setUpLearningFixture() {
@@ -85,11 +87,12 @@ abstract class LearningTestBase {
 		raviEnrollment = enrollmentRepository.save(new StudentEnrollment(ravi, year, sectionA, 1, LocalDate.of(2025, 6, 2)));
 		sitaEnrollment = enrollmentRepository.save(new StudentEnrollment(sita, year, sectionA, 2, LocalDate.of(2025, 6, 2)));
 
-		ashaTeachesMathsInA = new LearningActor(1L, asha.getId(), false, false,
+		ashaTeachesMathsInA = new LearningActor(1L, asha.getId(), false, false, false,
 				List.of(new LearningActor.Teaching(sectionA.getId(), maths.getId())));
-		balaTeachesScienceInB = new LearningActor(2L, bala.getId(), false, false,
+		balaTeachesScienceInB = new LearningActor(2L, bala.getId(), false, false, false,
 				List.of(new LearningActor.Teaching(sectionB.getId(), science.getId())));
-		admin = new LearningActor(3L, asha.getId(), true, true, List.of());
+		reviewer = new LearningActor(4L, bala.getId(), false, false, true, List.of());
+		admin = new LearningActor(3L, personRepository.save(new Person("Admin", "User")).getId(), true, true, true, List.of());
 	}
 
 	@AfterEach

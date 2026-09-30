@@ -12,7 +12,8 @@ import com.operion.authorization.AuthorizationDeniedException;
  * to the sections they are actually assigned to teach (same approach as the /api/v1/me/**
  * endpoints, see LearningAccessService).
  */
-public record LearningActor(Long userId, Long personId, boolean manager, boolean viewer, List<Teaching> teaching) {
+public record LearningActor(Long userId, Long personId, boolean manager, boolean viewer, boolean reviewer,
+		List<Teaching> teaching) {
 
 	/** subjectId is null for a homeroom assignment, which covers every subject in the section. */
 	public record Teaching(Long sectionId, Long subjectId) {
@@ -49,6 +50,12 @@ public record LearningActor(Long userId, Long personId, boolean manager, boolean
 	public void requireReadSection(Long sectionId) {
 		if (!canReadSection(sectionId)) {
 			throw new AuthorizationDeniedException("You have no access to this section");
+		}
+	}
+
+	public void requireReviewer() {
+		if (!reviewer) {
+			throw new AuthorizationDeniedException("Missing required permission: LESSON_PLAN_REVIEW");
 		}
 	}
 

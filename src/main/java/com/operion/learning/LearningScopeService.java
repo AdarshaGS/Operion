@@ -25,7 +25,7 @@ public class LearningScopeService {
 	public record SectionScope(Section section, List<Long> writableSubjectIds) {
 	}
 
-	public record Scope(boolean manager, List<SectionScope> sections, List<Subject> subjects) {
+	public record Scope(boolean manager, boolean reviewer, List<SectionScope> sections, List<Subject> subjects) {
 	}
 
 	private final SectionRepository sectionRepository;
@@ -53,6 +53,6 @@ public class LearningScopeService {
 					: allSubjectIds.stream().filter(id -> actor.canWrite(section.getId(), id)).collect(Collectors.toList());
 			sections.add(new SectionScope(section, writable));
 		}
-		return new Scope(actor.manager(), sections, subjects);
+		return new Scope(actor.manager(), actor.reviewer(), sections, subjects);
 	}
 }

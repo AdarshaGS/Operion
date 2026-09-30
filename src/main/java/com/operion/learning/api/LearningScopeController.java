@@ -19,7 +19,7 @@ public class LearningScopeController {
 	public record SubjectOption(Long id, String name) {
 	}
 
-	public record ScopeResponse(boolean manager, List<SectionOption> sections, List<SubjectOption> subjects) {
+	public record ScopeResponse(boolean manager, boolean reviewer, List<SectionOption> sections, List<SubjectOption> subjects) {
 	}
 
 	private final LearningAccessService accessService;
@@ -33,7 +33,7 @@ public class LearningScopeController {
 	@GetMapping
 	public ScopeResponse scope() {
 		var scope = scopeService.scopeFor(accessService.resolve(TenantContext.getActorId()));
-		return new ScopeResponse(scope.manager(),
+		return new ScopeResponse(scope.manager(), scope.reviewer(),
 				scope.sections().stream().map(s -> new SectionOption(s.section().getId(), s.section().getSchoolClass().getId(),
 						com.operion.learning.Labels.className(s.section()), s.section().getName(), s.writableSubjectIds())).toList(),
 				scope.subjects().stream().map(s -> new SubjectOption(s.getId(), s.getName())).toList());

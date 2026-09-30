@@ -128,7 +128,7 @@ const NAV_GROUPS: NavGroup[] = [
 			},
 			{ label: "Examinations", path: "/examinations", icon: <AssignmentIcon />, built: true, requiredPermissions: ["EXAM_VIEW"] },
 			{ label: "Library", path: "/library", icon: <MenuBookIcon />, built: true, requiredPermissions: ["LIBRARY_VIEW"] },
-			{ label: "Learning", path: "/learning", icon: <AutoStoriesIcon />, built: true, requiredPermissions: ["LEARNING_VIEW"] },
+			{ label: "Learning", path: "/learning", icon: <AutoStoriesIcon />, built: true, requiredPermissions: ["LEARNING_VIEW", "LESSON_PLAN_REVIEW"] },
 		],
 	},
 	{

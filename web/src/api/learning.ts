@@ -15,6 +15,8 @@ export interface SubjectOption {
 
 export interface LearningScope {
 	manager: boolean;
+	/** Holds LESSON_PLAN_REVIEW. */
+	reviewer: boolean;
 	sections: SectionOption[];
 	subjects: SubjectOption[];
 }
@@ -156,4 +158,70 @@ export function archiveMaterial(id: number): Promise<MaterialResponse> {
 
 export function getChildMaterials(studentId: number): Promise<MaterialResponse[]> {
 	return api.get<MaterialResponse[]>(`/api/v1/me/children/${studentId}/materials`);
+}
+
+// --- Lesson planner (#229) ---
+
+export type LessonPlanStatus = "DRAFT" | "SUBMITTED" | "APPROVED" | "REJECTED";
+
+export interface LessonPlanResponse {
+	id: number;
+	sectionId: number;
+	className: string;
+	sectionName: string;
+	subjectId: number;
+	subjectName: string;
+	planDate: string;
+	title: string;
+	objectives: string | null;
+	activities: string | null;
+	resources: string | null;
+	status: LessonPlanStatus;
+	authorName: string;
+	submittedAt: string | null;
+	reviewNote: string | null;
+	reviewedByName: string | null;
+	reviewedAt: string | null;
+}
+
+export interface LessonPlanRequest {
+	sectionId?: number;
+	subjectId?: number;
+	planDate: string;
+	title: string;
+	objectives?: string | null;
+	activities?: string | null;
+	resources?: string | null;
+}
+
+export function listLessonPlans(status?: LessonPlanStatus): Promise<LessonPlanResponse[]> {
+	return api.get<LessonPlanResponse[]>(`/api/v1/learning/lesson-plans${status ? `?status=${status}` : ""}`);
+}
+
+export function getLessonPlanCalendar(from: string, to: string): Promise<LessonPlanResponse[]> {
+	return api.get<LessonPlanResponse[]>(`/api/v1/learning/lesson-plans/calendar?from=${from}&to=${to}`);
+}
+
+export function createLessonPlan(request: LessonPlanRequest): Promise<LessonPlanResponse> {
+	return api.post<LessonPlanResponse>("/api/v1/learning/lesson-plans", request);
+}
+
+export function editLessonPlan(id: number, request: LessonPlanRequest): Promise<LessonPlanResponse> {
+	return api.put<LessonPlanResponse>(`/api/v1/learning/lesson-plans/${id}`, request);
+}
+
+export function submitLessonPlan(id: number): Promise<LessonPlanResponse> {
+	return api.post<LessonPlanResponse>(`/api/v1/learning/lesson-plans/${id}/submit`);
+}
+
+export function approveLessonPlan(id: number, feedback: string): Promise<LessonPlanResponse> {
+	return api.post<LessonPlanResponse>(`/api/v1/learning/lesson-plans/${id}/approve`, { feedback });
+}
+
+export function rejectLessonPlan(id: number, feedback: string): Promise<LessonPlanResponse> {
+	return api.post<LessonPlanResponse>(`/api/v1/learning/lesson-plans/${id}/reject`, { feedback });
+}
+
+export function getChildLessonPlans(studentId: number, from: string, to: string): Promise<LessonPlanResponse[]> {
+	return api.get<LessonPlanResponse[]>(`/api/v1/me/children/${studentId}/lesson-plans?from=${from}&to=${to}`);
 }

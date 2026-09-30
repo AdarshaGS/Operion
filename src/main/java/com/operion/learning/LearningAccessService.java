@@ -39,16 +39,17 @@ public class LearningAccessService {
 		boolean all = owner || codes.contains("ALL_FUNCTIONS");
 		boolean manager = all || codes.contains("LEARNING_MANAGE");
 		boolean viewer = manager || codes.contains("LEARNING_VIEW");
+		boolean reviewer = all || codes.contains("LESSON_PLAN_REVIEW");
 
 		List<LearningActor.Teaching> teaching = teacherAssignmentRepository.findByTeacherPersonId(personId).stream()
 				.filter(a -> a.getStatus() == TeacherAssignmentStatus.ACTIVE)
 				.map(this::toTeaching)
 				.toList();
 
-		if (!viewer && teaching.isEmpty()) {
+		if (!viewer && !reviewer && teaching.isEmpty()) {
 			throw new AuthorizationDeniedException("You have no learning access: not a teacher and missing LEARNING_VIEW");
 		}
-		return new LearningActor(userId, personId, manager, viewer, teaching);
+		return new LearningActor(userId, personId, manager, viewer, reviewer, teaching);
 	}
 
 	private LearningActor.Teaching toTeaching(TeacherAssignment assignment) {
