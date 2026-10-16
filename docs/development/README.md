@@ -9,11 +9,15 @@ Schema is entirely Flyway-managed — Hibernate only validates entities against 
 (`spring.jpa.hibernate.ddl-auto=validate`), it never generates DDL. Every schema change
 goes through a new migration file.
 
-1. Add a new file under `src/main/resources/db/migration/`, named
-   `V<next-number>__<snake_case_description>.sql` — numbers are sequential and never
-   reused (check the highest existing `V*` file first).
+1. Decide which database owns the table: platform-plane entities (organisations, plans, billing,
+   feature flags, platform admins, CRM, support — annotated `@PlatformPlane`, repositories too) go in
+   `src/main/resources/db/migration/platform/`; everything else (all school data) goes in
+   `.../school/`. Name the file `V<next-number>__<snake_case_description>.sql` — numbers are
+   sequential per folder and never reused (check the highest existing `V*` file in that folder).
+   A table must never hold a foreign key into the other database, and a JPA relation must not cross
+   (`PersistencePlaneTest` enforces it) — store the other side's id as a plain column instead.
 2. Write plain SQL. Follow the existing convention: tenant-scoped tables carry an
-   `organisation_id BIGINT NOT NULL` column with an FK to `organisations(id)`, plus the
+   `organisation_id BIGINT NOT NULL` column (no FK — `organisations` lives in the Platform DB), plus the
    base audit columns (`created_at`, `updated_at`, `created_by`, `updated_by`).
 3. A schema change that ships with new permission codes (a new module, a new protected
    action) typically gets its own follow-up migration seeding `permissions` /

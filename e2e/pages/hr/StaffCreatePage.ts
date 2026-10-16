@@ -12,6 +12,9 @@ export class StaffCreatePage {
 	async fillMemberDetails(input: { firstName: string; lastName: string; email?: string; employeeCode: string; joiningDate: string }) {
 		await this.page.getByLabel("First name").fill(input.firstName);
 		await this.page.getByLabel("Last name").fill(input.lastName);
+		// Gender is mandatory on the add-member form.
+		await this.page.getByRole("combobox", { name: /^Gender/ }).click();
+		await this.page.getByRole("option", { name: "Male", exact: true }).click();
 		if (input.email) await this.page.getByLabel("Email").fill(input.email);
 		await this.page.getByLabel("Member ID (optional)").fill(input.employeeCode);
 		await this.page.getByLabel("Joining date (optional)").fill(input.joiningDate);

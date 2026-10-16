@@ -1,16 +1,15 @@
 import { expect, test } from "@playwright/test";
-import { StructureSetupPage } from "../../../pages/setup/StructureSetupPage";
+import { DesignationsPage } from "../../../pages/settings/DesignationsPage";
 import { StaffCreatePage } from "../../../pages/hr/StaffCreatePage";
 
 test("adding a staff member with an HR profile through the real UI, after creating its designation", async ({ page }) => {
 	const run = Date.now();
 	const designationName = `UI Designation ${run}`;
 
-	const setup = new StructureSetupPage(page);
-	await setup.open();
-	await setup.goToStep("Designations");
-	await setup.addDesignation(designationName);
-	await expect(setup.designationRow(designationName)).toBeVisible();
+	const designations = new DesignationsPage(page);
+	await designations.open();
+	await designations.addDesignation(designationName);
+	await expect(designations.designationRow(designationName)).toBeVisible();
 
 	const staffCreate = new StaffCreatePage(page);
 	await staffCreate.open();

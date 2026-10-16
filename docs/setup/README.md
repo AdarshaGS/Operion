@@ -47,11 +47,18 @@ docker compose down -v
 ### 1. Database
 
 ```bash
-mysql -uroot -e "CREATE DATABASE operion;"
+mysql -uroot -e "CREATE DATABASE operion_platform; CREATE DATABASE operion_school;"
 ```
 
-Schema is Flyway-managed — migrations in `src/main/resources/db/migration/` run
-automatically on backend startup. Nothing to run by hand.
+Operion uses two databases (never one per school): **`operion_platform`** (organisations, plans,
+billing, feature flags, platform admins, CRM, support) and **`operion_school`** (all school data for
+every school, isolated by `organisation_id`). Override with `PLATFORM_DB_URL` / `DB_URL`.
+
+Schema is Flyway-managed — `src/main/resources/db/migration/platform/` and `.../school/` run
+automatically on backend startup, one Flyway per database. Nothing to run by hand.
+
+Upgrading an existing single-database install: create both databases, start the app once to build
+the schemas, stop it, then run `scripts/split-single-database.sh <old_db> operion_school operion_platform`.
 
 ### 2. Backend
 

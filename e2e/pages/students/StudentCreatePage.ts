@@ -20,7 +20,10 @@ export class StudentCreatePage {
 		await this.page.getByLabel("First name", { exact: true }).fill(input.firstName);
 		await this.page.getByLabel("Last name", { exact: true }).fill(input.lastName);
 		if (input.dateOfBirth) await this.page.getByLabel("Date of birth").fill(input.dateOfBirth);
-		if (input.gender) await this.page.getByLabel("Gender").fill(input.gender);
+		// Gender is a dropdown (Male / Female / Other), not free text.
+		// Mandatory field - defaults to "Male" when a test does not care.
+		await this.page.getByRole("combobox", { name: /^Gender/ }).click();
+		await this.page.getByRole("option", { name: input.gender ?? "Male", exact: true }).click();
 		await this.page.getByLabel("Admission number").fill(input.admissionNumber);
 		await this.page.getByLabel("Admission date").fill(input.admissionDate);
 		if (input.previousSchool) await this.page.getByLabel("Previous school").fill(input.previousSchool);

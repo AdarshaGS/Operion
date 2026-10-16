@@ -25,7 +25,6 @@ import { SchoolClassSectionsPage } from "../../pages/academics/SchoolClassSectio
 import { DashboardPage } from "../../pages/dashboard/DashboardPage";
 import { FeesPage } from "../../pages/fees/FeesPage";
 import { MembersPage } from "../../pages/members/MembersPage";
-import { AcademicYearsPage } from "../../pages/settings/AcademicYearsPage";
 import { RolesPage } from "../../pages/settings/RolesPage";
 import { StructureSetupPage } from "../../pages/setup/StructureSetupPage";
 import { StudentCreatePage } from "../../pages/students/StudentCreatePage";
@@ -92,7 +91,8 @@ test("Institution Owner: onboarding checklist moves in real dependency order, dr
 		diagnostics.assertClean("dashboard");
 	});
 
-	await test.step("4a. Structure: validation, save, checklist advances to 1 of 6", async () => {
+	const academicYearName = `${run} Academic Year`;
+	await test.step("4a. Structure: linear wizard - profile, business, current year; checklist advances to 1 of 6", async () => {
 		await dashboard.goToSetupStep("Structure");
 		await expect(page).toHaveURL(/\/setup\/structure/);
 		await expect(page.getByRole("heading", { name: "Structure setup" })).toBeVisible();
@@ -107,16 +107,32 @@ test("Institution Owner: onboarding checklist moves in real dependency order, dr
 		expect(await orgNameField.evaluate((el: HTMLInputElement) => el.validity.valueMissing)).toBe(true);
 		await orgNameField.fill(`Owner Flow Org ${run}`);
 
+		// Linear flow: later steps stay locked until the required ones before them are done.
+		await expect(structure.stepTab("Academic year")).toBeDisabled();
+		await expect(page.getByRole("tab", { name: "Review and finish" })).toBeDisabled();
+
+		// Saving the profile advances to Business settings.
 		await structure.fillOrganisationProfile({ contactName: "Owner FlowOrg", contactEmail: adminEmail });
-		await expect(page.getByText("Profile updated")).toBeVisible();
+		await expect(page.getByRole("heading", { name: "Business settings" })).toBeVisible();
+		await structure.saveBusinessSettings();
 
-		await structure.goToStep("Campuses / locations");
-		// The top-bar Campus pill also shows "Main Campus" - scope to the table row so this
-		// doesn't collide with it (strict mode).
-		await expect(page.getByRole("cell", { name: "Main Campus" })).toBeVisible(); // auto-created at org provisioning
+		// Academic year: a year that isn't current doesn't satisfy the step.
+		await expect(page.getByRole("heading", { name: "Academic years" })).toBeVisible();
+		await structure.addAcademicYear({ name: academicYearName, startDate: "2026-06-01", endDate: "2027-03-31" });
+		await expect(structure.yearRow(academicYearName)).toBeVisible();
+		await structure.continue();
+		await expect(page.getByText("mark it as current")).toBeVisible();
+		await structure.markYearCurrent(academicYearName);
+		await expect(structure.yearRow(academicYearName).getByText("Current", { exact: true })).toBeVisible();
+		await structure.continue();
 
-		await structure.goToReview();
-		await expect(page.getByText("Departments and designations are optional")).toBeVisible();
+		// Campuses are optional - the auto-created Main Campus is listed and we move on.
+		// Scope to the table cell: the top-bar Campus pill also shows "Main Campus".
+		await expect(page.getByRole("cell", { name: "Main Campus" })).toBeVisible();
+		await structure.continue();
+
+		await expect(page.getByText("can be set up later from their own modules")).toBeVisible();
+		await expect(structure.finishButton()).toBeEnabled();
 		await structure.finishSetup();
 		await expect(page).toHaveURL(/\/dashboard/);
 
@@ -169,10 +185,9 @@ test("Institution Owner: onboarding checklist moves in real dependency order, dr
 
 	const gradeLevelName = "Grade 1";
 	const subjectName = "Mathematics";
-	const academicYearName = `${run} Academic Year`;
 	const className = "Grade 1 - A";
 	const sectionName = "A";
-	await test.step("4d. Academic setup: partial data does NOT flip the checklist; year + class does", async () => {
+	await test.step("4d. Academic setup: partial data does NOT flip the checklist; a class in the current year does", async () => {
 		await dashboard.goToSetupStep("Academic setup");
 		await expect(page).toHaveURL(/\/academics\/setup/);
 
@@ -183,15 +198,10 @@ test("Institution Owner: onboarding checklist moves in real dependency order, dr
 		await expect(academics.subjectRow(subjectName)).toBeVisible();
 
 		// Regression check: a step cannot be marked complete if required data is missing -
-		// DashboardController.academicSetupConfigured() needs BOTH an academic year AND a
-		// class to exist. Grade level + subject alone must not flip it.
+		// academic setup needs a current academic year (created in Structure, step 4a) AND a
+		// class. Grade level + subject alone must not flip it.
 		await dashboard.open();
 		await expect(dashboard.setupProgressCount()).toContainText("3 of 6");
-
-		const academicYears = new AcademicYearsPage(page);
-		await academicYears.open();
-		await academicYears.addAcademicYear({ name: academicYearName, startDate: "2026-06-01", endDate: "2027-03-31" });
-		await expect(academicYears.yearRow(academicYearName)).toBeVisible();
 
 		await academics.open();
 		await academics.addClass({ academicYearName, campusName: "Main Campus", gradeLevelName, displayName: className });

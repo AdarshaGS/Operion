@@ -58,6 +58,7 @@ Two servers must already be running — this suite never starts or stops them it
    SERVER_PORT=8090 \
    APP_CORS_ALLOWED_ORIGINS=http://localhost:5183 \
    DB_URL="jdbc:mysql://localhost:3306/operion_e2e?allowPublicKeyRetrieval=true" \
+   PLATFORM_DB_URL="jdbc:mysql://localhost:3306/operion_e2e_platform?allowPublicKeyRetrieval=true" \
    DB_USERNAME=root DB_PASSWORD= \
    REPORTING_DB_URL="jdbc:mysql://localhost:3306/operion_e2e?allowPublicKeyRetrieval=true" \
    REPORTING_DB_USERNAME=reporting_ro REPORTING_DB_PASSWORD=changeme-reporting-ro \

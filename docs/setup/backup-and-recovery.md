@@ -32,6 +32,10 @@ secrets manager, and note that losing them only forces re-login / key re-issue, 
 6. Start the app. Flyway will confirm `flyway_schema_history` matches the deployed migrations; a restore from an older backup will apply any newer migrations on boot — expected.
 7. Record the incident, data-loss window and time-to-recover.
 
+## Two databases
+
+Operion stores data in two databases, `operion_platform` and `operion_school`, and each needs its own backup. There is no transaction across them, so take both dumps at the same point in time (or restore both to the same binlog position) — otherwise an organisation can exist without its school data, or the reverse. Restore, `DB_URL` / `PLATFORM_DB_URL` and the verification checks below apply to each database separately (`organisations` is in the platform database; `students`, `invoices`, `payments`, `audit_logs` are in the school database).
+
 ## Verification after any restore
 
 - `SELECT COUNT(*)` on `organisations`, `students`, `invoices`, `payments`, `audit_logs` roughly matches production expectations for the backup time.

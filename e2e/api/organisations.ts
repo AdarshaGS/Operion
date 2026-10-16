@@ -113,7 +113,8 @@ export interface CreatePersonInput {
 }
 
 export function createPerson(token: string, input: CreatePersonInput) {
-	return api.post<PersonResponse>("/api/v1/persons", input, token);
+	// Gender is mandatory on the backend; seeded people default to "Other" unless a test cares.
+	return api.post<PersonResponse>("/api/v1/persons", { gender: "Other", ...input }, token);
 }
 
 export interface StudentResponse {

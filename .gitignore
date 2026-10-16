@@ -50,3 +50,5 @@ graphify-out/
 /test-results/
 /.mcp
 /tools
+### Local-only credentials / personal notes (never push) ###
+/local-dev/
