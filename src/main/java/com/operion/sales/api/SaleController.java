@@ -3,6 +3,7 @@ package com.operion.sales.api;
 import java.util.List;
 
 import com.operion.authorization.RequirePermission;
+import com.operion.common.EnumParam;
 import com.operion.inventory.Customer;
 import com.operion.inventory.CustomerRepository;
 import com.operion.inventory.Item;
@@ -15,6 +16,7 @@ import com.operion.sales.SaleLineRepository;
 import com.operion.sales.SalePaymentRepository;
 import com.operion.sales.SaleRepository;
 import com.operion.sales.SaleService;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -50,7 +52,7 @@ public class SaleController {
 
 	@PostMapping
 	@RequirePermission("SALES_MANAGE")
-	public SaleResponse create(@RequestBody CreateSaleRequest request) {
+	public SaleResponse create(@Valid @RequestBody CreateSaleRequest request) {
 		Customer customer = findCustomer(request.customerId());
 		Campus campus = findCampus(request.campusId());
 		List<SaleService.LineInput> lines = request.lines().stream()
@@ -73,9 +75,10 @@ public class SaleController {
 
 	@PostMapping("/{id}/payments")
 	@RequirePermission("SALES_MANAGE")
-	public SaleDetailResponse recordPayment(@PathVariable Long id, @RequestBody RecordSalePaymentRequest request) {
-		Sale sale = findSale(id);
-		saleService.recordPayment(sale, PaymentMethod.valueOf(request.paymentMethod()), request.amount(), request.paidAt());
+	public SaleDetailResponse recordPayment(@PathVariable Long id, @Valid @RequestBody RecordSalePaymentRequest request) {
+		PaymentMethod method = EnumParam.parse(PaymentMethod.class, request.paymentMethod());
+		findSale(id);
+		Sale sale = saleService.recordPayment(id, method, request.amount(), request.paidAt());
 		return toDetailResponse(sale);
 	}
 

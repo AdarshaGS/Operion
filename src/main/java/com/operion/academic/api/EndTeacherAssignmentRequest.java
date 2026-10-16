@@ -1,6 +1,8 @@
 package com.operion.academic.api;
 
+import jakarta.validation.constraints.NotNull;
+
 import java.time.LocalDate;
 
-public record EndTeacherAssignmentRequest(LocalDate endDate) {
+public record EndTeacherAssignmentRequest(@NotNull LocalDate endDate) {
 }

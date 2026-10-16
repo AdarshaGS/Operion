@@ -38,6 +38,9 @@ public class ItemRowImportService {
 		ItemCategory category = itemCategoryRepository.findByNameIgnoreCase(categoryName)
 				.orElseThrow(() -> new IllegalArgumentException("No item category named '" + categoryName + "'"));
 
+		// Parsed up front so a dry run rejects exactly what the real import would.
+		Integer reorderLevel = parseReorderLevel(row.get("reorderLevel"));
+
 		var existing = itemRepository.findByCodeIgnoreCase(code);
 		if (existing.isPresent()) {
 			return new ImportRowResult(rowNumber, ImportRowStatus.DUPLICATE, "Item with code '" + code + "' already exists",
@@ -49,7 +52,7 @@ public class ItemRowImportService {
 		}
 
 		Item item = inventoryService.createItem(category, code, name, unit, blankToNull(row.get("description")),
-				parseInt(row.get("reorderLevel")));
+				reorderLevel);
 		return new ImportRowResult(rowNumber, ImportRowStatus.IMPORTED, "Created", item.getId());
 	}
 
@@ -65,8 +68,20 @@ public class ItemRowImportService {
 		return value == null || value.isBlank() ? null : value.trim();
 	}
 
-	private static Integer parseInt(String value) {
+	private static Integer parseReorderLevel(String value) {
 		String trimmed = blankToNull(value);
-		return trimmed == null ? null : Integer.parseInt(trimmed);
+		if (trimmed == null) {
+			return null;
+		}
+		int parsed;
+		try {
+			parsed = Integer.parseInt(trimmed);
+		} catch (NumberFormatException e) {
+			throw new IllegalArgumentException("reorderLevel '" + trimmed + "' is not a whole number");
+		}
+		if (parsed < 0) {
+			throw new IllegalArgumentException("reorderLevel cannot be negative");
+		}
+		return parsed;
 	}
 }

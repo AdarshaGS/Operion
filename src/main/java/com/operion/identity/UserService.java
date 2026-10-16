@@ -3,6 +3,8 @@ package com.operion.identity;
 import java.util.Map;
 
 import com.operion.audit.AuditLogService;
+import com.operion.authorization.MembershipStatus;
+import com.operion.authorization.OrganisationMembershipRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -11,10 +13,13 @@ public class UserService {
 
 	private final UserRepository userRepository;
 	private final AuditLogService auditLogService;
+	private final OrganisationMembershipRepository membershipRepository;
 
-	public UserService(UserRepository userRepository, AuditLogService auditLogService) {
+	public UserService(UserRepository userRepository, AuditLogService auditLogService,
+			OrganisationMembershipRepository membershipRepository) {
 		this.userRepository = userRepository;
 		this.auditLogService = auditLogService;
+		this.membershipRepository = membershipRepository;
 	}
 
 	/** Also the deactivate path (status=DISABLED) - User is a shared/global login identity
@@ -23,6 +28,9 @@ public class UserService {
 	@Transactional
 	public User changeStatus(Long userId, UserStatus status) {
 		User user = findOrThrow(userId);
+		if (status != UserStatus.ACTIVE && isOnlyActiveOwner(userId)) {
+			throw new IllegalStateException("The organisation's only Owner cannot be deactivated - ownership transfer is not supported yet");
+		}
 		UserStatus previous = user.getStatus();
 		user.setStatus(status);
 		user = userRepository.save(user);
@@ -39,6 +47,12 @@ public class UserService {
 		user = userRepository.save(user);
 		auditLogService.record("User", user.getId(), "CONTACT_UPDATE", before, Map.of("email", email, "phone", String.valueOf(phone)));
 		return user;
+	}
+
+	private boolean isOnlyActiveOwner(Long userId) {
+		var activeOwners = membershipRepository.findByStatus(MembershipStatus.ACTIVE).stream().filter(m -> m.isOwner()).toList();
+		return activeOwners.stream().anyMatch(m -> m.getUser().getId().equals(userId))
+				&& activeOwners.stream().allMatch(m -> m.getUser().getId().equals(userId));
 	}
 
 	private User findOrThrow(Long userId) {

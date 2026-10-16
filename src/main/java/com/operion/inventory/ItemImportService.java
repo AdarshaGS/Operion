@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Map;
 
 import com.operion.common.imports.ImportFileParser;
+import com.operion.common.imports.ImportRowErrors;
 import com.operion.common.imports.ImportRowResult;
 import com.operion.common.imports.ImportRowStatus;
 import com.operion.common.imports.ImportRunService;
@@ -45,7 +46,7 @@ public class ItemImportService {
 		try {
 			return rowImportService.importRow(rowNumber, row, validateOnly);
 		} catch (Exception e) {
-			return new ImportRowResult(rowNumber, ImportRowStatus.ERROR, e.getMessage(), null);
+			return new ImportRowResult(rowNumber, ImportRowStatus.ERROR, ImportRowErrors.message(e), null);
 		}
 	}
 }

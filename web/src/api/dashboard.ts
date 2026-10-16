@@ -54,6 +54,15 @@ export interface CommunicationSummary {
 	announcementsThisMonth: number;
 }
 
+export interface SalesSummary {
+	totalToday: number;
+	totalThisMonth: number;
+}
+
+export interface PurchaseSummary {
+	openOrders: number;
+}
+
 export interface SetupChecklist {
 	structureConfigured: boolean;
 	rolesConfigured: boolean;
@@ -71,14 +80,17 @@ export interface DashboardPreferences {
 
 export interface DashboardSummaryResponse {
 	enrollment: EnrollmentSummary;
-	attendanceToday: AttendanceSummary;
-	fees: FeeSummary;
-	staff: StaffSummary;
-	examinations: ExaminationSummary;
-	library: LibrarySummary;
-	transport: TransportSummary;
-	inventory: InventorySummary;
-	communication: CommunicationSummary;
+	/** Each module section is null when the caller holds none of that module's view permissions. */
+	attendanceToday: AttendanceSummary | null;
+	fees: FeeSummary | null;
+	staff: StaffSummary | null;
+	examinations: ExaminationSummary | null;
+	library: LibrarySummary | null;
+	transport: TransportSummary | null;
+	inventory: InventorySummary | null;
+	communication: CommunicationSummary | null;
+	sales: SalesSummary | null;
+	purchase: PurchaseSummary | null;
 	setupChecklist: SetupChecklist;
 	preferences: DashboardPreferences;
 }
@@ -95,4 +107,33 @@ export function dismissSetupProgress(): Promise<void> {
 
 export function dismissQuickActions(): Promise<void> {
 	return api.post<void>("/api/v1/dashboard/quick-actions/dismiss");
+}
+
+export interface AttendanceTrendPoint {
+	date: string;
+	marked: number;
+	present: number;
+	ratePercent: number;
+}
+
+export interface FeeCollectionPoint {
+	/** Calendar month as "YYYY-MM". */
+	month: string;
+	collected: number;
+	invoiced: number;
+}
+
+export interface ClassEnrollmentPoint {
+	className: string;
+	students: number;
+}
+
+export interface DashboardChartsResponse {
+	attendanceTrend: AttendanceTrendPoint[];
+	feeCollections: FeeCollectionPoint[];
+	studentsByClass: ClassEnrollmentPoint[];
+}
+
+export function getDashboardCharts(): Promise<DashboardChartsResponse> {
+	return api.get<DashboardChartsResponse>("/api/v1/dashboard/charts");
 }

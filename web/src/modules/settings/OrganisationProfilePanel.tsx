@@ -13,7 +13,12 @@ import { getOrganisationProfile, updateOrganisationProfile } from "../../api/org
  * and tax/legal identifier. Distinct from Business settings (timezone/currency/working
  * days) even though logo lives on the same underlying record - one field, two forms that
  * can both reach it, no duplicated storage. */
-export function OrganisationProfilePanel() {
+interface OrganisationProfilePanelProps {
+	/** Fired after a successful save - the Structure setup wizard uses it to advance. */
+	onSaved?: () => void;
+}
+
+export function OrganisationProfilePanel({ onSaved }: OrganisationProfilePanelProps = {}) {
 	const [name, setName] = useState("");
 	const [legalName, setLegalName] = useState("");
 	const [logoUrl, setLogoUrl] = useState("");
@@ -60,20 +65,21 @@ export function OrganisationProfilePanel() {
 		try {
 			await updateOrganisationProfile({
 				name,
-				legalName: legalName || null,
-				logoUrl: logoUrl || null,
-				primaryContactName: primaryContactName || null,
-				primaryContactEmail: primaryContactEmail || null,
-				primaryContactPhone: primaryContactPhone || null,
-				addressLine1: addressLine1 || null,
-				addressLine2: addressLine2 || null,
-				city: city || null,
-				state: state || null,
-				country: country || null,
-				pincode: pincode || null,
-				taxIdentifier: taxIdentifier || null,
+				legalName: legalName,
+				logoUrl: logoUrl,
+				primaryContactName: primaryContactName,
+				primaryContactEmail: primaryContactEmail,
+				primaryContactPhone: primaryContactPhone,
+				addressLine1: addressLine1,
+				addressLine2: addressLine2,
+				city: city,
+				state: state,
+				country: country,
+				pincode: pincode,
+				taxIdentifier: taxIdentifier,
 			});
 			setSaved(true);
+			onSaved?.();
 		} catch (err) {
 			setError(err instanceof ApiError ? err.message : "Failed to update organisation profile");
 		} finally {

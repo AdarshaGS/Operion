@@ -6,6 +6,9 @@ import com.operion.academic.WorkingCalendarEntry;
 import com.operion.academic.WorkingCalendarEntryRepository;
 import com.operion.academic.WorkingCalendarEntryType;
 import com.operion.authorization.RequirePermission;
+import com.operion.common.EnumParam;
+import com.operion.common.InvalidRequestException;
+import jakarta.validation.Valid;
 import com.operion.organisation.AcademicYear;
 import com.operion.organisation.AcademicYearRepository;
 import com.operion.organisation.Campus;
@@ -49,15 +52,25 @@ public class WorkingCalendarController {
 
 	@PostMapping
 	@RequirePermission("WORKING_CALENDAR_MANAGE")
-	public WorkingCalendarEntryResponse create(@RequestBody CreateWorkingCalendarEntryRequest request) {
+	public WorkingCalendarEntryResponse create(@Valid @RequestBody CreateWorkingCalendarEntryRequest request) {
 		AcademicYear academicYear = academicYearRepository.findById(request.academicYearId())
 				.orElseThrow(() -> new IllegalArgumentException("No academic year with id " + request.academicYearId()));
 		Campus campus = request.campusId() != null
 				? campusRepository.findById(request.campusId())
 						.orElseThrow(() -> new IllegalArgumentException("No campus with id " + request.campusId()))
 				: null;
-		WorkingCalendarEntry entry = new WorkingCalendarEntry(academicYear, campus, request.date(), request.label(),
-				WorkingCalendarEntryType.valueOf(request.type()));
+		WorkingCalendarEntryType type = EnumParam.parse(WorkingCalendarEntryType.class, request.type());
+		if (request.date().isBefore(academicYear.getStartDate()) || request.date().isAfter(academicYear.getEndDate())) {
+			throw new InvalidRequestException("Date " + request.date() + " is outside the academic year ("
+					+ academicYear.getStartDate() + " to " + academicYear.getEndDate() + ")");
+		}
+		boolean taken = campus == null
+				? entryRepository.existsByAcademicYearIdAndDateAndCampusIsNull(academicYear.getId(), request.date())
+				: entryRepository.existsByAcademicYearIdAndDateAndCampusId(academicYear.getId(), request.date(), campus.getId());
+		if (taken) {
+			throw new IllegalStateException("A working calendar rule already exists for " + request.date());
+		}
+		WorkingCalendarEntry entry = new WorkingCalendarEntry(academicYear, campus, request.date(), request.label(), type);
 		return WorkingCalendarEntryResponse.from(entryRepository.save(entry));
 	}
 

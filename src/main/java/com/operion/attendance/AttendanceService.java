@@ -113,6 +113,9 @@ public class AttendanceService {
 				});
 
 		AttendanceStatus previousStatus = attendance.getAttendanceStatus();
+		if (previousStatus == newStatus) {
+			throw new IllegalStateException("Attendance " + attendance.getId() + " is already " + newStatus);
+		}
 		attendanceCorrectionRepository.save(new AttendanceCorrection(attendance, previousStatus, newStatus, reason));
 		attendance.correctStatus(newStatus);
 		StudentAttendance saved = studentAttendanceRepository.save(attendance);

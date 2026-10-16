@@ -24,6 +24,8 @@ import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import AddIcon from "@mui/icons-material/Add";
 import { listCampuses, type CampusResponse } from "../../api/campuses";
+import { Can } from "../../auth/Can";
+import { DialogErrorAlert } from "../../components/DialogErrorAlert";
 import { ApiError } from "../../api/client";
 import { listItemCategories, type ItemCategoryResponse } from "../../api/itemCategories";
 import { createItem, listItems, listLowStockItems, type ItemResponse } from "../../api/items";
@@ -43,6 +45,8 @@ export function ItemsPanel() {
 	const [lowStockIds, setLowStockIds] = useState<Set<number>>(new Set());
 	const [showLowStockOnly, setShowLowStockOnly] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	// Shown inside the dialog: the page-level alert sits behind its backdrop.
+	const [dialogError, setDialogError] = useState<string | null>(null);
 	const [dialogOpen, setDialogOpen] = useState(false);
 	const [categoryId, setCategoryId] = useState("");
 	const [code, setCode] = useState("");
@@ -90,6 +94,7 @@ export function ItemsPanel() {
 	}
 
 	function openDialog() {
+		setDialogError(null);
 		listItemCategories().then(setCategories).catch(() => {});
 		setDialogOpen(true);
 	}
@@ -97,6 +102,7 @@ export function ItemsPanel() {
 	async function handleSubmit(event: FormEvent) {
 		event.preventDefault();
 		setSubmitting(true);
+		setDialogError(null);
 		try {
 			await createItem({
 				categoryId: Number(categoryId),
@@ -119,7 +125,7 @@ export function ItemsPanel() {
 			setDialogOpen(false);
 			refresh();
 		} catch (err) {
-			setError(err instanceof ApiError ? err.message : "Failed to create item");
+			setDialogError(err instanceof ApiError ? err.message : "Failed to create item");
 		} finally {
 			setSubmitting(false);
 		}
@@ -130,9 +136,11 @@ export function ItemsPanel() {
 			<Stack spacing={2}>
 				<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
 					<Typography variant="h6">Items</Typography>
-					<Button size="small" startIcon={<AddIcon />} onClick={openDialog}>
-						Add item
-					</Button>
+					<Can anyOf={["INVENTORY_CATALOG_MANAGE"]}>
+						<Button size="small" startIcon={<AddIcon />} onClick={openDialog}>
+							Add item
+						</Button>
+					</Can>
 				</Box>
 
 				{error && <Alert severity="error">{error}</Alert>}
@@ -204,6 +212,7 @@ export function ItemsPanel() {
 				<DialogTitle>Add item</DialogTitle>
 				<DialogContent>
 					<Stack spacing={2} sx={{ mt: 1 }}>
+						{dialogError && <DialogErrorAlert>{dialogError}</DialogErrorAlert>}
 						<TextField select label="Category" value={categoryId} onChange={(e) => setCategoryId(e.target.value)} required autoFocus fullWidth>
 							{categories.map((category) => (
 								<MenuItem key={category.id} value={category.id}>

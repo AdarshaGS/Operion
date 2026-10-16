@@ -1,4 +1,7 @@
 package com.operion.academic.api;
 
-public record CreateSchoolClassRequest(Long academicYearId, Long campusId, Long gradeLevelId, String displayName) {
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+
+public record CreateSchoolClassRequest(@NotNull Long academicYearId, @NotNull Long campusId, @NotNull Long gradeLevelId, @NotBlank String displayName) {
 }

@@ -11,6 +11,7 @@ import com.operion.academic.SchoolClassRepository;
 import com.operion.academic.Subject;
 import com.operion.academic.SubjectRepository;
 import com.operion.authorization.RequirePermission;
+import com.operion.common.EnumParam;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -60,7 +61,7 @@ public class ClassSubjectController {
 		ClassSubject classSubject = classSubjectRepository.findById(id)
 				.orElseThrow(() -> new IllegalArgumentException("No class subject with id " + id));
 		return ClassSubjectResponse.from(
-				academicService.changeClassSubjectStatus(classSubject, ClassSubjectStatus.valueOf(request.status())));
+				academicService.changeClassSubjectStatus(classSubject, EnumParam.parse(ClassSubjectStatus.class, request.status())));
 	}
 
 	@PatchMapping("/{id}")

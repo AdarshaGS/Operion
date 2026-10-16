@@ -1,4 +1,6 @@
 package com.operion.academic.api;
 
-public record CreateSubjectRequest(String name, String code) {
+import jakarta.validation.constraints.NotBlank;
+
+public record CreateSubjectRequest(@NotBlank String name, String code) {
 }

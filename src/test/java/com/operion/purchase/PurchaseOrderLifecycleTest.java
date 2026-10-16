@@ -124,10 +124,10 @@ class PurchaseOrderLifecycleTest {
 		PurchaseOrder order = createDraftOrder(fixture, 20);
 		purchaseOrderService.submit(order);
 		purchaseOrderService.approve(order);
-		purchaseOrderService.receiveGoods(order, LocalDate.of(2026, 2, 5),
+		PurchaseOrder partlyReceived = purchaseOrderService.receiveGoods(order, LocalDate.of(2026, 2, 5),
 				List.of(new PurchaseOrderService.ReceiveLineInput(onlyLineOf(order), 5, null)));
 
-		assertThatThrownBy(() -> purchaseOrderService.cancel(order)).isInstanceOf(IllegalStateException.class);
+		assertThatThrownBy(() -> purchaseOrderService.cancel(partlyReceived)).isInstanceOf(IllegalStateException.class);
 	}
 
 	@Test

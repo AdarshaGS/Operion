@@ -1,4 +1,8 @@
 package com.operion.identity.auth.api;
 
-public record ClaimStaffInviteRequest(String organisationSlug, String token, String password) {
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+
+public record ClaimStaffInviteRequest(String organisationSlug, String token,
+		@NotBlank @Size(min = 8, message = "must be at least 8 characters") String password) {
 }

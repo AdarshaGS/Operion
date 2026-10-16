@@ -2,6 +2,7 @@ package com.operion.payroll;
 
 import java.math.BigDecimal;
 
+import com.operion.common.InvalidRequestException;
 import com.operion.common.TenantScopedEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -41,10 +42,10 @@ public class PayslipLine extends TenantScopedEntity {
 
 	public PayslipLine(Payslip payslip, String label, ComponentType type, PayslipLineSource source, BigDecimal amount) {
 		if (label == null || label.isBlank()) {
-			throw new IllegalArgumentException("Line label is required");
+			throw new InvalidRequestException("Line label is required");
 		}
 		if (amount == null || amount.signum() < 0) {
-			throw new IllegalArgumentException("Line amount must be zero or more");
+			throw new InvalidRequestException("Line amount must be zero or more");
 		}
 		this.payslip = payslip;
 		this.label = label.trim();

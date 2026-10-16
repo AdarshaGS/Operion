@@ -1,4 +1,6 @@
 package com.operion.academic.api;
 
-public record UpdateSchoolClassRequest(String displayName) {
+import jakarta.validation.constraints.NotBlank;
+
+public record UpdateSchoolClassRequest(@NotBlank String displayName) {
 }

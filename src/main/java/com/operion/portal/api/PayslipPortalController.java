@@ -3,6 +3,8 @@ package com.operion.portal.api;
 import java.util.List;
 
 import com.operion.common.TenantContext;
+import com.operion.modules.AppModule;
+import com.operion.modules.RequireModule;
 import com.operion.payroll.PayrollService;
 import com.operion.payroll.Payslip;
 import com.operion.payroll.api.PayslipResponse;
@@ -15,6 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 /** No {@code @RequirePermission} - same convention as TeacherPortalController; see PayslipPortalService. */
 @RestController
 @RequestMapping("/api/v1/me/payslips")
+@RequireModule(AppModule.PAYROLL)
 public class PayslipPortalController {
 
 	private final PayslipPortalService payslipPortalService;

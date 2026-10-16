@@ -36,7 +36,8 @@ function subscribeAllWanted(stompClient: Client) {
 function getClient(): Client {
 	if (client) return client;
 	client = new Client({
-		webSocketFactory: () => new SockJS(`${API_BASE_URL}/ws`),
+		// SockJS needs an absolute URL; a relative base (bundled build) resolves against the page origin.
+		webSocketFactory: () => new SockJS(new URL(`${API_BASE_URL}/ws`, window.location.origin).href),
 		connectHeaders: {
 			get Authorization() {
 				const session = getSession();

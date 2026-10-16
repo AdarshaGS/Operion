@@ -1,7 +1,12 @@
 package com.operion.hr.api;
 
+import com.operion.common.TenantContext;
+import com.operion.common.InvalidRequestException;
+import com.operion.common.EnumParam;
 import java.util.List;
 
+import com.operion.authorization.AuthorizationDeniedException;
+import com.operion.authorization.OrganisationMembershipRepository;
 import com.operion.authorization.RequirePermission;
 import com.operion.hr.HrService;
 import com.operion.hr.LeaveRequest;
@@ -31,10 +36,12 @@ public class LeaveRequestController {
 	private final StaffProfileRepository staffProfileRepository;
 	private final LeaveTypeRepository leaveTypeRepository;
 	private final AcademicYearRepository academicYearRepository;
+	private final OrganisationMembershipRepository membershipRepository;
 
 	public LeaveRequestController(HrService hrService, LeaveRequestRepository leaveRequestRepository,
 			StaffProfileRepository staffProfileRepository, LeaveTypeRepository leaveTypeRepository,
-			AcademicYearRepository academicYearRepository) {
+			AcademicYearRepository academicYearRepository, OrganisationMembershipRepository membershipRepository) {
+		this.membershipRepository = membershipRepository;
 		this.hrService = hrService;
 		this.leaveRequestRepository = leaveRequestRepository;
 		this.staffProfileRepository = staffProfileRepository;
@@ -45,6 +52,9 @@ public class LeaveRequestController {
 	@PostMapping
 	@RequirePermission("HR_LEAVE_MANAGE")
 	public LeaveRequestResponse raise(@RequestBody RaiseLeaveRequestRequest request) {
+		if (request.staffProfileId() == null || request.leaveTypeId() == null || request.academicYearId() == null) {
+			throw new InvalidRequestException("staffProfileId, leaveTypeId and academicYearId are required");
+		}
 		StaffProfile staffProfile = findStaffProfile(request.staffProfileId());
 		LeaveType leaveType = findLeaveType(request.leaveTypeId());
 		AcademicYear academicYear = findAcademicYear(request.academicYearId());
@@ -58,7 +68,7 @@ public class LeaveRequestController {
 	@GetMapping
 	public List<LeaveRequestResponse> list(
 			@RequestParam(required = false) Long staffProfileId, @RequestParam(required = false) String status) {
-		LeaveRequestStatus parsedStatus = status != null ? LeaveRequestStatus.valueOf(status) : null;
+		LeaveRequestStatus parsedStatus = status != null ? EnumParam.parse(LeaveRequestStatus.class, status) : null;
 		List<LeaveRequest> requests;
 		if (staffProfileId != null && parsedStatus != null) {
 			requests = leaveRequestRepository.findByStaffProfileIdAndStatus(staffProfileId, parsedStatus);
@@ -67,7 +77,7 @@ public class LeaveRequestController {
 		} else if (parsedStatus != null) {
 			requests = leaveRequestRepository.findByStatus(parsedStatus);
 		} else {
-			throw new IllegalArgumentException("staffProfileId or status must be provided");
+			throw new InvalidRequestException("staffProfileId or status must be provided");
 		}
 		return requests.stream().map(LeaveRequestResponse::from).toList();
 	}
@@ -75,19 +85,34 @@ public class LeaveRequestController {
 	@PostMapping("/{id}/approve")
 	@RequirePermission("HR_LEAVE_MANAGE")
 	public LeaveRequestResponse approve(@PathVariable Long id, @RequestBody DecideLeaveRequestRequest request) {
-		return LeaveRequestResponse.from(hrService.approve(findLeaveRequest(id), request.decidedBy()));
+		LeaveRequest leaveRequest = findLeaveRequest(id);
+		requireNotOwnRequest(leaveRequest);
+		return LeaveRequestResponse.from(hrService.approve(leaveRequest, TenantContext.getActorId()));
 	}
 
 	@PostMapping("/{id}/reject")
 	@RequirePermission("HR_LEAVE_MANAGE")
 	public LeaveRequestResponse reject(@PathVariable Long id, @RequestBody DecideLeaveRequestRequest request) {
-		return LeaveRequestResponse.from(hrService.reject(findLeaveRequest(id), request.decidedBy()));
+		LeaveRequest leaveRequest = findLeaveRequest(id);
+		requireNotOwnRequest(leaveRequest);
+		return LeaveRequestResponse.from(hrService.reject(leaveRequest, TenantContext.getActorId()));
 	}
 
 	@PostMapping("/{id}/cancel")
 	@RequirePermission("HR_LEAVE_MANAGE")
 	public LeaveRequestResponse cancel(@PathVariable Long id) {
 		return LeaveRequestResponse.from(hrService.cancel(findLeaveRequest(id)));
+	}
+
+	/** A staff member with leave-manage rights still cannot decide their own request. */
+	private void requireNotOwnRequest(LeaveRequest leaveRequest) {
+		Long actorId = TenantContext.getActorId();
+		Long requesterPersonId = leaveRequest.getStaffProfile().getPerson().getId();
+		boolean own = actorId != null && membershipRepository.findByUserId(actorId).stream()
+				.anyMatch(m -> m.getPerson() != null && m.getPerson().getId().equals(requesterPersonId));
+		if (own) {
+			throw new AuthorizationDeniedException("You cannot decide your own leave request");
+		}
 	}
 
 	private LeaveRequest findLeaveRequest(Long id) {

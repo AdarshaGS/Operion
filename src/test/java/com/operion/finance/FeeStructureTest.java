@@ -1,5 +1,6 @@
 package com.operion.finance;
 
+import com.operion.common.InvalidRequestException;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -103,6 +104,6 @@ class FeeStructureTest {
 
 		assertThatThrownBy(() -> feeService.createFeeStructure(
 				fixture.feeStructureGroup(), fixture.feeCategory(), new BigDecimal("10000.00"), mismatchedInstallments))
-				.isInstanceOf(IllegalArgumentException.class);
+				.isInstanceOf(InvalidRequestException.class);
 	}
 }

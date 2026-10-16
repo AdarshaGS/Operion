@@ -156,7 +156,7 @@ export function ImportWorkflowDialog({
 					)}
 
 					{step === "busy" && (
-						<Stack alignItems="center" spacing={2} sx={{ py: 4 }}>
+						<Stack spacing={2} sx={{ alignItems: "center", py: 4 }}>
 							<CircularProgress />
 							<Typography variant="body2" color="text.secondary">
 								{config.supportsPreview && results.length === 0 ? "Validating..." : "Importing..."}

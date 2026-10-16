@@ -96,9 +96,9 @@ class PasswordResetLifecycleTest {
 
 		passwordResetService().confirmReset(organisation.getSlug(), rawToken, "NewPass123!");
 
+		TenantContext.set(organisation.getId(), null);
 		User reloaded = userRepository.findById(user.getId()).orElseThrow();
 		assertThat(ENCODER.matches("NewPass123!", reloaded.getPasswordHash())).isTrue();
-		TenantContext.set(organisation.getId(), null);
 		assertThat(passwordResetTokenRepository.findById(token.getId()).orElseThrow().isConsumed()).isTrue();
 	}
 

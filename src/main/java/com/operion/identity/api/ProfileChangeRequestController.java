@@ -6,12 +6,14 @@ import com.operion.authorization.MembershipStatus;
 import com.operion.authorization.OrganisationMembership;
 import com.operion.authorization.OrganisationMembershipRepository;
 import com.operion.authorization.RequirePermission;
+import com.operion.common.EnumParam;
 import com.operion.common.TenantContext;
 import com.operion.identity.Person;
 import com.operion.identity.ProfileChangeRequest;
 import com.operion.identity.ProfileChangeRequestRepository;
 import com.operion.identity.ProfileChangeRequestStatus;
 import com.operion.identity.ProfileChangeService;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -43,7 +45,7 @@ public class ProfileChangeRequestController {
 	}
 
 	@PostMapping("/api/v1/me/profile-change-requests")
-	public ProfileChangeRequestResponse submitOwn(@RequestBody SubmitProfileChangeRequest request) {
+	public ProfileChangeRequestResponse submitOwn(@Valid @RequestBody SubmitProfileChangeRequest request) {
 		Person person = findCallersPerson();
 		ProfileChangeRequest profileChangeRequest =
 				profileChangeService.submit(person, request.phone(), request.email(), request.photoUrl(), TenantContext.getActorId());
@@ -59,7 +61,7 @@ public class ProfileChangeRequestController {
 	@GetMapping("/api/v1/profile-change-requests")
 	@RequirePermission("PROFILE_CHANGE_MANAGE")
 	public List<ProfileChangeRequestResponse> list(@RequestParam(required = false) String status) {
-		ProfileChangeRequestStatus parsedStatus = status != null ? ProfileChangeRequestStatus.valueOf(status) : null;
+		ProfileChangeRequestStatus parsedStatus = status != null ? EnumParam.parse(ProfileChangeRequestStatus.class, status) : null;
 		List<ProfileChangeRequest> requests = parsedStatus != null
 				? profileChangeRequestRepository.findByStatus(parsedStatus)
 				: profileChangeRequestRepository.findAll();

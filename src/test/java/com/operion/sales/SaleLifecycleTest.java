@@ -127,12 +127,12 @@ class SaleLifecycleTest {
 		Sale sale = saleService.createSale(fixture.customer(), fixture.campus(), LocalDate.of(2026, 2, 2),
 				List.of(new SaleService.LineInput(fixture.item(), 2, new BigDecimal("25.00"))));
 
-		saleService.recordPayment(sale, PaymentMethod.CASH, new BigDecimal("20.00"), LocalDate.of(2026, 2, 2));
-		assertThat(sale.getStatus()).isEqualTo(SaleStatus.PARTIALLY_PAID);
-		assertThat(sale.getOutstanding()).isEqualByComparingTo("30.00");
+		Sale afterFirst = saleService.recordPayment(sale.getId(), PaymentMethod.CASH, new BigDecimal("20.00"), LocalDate.of(2026, 2, 2));
+		assertThat(afterFirst.getStatus()).isEqualTo(SaleStatus.PARTIALLY_PAID);
+		assertThat(afterFirst.getOutstanding()).isEqualByComparingTo("30.00");
 
-		saleService.recordPayment(sale, PaymentMethod.UPI, new BigDecimal("30.00"), LocalDate.of(2026, 2, 3));
-		assertThat(sale.getStatus()).isEqualTo(SaleStatus.PAID);
-		assertThat(sale.getOutstanding()).isEqualByComparingTo("0.00");
+		Sale afterSecond = saleService.recordPayment(sale.getId(), PaymentMethod.UPI, new BigDecimal("30.00"), LocalDate.of(2026, 2, 3));
+		assertThat(afterSecond.getStatus()).isEqualTo(SaleStatus.PAID);
+		assertThat(afterSecond.getOutstanding()).isEqualByComparingTo("0.00");
 	}
 }

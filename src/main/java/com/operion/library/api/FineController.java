@@ -5,6 +5,7 @@ import java.util.List;
 import com.operion.authorization.RequirePermission;
 import com.operion.library.BorrowRecord;
 import com.operion.library.BorrowRecordRepository;
+import com.operion.common.EnumParam;
 import com.operion.library.Fine;
 import com.operion.library.FineReason;
 import com.operion.library.FineRepository;
@@ -37,7 +38,7 @@ public class FineController {
 	public FineResponse raise(@RequestBody RaiseFineRequest request) {
 		BorrowRecord borrowRecord = borrowRecordRepository.findById(request.borrowRecordId())
 				.orElseThrow(() -> new IllegalArgumentException("No borrow record with id " + request.borrowRecordId()));
-		Fine fine = libraryService.raiseFine(borrowRecord, request.amount(), FineReason.valueOf(request.reason()));
+		Fine fine = libraryService.raiseFine(borrowRecord, request.amount(), EnumParam.parse(FineReason.class, request.reason()));
 		return FineResponse.from(fine);
 	}
 

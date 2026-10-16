@@ -16,9 +16,11 @@ import com.operion.identity.auth.EmailVerificationService;
 import com.operion.identity.auth.PasswordResetService;
 import com.operion.identity.auth.RefreshTokenService;
 import com.operion.identity.auth.StaffInviteService;
+import com.operion.modules.ModuleAccessService;
 import com.operion.organisation.Campus;
 import com.operion.organisation.Organisation;
 import com.operion.organisation.OrganisationRepository;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -38,11 +40,12 @@ public class AuthController {
 	private final RefreshTokenService refreshTokenService;
 	private final PasswordResetService passwordResetService;
 	private final EmailVerificationService emailVerificationService;
+	private final ModuleAccessService moduleAccessService;
 
 	public AuthController(AuthenticationService authenticationService, OrganisationMembershipRepository membershipRepository,
 			UserRepository userRepository, OrganisationRepository organisationRepository,
 			StaffInviteService staffInviteService, RefreshTokenService refreshTokenService, PasswordResetService passwordResetService,
-			EmailVerificationService emailVerificationService) {
+			EmailVerificationService emailVerificationService, ModuleAccessService moduleAccessService) {
 		this.authenticationService = authenticationService;
 		this.membershipRepository = membershipRepository;
 		this.userRepository = userRepository;
@@ -51,6 +54,7 @@ public class AuthController {
 		this.refreshTokenService = refreshTokenService;
 		this.passwordResetService = passwordResetService;
 		this.emailVerificationService = emailVerificationService;
+		this.moduleAccessService = moduleAccessService;
 	}
 
 	@PostMapping("/login")
@@ -67,7 +71,7 @@ public class AuthController {
 
 	/** Public, unauthenticated - same trust tier as claim-invite, see StaffInviteService.claim(). */
 	@PostMapping("/claim-staff-invite")
-	public LoginResponse claimStaffInvite(@RequestBody ClaimStaffInviteRequest request) {
+	public LoginResponse claimStaffInvite(@Valid @RequestBody ClaimStaffInviteRequest request) {
 		return LoginResponse.from(staffInviteService.claim(request.organisationSlug(), request.token(), request.password()));
 	}
 
@@ -83,7 +87,7 @@ public class AuthController {
 	/** Authenticated - see AuthenticationService.changePassword() for why the "current
 	 * password wrong" message can be specific here unlike everywhere else in this class. */
 	@PutMapping("/password")
-	public AckResponse changePassword(@RequestBody ChangePasswordRequest request) {
+	public AckResponse changePassword(@Valid @RequestBody ChangePasswordRequest request) {
 		authenticationService.changePassword(TenantContext.getActorId(), request.currentPassword(), request.newPassword());
 		return new AckResponse("Password updated");
 	}
@@ -98,7 +102,7 @@ public class AuthController {
 
 	/** Public, unauthenticated. */
 	@PostMapping("/password-reset/confirm")
-	public AckResponse confirmPasswordReset(@RequestBody ConfirmPasswordResetRequest request) {
+	public AckResponse confirmPasswordReset(@Valid @RequestBody ConfirmPasswordResetRequest request) {
 		passwordResetService.confirmReset(request.organisationSlug(), request.token(), request.newPassword());
 		return new AckResponse("Password reset");
 	}
@@ -158,6 +162,7 @@ public class AuthController {
 		String organisationName = organisationRepository.findById(organisationId).map(Organisation::getName).orElse(null);
 
 		return new MeResponse(userId, organisationId, organisationName, email, personId, personName, firstName, lastName,
-				campusName, status, roleNames, roles, membershipRepository.findActivePermissionCodesForUser(userId));
+				campusName, status, roleNames, roles, membershipRepository.findActivePermissionCodesForUser(userId),
+				moduleAccessService.disabledModules(organisationId).stream().map(Enum::name).collect(Collectors.toSet()));
 	}
 }

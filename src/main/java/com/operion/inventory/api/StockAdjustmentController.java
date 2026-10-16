@@ -1,5 +1,7 @@
 package com.operion.inventory.api;
 
+import com.operion.common.EnumParam;
+import com.operion.common.InvalidRequestException;
 import java.util.List;
 
 import com.operion.authorization.RequirePermission;
@@ -23,6 +25,12 @@ import org.springframework.web.bind.annotation.RestController;
 @RequirePermission("INVENTORY_VIEW")
 public class StockAdjustmentController {
 
+	private static void requireField(Object value, String field) {
+		if (value == null) {
+			throw new InvalidRequestException(field + " is required");
+		}
+	}
+
 	private final InventoryService inventoryService;
 	private final StockAdjustmentRepository stockAdjustmentRepository;
 	private final ItemRepository itemRepository;
@@ -39,10 +47,14 @@ public class StockAdjustmentController {
 	@PostMapping
 	@RequirePermission("INVENTORY_ADJUSTMENT_MANAGE")
 	public StockAdjustmentResponse record(@RequestBody RecordStockAdjustmentRequest request) {
+		requireField(request.itemId(), "itemId");
+		requireField(request.campusId(), "campusId");
+		requireField(request.adjustmentDate(), "adjustmentDate");
+		StockAdjustmentReason reason = EnumParam.parse(StockAdjustmentReason.class, request.reason());
 		Item item = findItem(request.itemId());
 		Campus campus = findCampus(request.campusId());
 		StockAdjustment adjustment = inventoryService.recordAdjustment(item, campus, request.quantityDelta(),
-				StockAdjustmentReason.valueOf(request.reason()), request.adjustmentDate(), request.remarks());
+				reason, request.adjustmentDate(), request.remarks());
 		return StockAdjustmentResponse.from(adjustment);
 	}
 

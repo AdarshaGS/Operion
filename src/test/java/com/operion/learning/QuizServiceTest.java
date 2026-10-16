@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Map;
 
 import com.operion.authorization.AuthorizationDeniedException;
+import com.operion.common.InvalidRequestException;
 import com.operion.common.JpaConfig;
 import com.operion.common.MultiTenancyConfig;
 import org.junit.jupiter.api.BeforeEach;
@@ -57,9 +58,9 @@ class QuizServiceTest extends LearningTestBase {
 	void questionsMustHaveExactlyOneCorrectOptionAndPublishNeedsQuestions() {
 		assertThatThrownBy(() -> quizService.addQuestion(ashaTeachesMathsInA, quiz.getId(), "Q", 1,
 				List.of(new QuizService.OptionInput("a", true), new QuizService.OptionInput("b", true))))
-				.isInstanceOf(IllegalArgumentException.class).hasMessageContaining("exactly one");
+				.isInstanceOf(InvalidRequestException.class).hasMessageContaining("exactly one");
 		assertThatThrownBy(() -> quizService.addQuestion(ashaTeachesMathsInA, quiz.getId(), "Q", 1,
-				List.of(new QuizService.OptionInput("only", true)))).isInstanceOf(IllegalArgumentException.class);
+				List.of(new QuizService.OptionInput("only", true)))).isInstanceOf(InvalidRequestException.class);
 		assertThatThrownBy(() -> quizService.publish(ashaTeachesMathsInA, quiz.getId())).isInstanceOf(IllegalStateException.class);
 
 		quizService.addQuestion(ashaTeachesMathsInA, quiz.getId(), "2+2?", 2, TWO_PLUS_TWO);
@@ -116,7 +117,7 @@ class QuizServiceTest extends LearningTestBase {
 		var other = quizService.addBankQuestion(ashaTeachesMathsInA, maths.getId(), "Other", 1, TWO_PLUS_TWO);
 		quizService.publish(ashaTeachesMathsInA, quiz.getId());
 		assertThatThrownBy(() -> quizService.submitAttempt(guardianOf(raviEnrollment), quiz.getId(),
-				Map.of(q1.question().getId(), other.options().get(0).getId()), now)).isInstanceOf(IllegalArgumentException.class);
+				Map.of(q1.question().getId(), other.options().get(0).getId()), now)).isInstanceOf(InvalidRequestException.class);
 	}
 
 	@Test
@@ -136,7 +137,7 @@ class QuizServiceTest extends LearningTestBase {
 		var scienceQuiz = quizService.createQuiz(balaTeachesScienceInB, sectionB.getId(), science.getId(), "S", null, now, now.plusSeconds(60));
 		var mathsBank = quizService.addBankQuestion(admin, maths.getId(), "x", 1, TWO_PLUS_TWO);
 		assertThatThrownBy(() -> quizService.addFromBank(balaTeachesScienceInB, scienceQuiz.getId(), mathsBank.question().getId()))
-				.isInstanceOf(IllegalArgumentException.class);
+				.isInstanceOf(InvalidRequestException.class);
 	}
 
 	@Test

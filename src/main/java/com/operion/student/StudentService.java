@@ -7,6 +7,7 @@ import java.util.Map;
 
 import com.operion.academic.Section;
 import com.operion.audit.AuditLogService;
+import com.operion.common.InvalidRequestException;
 import com.operion.common.TenantContext;
 import com.operion.customfield.CustomFieldService;
 import com.operion.identity.Person;
@@ -14,6 +15,7 @@ import com.operion.organisation.AcademicYear;
 import com.operion.organisation.DocumentNumberFormatter;
 import com.operion.organisation.OrganisationBranding;
 import com.operion.organisation.OrganisationBrandingRepository;
+import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -74,6 +76,12 @@ public class StudentService {
 			String previousSchool, String tcNumber, Double entranceScore, String bloodGroup, String category,
 			String nationality, String remarks, String medicalAlerts, String emergencyContactName,
 			String emergencyContactPhone, Map<String, Object> customFields) {
+		if (admissionDate.isAfter(LocalDate.now())) {
+			throw new InvalidRequestException("admissionDate cannot be in the future");
+		}
+		if (admissionNumber != null && !admissionNumber.isBlank() && studentRepository.findByAdmissionNumber(admissionNumber).isPresent()) {
+			throw new IllegalStateException("Admission number " + admissionNumber + " already exists");
+		}
 		String resolvedAdmissionNumber =
 				admissionNumber != null && !admissionNumber.isBlank() ? admissionNumber : nextAdmissionNumber(admissionDate);
 		String studentId = studentIdGenerator.next(admissionDate);
@@ -89,21 +97,43 @@ public class StudentService {
 			Double entranceScore, String bloodGroup, String category, String nationality, String remarks,
 			String medicalAlerts, String emergencyContactName, String emergencyContactPhone) {
 		return update(student, admissionSource, previousSchool, tcNumber, entranceScore, bloodGroup, category,
-				nationality, remarks, medicalAlerts, emergencyContactName, emergencyContactPhone,
-				customFieldService.deserialize(student.getCustomFields()));
+				nationality, remarks, medicalAlerts, emergencyContactName, emergencyContactPhone, null);
 	}
 
+	/** Partial update: a null argument keeps the stored value; an optional text field sent as "" is cleared.
+	 * {@code customFields} is merged over the stored values - a key left out is kept, a key sent as null/"" is cleared. */
 	@Transactional
 	public Student update(Student student, String admissionSource, String previousSchool, String tcNumber,
 			Double entranceScore, String bloodGroup, String category, String nationality, String remarks,
 			String medicalAlerts, String emergencyContactName, String emergencyContactPhone,
 			Map<String, Object> customFields) {
-		String customFieldsJson = customFieldService.validateAndSerialize(CUSTOM_FIELD_ENTITY_TYPE, customFields);
-		student.update(admissionSource, previousSchool, tcNumber, entranceScore, bloodGroup, category, nationality,
-				remarks, medicalAlerts, emergencyContactName, emergencyContactPhone, customFieldsJson);
+		Map<String, Object> mergedCustomFields = new java.util.LinkedHashMap<>(customFieldService.deserialize(student.getCustomFields()));
+		if (customFields != null) {
+			customFields.forEach((key, value) -> {
+				if (value == null || value.toString().isBlank()) {
+					mergedCustomFields.remove(key);
+				} else {
+					mergedCustomFields.put(key, value);
+				}
+			});
+		}
+		String customFieldsJson = customFieldService.validateAndSerialize(CUSTOM_FIELD_ENTITY_TYPE, mergedCustomFields, student.getCustomFields());
+		student.update(keep(student.getAdmissionSource(), admissionSource), keep(student.getPreviousSchool(), previousSchool),
+				keep(student.getTcNumber(), tcNumber), entranceScore != null ? entranceScore : student.getEntranceScore(),
+				keep(student.getBloodGroup(), bloodGroup), keep(student.getCategory(), category),
+				keep(student.getNationality(), nationality), keep(student.getRemarks(), remarks),
+				keep(student.getMedicalAlerts(), medicalAlerts), keep(student.getEmergencyContactName(), emergencyContactName),
+				keep(student.getEmergencyContactPhone(), emergencyContactPhone), customFieldsJson);
 		Student saved = studentRepository.save(student);
 		auditLogService.record("Student", saved.getId(), "STUDENT_UPDATED", null, null);
 		return saved;
+	}
+
+	private static String keep(String current, String incoming) {
+		if (incoming == null) {
+			return current;
+		}
+		return incoming.isBlank() ? null : incoming;
 	}
 
 	/** Atomic per-(organisation, calendar year) sequence - never SELECT MAX()+1, same pattern as FeeService. */
@@ -112,6 +142,11 @@ public class StudentService {
 				.map(OrganisationBranding::getAdmissionNumberFormat)
 				.orElse(OrganisationBranding.DEFAULT_ADMISSION_NUMBER_FORMAT);
 		int calendarYear = admissionDate.getYear();
+		try {
+			studentAdmissionCounterRepository.createIfMissing(calendarYear);
+		} catch (DataAccessException ignored) {
+			// Another admission created the row first; the locking read below picks it up.
+		}
 		StudentAdmissionCounter counter = studentAdmissionCounterRepository.findByCalendarYear(calendarYear)
 				.orElseGet(() -> studentAdmissionCounterRepository.save(new StudentAdmissionCounter(calendarYear)));
 		long number = counter.consumeNext();
@@ -126,6 +161,10 @@ public class StudentService {
 	@Transactional
 	public StudentEnrollment enroll(Student student, AcademicYear academicYear, Section section, Integer rollNumber,
 			LocalDate enrolledDate) {
+		if (academicYear.isClosed()) {
+			throw new IllegalStateException("Academic year " + academicYear.getName() + " is closed and accepts no new enrolments");
+		}
+		requireSectionInYear(section, academicYear);
 		studentEnrollmentRepository.findByStudentIdAndCurrentTrue(student.getId()).ifPresent(existing -> {
 			throw new IllegalStateException("Student " + student.getId() + " already has a current enrollment");
 		});
@@ -133,9 +172,19 @@ public class StudentService {
 		if (student.getStatus() == StudentStatus.ADMITTED) {
 			student.activate();
 			studentRepository.save(student);
+		} else if (student.getStatus() == StudentStatus.WITHDRAWN || student.getStatus() == StudentStatus.TRANSFERRED_OUT) {
+			student.reactivate();
+			studentRepository.save(student);
 		}
-		StudentEnrollment enrollment =
-				studentEnrollmentRepository.save(new StudentEnrollment(student, academicYear, section, rollNumber, enrolledDate));
+		StudentEnrollment previousInYear =
+				studentEnrollmentRepository.findByStudentIdAndAcademicYearId(student.getId(), academicYear.getId()).orElse(null);
+		StudentEnrollment enrollment;
+		if (previousInYear != null && isExitStatus(previousInYear.getEnrollmentStatus())) {
+			previousInYear.reopen(section, rollNumber, enrolledDate);
+			enrollment = studentEnrollmentRepository.save(previousInYear);
+		} else {
+			enrollment = studentEnrollmentRepository.save(new StudentEnrollment(student, academicYear, section, rollNumber, enrolledDate));
+		}
 		auditLogService.record("StudentEnrollment", enrollment.getId(), "STUDENT_ENROLLED", null, enrollment.getEnrollmentStatus());
 		return enrollment;
 	}
@@ -148,6 +197,7 @@ public class StudentService {
 	@Transactional
 	public StudentEnrollment promote(Student student, AcademicYear newAcademicYear, Section newSection,
 			Integer rollNumber, LocalDate promotionDate, boolean repeated) {
+		requireSectionInYear(newSection, newAcademicYear);
 		StudentEnrollment current = studentEnrollmentRepository.findByStudentIdAndCurrentTrue(student.getId())
 				.orElseThrow(() -> new IllegalStateException("Student " + student.getId() + " has no current enrollment to promote from"));
 		StudentEnrollmentStatus previousStatus = current.getEnrollmentStatus();
@@ -165,6 +215,9 @@ public class StudentService {
 	public StudentEnrollment reassignSection(Student student, Section newSection) {
 		StudentEnrollment current = studentEnrollmentRepository.findByStudentIdAndCurrentTrue(student.getId())
 				.orElseThrow(() -> new IllegalStateException("Student " + student.getId() + " has no current enrollment"));
+		if (!newSection.getSchoolClass().getId().equals(current.getSection().getSchoolClass().getId())) {
+			throw new InvalidRequestException("A section can only be reassigned within the student's current class");
+		}
 		if (!newSection.getId().equals(current.getSection().getId())) {
 			assertCapacityAvailable(newSection);
 		}
@@ -173,6 +226,17 @@ public class StudentService {
 		StudentEnrollment saved = studentEnrollmentRepository.save(current);
 		auditLogService.record("StudentEnrollment", saved.getId(), "STUDENT_SECTION_REASSIGNED", previousSectionId, newSection.getId());
 		return saved;
+	}
+
+	private static void requireSectionInYear(Section section, AcademicYear academicYear) {
+		if (!section.getSchoolClass().getAcademicYear().getId().equals(academicYear.getId())) {
+			throw new InvalidRequestException("Section " + section.getId() + " does not belong to academic year " + academicYear.getName());
+		}
+	}
+
+	private static boolean isExitStatus(StudentEnrollmentStatus status) {
+		return status == StudentEnrollmentStatus.TRANSFERRED || status == StudentEnrollmentStatus.WITHDRAWN
+				|| status == StudentEnrollmentStatus.GRADUATED;
 	}
 
 	/**
@@ -196,6 +260,9 @@ public class StudentService {
 	@Transactional
 	public StudentExit recordExit(Student student, StudentExitType exitType, LocalDate exitDate, String reason,
 			String destinationSchool, Long initiatedBy) {
+		if (exitDate.isBefore(student.getAdmissionDate())) {
+			throw new InvalidRequestException("exitDate cannot be before the admission date (" + student.getAdmissionDate() + ")");
+		}
 		StudentExit exit = studentExitRepository.save(new StudentExit(student, exitType, exitDate, reason, destinationSchool, initiatedBy));
 
 		studentEnrollmentRepository.findByStudentIdAndCurrentTrue(student.getId()).ifPresent(enrollment -> {

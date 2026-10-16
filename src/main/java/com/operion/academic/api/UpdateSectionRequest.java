@@ -1,4 +1,6 @@
 package com.operion.academic.api;
 
-public record UpdateSectionRequest(String name, Integer capacity, String room) {
+import jakarta.validation.constraints.Positive;
+
+public record UpdateSectionRequest(String name, @Positive Integer capacity, String room) {
 }

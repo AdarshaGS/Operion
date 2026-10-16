@@ -1,5 +1,6 @@
 package com.operion.finance;
 
+import com.operion.common.InvalidRequestException;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -189,7 +190,7 @@ class AdjustmentAndWaiverTest {
 		Invoice paidInvoice = invoiceRepository.findById(fixture.invoice().getId()).orElseThrow();
 
 		assertThatThrownBy(() -> feeService.recordAdjustment(paidInvoice, new BigDecimal("-500.00"), "Too large a correction", 7L, LocalDate.of(2025, 6, 22), null, null))
-				.isInstanceOf(IllegalArgumentException.class);
+				.isInstanceOf(InvalidRequestException.class);
 	}
 
 	@Test
@@ -201,7 +202,7 @@ class AdjustmentAndWaiverTest {
 		assertThat(partiallyPaidInvoice.getOutstanding()).isEqualByComparingTo("7000.00");
 
 		assertThatThrownBy(() -> feeService.recordWaiver(partiallyPaidInvoice, new BigDecimal("8000.00"), "Hardship waiver", 7L, LocalDate.of(2025, 6, 23), null, null))
-				.isInstanceOf(IllegalArgumentException.class);
+				.isInstanceOf(InvalidRequestException.class);
 
 		Waiver waiver = feeService.recordWaiver(partiallyPaidInvoice, new BigDecimal("7000.00"), "Hardship waiver", 7L, LocalDate.of(2025, 6, 23), null, null);
 		assertThat(waiver.getAmount()).isEqualByComparingTo("7000.00");

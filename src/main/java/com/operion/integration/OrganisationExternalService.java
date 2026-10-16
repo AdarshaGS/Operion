@@ -1,5 +1,6 @@
 package com.operion.integration;
 
+import com.operion.common.persistence.PlatformPlane;
 import com.operion.common.BaseEntity;
 import com.operion.organisation.Organisation;
 import jakarta.persistence.Column;
@@ -26,6 +27,7 @@ import lombok.Setter;
 @Entity
 @Table(name = "organisation_external_services")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
+@PlatformPlane
 public class OrganisationExternalService extends BaseEntity {
 
 	@ManyToOne(optional = false)

@@ -1,5 +1,6 @@
 package com.operion.common;
 
+import com.operion.common.persistence.PlatformPlane;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
@@ -17,6 +18,7 @@ import lombok.NoArgsConstructor;
 @Entity
 @Table(name = "timezones")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
+@PlatformPlane
 public class Timezone extends BaseEntity {
 
 	@Column(nullable = false, unique = true)

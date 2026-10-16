@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Grid from "@mui/material/Grid";
@@ -8,6 +9,7 @@ import Tabs from "@mui/material/Tabs";
 import Typography from "@mui/material/Typography";
 import HistoryIcon from "@mui/icons-material/History";
 import FileDownloadIcon from "@mui/icons-material/FileDownload";
+import { ApiError } from "../../api/client";
 import { dismissSetupProgress, getDashboardSummary, type SetupChecklist } from "../../api/dashboard";
 import { SetupProgress } from "../dashboard/SetupProgress";
 import { IMPORT_GROUP_DESCRIPTIONS, IMPORT_GROUP_LABELS, IMPORT_GROUP_ORDER } from "./imports/ImportConfig";
@@ -27,6 +29,7 @@ export function ImportsExportsPanel() {
 	const [tab, setTab] = useState<TabKey>("import");
 	const [historyOpen, setHistoryOpen] = useState(false);
 	const [checklist, setChecklist] = useState<SetupChecklist | null>(null);
+	const [exportError, setExportError] = useState<string | null>(null);
 
 	useEffect(() => {
 		getDashboardSummary()
@@ -39,9 +42,19 @@ export function ImportsExportsPanel() {
 		dismissSetupProgress().catch(() => undefined);
 	}
 
+	/** An export is an API call that can be refused (no view permission, network) - show why instead of an uncaught rejection. */
+	async function runExport(label: string, exportData?: () => Promise<void>) {
+		setExportError(null);
+		try {
+			await exportData?.();
+		} catch (err) {
+			setExportError(err instanceof ApiError && err.status === 403 ? `You don't have permission to export ${label.toLowerCase()}.` : err instanceof ApiError ? err.message : `Could not export ${label.toLowerCase()}.`);
+		}
+	}
+
 	return (
 		<Stack spacing={3}>
-			<Stack direction="row" justifyContent="space-between" alignItems="flex-start" sx={{ flexWrap: "wrap", gap: 2 }}>
+			<Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 2 }}>
 				<Box>
 					<Typography variant="h5">Imports & exports</Typography>
 					<Typography variant="body2" color="text.secondary">
@@ -84,6 +97,12 @@ export function ImportsExportsPanel() {
 				</Stack>
 			)}
 
+			{tab === "export" && exportError && (
+				<Alert severity="error" onClose={() => setExportError(null)}>
+					{exportError}
+				</Alert>
+			)}
+
 			{tab === "export" && (
 				<Grid container spacing={2}>
 					{IMPORT_ENTITIES.filter((entity) => entity.exportData).map((entity) => (
@@ -93,7 +112,7 @@ export function ImportsExportsPanel() {
 								variant="outlined"
 								startIcon={<FileDownloadIcon />}
 								sx={{ justifyContent: "flex-start", py: 1.5 }}
-								onClick={() => entity.exportData?.()}
+								onClick={() => void runExport(entity.label, entity.exportData)}
 							>
 								{entity.label}
 							</Button>

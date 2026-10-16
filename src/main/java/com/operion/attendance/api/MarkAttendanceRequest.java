@@ -3,5 +3,8 @@ package com.operion.attendance.api;
 import java.time.LocalDate;
 import java.util.List;
 
-public record MarkAttendanceRequest(LocalDate attendanceDate, List<StudentMarkEntry> marks) {
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
+
+public record MarkAttendanceRequest(@NotNull LocalDate attendanceDate, @NotNull List<@Valid @NotNull StudentMarkEntry> marks) {
 }

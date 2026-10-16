@@ -40,6 +40,11 @@ class OrganisationBrandingControllerTest {
 		public String resolveUrl(String reference) {
 			return "/uploads/" + reference;
 		}
+
+		@Override
+		public boolean exists(String reference) {
+			return true;
+		}
 	};
 
 	@AfterEach
@@ -50,7 +55,7 @@ class OrganisationBrandingControllerTest {
 	private Organisation newOrganisation() {
 		Organisation organisation = organisationRepository.save(new Organisation("Test School", "Test School Trust", "test-" + System.nanoTime()));
 		TenantContext.set(organisation.getId(), null);
-		brandingRepository.save(new OrganisationBranding(organisation));
+		brandingRepository.save(new OrganisationBranding(organisation.getId()));
 		return organisation;
 	}
 

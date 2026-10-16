@@ -71,7 +71,7 @@ class TransferRequestLifecycleTest {
 	void raisingWithTheSameFromAndToCampusIsRejected() {
 		Fixture fixture = setUpFixture("transfer-same-campus");
 		assertThatThrownBy(() -> transferRequestService.raise(fixture.student(), fixture.mainCampus(), fixture.mainCampus(), null, 1L))
-				.isInstanceOf(IllegalArgumentException.class);
+				.isInstanceOf(com.operion.common.InvalidRequestException.class);
 	}
 
 	@Test

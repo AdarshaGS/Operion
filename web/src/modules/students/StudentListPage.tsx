@@ -18,7 +18,9 @@ import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import AddIcon from "@mui/icons-material/Add";
 import { ApiError } from "../../api/client";
+import { Can } from "../../auth/Can";
 import { listSchoolClasses, type SchoolClassResponse } from "../../api/schoolClasses";
+import { useSchoolClassLabel } from "../../utils/useSchoolClassLabel";
 import { listSections, type SectionResponse } from "../../api/sections";
 import { searchStudents, type StudentListRowResponse } from "../../api/students";
 import { ApplicantsPanel } from "./ApplicantsPanel";
@@ -29,6 +31,7 @@ const STUDENT_STATUSES = ["ADMITTED", "ACTIVE", "TRANSFERRED_OUT", "GRADUATED", 
 
 export function StudentListPage() {
 	const navigate = useNavigate();
+	const classLabel = useSchoolClassLabel();
 	const [rows, setRows] = useState<StudentListRowResponse[]>([]);
 	const [totalElements, setTotalElements] = useState(0);
 	const [page, setPage] = useState(0);
@@ -45,6 +48,14 @@ export function StudentListPage() {
 	const [schoolClasses, setSchoolClasses] = useState<SchoolClassResponse[]>([]);
 	const [sections, setSections] = useState<SectionResponse[]>([]);
 
+	/** The row's own class name is empty for template-built classes, so label it from the loaded class list. */
+	function classAndSection(student: StudentListRowResponse): string {
+		const schoolClass = schoolClasses.find((c) => c.id === student.schoolClassId);
+		const className = schoolClass ? classLabel(schoolClass) : student.schoolClassDisplayName;
+		if (!className && !student.sectionName) return "—";
+		return [className ?? "—", student.sectionName].filter(Boolean).join(" / ");
+	}
+
 	useEffect(() => {
 		listSchoolClasses().then(setSchoolClasses).catch(() => {});
 	}, []);
@@ -57,6 +68,8 @@ export function StudentListPage() {
 	}, [schoolClassId]);
 
 	useEffect(() => {
+		// A slow response to an earlier query must not overwrite the results of the filter typed since.
+		let current = true;
 		searchStudents({
 			search: search || null,
 			status: status || null,
@@ -68,11 +81,18 @@ export function StudentListPage() {
 			size: PAGE_SIZE,
 		})
 			.then((result) => {
+				if (!current) return;
 				setRows(result.content);
 				setTotalElements(result.totalElements);
 				setLoaded(true);
+				setError(null);
 			})
-			.catch((err) => setError(err instanceof ApiError ? err.message : "Failed to load students"));
+			.catch((err) => {
+				if (current) setError(err instanceof ApiError ? err.message : "Failed to load students");
+			});
+		return () => {
+			current = false;
+		};
 	}, [search, status, schoolClassId, sectionId, admissionDateFrom, admissionDateTo, page]);
 
 	function resetPageAnd<T>(setter: (value: T) => void) {
@@ -95,11 +115,13 @@ export function StudentListPage() {
 
 	return (
 		<Stack spacing={2}>
-			<Box sx={{ display: "flex", justifyContent: "flex-end" }}>
-				<Button variant="contained" startIcon={<AddIcon />} onClick={() => navigate("/students/new")}>
-					Admit student
-				</Button>
-			</Box>
+			<Can anyOf={["STUDENT_MANAGE"]}>
+				<Box sx={{ display: "flex", justifyContent: "flex-end" }}>
+					<Button variant="contained" startIcon={<AddIcon />} onClick={() => navigate("/students/new")}>
+						Admit student
+					</Button>
+				</Box>
+			</Can>
 
 			{error && <Alert severity="error">{error}</Alert>}
 
@@ -125,7 +147,7 @@ export function StudentListPage() {
 							<MenuItem value="">All</MenuItem>
 							{schoolClasses.map((schoolClass) => (
 								<MenuItem key={schoolClass.id} value={schoolClass.id}>
-									{schoolClass.displayName ?? `Class #${schoolClass.id}`}
+									{classLabel(schoolClass)}
 								</MenuItem>
 							))}
 						</TextField>
@@ -214,9 +236,7 @@ export function StudentListPage() {
 										{student.firstName} {student.lastName ?? ""}
 									</TableCell>
 									<TableCell>
-										{student.schoolClassDisplayName || student.sectionName
-											? `${student.schoolClassDisplayName ?? "—"} ${student.sectionName ?? ""}`.trim()
-											: "—"}
+										{classAndSection(student)}
 									</TableCell>
 									<TableCell>
 										{student.primaryGuardianName

@@ -39,20 +39,36 @@ public class SchoolTemplateItemController {
 
 	@PostMapping("/{category}")
 	@RequirePermission("ORGANISATION_MANAGE")
-	public SchoolTemplateItemResponse create(@PathVariable SchoolTemplateItemCategory category, @RequestBody SaveSchoolTemplateItemRequest request) {
+	public SchoolTemplateItemResponse create(@PathVariable SchoolTemplateItemCategory category, @jakarta.validation.Valid @RequestBody SaveSchoolTemplateItemRequest request) {
 		SchoolTemplateItem item = schoolTemplateItemService.create(category, request.name(), request.code(), request.description(),
 				request.sequenceOrder(), request.stage(), request.categoryType(), request.minPercentage(), request.remark(),
-				request.permissionCodes());
+				request.permissionCodes(), request.unit(), request.itemCategoryCode());
 		return SchoolTemplateItemResponse.from(item);
 	}
 
 	@PutMapping("/{id}")
 	@RequirePermission("ORGANISATION_MANAGE")
-	public SchoolTemplateItemResponse update(@PathVariable Long id, @RequestBody SaveSchoolTemplateItemRequest request) {
+	public SchoolTemplateItemResponse update(@PathVariable Long id, @jakarta.validation.Valid @RequestBody SaveSchoolTemplateItemRequest request) {
 		SchoolTemplateItem item = schoolTemplateItemService.update(id, request.name(), request.code(), request.description(),
 				request.sequenceOrder(), request.stage(), request.categoryType(), request.minPercentage(), request.remark(),
-				request.permissionCodes());
+				request.permissionCodes(), request.unit(), request.itemCategoryCode());
 		return SchoolTemplateItemResponse.from(item);
+	}
+
+	/** Marks one row required (true) or not required (false) for the next preview/apply. */
+	@PutMapping("/{id}/included")
+	@RequirePermission("ORGANISATION_MANAGE")
+	public SchoolTemplateItemResponse setIncluded(@PathVariable Long id, @RequestBody SetIncludedRequest request) {
+		return SchoolTemplateItemResponse.from(schoolTemplateItemService.setIncluded(id, request.included()));
+	}
+
+	/** Select all / none for a whole category. */
+	@PutMapping("/category/{category}/included")
+	@RequirePermission("ORGANISATION_MANAGE")
+	public List<SchoolTemplateItemResponse> setCategoryIncluded(@PathVariable SchoolTemplateItemCategory category,
+			@RequestBody SetIncludedRequest request) {
+		return schoolTemplateItemService.setIncludedForCategory(category, request.included()).stream()
+				.map(SchoolTemplateItemResponse::from).toList();
 	}
 
 	@DeleteMapping("/{id}")

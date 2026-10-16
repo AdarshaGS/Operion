@@ -1,4 +1,7 @@
 package com.operion.academic.api;
 
-public record CreateSectionRequest(String name, Integer capacity, String room) {
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Positive;
+
+public record CreateSectionRequest(@NotBlank String name, @Positive Integer capacity, String room) {
 }

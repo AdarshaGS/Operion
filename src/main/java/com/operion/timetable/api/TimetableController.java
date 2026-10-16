@@ -74,6 +74,9 @@ public class TimetableController {
 
 	@GetMapping("/api/v1/sections/{sectionId}/timetable")
 	public List<TimetableEntryResponse> forSection(@PathVariable Long sectionId) {
+		if (!sectionRepository.existsById(sectionId)) {
+			throw new IllegalArgumentException("No section with id " + sectionId);
+		}
 		return entryRepository.findBySectionId(sectionId).stream().map(TimetableEntryResponse::from).toList();
 	}
 

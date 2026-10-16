@@ -5,6 +5,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.operion.common.InvalidRequestException;
 import com.operion.audit.AuditLogService;
 import com.operion.identity.Person;
 import org.springframework.stereotype.Service;
@@ -17,6 +18,8 @@ public class ApplicantService {
 	/** Default checklist - a constant, deliberately not per-org config. */
 	public static final List<String> DOCUMENT_TYPES =
 			List.of("BIRTH_CERTIFICATE", "PREVIOUS_MARKSHEET", "TRANSFER_CERTIFICATE", "ADDRESS_PROOF", "PHOTO");
+
+	private static final List<ApplicantStatus> OPEN_STATUSES = List.of(ApplicantStatus.INQUIRY, ApplicantStatus.UNDER_REVIEW);
 
 	private final ApplicantRepository applicantRepository;
 	private final StudentService studentService;
@@ -32,7 +35,18 @@ public class ApplicantService {
 	}
 
 	public Applicant inquire(Person person, LocalDate inquiryDate, String source, String notes) {
+		requireNotFuture(inquiryDate, "Inquiry date");
+		if (applicantRepository.existsByPersonIdAndStatusIn(person.getId(), OPEN_STATUSES)) {
+			throw new IllegalStateException("This person already has an open application");
+		}
 		return applicantRepository.save(new Applicant(person, inquiryDate, source, notes));
+	}
+
+	/** Allows one day of slack so a school ahead of the server's timezone can still record "today". */
+	private static void requireNotFuture(LocalDate date, String what) {
+		if (date.isAfter(LocalDate.now().plusDays(1))) {
+			throw new InvalidRequestException(what + " must not be in the future");
+		}
 	}
 
 	public Applicant startReview(Applicant applicant) {
@@ -57,6 +71,10 @@ public class ApplicantService {
 			String previousSchool, String tcNumber, Double entranceScore, String bloodGroup, String category,
 			String nationality, String remarks, String medicalAlerts, String emergencyContactName,
 			String emergencyContactPhone) {
+		if (applicant.getStatus() == ApplicantStatus.CONVERTED) {
+			throw new IllegalStateException("Applicant has already been converted to a student");
+		}
+		requireNotFuture(admissionDate, "Admission date");
 		ApplicantStatus before = applicant.getStatus();
 		Student student = studentService.admit(applicant.getPerson(), admissionNumber, admissionDate, admissionSource,
 				previousSchool, tcNumber, entranceScore, bloodGroup, category, nationality, remarks, medicalAlerts,
@@ -91,7 +109,7 @@ public class ApplicantService {
 	public Map<String, Boolean> updateDocuments(Applicant applicant, Map<String, Boolean> changes) {
 		for (String docType : changes.keySet()) {
 			if (!DOCUMENT_TYPES.contains(docType)) {
-				throw new IllegalArgumentException("Unknown document type " + docType);
+				throw new InvalidRequestException("Unknown document type " + docType);
 			}
 		}
 		Map<String, ApplicantDocument> existing = new LinkedHashMap<>();

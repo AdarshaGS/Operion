@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.time.LocalDate;
 
+import com.operion.common.InvalidRequestException;
 import com.operion.common.JpaConfig;
 import com.operion.common.MultiTenancyConfig;
 import com.operion.common.TenantContext;
@@ -93,6 +94,6 @@ class StockTransferTest {
 
 		assertThatThrownBy(
 				() -> inventoryService.recordTransfer(fixture.item(), fixture.fromCampus(), fixture.fromCampus(), 5, LocalDate.of(2026, 1, 10), null))
-				.isInstanceOf(IllegalArgumentException.class);
+				.isInstanceOf(InvalidRequestException.class);
 	}
 }

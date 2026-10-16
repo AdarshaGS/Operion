@@ -1,6 +1,7 @@
 package com.operion.library.api;
 
 import com.operion.authorization.RequirePermission;
+import com.operion.common.InvalidRequestException;
 import com.operion.common.TenantContext;
 import com.operion.library.LibrarySettings;
 import com.operion.library.LibrarySettingsRepository;
@@ -34,6 +35,10 @@ public class LibrarySettingsController {
 	@PutMapping
 	@RequirePermission("LIBRARY_BORROW_MANAGE")
 	public LibrarySettingsResponse update(@RequestBody UpdateLibrarySettingsRequest request) {
+		requireAtLeastOne("The student loan limit", request.maxLoansStudent());
+		requireAtLeastOne("The staff loan limit", request.maxLoansStaff());
+		requireAtLeastOne("The student borrowing period", request.borrowingPeriodDaysStudent());
+		requireAtLeastOne("The staff borrowing period", request.borrowingPeriodDaysStaff());
 		LibrarySettings settings = librarySettingsRepository.findByOrganisationId(TenantContext.getOrganisationId())
 				.orElseGet(LibrarySettings::new);
 		settings.setMaxLoansStudent(request.maxLoansStudent());
@@ -42,5 +47,11 @@ public class LibrarySettingsController {
 		settings.setBorrowingPeriodDaysStaff(request.borrowingPeriodDaysStaff());
 		settings.setBlockIssueOnOverdue(request.blockIssueOnOverdue());
 		return LibrarySettingsResponse.from(librarySettingsRepository.save(settings));
+	}
+
+	private static void requireAtLeastOne(String what, int value) {
+		if (value < 1) {
+			throw new InvalidRequestException(what + " must be at least 1");
+		}
 	}
 }

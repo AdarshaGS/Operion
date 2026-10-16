@@ -20,4 +20,6 @@ public interface TeacherAssignmentRepository extends JpaRepository<TeacherAssign
 	/** Timetable eligibility check: is this teacher currently assigned to teach this subject to this section. */
 	boolean existsBySectionIdAndSubjectIdAndTeacherPersonIdAndStatus(
 			Long sectionId, Long subjectId, Long teacherPersonId, TeacherAssignmentStatus status);
+
+	List<TeacherAssignment> findByAcademicYearIdAndStatus(Long academicYearId, TeacherAssignmentStatus status);
 }

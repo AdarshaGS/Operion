@@ -1,5 +1,6 @@
 package com.operion.platform.crm;
 
+import com.operion.common.persistence.PlatformPlane;
 import java.time.Instant;
 
 import com.operion.common.BaseEntity;
@@ -18,6 +19,7 @@ import lombok.NoArgsConstructor;
 @Entity
 @Table(name = "crm_activities")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
+@PlatformPlane
 public class Activity extends BaseEntity {
 
 	@Column(name = "lead_id", updatable = false)

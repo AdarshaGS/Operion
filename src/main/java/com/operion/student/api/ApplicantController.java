@@ -6,6 +6,7 @@ import java.util.stream.Collectors;
 
 import com.operion.common.api.PageResponse;
 import com.operion.authorization.RequirePermission;
+import com.operion.common.EnumParam;
 import com.operion.identity.Person;
 import com.operion.identity.PersonRepository;
 import com.operion.student.Applicant;
@@ -13,6 +14,7 @@ import com.operion.student.ApplicantRepository;
 import com.operion.student.ApplicantService;
 import com.operion.student.ApplicantStatus;
 import com.operion.student.Student;
+import com.operion.student.StudentRepository;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -36,9 +38,11 @@ public class ApplicantController {
 	private final ApplicantService applicantService;
 	private final ApplicantRepository applicantRepository;
 	private final PersonRepository personRepository;
+	private final StudentRepository studentRepository;
 
 	public ApplicantController(ApplicantService applicantService, ApplicantRepository applicantRepository,
-			PersonRepository personRepository) {
+			PersonRepository personRepository, StudentRepository studentRepository) {
+		this.studentRepository = studentRepository;
 		this.applicantService = applicantService;
 		this.applicantRepository = applicantRepository;
 		this.personRepository = personRepository;
@@ -49,6 +53,9 @@ public class ApplicantController {
 	public ApplicantResponse inquire(@Valid @RequestBody CreateApplicantRequest request) {
 		Person person = personRepository.findById(request.personId())
 				.orElseThrow(() -> new IllegalArgumentException("No person with id " + request.personId()));
+		if (studentRepository.findByPersonId(person.getId()).isPresent()) {
+			throw new IllegalStateException("This person is already a student");
+		}
 		Applicant applicant = applicantService.inquire(person, request.inquiryDate(), request.source(), request.notes());
 		return ApplicantResponse.from(applicant);
 	}
@@ -62,15 +69,12 @@ public class ApplicantController {
 		if (status == null || status.isBlank() || status.equalsIgnoreCase("ALL")) {
 			result = applicantRepository.findAll(pageable);
 		} else {
-			ApplicantStatus parsed;
-			try {
-				parsed = ApplicantStatus.valueOf(status.toUpperCase());
-			} catch (IllegalArgumentException ex) {
-				throw new IllegalStateException("Unknown applicant status " + status);
-			}
-			result = applicantRepository.findByStatus(parsed, pageable);
+			result = applicantRepository.findByStatus(EnumParam.parse(ApplicantStatus.class, status.toUpperCase()), pageable);
 		}
-		return PageResponse.from(result.map(ApplicantResponse::from));
+		Map<Long, Long> studentIdByPerson = studentRepository
+				.findByPersonIdIn(result.stream().filter(a -> a.getStatus() == ApplicantStatus.CONVERTED).map(a -> a.getPerson().getId()).toList())
+				.stream().collect(Collectors.toMap(s -> s.getPerson().getId(), Student::getId));
+		return PageResponse.from(result.map(a -> ApplicantResponse.from(a, studentIdByPerson.get(a.getPerson().getId()))));
 	}
 
 	@GetMapping("/status-counts")

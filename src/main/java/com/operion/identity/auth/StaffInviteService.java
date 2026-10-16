@@ -4,6 +4,7 @@ import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
+import java.util.List;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -76,13 +77,17 @@ public class StaffInviteService {
 
 	/** Resend for a member who never claimed their invite - a brand-new StaffInvite row
 	 * (and email) for the same, still-PENDING User, since the original raw token was never
-	 * stored server-side and can't be recovered (see class javadoc). */
+	 * stored server-side and can't be recovered (see class javadoc). Every earlier pending
+	 * invite is revoked, so only the newest link can be claimed. */
 	@Transactional
 	public IssuedInvite reissue(Long userId) {
 		User user = userRepository.findById(userId).orElseThrow(() -> new IllegalArgumentException("No user with id " + userId));
 		if (user.getStatus() != UserStatus.PENDING) {
 			throw new IllegalStateException("Only a pending invitation can be resent");
 		}
+		List<StaffInvite> superseded = staffInviteRepository.findByUserIdAndStatus(userId, StaffInviteStatus.PENDING);
+		superseded.forEach(StaffInvite::revoke);
+		staffInviteRepository.saveAll(superseded);
 
 		String rawToken = generateToken();
 		StaffInvite invite = staffInviteRepository

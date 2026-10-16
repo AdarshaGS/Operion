@@ -1,5 +1,6 @@
 package com.operion.learning.api;
 
+import com.operion.common.InvalidRequestException;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.HashMap;
@@ -105,7 +106,11 @@ public class ChildLearningController {
 		var child = childAccess.resolve(TenantContext.getActorId(), studentId);
 		Map<Long, Long> answers = new HashMap<>();
 		if (request.answers() != null) {
-			request.answers().stream().filter(a -> a.optionId() != null).forEach(a -> answers.put(a.questionId(), a.optionId()));
+			for (var a : request.answers()) {
+				if (a.optionId() != null && answers.put(a.questionId(), a.optionId()) != null) {
+					throw new InvalidRequestException("Question " + a.questionId() + " was answered more than once");
+				}
+			}
 		}
 		return ChildQuizResponses.AttemptSummary.from(quizService.submitAttempt(child, quizId, answers, Instant.now()));
 	}

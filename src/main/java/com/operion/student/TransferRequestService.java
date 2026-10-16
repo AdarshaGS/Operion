@@ -1,5 +1,6 @@
 package com.operion.student;
 
+import com.operion.common.InvalidRequestException;
 import com.operion.organisation.Campus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,6 +23,9 @@ public class TransferRequestService {
 	/** Intra-org transfer only - both campuses belong to this same organisation. Does not
 	 * itself move the student's enrollment; see TransferRequest's class-level note. */
 	public TransferRequest raise(Student student, Campus fromCampus, Campus toCampus, String reason, Long requestedBy) {
+		if (fromCampus.getId().equals(toCampus.getId())) {
+			throw new InvalidRequestException("The student is already at that campus - choose a different campus to transfer to");
+		}
 		return transferRequestRepository.save(new TransferRequest(student, fromCampus, toCampus, reason, requestedBy));
 	}
 

@@ -6,8 +6,6 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EntityListeners;
 import jakarta.persistence.Id;
-import jakarta.persistence.MapsId;
-import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -34,10 +32,6 @@ public class OrganisationConfiguration {
 	@Id
 	@Column(name = "organisation_id")
 	private Long organisationId;
-
-	@OneToOne
-	@MapsId
-	private Organisation organisation;
 
 	private String timezone;
 
@@ -92,8 +86,8 @@ public class OrganisationConfiguration {
 	private Long updatedBy;
 
 	/** {@code timezone} falls back to "Asia/Kolkata" when not supplied at provisioning time. */
-	public OrganisationConfiguration(Organisation organisation, String timezone) {
-		this.organisation = organisation;
+	public OrganisationConfiguration(Long organisationId, String timezone) {
+		this.organisationId = organisationId;
 		this.timezone = timezone != null ? timezone : "Asia/Kolkata";
 		this.defaultCurrency = "INR";
 		this.dateFormat = "dd-MM-yyyy";

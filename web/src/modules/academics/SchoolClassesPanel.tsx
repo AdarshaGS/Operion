@@ -4,6 +4,7 @@ import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
+import { DialogErrorAlert } from "../../components/DialogErrorAlert";
 import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
@@ -31,14 +32,18 @@ import {
 	updateSchoolClassDisplayName,
 	type SchoolClassResponse,
 } from "../../api/schoolClasses";
+import { useSelectedCampusId } from "../../layout/selectedCampus";
 
 export function SchoolClassesPanel() {
 	const navigate = useNavigate();
+	const selectedCampusId = useSelectedCampusId();
 	const [classes, setClasses] = useState<SchoolClassResponse[]>([]);
 	const [academicYears, setAcademicYears] = useState<AcademicYearResponse[]>([]);
 	const [campuses, setCampuses] = useState<CampusResponse[]>([]);
 	const [gradeLevels, setGradeLevels] = useState<GradeLevelResponse[]>([]);
 	const [error, setError] = useState<string | null>(null);
+	// Failures from inside a dialog show in that dialog: the page's own banner sits behind the modal.
+	const [dialogError, setDialogError] = useState<string | null>(null);
 	const [dialogOpen, setDialogOpen] = useState(false);
 	const [academicYearId, setAcademicYearId] = useState("");
 	const [campusId, setCampusId] = useState("");
@@ -78,6 +83,7 @@ export function SchoolClassesPanel() {
 	}
 
 	function openEdit(schoolClass: SchoolClassResponse) {
+		setDialogError(null);
 		setEditTarget(schoolClass);
 		setEditDisplayName(schoolClass.displayName ?? "");
 	}
@@ -85,13 +91,14 @@ export function SchoolClassesPanel() {
 	async function handleEditSave(event: FormEvent) {
 		event.preventDefault();
 		if (!editTarget) return;
+		setDialogError(null);
 		setSubmitting(true);
 		try {
 			await updateSchoolClassDisplayName(editTarget.id, editDisplayName || null);
 			setEditTarget(null);
 			refresh();
 		} catch (err) {
-			setError(err instanceof ApiError ? err.message : "Failed to update class");
+			setDialogError(err instanceof ApiError ? err.message : "Failed to update class");
 		} finally {
 			setSubmitting(false);
 		}
@@ -99,15 +106,19 @@ export function SchoolClassesPanel() {
 
 	const academicYearsById = new Map(academicYears.map((year) => [year.id, year]));
 	const campusesById = new Map(campuses.map((campus) => [campus.id, campus]));
+	// Org -> campus -> class: with a campus picked in the top bar, only that campus's classes show (and new ones land in it).
+	const visibleClasses = selectedCampusId === null ? classes : classes.filter((schoolClass) => schoolClass.campusId === selectedCampusId);
+	const activeCampusName = selectedCampusId === null ? null : (campusesById.get(selectedCampusId)?.name ?? null);
 	const gradeLevelsById = new Map(gradeLevels.map((level) => [level.id, level]));
 
 	async function handleSubmit(event: FormEvent) {
 		event.preventDefault();
+		setDialogError(null);
 		setSubmitting(true);
 		try {
 			await createSchoolClass({
 				academicYearId: Number(academicYearId),
-				campusId: Number(campusId),
+				campusId: selectedCampusId ?? Number(campusId),
 				gradeLevelId: Number(gradeLevelId),
 				displayName: displayName || null,
 			});
@@ -118,7 +129,7 @@ export function SchoolClassesPanel() {
 			setDialogOpen(false);
 			refresh();
 		} catch (err) {
-			setError(err instanceof ApiError ? err.message : "Failed to create class");
+			setDialogError(err instanceof ApiError ? err.message : "Failed to create class");
 		} finally {
 			setSubmitting(false);
 		}
@@ -128,12 +139,13 @@ export function SchoolClassesPanel() {
 		<Paper sx={{ p: 3 }}>
 			<Stack spacing={2}>
 				<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-					<Typography variant="h6">Classes</Typography>
+					<Typography variant="h6">{activeCampusName ? `Classes - ${activeCampusName}` : "Classes"}</Typography>
 					<Button
 						size="small"
 						startIcon={<AddIcon />}
 						onClick={() => {
 							refreshLookups();
+							setDialogError(null);
 							setDialogOpen(true);
 						}}
 					>
@@ -155,13 +167,13 @@ export function SchoolClassesPanel() {
 							<TableRow>
 								<TableCell>Class</TableCell>
 								<TableCell>Academic year</TableCell>
-								<TableCell>Campus</TableCell>
+								{selectedCampusId === null && <TableCell>Campus</TableCell>}
 								<TableCell>Status</TableCell>
 								<TableCell />
 							</TableRow>
 						</TableHead>
 						<TableBody>
-							{classes.map((schoolClass) => (
+							{visibleClasses.map((schoolClass) => (
 								<TableRow
 									key={schoolClass.id}
 									hover
@@ -172,7 +184,7 @@ export function SchoolClassesPanel() {
 										{schoolClass.displayName ?? gradeLevelsById.get(schoolClass.gradeLevelId)?.name ?? `Class #${schoolClass.id}`}
 									</TableCell>
 									<TableCell>{academicYearsById.get(schoolClass.academicYearId)?.name ?? "—"}</TableCell>
-									<TableCell>{campusesById.get(schoolClass.campusId)?.name ?? "—"}</TableCell>
+									{selectedCampusId === null && <TableCell>{campusesById.get(schoolClass.campusId)?.name ?? "—"}</TableCell>}
 									<TableCell>
 										<Chip label={schoolClass.status} size="small" />
 									</TableCell>
@@ -192,9 +204,10 @@ export function SchoolClassesPanel() {
 			</Stack>
 
 			<Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} component="form" onSubmit={handleSubmit} fullWidth maxWidth="xs">
-				<DialogTitle>Add class</DialogTitle>
+				<DialogTitle>{activeCampusName ? `Add class to ${activeCampusName}` : "Add class"}</DialogTitle>
 				<DialogContent>
 					<Stack spacing={2} sx={{ mt: 1 }}>
+						{dialogError && <DialogErrorAlert>{dialogError}</DialogErrorAlert>}
 						<TextField select label="Academic year" value={academicYearId} onChange={(e) => setAcademicYearId(e.target.value)} required fullWidth>
 							{academicYears.map((year) => (
 								<MenuItem key={year.id} value={year.id}>
@@ -202,13 +215,15 @@ export function SchoolClassesPanel() {
 								</MenuItem>
 							))}
 						</TextField>
-						<TextField select label="Campus" value={campusId} onChange={(e) => setCampusId(e.target.value)} required fullWidth>
-							{campuses.map((campus) => (
-								<MenuItem key={campus.id} value={campus.id}>
-									{campus.name}
-								</MenuItem>
-							))}
-						</TextField>
+						{selectedCampusId === null && (
+							<TextField select label="Campus" value={campusId} onChange={(e) => setCampusId(e.target.value)} required fullWidth>
+								{campuses.map((campus) => (
+									<MenuItem key={campus.id} value={campus.id}>
+										{campus.name}
+									</MenuItem>
+								))}
+							</TextField>
+						)}
 						<TextField select label="Grade level" value={gradeLevelId} onChange={(e) => setGradeLevelId(e.target.value)} required fullWidth>
 							{gradeLevels.map((level) => (
 								<MenuItem key={level.id} value={level.id}>
@@ -237,6 +252,7 @@ export function SchoolClassesPanel() {
 				<DialogTitle>Edit class</DialogTitle>
 				<DialogContent>
 					<Stack spacing={2} sx={{ mt: 1 }}>
+						{dialogError && <DialogErrorAlert>{dialogError}</DialogErrorAlert>}
 						<TextField
 							label="Display name"
 							placeholder="Defaults to the grade level's name"

@@ -69,6 +69,8 @@ export interface MeResponse {
 	roleNames: string[];
 	roles: RoleSummary[];
 	permissions: string[];
+	/** Module codes the platform owner switched off for this organisation (absent on older backends). */
+	disabledModules?: string[];
 }
 
 export function login(request: LoginRequest): Promise<LoginResponse> {

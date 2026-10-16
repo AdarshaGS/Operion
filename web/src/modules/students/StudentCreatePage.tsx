@@ -13,14 +13,16 @@ import Typography from "@mui/material/Typography";
 import { getAcademicSetupStatus } from "../../api/academicSetupStatus";
 import { CustomFieldsFormSection } from "../../components/CustomFieldsFormSection";
 import { listAcademicYears, type AcademicYearResponse } from "../../api/academicYears";
+import { useAuth } from "../../auth/AuthContext";
 import { ApiError } from "../../api/client";
 import { createEnrollment } from "../../api/enrollments";
 import { createOrGetGuardian } from "../../api/guardians";
-import { createPerson } from "../../api/persons";
+import { createPerson, GENDER_OPTIONS } from "../../api/persons";
 import { listSchoolClasses, type SchoolClassResponse } from "../../api/schoolClasses";
 import { listSections, type SectionResponse } from "../../api/sections";
 import { admitStudent } from "../../api/students";
 import { GUARDIAN_RELATIONSHIP_TYPES, linkGuardian, type GuardianRelationshipType } from "../../api/studentGuardians";
+import { useSchoolClassLabel } from "../../utils/useSchoolClassLabel";
 
 const ACADEMIC_SETUP_REQUIRED_MESSAGE = "Complete Academic Setup before adding a student.";
 
@@ -49,6 +51,7 @@ interface FormState {
 	guardianFirstName: string;
 	guardianLastName: string;
 	guardianPhone: string;
+	guardianGender: string;
 	guardianRelationshipType: string;
 }
 
@@ -77,6 +80,7 @@ const EMPTY_FORM: FormState = {
 	guardianFirstName: "",
 	guardianLastName: "",
 	guardianPhone: "",
+	guardianGender: "",
 	guardianRelationshipType: "FATHER",
 };
 
@@ -84,7 +88,16 @@ const EMPTY_FORM: FormState = {
  * identity model) - this form creates both in sequence, same as a real admissions desk
  * flow would: register the person, then admit them as a student. */
 export function StudentCreatePage() {
+	const { hasAnyPermission } = useAuth();
+	if (!hasAnyPermission(["STUDENT_MANAGE"])) {
+		return <Alert severity="warning">You do not have permission to admit students.</Alert>;
+	}
+	return <StudentCreateForm />;
+}
+
+function StudentCreateForm() {
 	const navigate = useNavigate();
+	const classLabel = useSchoolClassLabel();
 	const [form, setForm] = useState<FormState>(EMPTY_FORM);
 	const [error, setError] = useState<string | null>(null);
 	const [submitting, setSubmitting] = useState(false);
@@ -141,7 +154,7 @@ export function StudentCreatePage() {
 				firstName: form.firstName,
 				lastName: form.lastName,
 				dateOfBirth: form.dateOfBirth || null,
-				gender: form.gender || null,
+				gender: form.gender,
 				phone: form.phone || null,
 				email: form.email || null,
 				address: form.address || null,
@@ -170,6 +183,7 @@ export function StudentCreatePage() {
 				const guardianPerson = await createPerson({
 					firstName: form.guardianFirstName,
 					lastName: form.guardianLastName,
+					gender: form.guardianGender,
 					phone: form.guardianPhone || null,
 				});
 				const guardian = await createOrGetGuardian({ personId: guardianPerson.id });
@@ -218,7 +232,13 @@ export function StudentCreatePage() {
 							slotProps={{ inputLabel: { shrink: true } }}
 							fullWidth
 						/>
-						<TextField label="Gender" value={form.gender} onChange={set("gender")} fullWidth />
+						<TextField select label="Gender" value={form.gender} onChange={set("gender")} required fullWidth>
+							{GENDER_OPTIONS.map((option) => (
+								<MenuItem key={option} value={option}>
+									{option}
+								</MenuItem>
+							))}
+						</TextField>
 					</Box>
 					<Box sx={{ display: "flex", gap: 2 }}>
 						<TextField label="Phone" value={form.phone} onChange={set("phone")} fullWidth />
@@ -231,6 +251,20 @@ export function StudentCreatePage() {
 					<Box sx={{ display: "flex", gap: 2 }}>
 						<TextField label="Guardian first name" value={form.guardianFirstName} onChange={set("guardianFirstName")} fullWidth />
 						<TextField label="Guardian last name" value={form.guardianLastName} onChange={set("guardianLastName")} fullWidth />
+						<TextField
+							select
+							label="Guardian gender"
+							value={form.guardianGender}
+							onChange={set("guardianGender")}
+							required={Boolean(form.guardianFirstName || form.guardianLastName)}
+							fullWidth
+						>
+							{GENDER_OPTIONS.map((option) => (
+								<MenuItem key={option} value={option}>
+									{option}
+								</MenuItem>
+							))}
+						</TextField>
 					</Box>
 					<Box sx={{ display: "flex", gap: 2 }}>
 						<TextField label="Guardian mobile" value={form.guardianPhone} onChange={set("guardianPhone")} fullWidth />
@@ -288,7 +322,7 @@ export function StudentCreatePage() {
 						>
 							{schoolClasses.map((schoolClass) => (
 								<MenuItem key={schoolClass.id} value={schoolClass.id}>
-									{schoolClass.displayName ?? `Class #${schoolClass.id}`}
+									{classLabel(schoolClass)}
 								</MenuItem>
 							))}
 						</TextField>

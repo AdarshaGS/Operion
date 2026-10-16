@@ -2,6 +2,7 @@ package com.operion.identity;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.operion.authorization.OrganisationMembershipRepository;
 import com.operion.audit.AuditLog;
 import com.operion.audit.AuditLogRepository;
 import com.operion.audit.AuditLogService;
@@ -35,11 +36,14 @@ class UserServiceTest {
 	private UserRepository userRepository;
 
 	@Autowired
+	private OrganisationMembershipRepository membershipRepository;
+
+	@Autowired
 	private AuditLogRepository auditLogRepository;
 
 	@BeforeEach
 	void setUp() {
-		userService = new UserService(userRepository, new AuditLogService(auditLogRepository, new ObjectMapper()));
+		userService = new UserService(userRepository, new AuditLogService(auditLogRepository, new ObjectMapper()), membershipRepository);
 
 		Organisation organisation = organisationRepository.save(
 				new Organisation("Test School", "Test School Trust", "user-svc-test-" + System.nanoTime()));

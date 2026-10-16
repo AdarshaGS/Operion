@@ -39,7 +39,7 @@ public class QuizController {
 	public QuizResponse create(@RequestBody CreateQuizRequest r) {
 		var actor = accessService.resolve(TenantContext.getActorId());
 		var quiz = quizService.createQuiz(actor, r.sectionId(), r.subjectId(), r.title(), r.instructions(), r.opensAt(), r.closesAt());
-		return QuizResponse.from(new QuizService.QuizView(quiz, 0, 0, 0, 0), Instant.now());
+		return QuizResponse.from(quizService.viewOf(quiz), Instant.now());
 	}
 
 	@GetMapping("/quizzes/{id}/questions")
@@ -70,7 +70,7 @@ public class QuizController {
 	public QuizResponse publish(@PathVariable Long id) {
 		var actor = accessService.resolve(TenantContext.getActorId());
 		var quiz = quizService.publish(actor, id);
-		return QuizResponse.from(new QuizService.QuizView(quiz, 0, 0, 0, 0), Instant.now());
+		return QuizResponse.from(quizService.viewOf(quiz), Instant.now());
 	}
 
 	@GetMapping("/quizzes/{id}/results")

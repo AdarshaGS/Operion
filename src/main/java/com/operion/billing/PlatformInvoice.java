@@ -1,5 +1,6 @@
 package com.operion.billing;
 
+import com.operion.common.persistence.PlatformPlane;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -30,6 +31,7 @@ import lombok.NoArgsConstructor;
 @Entity
 @Table(name = "platform_invoices")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
+@PlatformPlane
 public class PlatformInvoice extends BaseEntity {
 
 	@ManyToOne(optional = false)

@@ -46,7 +46,14 @@ public class AcademicYear extends TenantScopedEntity {
 		this.status = AcademicYearStatus.DRAFT;
 	}
 
+	public boolean isClosed() {
+		return status == AcademicYearStatus.CLOSED;
+	}
+
 	public void markCurrent() {
+		if (isClosed()) {
+			throw new IllegalStateException("A closed academic year cannot be made current again");
+		}
 		this.current = true;
 		this.status = AcademicYearStatus.ACTIVE;
 	}

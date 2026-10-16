@@ -60,8 +60,9 @@ public class PermissionInterceptor implements HandlerInterceptor {
 		if (grantedCodes.contains("ALL_FUNCTIONS")) {
 			return true;
 		}
-		if (!grantedCodes.contains(required.value())) {
-			throw new AuthorizationDeniedException("Missing required permission: " + required.value());
+		java.util.List<String> acceptable = required.value().isEmpty() ? java.util.List.of(required.anyOf()) : java.util.List.of(required.value());
+		if (acceptable.stream().noneMatch(grantedCodes::contains)) {
+			throw new AuthorizationDeniedException("Missing required permission: " + String.join(" or ", acceptable));
 		}
 		return true;
 	}

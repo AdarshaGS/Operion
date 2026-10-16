@@ -9,6 +9,9 @@ import com.operion.academic.Section;
 import com.operion.academic.SectionRepository;
 import com.operion.academic.SectionStatus;
 import com.operion.authorization.RequirePermission;
+import com.operion.common.EnumParam;
+import com.operion.student.StudentEnrollmentRepository;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -27,9 +30,11 @@ public class SectionController {
 	private final AcademicService academicService;
 	private final SectionRepository sectionRepository;
 	private final SchoolClassRepository schoolClassRepository;
+	private final StudentEnrollmentRepository studentEnrollmentRepository;
 
 	public SectionController(AcademicService academicService, SectionRepository sectionRepository,
-			SchoolClassRepository schoolClassRepository) {
+			SchoolClassRepository schoolClassRepository, StudentEnrollmentRepository studentEnrollmentRepository) {
+		this.studentEnrollmentRepository = studentEnrollmentRepository;
 		this.academicService = academicService;
 		this.sectionRepository = sectionRepository;
 		this.schoolClassRepository = schoolClassRepository;
@@ -37,7 +42,7 @@ public class SectionController {
 
 	@PostMapping
 	@RequirePermission("CLASS_MANAGE")
-	public SectionResponse create(@PathVariable Long classId, @RequestBody CreateSectionRequest request) {
+	public SectionResponse create(@PathVariable Long classId, @Valid @RequestBody CreateSectionRequest request) {
 		SchoolClass schoolClass = findClassOrThrow(classId);
 		return SectionResponse.from(
 				academicService.createSection(schoolClass, request.name(), request.capacity(), request.room()));
@@ -54,13 +59,17 @@ public class SectionController {
 			@PathVariable Long classId, @PathVariable Long sectionId, @RequestBody ChangeStatusRequest request) {
 		Section section = sectionRepository.findById(sectionId)
 				.orElseThrow(() -> new IllegalArgumentException("No section with id " + sectionId));
-		return SectionResponse.from(academicService.changeSectionStatus(section, SectionStatus.valueOf(request.status())));
+		SectionStatus status = EnumParam.parse(SectionStatus.class, request.status());
+		if (status == SectionStatus.INACTIVE && studentEnrollmentRepository.existsBySectionIdAndCurrentTrue(sectionId)) {
+			throw new IllegalStateException("Section has students currently enrolled and cannot be deactivated");
+		}
+		return SectionResponse.from(academicService.changeSectionStatus(section, status));
 	}
 
 	@PatchMapping("/{sectionId}")
 	@RequirePermission("CLASS_MANAGE")
 	public SectionResponse update(
-			@PathVariable Long classId, @PathVariable Long sectionId, @RequestBody UpdateSectionRequest request) {
+			@PathVariable Long classId, @PathVariable Long sectionId, @Valid @RequestBody UpdateSectionRequest request) {
 		Section section = sectionRepository.findById(sectionId)
 				.orElseThrow(() -> new IllegalArgumentException("No section with id " + sectionId));
 		return SectionResponse.from(academicService.updateSection(section, request.name(), request.capacity(), request.room()));

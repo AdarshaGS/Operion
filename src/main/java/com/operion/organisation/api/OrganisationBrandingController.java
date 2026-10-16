@@ -1,6 +1,7 @@
 package com.operion.organisation.api;
 
 import com.operion.authorization.RequirePermission;
+import com.operion.common.InvalidRequestException;
 import com.operion.common.TenantContext;
 import com.operion.organisation.OrganisationBranding;
 import com.operion.organisation.OrganisationBrandingRepository;
@@ -39,6 +40,9 @@ public class OrganisationBrandingController {
 	@RequirePermission("ORGANISATION_MANAGE")
 	public OrganisationBrandingResponse update(@Valid @RequestBody UpdateOrganisationBrandingRequest request) {
 		OrganisationBranding branding = currentBranding();
+		requireStored("logoRef", request.logoRef());
+		requireStored("stampRef", request.stampRef());
+		requireStored("signatureRef", request.signatureRef());
 		branding.setLogoRef(request.logoRef());
 		branding.setStampRef(request.stampRef());
 		branding.setSignatureRef(request.signatureRef());
@@ -50,6 +54,13 @@ public class OrganisationBrandingController {
 		branding.setInvoiceNumberFormat(request.invoiceNumberFormat());
 		branding.setReceiptNumberFormat(request.receiptNumberFormat());
 		return OrganisationBrandingResponse.from(brandingRepository.save(branding), assetStorageService);
+	}
+
+	/** A reference must be one an upload returned (null/blank clears it) - never a path or a made-up name. */
+	private void requireStored(String field, String reference) {
+		if (reference != null && !reference.isBlank() && !assetStorageService.exists(reference)) {
+			throw new InvalidRequestException(field + " does not refer to an uploaded file");
+		}
 	}
 
 	private OrganisationBranding currentBranding() {

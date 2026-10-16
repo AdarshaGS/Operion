@@ -26,7 +26,7 @@ class LocalDiskAssetStorageServiceTest {
 
 	@Test
 	void storesAValidPngAndResolvesItBackToTheSameBytes() throws Exception {
-		byte[] content = { 1, 2, 3, 4 };
+		byte[] content = { (byte) 0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A, 1 };
 		MockMultipartFile file = new MockMultipartFile("file", "logo.png", "image/png", content);
 
 		String reference = storageService.store(file);
@@ -38,7 +38,7 @@ class LocalDiskAssetStorageServiceTest {
 
 	@Test
 	void storesAValidPdfAndResolvesItBackToTheSameBytes() throws Exception {
-		byte[] content = { 5, 6, 7, 8 };
+		byte[] content = { '%', 'P', 'D', 'F', '-', '1' };
 		MockMultipartFile file = new MockMultipartFile("file", "birth-certificate.pdf", "application/pdf", content);
 
 		String reference = storageService.store(file);
@@ -71,5 +71,25 @@ class LocalDiskAssetStorageServiceTest {
 		MockMultipartFile file = new MockMultipartFile("file", "logo.png", "image/png", new byte[0]);
 
 		assertThatThrownBy(() -> storageService.store(file)).isInstanceOf(AssetStorageException.class);
+	}
+
+	@Test
+	void rejectsAFileWhoseBytesAreNotTheDeclaredType() {
+		MockMultipartFile file = new MockMultipartFile("file", "logo.png", "image/png", "<html></html>".getBytes());
+
+		assertThatThrownBy(() -> storageService.store(file)).isInstanceOf(AssetStorageException.class)
+				.hasMessageContaining("not a valid PNG");
+	}
+
+	@Test
+	void existsIsTrueOnlyForAStoredReference() {
+		MockMultipartFile file = new MockMultipartFile("file", "logo.png", "image/png",
+				new byte[] { (byte) 0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A });
+
+		String reference = storageService.store(file);
+
+		assertThat(storageService.exists(reference)).isTrue();
+		assertThat(storageService.exists("00000000-0000-0000-0000-000000000000.png")).isFalse();
+		assertThat(storageService.exists("../../etc/passwd")).isFalse();
 	}
 }

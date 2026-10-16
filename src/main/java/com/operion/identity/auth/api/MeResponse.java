@@ -6,5 +6,5 @@ import java.util.Set;
 public record MeResponse(
 		Long userId, Long organisationId, String organisationName, String email, Long personId, String personName,
 		String firstName, String lastName, String campusName, String status, List<String> roleNames,
-		List<RoleSummary> roles, Set<String> permissions) {
+		List<RoleSummary> roles, Set<String> permissions, Set<String> disabledModules) {
 }

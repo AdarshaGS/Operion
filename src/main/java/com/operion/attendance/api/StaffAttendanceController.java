@@ -8,10 +8,12 @@ import com.operion.attendance.AttendanceStatus;
 import com.operion.attendance.StaffAttendance;
 import com.operion.attendance.StaffAttendanceRepository;
 import com.operion.authorization.RequirePermission;
+import com.operion.common.EnumParam;
 import com.operion.identity.Person;
 import com.operion.identity.PersonRepository;
 import com.operion.organisation.Campus;
 import com.operion.organisation.CampusRepository;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -41,20 +43,20 @@ public class StaffAttendanceController {
 
 	@PostMapping
 	@RequirePermission("STAFF_ATTENDANCE_MARK")
-	public StaffAttendanceResponse mark(@RequestBody CheckInStaffRequest request) {
+	public StaffAttendanceResponse mark(@Valid @RequestBody CheckInStaffRequest request) {
 		Person person = personRepository.findById(request.personId())
 				.orElseThrow(() -> new IllegalArgumentException("No person with id " + request.personId()));
 		Campus campus = campusRepository.findById(request.campusId())
 				.orElseThrow(() -> new IllegalArgumentException("No campus with id " + request.campusId()));
 
 		StaffAttendance attendance = attendanceService.markStaffAttendance(person, campus, request.attendanceDate(),
-				AttendanceStatus.valueOf(request.status()), request.checkInTime(), request.remarks());
+				EnumParam.parse(AttendanceStatus.class, request.status()), request.checkInTime(), request.remarks());
 		return StaffAttendanceResponse.from(attendance);
 	}
 
 	@PatchMapping("/{attendanceId}/check-out")
 	@RequirePermission("STAFF_ATTENDANCE_MARK")
-	public StaffAttendanceResponse checkOut(@PathVariable Long attendanceId, @RequestBody CheckOutStaffRequest request) {
+	public StaffAttendanceResponse checkOut(@PathVariable Long attendanceId, @Valid @RequestBody CheckOutStaffRequest request) {
 		StaffAttendance attendance = staffAttendanceRepository.findById(attendanceId)
 				.orElseThrow(() -> new IllegalArgumentException("No staff attendance with id " + attendanceId));
 

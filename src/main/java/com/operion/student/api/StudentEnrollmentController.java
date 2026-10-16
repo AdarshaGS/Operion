@@ -1,5 +1,6 @@
 package com.operion.student.api;
 
+import jakarta.validation.Valid;
 import java.util.List;
 
 import com.operion.academic.Section;
@@ -42,7 +43,7 @@ public class StudentEnrollmentController {
 
 	@PostMapping
 	@RequirePermission("STUDENT_ENROLLMENT_MANAGE")
-	public StudentEnrollmentResponse enroll(@PathVariable Long studentId, @RequestBody EnrollStudentRequest request) {
+	public StudentEnrollmentResponse enroll(@PathVariable Long studentId, @Valid @RequestBody EnrollStudentRequest request) {
 		Student student = findStudent(studentId);
 		AcademicYear academicYear = findAcademicYear(request.academicYearId());
 		Section section = findSection(request.sectionId());
@@ -54,7 +55,7 @@ public class StudentEnrollmentController {
 
 	@PostMapping("/promote")
 	@RequirePermission("STUDENT_ENROLLMENT_MANAGE")
-	public StudentEnrollmentResponse promote(@PathVariable Long studentId, @RequestBody PromoteStudentRequest request) {
+	public StudentEnrollmentResponse promote(@PathVariable Long studentId, @Valid @RequestBody PromoteStudentRequest request) {
 		Student student = findStudent(studentId);
 		AcademicYear academicYear = findAcademicYear(request.academicYearId());
 		Section section = findSection(request.sectionId());
@@ -67,7 +68,7 @@ public class StudentEnrollmentController {
 	@PostMapping("/reassign-section")
 	@RequirePermission("STUDENT_ENROLLMENT_MANAGE")
 	public StudentEnrollmentResponse reassignSection(
-			@PathVariable Long studentId, @RequestBody ReassignSectionRequest request) {
+			@PathVariable Long studentId, @Valid @RequestBody ReassignSectionRequest request) {
 		Student student = findStudent(studentId);
 		Section section = findSection(request.sectionId());
 

@@ -1,5 +1,6 @@
 package com.operion.hr;
 
+import com.operion.common.InvalidRequestException;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Map;
@@ -66,6 +67,9 @@ public class HrService {
 	@Transactional
 	public StaffProfile createStaffProfile(Person person, Campus campus, String employeeCode, Designation designation,
 			Department department, LocalDate dateOfJoining, EmploymentType employmentType) {
+		if (staffProfileRepository.findByPersonId(person.getId()).isPresent()) {
+			throw new IllegalStateException("This person already has a staff profile");
+		}
 		StaffProfile staffProfile = staffProfileRepository.save(
 				new StaffProfile(person, campus, employeeCode, designation, department, dateOfJoining, employmentType));
 		staffAssignmentRepository.save(new StaffAssignment(staffProfile, campus, department, designation, dateOfJoining));
@@ -113,6 +117,12 @@ public class HrService {
 	 * StudentService.recordExit. */
 	@Transactional
 	public StaffExit recordExit(StaffProfile staffProfile, StaffExitType exitType, LocalDate exitDate, String reason, Long initiatedBy) {
+		if (staffProfile.getStatus() == StaffProfileStatus.RESIGNED || staffProfile.getStatus() == StaffProfileStatus.TERMINATED) {
+			throw new IllegalStateException("Staff profile " + staffProfile.getId() + " has already left (" + staffProfile.getStatus() + ")");
+		}
+		if (exitDate.isBefore(staffProfile.getDateOfJoining())) {
+			throw new InvalidRequestException("The exit date cannot be before the date of joining (" + staffProfile.getDateOfJoining() + ")");
+		}
 		StaffExit exit = staffExitRepository.save(new StaffExit(staffProfile, exitType, exitDate, reason, initiatedBy));
 
 		StaffProfileStatus previous = staffProfile.getStatus();
@@ -129,9 +139,16 @@ public class HrService {
 	@Transactional
 	public StaffBankDetail upsertBankDetails(StaffProfile staffProfile, String bankAccountHolderName, String bankAccountNumber,
 			String bankName, String bankBranchCode, String taxIdentifier) {
+		// The read side only ever returns a masked number, so an edit form echoes the mask back
+		// unchanged - that must keep the stored number rather than overwrite it with asterisks.
+		boolean keepStoredNumber = bankAccountNumber != null && bankAccountNumber.contains("*");
+		if (bankAccountNumber != null && !keepStoredNumber && !bankAccountNumber.isBlank() && !bankAccountNumber.matches("[0-9]+")) {
+			throw new InvalidRequestException("An account number can contain digits only");
+		}
 		return staffBankDetailRepository.findByStaffProfileId(staffProfile.getId())
 				.map(existing -> {
-					existing.update(bankAccountHolderName, bankAccountNumber, bankName, bankBranchCode, taxIdentifier);
+					existing.update(bankAccountHolderName, keepStoredNumber ? existing.getBankAccountNumber() : bankAccountNumber,
+							bankName, bankBranchCode, taxIdentifier);
 					return staffBankDetailRepository.save(existing);
 				})
 				.orElseGet(() -> staffBankDetailRepository.save(
@@ -139,12 +156,21 @@ public class HrService {
 	}
 
 	public LeaveType createLeaveType(String code, String name, Double defaultAnnualDays) {
+		if (code == null || code.isBlank() || name == null || name.isBlank()) {
+			throw new InvalidRequestException("A leave type needs both a code and a name");
+		}
+		if (defaultAnnualDays != null && defaultAnnualDays < 0) {
+			throw new InvalidRequestException("Default annual days cannot be negative");
+		}
 		return leaveTypeRepository.save(new LeaveType(code, name, defaultAnnualDays));
 	}
 
 	/** Upserts - one row per staff+leaveType+academicYear, same pattern as NotificationPreference.setPreference. */
 	@Transactional
 	public LeaveBalance allocateBalance(StaffProfile staffProfile, LeaveType leaveType, AcademicYear academicYear, double allocatedDays) {
+		if (allocatedDays < 0) {
+			throw new InvalidRequestException("Allocated days cannot be negative");
+		}
 		return leaveBalanceRepository.findByStaffProfileIdAndLeaveTypeIdAndAcademicYearId(staffProfile.getId(), leaveType.getId(), academicYear.getId())
 				.map(existing -> {
 					existing.updateAllocation(allocatedDays);
@@ -165,6 +191,25 @@ public class HrService {
 
 	public LeaveRequest raiseLeaveRequest(StaffProfile staffProfile, LeaveType leaveType, AcademicYear academicYear,
 			LocalDate startDate, LocalDate endDate, double numberOfDays, String reason) {
+		if (startDate == null || endDate == null) {
+			throw new InvalidRequestException("A leave request needs a start date and an end date");
+		}
+		if (numberOfDays <= 0) {
+			throw new InvalidRequestException("Leave request numberOfDays must be positive");
+		}
+		if (endDate.isBefore(startDate)) {
+			throw new InvalidRequestException("Leave request endDate cannot be before startDate");
+		}
+		long daysCovered = java.time.temporal.ChronoUnit.DAYS.between(startDate, endDate) + 1;
+		if (numberOfDays > daysCovered) {
+			throw new InvalidRequestException("Leave request covers " + daysCovered + " day(s) but asks for " + numberOfDays);
+		}
+		boolean overlaps = leaveRequestRepository.findByStaffProfileId(staffProfile.getId()).stream()
+				.filter(r -> r.getStatus() == LeaveRequestStatus.PENDING || r.getStatus() == LeaveRequestStatus.APPROVED)
+				.anyMatch(r -> !r.getStartDate().isAfter(endDate) && !r.getEndDate().isBefore(startDate));
+		if (overlaps) {
+			throw new IllegalStateException("This staff member already has a pending or approved leave request overlapping those dates");
+		}
 		return leaveRequestRepository.save(new LeaveRequest(staffProfile, leaveType, academicYear, startDate, endDate, numberOfDays, reason));
 	}
 
@@ -216,13 +261,26 @@ public class HrService {
 	/** Public/unauthenticated entry point - resolves the org from its slug and sets
 	 * TenantContext itself, same bootstrap shape as PortalInviteService.claim() and
 	 * PasswordResetService, since there is no bearer token yet to carry tenant context. */
-	@Transactional
 	public JobApplication submitJobApplication(String organisationSlug, String applicantName, String email, String specialization,
 			Integer yearsExperience) {
 		Organisation organisation = organisationRepository.findBySlug(organisationSlug)
 				.orElseThrow(() -> new IllegalArgumentException("No organisation with slug " + organisationSlug));
+		// Deliberately not @Transactional: the tenant identifier resolves once per Hibernate session,
+		// so TenantContext must be set before the transaction that saves the row opens.
 		TenantContext.set(organisation.getId(), null);
-		return jobApplicationRepository.save(new JobApplication(applicantName, email, specialization, yearsExperience));
+		if (applicantName == null || applicantName.isBlank()) {
+			throw new InvalidRequestException("An applicant name is required");
+		}
+		if (email == null || !email.trim().matches("[^@\\s]+@[^@\\s]+\\.[^@\\s]+")) {
+			throw new InvalidRequestException("A valid email address is required");
+		}
+		if (yearsExperience != null && yearsExperience < 0) {
+			throw new InvalidRequestException("Years of experience cannot be negative");
+		}
+		if (jobApplicationRepository.existsByEmailIgnoreCase(email.trim())) {
+			throw new IllegalStateException("An application from " + email.trim() + " has already been submitted");
+		}
+		return jobApplicationRepository.save(new JobApplication(applicantName.trim(), email.trim(), specialization, yearsExperience));
 	}
 
 	public JobApplication approveJobApplication(JobApplication jobApplication, Long decidedBy) {

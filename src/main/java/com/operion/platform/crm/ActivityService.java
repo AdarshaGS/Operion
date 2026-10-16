@@ -4,7 +4,7 @@ import java.time.Instant;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import com.operion.common.persistence.PlatformTransactional;
 
 /** Insert-only - there is deliberately no update or delete, it's an audit trail. */
 @Service
@@ -25,7 +25,7 @@ public class ActivityService {
 	}
 
 	/** The author is always the platform admin making the request; occurredAt defaults to now. */
-	@Transactional
+	@PlatformTransactional
 	public Activity log(Long leadId, Long organisationId, ActivityType type, String body, Instant occurredAt) {
 		CrmOwner owner = crmDirectory.owner(leadId, organisationId);
 		return activityRepository.save(new Activity(owner, type, body.trim(),

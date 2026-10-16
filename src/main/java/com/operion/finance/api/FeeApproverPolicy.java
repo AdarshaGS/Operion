@@ -2,8 +2,12 @@ package com.operion.finance.api;
 
 import java.util.List;
 
+import com.operion.authorization.MembershipStatus;
+import com.operion.authorization.AuthorizationDeniedException;
 import com.operion.authorization.OrganisationMembership;
 import com.operion.authorization.OrganisationMembershipRepository;
+import com.operion.common.InvalidRequestException;
+import com.operion.common.TenantContext;
 import org.springframework.stereotype.Component;
 
 /**
@@ -36,7 +40,23 @@ public class FeeApproverPolicy {
 		}
 		boolean eligible = eligibleMemberships().stream().anyMatch(m -> m.getUser().getId().equals(approvedBy));
 		if (!eligible) {
-			throw new IllegalArgumentException("User " + approvedBy + " is not an eligible fee approver in this organisation");
+			throw new InvalidRequestException("User " + approvedBy + " is not an eligible fee approver in this organisation");
+		}
+	}
+
+	/** Granting a discount is its own sign-off (FEE_DISCOUNT_APPROVE), separate from the assign
+	 * endpoint's FEE_ASSIGNMENT_MANAGE - mirrors PermissionInterceptor's Owner / ALL_FUNCTIONS bypass. */
+	public void requireDiscountPermission() {
+		Long actorId = TenantContext.getActorId();
+		if (actorId == null) {
+			throw new AuthorizationDeniedException("No authenticated caller");
+		}
+		if (membershipRepository.existsByUserIdAndStatusAndOwner(actorId, MembershipStatus.ACTIVE, true)) {
+			return;
+		}
+		var granted = membershipRepository.findActivePermissionCodesForUser(actorId);
+		if (!granted.contains("ALL_FUNCTIONS") && !granted.contains("FEE_DISCOUNT_APPROVE")) {
+			throw new AuthorizationDeniedException("Missing required permission: FEE_DISCOUNT_APPROVE");
 		}
 	}
 }

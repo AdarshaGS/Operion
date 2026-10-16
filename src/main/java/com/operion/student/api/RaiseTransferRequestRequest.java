@@ -1,4 +1,7 @@
 package com.operion.student.api;
 
-public record RaiseTransferRequestRequest(Long toCampusId, String reason) {
+import jakarta.validation.constraints.NotNull;
+
+
+public record RaiseTransferRequestRequest(@NotNull Long toCampusId, String reason) {
 }

@@ -26,6 +26,7 @@ import {
 	setOrganisationExternalServiceEnabled,
 	type OrganisationExternalServiceResponse,
 } from "./api/organisationExternalServices";
+import { listOrganisationModules, setOrganisationModuleEnabled, type OrganisationModuleResponse } from "./api/organisationModules";
 import { changeOrganisationStatus, getOrganisation, type OrganisationResponse } from "./api/organisations";
 import { listPlans, type PlanResponse } from "./api/plans";
 import { generateInvoice, listInvoices, markInvoicePaid, type PlatformInvoiceResponse } from "./api/platformInvoices";
@@ -64,6 +65,7 @@ export function OrganisationDetailPage() {
 	const [subscriptions, setSubscriptions] = useState<SubscriptionResponse[]>([]);
 	const [invoices, setInvoices] = useState<PlatformInvoiceResponse[]>([]);
 	const [externalServices, setExternalServices] = useState<OrganisationExternalServiceResponse[]>([]);
+	const [modules, setModules] = useState<OrganisationModuleResponse[]>([]);
 	const [error, setError] = useState<string | null>(null);
 
 	const [statusDialogOpen, setStatusDialogOpen] = useState(false);
@@ -90,6 +92,18 @@ export function OrganisationDetailPage() {
 		listOrganisationExternalServices(orgId)
 			.then(setExternalServices)
 			.catch((err) => setError(err instanceof PlatformApiError ? err.message : "Failed to load integrations"));
+		listOrganisationModules(orgId)
+			.then(setModules)
+			.catch((err) => setError(err instanceof PlatformApiError ? err.message : "Failed to load features"));
+	}
+
+	async function handleToggleModule(code: string, enabled: boolean) {
+		try {
+			const updated = await setOrganisationModuleEnabled(orgId, code, enabled);
+			setModules((prev) => prev.map((module) => (module.code === code ? updated : module)));
+		} catch (err) {
+			setError(err instanceof PlatformApiError ? err.message : "Failed to update feature");
+		}
 	}
 
 	async function handleToggleExternalService(serviceKey: string, enabled: boolean) {
@@ -294,6 +308,44 @@ export function OrganisationDetailPage() {
 														Mark paid
 													</Button>
 												)}
+											</TableCell>
+										</TableRow>
+									))}
+								</TableBody>
+							</Table>
+						</TableContainer>
+					)}
+				</Stack>
+			</Paper>
+
+			<Paper sx={{ p: 3 }}>
+				<Stack spacing={2}>
+					<Typography variant="h6">Features</Typography>
+					<Typography variant="body2" color="text.secondary">
+						Switch a feature off to remove it from this organisation's menus, dashboard and mobile app, and to block its API.
+						Nothing is deleted - switching it back on restores access exactly as it was. Users still need the matching
+						permission to see a feature that is on.
+					</Typography>
+
+					{modules.length > 0 && (
+						<TableContainer>
+							<Table size="small">
+								<TableHead>
+									<TableRow>
+										<TableCell>Feature</TableCell>
+										<TableCell>Enabled</TableCell>
+									</TableRow>
+								</TableHead>
+								<TableBody>
+									{modules.map((module) => (
+										<TableRow key={module.code}>
+											<TableCell>{module.label}</TableCell>
+											<TableCell>
+												<Switch
+													checked={module.enabled}
+													onChange={(e) => handleToggleModule(module.code, e.target.checked)}
+													slotProps={{ input: { "aria-label": `${module.label} enabled` } }}
+												/>
 											</TableCell>
 										</TableRow>
 									))}

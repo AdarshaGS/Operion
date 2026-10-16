@@ -12,5 +12,11 @@ public record SchoolTemplateStatus(
 		List<SchoolTemplateCategoryStatus> roles,
 		List<SchoolTemplateCategoryStatus> feeCategories,
 		List<SchoolTemplateCategoryStatus> itemCategories,
+		List<SchoolTemplateCategoryStatus> items,
+		List<SchoolTemplateCategoryStatus> assetTypes,
+		List<SchoolTemplateCategoryStatus> leaveTypes,
+		List<SchoolTemplateCategoryStatus> classes,
+		List<SchoolTemplateCategoryStatus> sections,
+		List<SchoolTemplateCategoryStatus> subjects,
 		boolean gradingScaleExists) {
 }

@@ -3,6 +3,7 @@ package com.operion.payroll;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
+import com.operion.common.InvalidRequestException;
 import com.operion.common.TenantScopedEntity;
 import com.operion.hr.StaffProfile;
 import jakarta.persistence.Column;
@@ -38,10 +39,10 @@ public class SalaryStructure extends TenantScopedEntity {
 
 	public SalaryStructure(StaffProfile staffProfile, LocalDate effectiveFrom, BigDecimal basicAmount) {
 		if (effectiveFrom == null) {
-			throw new IllegalArgumentException("Effective-from date is required");
+			throw new InvalidRequestException("Effective-from date is required");
 		}
 		if (basicAmount == null || basicAmount.signum() < 0) {
-			throw new IllegalArgumentException("Basic amount must be zero or more");
+			throw new InvalidRequestException("Basic amount must be zero or more");
 		}
 		this.staffProfile = staffProfile;
 		this.effectiveFrom = effectiveFrom;

@@ -25,6 +25,11 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
 	@Query("SELECT COALESCE(SUM(i.amountPaid), 0) FROM Invoice i")
 	BigDecimal sumAmountPaid();
 
+	/** Dashboard fee-collection chart - total invoiced per due date from a start date onwards.
+	 * Invoices carry no issue date, so due date is the month they're attributed to. */
+	@Query("SELECT i.dueDate, SUM(i.totalAmount) FROM Invoice i WHERE i.dueDate >= :fromDate AND i.dueDate <= :toDate GROUP BY i.dueDate")
+	List<Object[]> sumTotalAmountByDueDateBetween(@Param("fromDate") LocalDate fromDate, @Param("toDate") LocalDate toDate);
+
 	long countByStatusNotAndDueDateBefore(InvoiceStatus status, LocalDate dueDate);
 
 	/** The demand view (#237) - every not-fully-paid invoice past its due date, optionally

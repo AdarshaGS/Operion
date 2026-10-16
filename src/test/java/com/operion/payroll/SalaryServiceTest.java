@@ -113,6 +113,6 @@ class SalaryServiceTest {
 				.isInstanceOf(IllegalStateException.class).hasMessageContaining("twice");
 		assertThatThrownBy(() -> salaryService.createStructure(staff, LocalDate.of(2025, 6, 1), BigDecimal.valueOf(1000),
 				List.of(new SalaryService.LineInput(bonus, BigDecimal.valueOf(101)))))
-				.isInstanceOf(IllegalArgumentException.class);
+				.isInstanceOf(com.operion.common.InvalidRequestException.class);
 	}
 }

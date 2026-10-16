@@ -1,5 +1,6 @@
 package com.operion.platform;
 
+import com.operion.common.persistence.PlatformPlane;
 import com.operion.common.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -22,6 +23,7 @@ import lombok.NoArgsConstructor;
 @Entity
 @Table(name = "platform_admins")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
+@PlatformPlane
 public class PlatformAdmin extends BaseEntity {
 
 	@Column(nullable = false)

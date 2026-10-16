@@ -3,7 +3,7 @@ package com.operion.platform.crm;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import com.operion.common.persistence.PlatformTransactional;
 
 @Service
 public class ContactService {
@@ -22,7 +22,7 @@ public class ContactService {
 				: contactRepository.findByOrganisationIdOrderByNameAsc(owner.organisationId());
 	}
 
-	@Transactional
+	@PlatformTransactional
 	public Contact create(Long leadId, Long organisationId, String name, String role, String email, String phone) {
 		CrmOwner owner = crmDirectory.owner(leadId, organisationId);
 		return contactRepository.save(new Contact(owner, name.trim(), LeadService.blankToNull(role),
@@ -30,7 +30,7 @@ public class ContactService {
 	}
 
 	/** Partial update: a null field leaves the current value alone; a blank string clears it. */
-	@Transactional
+	@PlatformTransactional
 	public Contact update(Long id, String name, String role, String email, String phone) {
 		Contact contact = get(id);
 		contact.update(name != null && !name.isBlank() ? name.trim() : contact.getName(),
@@ -40,7 +40,7 @@ public class ContactService {
 		return contactRepository.save(contact);
 	}
 
-	@Transactional
+	@PlatformTransactional
 	public void delete(Long id) {
 		contactRepository.delete(get(id));
 	}

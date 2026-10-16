@@ -86,9 +86,9 @@ class EmailVerificationLifecycleTest {
 
 		emailVerificationService().confirm(organisation.getSlug(), rawToken);
 
+		TenantContext.set(organisation.getId(), null);
 		User reloaded = userRepository.findById(user.getId()).orElseThrow();
 		assertThat(reloaded.getEmailVerifiedAt()).isNotNull();
-		TenantContext.set(organisation.getId(), null);
 		assertThat(emailVerificationTokenRepository.findById(token.getId()).orElseThrow().isConsumed()).isTrue();
 	}
 

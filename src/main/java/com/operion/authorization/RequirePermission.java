@@ -17,5 +17,8 @@ import java.lang.annotation.Target;
 @Target({ElementType.METHOD, ElementType.TYPE})
 public @interface RequirePermission {
 
-	String value();
+	String value() default "";
+
+	/** Alternative to {@link #value()} for shared endpoints several roles legitimately reach (e.g. creating a Person): any one of these codes suffices. */
+	String[] anyOf() default {};
 }

@@ -14,7 +14,8 @@ import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
 import AddIcon from "@mui/icons-material/Add";
-import { ApiError } from "../../api/client";
+import { Can } from "../../auth/Can";
+import { loadErrorMessage } from "./loadError";
 import { listPersons, type PersonResponse } from "../../api/persons";
 import { listStaffProfiles, type StaffProfileResponse } from "../../api/staffProfiles";
 
@@ -27,7 +28,7 @@ export function StaffProfilesPanel() {
 	useEffect(() => {
 		listStaffProfiles()
 			.then(setStaff)
-			.catch((err) => setError(err instanceof ApiError ? err.message : "Failed to load staff"));
+			.catch((err) => setError(loadErrorMessage(err, "Failed to load staff")));
 		listPersons()
 			.then((persons) => setPersonsById(new Map(persons.map((p) => [p.id, p]))))
 			.catch(() => {});
@@ -38,14 +39,16 @@ export function StaffProfilesPanel() {
 			<Stack spacing={2}>
 				<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
 					<Typography variant="h6">Staff</Typography>
-					<Button size="small" startIcon={<AddIcon />} onClick={() => navigate("/hr/staff/new")}>
-						Add staff
-					</Button>
+					<Can anyOf={["HR_STAFF_MANAGE"]}>
+						<Button size="small" startIcon={<AddIcon />} onClick={() => navigate("/hr/staff/new")}>
+							Add staff
+						</Button>
+					</Can>
 				</Box>
 
 				{error && <Alert severity="error">{error}</Alert>}
 
-				{staff.length === 0 && <Alert severity="info">No active staff yet.</Alert>}
+				{staff.length === 0 && !error && <Alert severity="info">No active staff yet.</Alert>}
 
 				{staff.length > 0 && (
 					<TableContainer>

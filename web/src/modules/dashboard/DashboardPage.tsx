@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import Accordion from "@mui/material/Accordion";
 import AccordionDetails from "@mui/material/AccordionDetails";
 import AccordionSummary from "@mui/material/AccordionSummary";
@@ -24,10 +24,11 @@ import {
 import { ApiError } from "../../api/client";
 import { useAuth } from "../../auth/AuthContext";
 import { colors } from "../../theme";
+import { DashboardCharts } from "./DashboardCharts";
 import { HeroStatCard } from "./HeroStatCard";
 import { QuickActions } from "./QuickActions";
 import { RecentActivity } from "./RecentActivity";
-import { SetupProgress } from "./SetupProgress";
+import { isSetupComplete, SetupProgress } from "./SetupProgress";
 import { StatTile } from "./StatTile";
 
 function currency(amount: number): string {
@@ -48,13 +49,32 @@ function firstName(fullName: string | null): string {
 
 interface Section {
 	title: string;
+	/** Route of the module this block summarises - hidden when the platform owner switches that module off. */
+	path: string;
 	tiles: { label: string; value: string | number; sublabel?: string }[];
 }
 
+const PATH_PERMISSIONS: Record<string, string[]> = {
+	"/students": ["STUDENT_VIEW"],
+	"/attendance": ["ATTENDANCE_VIEW", "STAFF_ATTENDANCE_VIEW"],
+	"/fees": ["FEE_VIEW"],
+	"/hr": ["HR_VIEW"],
+	"/examinations": ["EXAM_VIEW"],
+	"/library": ["LIBRARY_VIEW"],
+	"/transport": ["TRANSPORT_VIEW"],
+	"/inventory": ["INVENTORY_VIEW"],
+	"/sales": ["SALES_VIEW"],
+	"/purchase": ["PURCHASE_VIEW"],
+	"/communication": ["COMMUNICATION_VIEW"],
+	"/academics/setup": ["CLASS_VIEW", "GRADE_LEVEL_VIEW", "SUBJECT_VIEW", "TEACHER_ASSIGNMENT_VIEW"],
+	"/students/new": ["STUDENT_MANAGE"],
+};
+
 function buildSections(summary: DashboardSummaryResponse): Section[] {
-	return [
-		{
+	const sections: (Section | null)[] = [
+		summary.attendanceToday && {
 			title: "Attendance today",
+			path: "/attendance",
 			tiles: [
 				{ label: "Attendance rate", value: `${summary.attendanceToday.attendanceRatePercent}%`, sublabel: `${summary.attendanceToday.marked} marked` },
 				{ label: "Present", value: summary.attendanceToday.present },
@@ -63,8 +83,9 @@ function buildSections(summary: DashboardSummaryResponse): Section[] {
 				{ label: "Half day", value: summary.attendanceToday.halfDay },
 			],
 		},
-		{
+		summary.fees && {
 			title: "Fees",
+			path: "/fees",
 			tiles: [
 				{ label: "Collection rate", value: `${summary.fees.collectionRatePercent}%` },
 				{ label: "Total invoiced", value: currency(summary.fees.totalInvoiced) },
@@ -73,65 +94,92 @@ function buildSections(summary: DashboardSummaryResponse): Section[] {
 				{ label: "Overdue invoices", value: summary.fees.overdueInvoices },
 			],
 		},
-		{
+		summary.staff && {
 			title: "Staff",
+			path: "/hr",
 			tiles: [
 				{ label: "Active staff", value: summary.staff.activeStaff },
 				{ label: "Departments", value: summary.staff.departments },
 				{ label: "Designations", value: summary.staff.designations },
 			],
 		},
-		{
+		summary.examinations && {
 			title: "Examinations",
+			path: "/examinations",
 			tiles: [{ label: "Active exams", value: summary.examinations.activeExams }],
 		},
-		{
+		summary.library && {
 			title: "Library",
+			path: "/library",
 			tiles: [
 				{ label: "Active books", value: summary.library.activeBooks },
 				{ label: "Currently borrowed", value: summary.library.currentlyBorrowed },
 				{ label: "Overdue borrows", value: summary.library.overdueBorrows },
 			],
 		},
-		{
+		summary.transport && {
 			title: "Transport",
+			path: "/transport",
 			tiles: [
 				{ label: "Active vehicles", value: summary.transport.activeVehicles },
 				{ label: "Active routes", value: summary.transport.activeRoutes },
 				{ label: "Students using transport", value: summary.transport.studentsUsingTransport },
 			],
 		},
-		{
+		summary.sales && {
+			title: "Sales",
+			path: "/sales",
+			tiles: [
+				{ label: "Sales today", value: currency(summary.sales.totalToday) },
+				{ label: "Sales this month", value: currency(summary.sales.totalThisMonth) },
+			],
+		},
+		summary.purchase && {
+			title: "Purchase",
+			path: "/purchase",
+			tiles: [{ label: "Open purchase orders", value: summary.purchase.openOrders }],
+		},
+		summary.inventory && {
 			title: "Inventory",
+			path: "/inventory",
 			tiles: [
 				{ label: "Active items", value: summary.inventory.activeItems },
 				{ label: "Categories", value: summary.inventory.categories },
 				{ label: "Low stock items", value: summary.inventory.lowStockItems },
 			],
 		},
-		{
+		summary.communication && {
 			title: "Communication",
+			path: "/communication",
 			tiles: [{ label: "Announcements this month", value: summary.communication.announcementsThisMonth }],
 		},
 	];
+	return sections.filter((section): section is Section => section !== null);
 }
 
 /** Post-login landing page for anyone with ORGANISATION_MANAGE (#30) - a greeting, the
  * setup-progress card and quick actions, headline stats, and a read-only rollup across
  * every module below. */
 export function DashboardPage() {
-	const { profile } = useAuth();
+	const { profile, isPathEnabled: isModuleOn, hasAnyPermission, hasPermission, permissionsLoaded } = useAuth();
+	// Only ORGANISATION_MANAGE opens the dashboard; anyone else who lands here by URL goes to
+	// their own landing page (IndexRedirect) instead of seeing the API's 403 text.
+	const canViewDashboard = !permissionsLoaded || hasPermission("ORGANISATION_MANAGE");
+	/** A module shows only when it is switched on for the org AND the caller holds a
+	 * permission that opens it - ORGANISATION_MANAGE alone doesn't reveal every module. */
+	const isPathEnabled = (path: string) => isModuleOn(path) && (!PATH_PERMISSIONS[path] || hasAnyPermission(PATH_PERMISSIONS[path]));
 	const navigate = useNavigate();
 	const [summary, setSummary] = useState<DashboardSummaryResponse | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	const [loading, setLoading] = useState(true);
 
 	useEffect(() => {
+		if (!canViewDashboard) return;
 		getDashboardSummary()
 			.then(setSummary)
 			.catch((err) => setError(err instanceof ApiError ? err.message : "Failed to load dashboard"))
 			.finally(() => setLoading(false));
-	}, []);
+	}, [canViewDashboard]);
 
 	/** Optimistic + permanent (#97 dismiss) - flips the flag immediately so the card
 	 * disappears without waiting on the round trip; the dismiss endpoints have no undo,
@@ -155,33 +203,38 @@ export function DashboardPage() {
 			? { heading: "Set up your academic year", label: "Set up academic year", path: "/academics/setup" }
 			: { heading: "Add your first students", label: "Add students", path: "/students/new" };
 
+		// Quick actions are part of the onboarding aid: once every setup step is done they go too.
+		const setupComplete = isSetupComplete(summaryData.setupChecklist, isModuleOn);
+		const showSetupProgress = !summaryData.preferences.setupProgressDismissed && !setupComplete;
+		const showQuickActions = !summaryData.preferences.quickActionsDismissed && !setupComplete;
+
 		const heroRow = (
 			<Stack direction="row" spacing={3} sx={{ flexWrap: "wrap" }}>
-				<HeroStatCard
+				{isPathEnabled("/students") && <HeroStatCard
 					icon={<GroupsIcon />}
 					label="Active students"
 					value={summaryData.enrollment.activeStudents}
 					linkLabel="View all students"
 					linkPath="/students"
-				/>
-				<HeroStatCard
+				/>}
+				{isPathEnabled("/attendance") && summaryData.attendanceToday && <HeroStatCard
 					icon={<EventAvailableIcon />}
 					label="Today's attendance"
 					value={summaryData.attendanceToday.marked === 0 ? "Not started" : `${summaryData.attendanceToday.attendanceRatePercent}%`}
 					linkLabel="Take attendance"
 					linkPath="/attendance"
-				/>
-				<HeroStatCard
+				/>}
+				{isPathEnabled("/fees") && summaryData.fees && <HeroStatCard
 					icon={<PaymentsIcon />}
 					label="Fees due"
 					value={currency(summaryData.fees.outstanding)}
 					linkLabel="View fee dashboard"
 					linkPath="/fees"
-				/>
+				/>}
 			</Stack>
 		);
 
-		const sections = buildSections(summaryData).map((section) => (
+		const sections = buildSections(summaryData).filter((section) => isPathEnabled(section.path)).map((section) => (
 			<Box key={section.title}>
 				<Typography variant="h6" sx={{ mb: 1.5 }}>
 					{section.title}
@@ -214,20 +267,22 @@ export function DashboardPage() {
 						<Typography variant="subtitle1" sx={{ color: colors.ink, fontWeight: 700 }}>
 							{primaryCta.heading}
 						</Typography>
-						<Button variant="contained" endIcon={<ArrowForwardIcon />} onClick={() => navigate(primaryCta.path)}>
-							{primaryCta.label}
-						</Button>
+						{isPathEnabled(primaryCta.path) && (
+							<Button variant="contained" endIcon={<ArrowForwardIcon />} onClick={() => navigate(primaryCta.path)}>
+								{primaryCta.label}
+							</Button>
+						)}
 					</Paper>
 				)}
 
-				{!(summaryData.preferences.setupProgressDismissed && summaryData.preferences.quickActionsDismissed) && (
+				{(showSetupProgress || showQuickActions) && (
 					<Stack direction={{ xs: "column", md: "row" }} spacing={3} sx={{ alignItems: "stretch" }}>
-						{!summaryData.preferences.setupProgressDismissed && (
+						{showSetupProgress && (
 							<Box sx={{ flex: "3 1 0" }}>
 								<SetupProgress checklist={summaryData.setupChecklist} onDismiss={handleDismissSetupProgress} />
 							</Box>
 						)}
-						{!summaryData.preferences.quickActionsDismissed && (
+						{showQuickActions && (
 							<Box sx={{ flex: "2 1 0" }}>
 								<QuickActions onDismiss={handleDismissQuickActions} />
 							</Box>
@@ -254,11 +309,16 @@ export function DashboardPage() {
 				) : (
 					<>
 						{heroRow}
+						<DashboardCharts summary={summaryData} />
 						{sections}
 					</>
 				)}
 			</>
 		);
+	}
+
+	if (!canViewDashboard) {
+		return <Navigate to="/" replace />;
 	}
 
 	return (

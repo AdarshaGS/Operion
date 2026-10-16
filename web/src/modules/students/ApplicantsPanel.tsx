@@ -15,6 +15,7 @@ import TableCell from "@mui/material/TableCell";
 import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
+import MenuItem from "@mui/material/MenuItem";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import AddIcon from "@mui/icons-material/Add";
@@ -26,7 +27,7 @@ import {
 	type ApplicantResponse,
 } from "../../api/applicants";
 import { ApiError } from "../../api/client";
-import { createPerson, listPersons, type PersonResponse } from "../../api/persons";
+import { createPerson, GENDER_OPTIONS, listPersons, type PersonResponse } from "../../api/persons";
 
 const INQUIRY_FORM = { firstName: "", lastName: "", dateOfBirth: "", gender: "", phone: "", email: "", inquiryDate: "", source: "", notes: "" };
 const CONVERT_FORM = {
@@ -88,7 +89,7 @@ export function ApplicantsPanel() {
 				firstName: inquiryForm.firstName,
 				lastName: inquiryForm.lastName,
 				dateOfBirth: inquiryForm.dateOfBirth || null,
-				gender: inquiryForm.gender || null,
+				gender: inquiryForm.gender,
 				phone: inquiryForm.phone || null,
 				email: inquiryForm.email || null,
 			});
@@ -207,7 +208,13 @@ export function ApplicantsPanel() {
 								slotProps={{ inputLabel: { shrink: true } }}
 								fullWidth
 							/>
-							<TextField label="Gender" value={inquiryForm.gender} onChange={setInquiryField("gender")} fullWidth />
+							<TextField select label="Gender" value={inquiryForm.gender} onChange={setInquiryField("gender")} required fullWidth>
+								{GENDER_OPTIONS.map((option) => (
+									<MenuItem key={option} value={option}>
+										{option}
+									</MenuItem>
+								))}
+							</TextField>
 						</Box>
 						<Box sx={{ display: "flex", gap: 2 }}>
 							<TextField label="Phone" value={inquiryForm.phone} onChange={setInquiryField("phone")} fullWidth />

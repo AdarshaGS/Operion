@@ -2,5 +2,9 @@ package com.operion.purchase.api;
 
 import java.time.LocalDate;
 
-public record RecordPurchaseReturnRequest(int quantity, String reason, LocalDate returnDate, String remarks) {
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
+
+public record RecordPurchaseReturnRequest(@Positive int quantity, @NotBlank String reason, @NotNull LocalDate returnDate, String remarks) {
 }

@@ -1,5 +1,6 @@
 package com.operion.platform.crm;
 
+import com.operion.common.persistence.PlatformPlane;
 import com.operion.common.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -14,6 +15,7 @@ import lombok.NoArgsConstructor;
 @Entity
 @Table(name = "crm_contacts")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
+@PlatformPlane
 public class Contact extends BaseEntity {
 
 	@Column(name = "lead_id", updatable = false)

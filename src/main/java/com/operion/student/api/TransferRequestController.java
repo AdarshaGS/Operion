@@ -1,5 +1,7 @@
 package com.operion.student.api;
 
+import com.operion.common.EnumParam;
+import jakarta.validation.Valid;
 import java.util.List;
 
 import com.operion.authorization.RequirePermission;
@@ -50,7 +52,7 @@ public class TransferRequestController {
 
 	@PostMapping("/api/v1/students/{studentId}/transfer-requests")
 	@RequirePermission("STUDENT_TRANSFER_MANAGE")
-	public TransferRequestResponse raise(@PathVariable Long studentId, @RequestBody RaiseTransferRequestRequest request) {
+	public TransferRequestResponse raise(@PathVariable Long studentId, @Valid @RequestBody RaiseTransferRequestRequest request) {
 		Student student = findStudent(studentId);
 		StudentEnrollment currentEnrollment = studentEnrollmentRepository.findByStudentIdAndCurrentTrue(studentId)
 				.orElseThrow(() -> new IllegalStateException("Student " + studentId + " has no current enrollment to transfer from"));
@@ -65,7 +67,7 @@ public class TransferRequestController {
 	 * org-wide inbox, e.g. all pending requests awaiting a decision. At least one must be given. */
 	@GetMapping("/api/v1/transfer-requests")
 	public List<TransferRequestResponse> list(@RequestParam(required = false) Long studentId, @RequestParam(required = false) String status) {
-		TransferRequestStatus parsedStatus = status != null ? TransferRequestStatus.valueOf(status) : null;
+		TransferRequestStatus parsedStatus = status != null ? EnumParam.parse(TransferRequestStatus.class, status) : null;
 		List<TransferRequest> requests;
 		if (studentId != null && parsedStatus != null) {
 			requests = transferRequestRepository.findByStudentIdAndStatus(studentId, parsedStatus);

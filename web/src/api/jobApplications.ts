@@ -42,8 +42,18 @@ export function listJobApplications(status?: string): Promise<JobApplicationResp
 	return api.get<JobApplicationResponse[]>(`/api/v1/job-applications?${params.toString()}`);
 }
 
-export function approveJobApplication(id: number): Promise<JobApplicationResponse> {
-	return api.post<JobApplicationResponse>(`/api/v1/job-applications/${id}/approve`);
+/** Hire details are what turn an approval into a staff profile; without them the call only records the decision. */
+export interface HireDetails {
+	designationId: number;
+	employmentType: string;
+	dateOfJoining: string;
+	employeeCode: string;
+	campusId?: number | null;
+	departmentId?: number | null;
+}
+
+export function approveJobApplication(id: number, hire?: HireDetails): Promise<JobApplicationResponse> {
+	return api.post<JobApplicationResponse>(`/api/v1/job-applications/${id}/approve`, hire);
 }
 
 export function rejectJobApplication(id: number): Promise<JobApplicationResponse> {

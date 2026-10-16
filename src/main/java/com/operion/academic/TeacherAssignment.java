@@ -2,6 +2,7 @@ package com.operion.academic;
 
 import java.time.LocalDate;
 
+import com.operion.common.InvalidRequestException;
 import com.operion.common.TenantScopedEntity;
 import com.operion.identity.Person;
 import com.operion.organisation.AcademicYear;
@@ -75,6 +76,9 @@ public class TeacherAssignment extends TenantScopedEntity {
 	public void end(LocalDate endDate) {
 		if (status == TeacherAssignmentStatus.ENDED) {
 			throw new IllegalStateException("Teacher assignment is already ended");
+		}
+		if (endDate.isBefore(startDate)) {
+			throw new InvalidRequestException("An assignment cannot end (" + endDate + ") before it starts (" + startDate + ")");
 		}
 		this.endDate = endDate;
 		this.status = TeacherAssignmentStatus.ENDED;

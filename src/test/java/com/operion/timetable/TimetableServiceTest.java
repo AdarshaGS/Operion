@@ -7,6 +7,7 @@ import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalTime;
 
+import com.operion.common.InvalidRequestException;
 import com.operion.academic.AcademicService;
 import com.operion.academic.GradeLevel;
 import com.operion.academic.GradeLevelRepository;
@@ -106,7 +107,7 @@ class TimetableServiceTest {
 		assertThatThrownBy(() -> timetableService.createPeriod(1, "Dup", LocalTime.of(12, 0), LocalTime.of(13, 0), false))
 				.isInstanceOf(IllegalStateException.class);
 		assertThatThrownBy(() -> timetableService.createPeriod(9, "Bad", LocalTime.of(13, 0), LocalTime.of(12, 0), false))
-				.isInstanceOf(IllegalStateException.class);
+				.isInstanceOf(InvalidRequestException.class);
 	}
 
 	@Test

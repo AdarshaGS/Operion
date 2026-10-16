@@ -55,7 +55,7 @@ public class OrganisationExternalServicePropertyService {
 
 			OrganisationExternalServiceProperty property = organisationExternalServicePropertyRepository
 					.findByExternalServiceIdAndPropertyKey(service.getId(), definition.key())
-					.orElseGet(() -> new OrganisationExternalServiceProperty(service, definition.key(), "", definition.secret()));
+					.orElseGet(() -> new OrganisationExternalServiceProperty(service.getId(), definition.key(), "", definition.secret()));
 			property.setPropertyValue(definition.secret() && !value.isBlank() ? cipher.encrypt(value) : value);
 			organisationExternalServicePropertyRepository.save(property);
 		}

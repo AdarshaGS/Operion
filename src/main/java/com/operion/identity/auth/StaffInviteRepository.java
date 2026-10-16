@@ -7,4 +7,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface StaffInviteRepository extends JpaRepository<StaffInvite, Long> {
 
 	List<StaffInvite> findByStatus(StaffInviteStatus status);
+
+	List<StaffInvite> findByUserIdAndStatus(Long userId, StaffInviteStatus status);
 }

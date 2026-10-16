@@ -3,6 +3,7 @@ package com.operion.purchase.api;
 import java.util.List;
 
 import com.operion.authorization.RequirePermission;
+import com.operion.common.EnumParam;
 import com.operion.inventory.Item;
 import com.operion.inventory.ItemRepository;
 import com.operion.inventory.Supplier;
@@ -16,6 +17,7 @@ import com.operion.purchase.PurchaseOrderRepository;
 import com.operion.purchase.PurchaseOrderService;
 import com.operion.purchase.PurchaseReturnReason;
 import com.operion.purchase.PurchaseReturnRepository;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -50,7 +52,7 @@ public class PurchaseOrderController {
 
 	@PostMapping
 	@RequirePermission("PURCHASE_MANAGE")
-	public PurchaseOrderResponse create(@RequestBody CreatePurchaseOrderRequest request) {
+	public PurchaseOrderResponse create(@Valid @RequestBody CreatePurchaseOrderRequest request) {
 		Supplier supplier = findSupplier(request.supplierId());
 		Campus campus = findCampus(request.campusId());
 		List<PurchaseOrderService.LineInput> lines = request.lines().stream()
@@ -90,7 +92,7 @@ public class PurchaseOrderController {
 
 	@PostMapping("/{id}/receive")
 	@RequirePermission("PURCHASE_MANAGE")
-	public PurchaseOrderDetailResponse receive(@PathVariable Long id, @RequestBody ReceiveGoodsRequest request) {
+	public PurchaseOrderDetailResponse receive(@PathVariable Long id, @Valid @RequestBody ReceiveGoodsRequest request) {
 		PurchaseOrder order = findOrder(id);
 		List<PurchaseOrderService.ReceiveLineInput> receivedLines = request.lines().stream()
 				.map(line -> new PurchaseOrderService.ReceiveLineInput(findLine(line.lineId()), line.quantity(), line.unitCost()))
@@ -101,12 +103,12 @@ public class PurchaseOrderController {
 
 	@PostMapping("/{orderId}/lines/{lineId}/returns")
 	@RequirePermission("PURCHASE_MANAGE")
-	public PurchaseReturnResponse recordReturn(@PathVariable Long orderId, @PathVariable Long lineId, @RequestBody RecordPurchaseReturnRequest request) {
+	public PurchaseReturnResponse recordReturn(@PathVariable Long orderId, @PathVariable Long lineId, @Valid @RequestBody RecordPurchaseReturnRequest request) {
 		PurchaseOrderLine line = findLine(lineId);
 		if (!line.getPurchaseOrder().getId().equals(orderId)) {
 			throw new IllegalArgumentException("Line " + lineId + " does not belong to purchase order " + orderId);
 		}
-		var purchaseReturn = purchaseOrderService.recordReturn(line, request.quantity(), PurchaseReturnReason.valueOf(request.reason()),
+		var purchaseReturn = purchaseOrderService.recordReturn(line, request.quantity(), EnumParam.parse(PurchaseReturnReason.class, request.reason()),
 				request.returnDate(), request.remarks());
 		return PurchaseReturnResponse.from(purchaseReturn);
 	}

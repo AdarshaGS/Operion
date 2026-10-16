@@ -52,6 +52,9 @@ public class FeeReminderService {
 	 * guardian who's opted in to communication. */
 	@Transactional
 	public int sendOverdueReminder(Invoice invoice) {
+		if (invoice.getOutstanding().signum() <= 0) {
+			return 0;
+		}
 		Student student = invoice.getStudentFeeAssignment().getStudentEnrollment().getStudent();
 		return notifyGuardians(student, template(TEMPLATE_CODE, DEFAULT_SUBJECT, DEFAULT_BODY));
 	}
@@ -60,6 +63,9 @@ public class FeeReminderService {
 	 * FeeService.generateInvoice succeeds. Returns how many guardians were notified. */
 	@Transactional
 	public int notifyInvoiceGenerated(Invoice invoice) {
+		if (invoice.getOutstanding().signum() <= 0) {
+			return 0;
+		}
 		Student student = invoice.getStudentFeeAssignment().getStudentEnrollment().getStudent();
 		return notifyGuardians(student, template(INVOICE_GENERATED_TEMPLATE_CODE, INVOICE_GENERATED_SUBJECT, INVOICE_GENERATED_BODY));
 	}

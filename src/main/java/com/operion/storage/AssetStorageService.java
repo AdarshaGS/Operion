@@ -16,4 +16,7 @@ public interface AssetStorageService {
 
 	/** Resolves a previously stored reference back to a URL the frontend can fetch directly. */
 	String resolveUrl(String reference);
+
+	/** Whether {@code reference} is one this storage handed out and still holds - false for anything else, including a path. */
+	boolean exists(String reference);
 }

@@ -1,5 +1,15 @@
 package com.operion.hr.api;
 
+import com.operion.organisation.DesignationRepository;
+import com.operion.organisation.Designation;
+import com.operion.organisation.DepartmentRepository;
+import com.operion.organisation.Department;
+import com.operion.organisation.CampusRepository;
+import com.operion.organisation.Campus;
+import com.operion.hr.JobApplicationHireService;
+import com.operion.hr.EmploymentType;
+import com.operion.common.InvalidRequestException;
+import com.operion.common.EnumParam;
 import java.util.List;
 
 import com.operion.academic.SubjectRepository;
@@ -39,9 +49,19 @@ public class JobApplicationController {
 	private final JobApplicationRepository jobApplicationRepository;
 	private final OrganisationRepository organisationRepository;
 	private final SubjectRepository subjectRepository;
+	private final JobApplicationHireService hireService;
+	private final DesignationRepository designationRepository;
+	private final CampusRepository campusRepository;
+	private final DepartmentRepository departmentRepository;
 
 	public JobApplicationController(HrService hrService, JobApplicationRepository jobApplicationRepository,
-			OrganisationRepository organisationRepository, SubjectRepository subjectRepository) {
+			OrganisationRepository organisationRepository, SubjectRepository subjectRepository,
+			JobApplicationHireService hireService, DesignationRepository designationRepository,
+			CampusRepository campusRepository, DepartmentRepository departmentRepository) {
+		this.hireService = hireService;
+		this.designationRepository = designationRepository;
+		this.campusRepository = campusRepository;
+		this.departmentRepository = departmentRepository;
 		this.hrService = hrService;
 		this.jobApplicationRepository = jobApplicationRepository;
 		this.organisationRepository = organisationRepository;
@@ -66,7 +86,7 @@ public class JobApplicationController {
 	@GetMapping
 	@RequirePermission("HR_RECRUITMENT_MANAGE")
 	public List<JobApplicationResponse> list(@RequestParam(required = false) String status) {
-		JobApplicationStatus parsedStatus = status != null ? JobApplicationStatus.valueOf(status) : null;
+		JobApplicationStatus parsedStatus = status != null ? EnumParam.parse(JobApplicationStatus.class, status) : null;
 		List<JobApplication> applications = parsedStatus != null
 				? jobApplicationRepository.findByStatus(parsedStatus)
 				: jobApplicationRepository.findAll();
@@ -75,8 +95,25 @@ public class JobApplicationController {
 
 	@PostMapping("/{id}/approve")
 	@RequirePermission("HR_RECRUITMENT_MANAGE")
-	public JobApplicationResponse approve(@PathVariable Long id) {
-		return JobApplicationResponse.from(hrService.approveJobApplication(findJobApplication(id), TenantContext.getActorId()));
+	public JobApplicationResponse approve(@PathVariable Long id, @RequestBody(required = false) ApproveJobApplicationRequest request) {
+		JobApplication application = findJobApplication(id);
+		if (request == null || !request.hasHireDetails()) {
+			return JobApplicationResponse.from(hrService.approveJobApplication(application, TenantContext.getActorId()));
+		}
+		EmploymentType employmentType = EnumParam.parse(EmploymentType.class, request.employmentType());
+		if (request.designationId() == null || request.dateOfJoining() == null
+				|| request.employeeCode() == null || request.employeeCode().isBlank()) {
+			throw new InvalidRequestException("designationId, employmentType, dateOfJoining and employeeCode are required to hire the applicant");
+		}
+		Designation designation = designationRepository.findById(request.designationId())
+				.orElseThrow(() -> new IllegalArgumentException("No designation with id " + request.designationId()));
+		Campus campus = request.campusId() == null ? null : campusRepository.findById(request.campusId())
+				.orElseThrow(() -> new IllegalArgumentException("No campus with id " + request.campusId()));
+		Department department = request.departmentId() == null ? null : departmentRepository.findById(request.departmentId())
+				.orElseThrow(() -> new IllegalArgumentException("No department with id " + request.departmentId()));
+		hireService.approveAndHire(application, TenantContext.getActorId(), campus, designation, department,
+				request.employeeCode(), request.dateOfJoining(), employmentType);
+		return JobApplicationResponse.from(findJobApplication(id));
 	}
 
 	@PostMapping("/{id}/reject")

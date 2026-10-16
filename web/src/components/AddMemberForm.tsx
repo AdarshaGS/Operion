@@ -6,7 +6,7 @@ import TextField from "@mui/material/TextField";
 import type { CampusResponse } from "../api/campuses";
 import type { DepartmentResponse } from "../api/departments";
 import { grantMembership } from "../api/memberships";
-import { createPerson, type PersonResponse } from "../api/persons";
+import { createPerson, GENDER_OPTIONS, type PersonResponse } from "../api/persons";
 import type { RoleResponse } from "../api/roles";
 import { inviteUser, type StaffInviteResponse } from "../api/users";
 
@@ -19,6 +19,7 @@ import { inviteUser, type StaffInviteResponse } from "../api/users";
 export interface AddMemberFormState {
 	firstName: string;
 	lastName: string;
+	gender: string;
 	email: string;
 	phone: string;
 	address: string;
@@ -32,6 +33,7 @@ export interface AddMemberFormState {
 export const EMPTY_ADD_MEMBER_FORM: AddMemberFormState = {
 	firstName: "",
 	lastName: "",
+	gender: "",
 	email: "",
 	phone: "",
 	address: "",
@@ -78,6 +80,13 @@ export function AddMemberFields({ value, onChange, campuses, departments, roles,
 				/>
 				<TextField label="Last name" value={value.lastName} onChange={(e) => set("lastName", e.target.value)} required fullWidth />
 			</Box>
+			<TextField select label="Gender" value={value.gender} onChange={(e) => set("gender", e.target.value)} required fullWidth>
+				{GENDER_OPTIONS.map((option) => (
+					<MenuItem key={option} value={option}>
+						{option}
+					</MenuItem>
+				))}
+			</TextField>
 			<Box sx={{ display: "flex", gap: 2 }}>
 				<TextField label="Email" type="email" value={value.email} onChange={(e) => set("email", e.target.value)} fullWidth />
 				<TextField label="Phone" value={value.phone} onChange={(e) => set("phone", e.target.value)} fullWidth />
@@ -180,6 +189,7 @@ export async function submitAddMember(form: AddMemberFormState): Promise<AddMemb
 	const person = await createPerson({
 		firstName: form.firstName,
 		lastName: form.lastName,
+		gender: form.gender,
 		email: form.email || null,
 		phone: form.phone || null,
 		address: form.address || null,

@@ -1,4 +1,7 @@
 package com.operion.student.api;
 
-public record VerifyDocumentRequest(String verificationStatus, Long verifiedBy) {
+import jakarta.validation.constraints.NotBlank;
+
+
+public record VerifyDocumentRequest(@NotBlank String verificationStatus, Long verifiedBy) {
 }

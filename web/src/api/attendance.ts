@@ -83,6 +83,10 @@ export function lockRegister(registerId: number): Promise<AttendanceRegisterResp
 	return api.post<AttendanceRegisterResponse>(`/api/v1/attendance/register/${registerId}/lock`);
 }
 
+export function unlockRegister(registerId: number): Promise<AttendanceRegisterResponse> {
+	return api.post<AttendanceRegisterResponse>(`/api/v1/attendance/register/${registerId}/unlock`);
+}
+
 export function correctAttendance(attendanceId: number, newStatus: string, reason: string): Promise<StudentAttendanceResponse> {
 	return api.patch<StudentAttendanceResponse>(`/api/v1/attendance/students/${attendanceId}`, { newStatus, reason });
 }
@@ -95,4 +99,36 @@ export function getMonthlySummary(enrollmentId: number, year: number, month: num
 	return api.get<MonthlyAttendanceSummaryResponse>(
 		`/api/v1/attendance/enrollments/${enrollmentId}/summary?year=${year}&month=${month}`,
 	);
+}
+
+export interface StaffAttendanceResponse {
+	id: number;
+	personId: number;
+	campusId: number;
+	attendanceDate: string;
+	attendanceStatus: string;
+	checkInTime: string | null;
+	checkOutTime: string | null;
+	remarks: string | null;
+}
+
+export interface CheckInStaffRequest {
+	personId: number;
+	campusId: number;
+	attendanceDate: string;
+	status: string;
+	checkInTime: string | null;
+	remarks: string | null;
+}
+
+export function listStaffAttendance(campusId: number, date: string): Promise<StaffAttendanceResponse[]> {
+	return api.get<StaffAttendanceResponse[]>(`/api/v1/attendance/staff?campusId=${campusId}&date=${date}`);
+}
+
+export function markStaffAttendance(request: CheckInStaffRequest): Promise<StaffAttendanceResponse> {
+	return api.post<StaffAttendanceResponse>("/api/v1/attendance/staff", request);
+}
+
+export function checkOutStaff(attendanceId: number, checkOutTime: string): Promise<StaffAttendanceResponse> {
+	return api.patch<StaffAttendanceResponse>(`/api/v1/attendance/staff/${attendanceId}/check-out`, { checkOutTime });
 }

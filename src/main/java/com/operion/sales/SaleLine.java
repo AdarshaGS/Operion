@@ -37,7 +37,7 @@ public class SaleLine extends TenantScopedEntity {
 
 	public SaleLine(Sale sale, Item item, int quantity, BigDecimal unitPrice) {
 		if (quantity <= 0) {
-			throw new IllegalArgumentException("Sale line quantity must be positive");
+			throw new com.operion.common.InvalidRequestException("Sale line quantity must be positive");
 		}
 		this.sale = sale;
 		this.item = item;

@@ -1,5 +1,8 @@
 package com.operion.hr.api;
 
+import com.operion.common.EnumParam;
+import com.operion.common.TenantContext;
+import com.operion.common.InvalidRequestException;
 import java.util.List;
 
 import com.operion.authorization.RequirePermission;
@@ -73,6 +76,13 @@ public class StaffProfileController {
 	@PostMapping
 	@RequirePermission("HR_STAFF_MANAGE")
 	public StaffProfileResponse create(@RequestBody CreateStaffProfileRequest request) {
+		EmploymentType employmentType = EnumParam.parse(EmploymentType.class, request.employmentType());
+		requireField(request.personId(), "personId");
+		requireField(request.designationId(), "designationId");
+		requireField(request.dateOfJoining(), "dateOfJoining");
+		if (request.employeeCode() == null || request.employeeCode().isBlank()) {
+			throw new InvalidRequestException("employeeCode is required");
+		}
 		Person person = personRepository.findById(request.personId())
 				.orElseThrow(() -> new IllegalArgumentException("No person with id " + request.personId()));
 		Campus campus = request.campusId() == null ? null : campusRepository.findById(request.campusId())
@@ -82,7 +92,7 @@ public class StaffProfileController {
 		Department department = request.departmentId() == null ? null : departmentRepository.findById(request.departmentId())
 				.orElseThrow(() -> new IllegalArgumentException("No department with id " + request.departmentId()));
 		StaffProfile staffProfile = hrService.createStaffProfile(person, campus, request.employeeCode(), designation,
-				department, request.dateOfJoining(), EmploymentType.valueOf(request.employmentType()));
+				department, request.dateOfJoining(), employmentType);
 		if (request.reportingManagerId() != null) {
 			staffProfile.setReportingManager(findStaffProfile(request.reportingManagerId()));
 			staffProfile = staffProfileRepository.save(staffProfile);
@@ -94,6 +104,8 @@ public class StaffProfileController {
 	@RequirePermission("HR_STAFF_MANAGE")
 	public StaffProfileResponse transfer(@PathVariable Long id, @RequestBody TransferStaffRequest request) {
 		StaffProfile staffProfile = findStaffProfile(id);
+		requireField(request.designationId(), "designationId");
+		requireField(request.effectiveDate(), "effectiveDate");
 		Campus campus = request.campusId() == null ? null : campusRepository.findById(request.campusId())
 				.orElseThrow(() -> new IllegalArgumentException("No campus with id " + request.campusId()));
 		Designation designation = designationRepository.findById(request.designationId())
@@ -114,7 +126,9 @@ public class StaffProfileController {
 	@RequirePermission("HR_STAFF_MANAGE")
 	public StaffExitResponse recordExit(@PathVariable Long id, @RequestBody RecordStaffExitRequest request) {
 		StaffProfile staffProfile = findStaffProfile(id);
-		return StaffExitResponse.from(hrService.recordExit(staffProfile, StaffExitType.valueOf(request.exitType()),
+		StaffExitType exitType = EnumParam.parse(StaffExitType.class, request.exitType());
+		requireField(request.exitDate(), "exitDate");
+		return StaffExitResponse.from(hrService.recordExit(staffProfile, exitType,
 				request.exitDate(), request.reason(), request.initiatedBy()));
 	}
 
@@ -157,13 +171,18 @@ public class StaffProfileController {
 	@PostMapping("/{id}/status")
 	@RequirePermission("HR_STAFF_MANAGE")
 	public StaffProfileResponse changeStatus(@PathVariable Long id, @RequestBody ChangeStaffStatusRequest request) {
-		return StaffProfileResponse.from(hrService.changeStaffStatus(findStaffProfile(id), StaffProfileStatus.valueOf(request.status())));
+		return StaffProfileResponse.from(hrService.changeStaffStatus(findStaffProfile(id), EnumParam.parse(StaffProfileStatus.class, request.status())));
 	}
 
 	@PostMapping("/{id}/documents")
 	@RequirePermission("HR_STAFF_MANAGE")
 	public StaffDocumentResponse addDocument(@PathVariable Long id, @RequestBody AddStaffDocumentRequest request) {
 		StaffProfile staffProfile = findStaffProfile(id);
+		for (String[] field : new String[][] {{"documentType", request.documentType()}, {"fileReference", request.fileReference()}, {"fileName", request.fileName()}}) {
+			if (field[1] == null || field[1].isBlank()) {
+				throw new InvalidRequestException(field[0] + " is required");
+			}
+		}
 		StaffDocument document = hrService.addDocument(
 				staffProfile, request.documentType(), request.fileReference(), request.fileName(), request.mimeType(), request.expiryDate());
 		return StaffDocumentResponse.from(document);
@@ -182,7 +201,7 @@ public class StaffProfileController {
 		StaffDocument document = staffDocumentRepository.findById(documentId)
 				.orElseThrow(() -> new IllegalArgumentException("No staff document with id " + documentId));
 		return StaffDocumentResponse.from(
-				hrService.verifyDocument(document, DocumentVerificationStatus.valueOf(request.verificationStatus()), request.verifiedBy()));
+				hrService.verifyDocument(document, EnumParam.parse(DocumentVerificationStatus.class, request.verificationStatus()), TenantContext.getActorId()));
 	}
 
 	/** Bulk staff import (validate-then-confirm) - reuses the same Person+StaffProfile write
@@ -200,6 +219,12 @@ public class StaffProfileController {
 	@GetMapping("/export")
 	public List<StaffExportResponse> export() {
 		return staffProfileRepository.findAll().stream().map(StaffExportResponse::from).toList();
+	}
+
+	private static void requireField(Object value, String field) {
+		if (value == null) {
+			throw new InvalidRequestException(field + " is required");
+		}
 	}
 
 	private StaffProfile findStaffProfile(Long id) {

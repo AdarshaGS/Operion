@@ -46,37 +46,45 @@ public class AuthenticationService {
 		// "too many attempts" response that would itself leak "this email exists".
 		AuthenticationFailedException failure = new AuthenticationFailedException("Invalid organisation, email or password");
 
-		if (loginAttemptService.isLocked(email)) {
+		Organisation organisation = organisationRepository.findBySlug(organisationSlug).orElseThrow(() -> {
+			log.warn("Login failed: org={} email={}", organisationSlug, email);
+			return failure;
+		});
+
+		if (loginAttemptService.isLocked(organisation.getId(), email)) {
 			log.warn("Login rejected (too many recent failures): org={} email={}", organisationSlug, email);
 			throw failure;
 		}
 
-		Organisation organisation = organisationRepository.findBySlug(organisationSlug).orElseThrow(() -> logFailure(failure, organisationSlug, email));
-		User user = userRepository.findByEmail(email).orElseThrow(() -> logFailure(failure, organisationSlug, email));
-
-		if (!passwordEncoder.matches(rawPassword, user.getPasswordHash())) {
-			throw logFailure(failure, organisationSlug, email);
+		// Users, memberships and refresh tokens are tenant-scoped (@TenantId) - identities
+		// are per school - so login has to resolve *which* tenant before it can look the
+		// user up at all. TenantContext stays set for the whole rest of this method, or
+		// these calls silently filter to "no tenant".
+		if (!organisation.isOpenForSignIn()) {
+			throw logFailure(failure, organisation, email);
 		}
-
-		if (user.getStatus() != UserStatus.ACTIVE) {
-			throw logFailure(failure, organisationSlug, email);
-		}
-
-		// OrganisationMembership (and RefreshToken, issued below) are tenant-scoped
-		// (@TenantId) - login is the one place that has to resolve *which* tenant before it
-		// can touch tenant-scoped data at all, so TenantContext must be set here first, for
-		// the whole rest of this method, or these calls silently filter to "no tenant".
-		TenantContext.set(organisation.getId(), user.getId());
+		TenantContext.set(organisation.getId(), null);
 		try {
+			User user = userRepository.findByEmail(email).orElseThrow(() -> logFailure(failure, organisation, email));
+
+			if (!passwordEncoder.matches(rawPassword, user.getPasswordHash())) {
+				throw logFailure(failure, organisation, email);
+			}
+
+			if (user.getStatus() != UserStatus.ACTIVE) {
+				throw logFailure(failure, organisation, email);
+			}
+
+			TenantContext.set(organisation.getId(), user.getId());
 			boolean hasActiveMembership = membershipRepository.findByUserId(user.getId()).stream()
 					.anyMatch(membership -> membership.getStatus() == MembershipStatus.ACTIVE);
 			if (!hasActiveMembership) {
-				throw logFailure(failure, organisationSlug, email);
+				throw logFailure(failure, organisation, email);
 			}
 
 			JwtService.IssuedToken issued = jwtService.issue(user.getId(), organisation.getId());
 			RefreshTokenService.IssuedRefreshToken refresh = refreshTokenService.issue(user.getId());
-			loginAttemptService.recordSuccess(email);
+			loginAttemptService.recordSuccess(organisation.getId(), email);
 			log.info("Login succeeded: org={} userId={}", organisationSlug, user.getId());
 			return new LoginResult(issued.token(), issued.expiresAt(), refresh.rawToken(), refresh.expiresAt(), user.getId(),
 					organisation.getId());
@@ -118,10 +126,24 @@ public class AuthenticationService {
 		AuthenticationFailedException invalid = new AuthenticationFailedException("Invalid or expired refresh token");
 
 		Organisation organisation = organisationRepository.findBySlug(organisationSlug).orElseThrow(() -> invalid);
+		if (!organisation.isOpenForSignIn()) {
+			throw invalid;
+		}
 		TenantContext.set(organisation.getId(), null);
 		try {
 			Long userId = refreshTokenService.consumeAndRevoke(rawRefreshToken).orElseThrow(() -> invalid);
 			User user = userRepository.findById(userId).orElseThrow(() -> invalid);
+			// Same account-state gate as login(): a disabled user or revoked membership must not
+			// keep a session alive just because a refresh token was issued before the change.
+			if (user.getStatus() != UserStatus.ACTIVE) {
+				throw invalid;
+			}
+			TenantContext.set(organisation.getId(), user.getId());
+			boolean hasActiveMembership = membershipRepository.findByUserId(user.getId()).stream()
+					.anyMatch(membership -> membership.getStatus() == MembershipStatus.ACTIVE);
+			if (!hasActiveMembership) {
+				throw invalid;
+			}
 
 			JwtService.IssuedToken issued = jwtService.issue(user.getId(), organisation.getId());
 			RefreshTokenService.IssuedRefreshToken refresh = refreshTokenService.issue(user.getId());
@@ -137,9 +159,9 @@ public class AuthenticationService {
 	 * above), but internal logs can - and should - be more specific, so a real security
 	 * review can tell a brute-force attempt on one org apart from a mistyped email. Logs
 	 * the org slug and email, never the password. */
-	private AuthenticationFailedException logFailure(AuthenticationFailedException failure, String organisationSlug, String email) {
-		log.warn("Login failed: org={} email={}", organisationSlug, email);
-		loginAttemptService.recordFailure(email);
+	private AuthenticationFailedException logFailure(AuthenticationFailedException failure, Organisation organisation, String email) {
+		log.warn("Login failed: org={} email={}", organisation.getSlug(), email);
+		loginAttemptService.recordFailure(organisation.getId(), email);
 		return failure;
 	}
 }

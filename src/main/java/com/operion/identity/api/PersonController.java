@@ -2,6 +2,9 @@ package com.operion.identity.api;
 
 import java.util.List;
 
+import com.operion.authorization.RequirePermission;
+import com.operion.common.InvalidRequestException;
+import com.operion.identity.Genders;
 import com.operion.identity.Person;
 import com.operion.identity.PersonRepository;
 import jakarta.validation.Valid;
@@ -28,11 +31,13 @@ public class PersonController {
 		this.personRepository = personRepository;
 	}
 
+	/** Persons are created from several modules (students, guardians, staff, members), so any of those manage permissions suffices. */
 	@PostMapping
+	@RequirePermission(anyOf = { "STUDENT_MANAGE", "GUARDIAN_MANAGE", "HR_STAFF_MANAGE", "MEMBERSHIP_MANAGE" })
 	public PersonResponse create(@Valid @RequestBody CreatePersonRequest request) {
 		Person person = new Person(request.firstName(), request.lastName());
 		person.setDateOfBirth(request.dateOfBirth());
-		person.setGender(request.gender());
+		person.setGender(Genders.validate(request.gender()));
 		person.setPhone(request.phone());
 		person.setEmail(request.email());
 		person.setPhotoUrl(request.photoUrl());
@@ -62,14 +67,39 @@ public class PersonController {
 	@PatchMapping("/{id}")
 	public PersonResponse update(@PathVariable Long id, @Valid @RequestBody UpdatePersonRequest request) {
 		Person person = findOrThrow(id);
-		person.setFirstName(request.firstName());
-		person.setLastName(request.lastName());
-		person.setDateOfBirth(request.dateOfBirth());
-		person.setGender(request.gender());
-		person.setPhone(request.phone());
-		person.setEmail(request.email());
-		person.setAddress(request.address());
+		if (request.firstName() != null) {
+			person.setFirstName(requireNonBlank(request.firstName(), "firstName"));
+		}
+		if (request.lastName() != null) {
+			person.setLastName(requireNonBlank(request.lastName(), "lastName"));
+		}
+		if (request.dateOfBirth() != null) {
+			person.setDateOfBirth(request.dateOfBirth());
+		}
+		if (request.gender() != null) {
+			person.setGender(blankToNull(Genders.validate(request.gender())));
+		}
+		if (request.phone() != null) {
+			person.setPhone(blankToNull(request.phone()));
+		}
+		if (request.email() != null) {
+			person.setEmail(blankToNull(request.email()));
+		}
+		if (request.address() != null) {
+			person.setAddress(blankToNull(request.address()));
+		}
 		return PersonResponse.from(personRepository.save(person));
+	}
+
+	private static String requireNonBlank(String value, String field) {
+		if (value.isBlank()) {
+			throw new InvalidRequestException(field + " must not be blank");
+		}
+		return value;
+	}
+
+	private static String blankToNull(String value) {
+		return value == null || value.isBlank() ? null : value;
 	}
 
 	private Person findOrThrow(Long id) {

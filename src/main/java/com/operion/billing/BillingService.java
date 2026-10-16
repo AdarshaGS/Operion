@@ -17,6 +17,7 @@ import com.operion.organisation.OrganisationRepository;
 import com.operion.student.StudentRepository;
 import com.operion.student.StudentStatus;
 import org.springframework.stereotype.Service;
+import com.operion.common.persistence.PlatformTransactional;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
@@ -50,14 +51,14 @@ public class BillingService {
 
 	/** Plan is a global catalog entity, not org-scoped - unlike the subscription/invoice
 	 * audit calls below, this never needs to borrow TenantContext to stamp an organisation_id. */
-	@Transactional
+	@PlatformTransactional
 	public Plan createPlan(String code, String name, BigDecimal pricePerStudentPerYear) {
 		Plan plan = planRepository.save(new Plan(code, name, pricePerStudentPerYear));
 		auditLogService.record("Plan", plan.getId(), "CREATE", null, plan.getStatus());
 		return plan;
 	}
 
-	@Transactional
+	@PlatformTransactional
 	public Plan changePlanStatus(Long planId, PlanStatus target) {
 		Plan plan = planRepository.findById(planId).orElseThrow(() -> new IllegalArgumentException("No plan with id " + planId));
 		PlanStatus previous = plan.getStatus();
@@ -73,7 +74,7 @@ public class BillingService {
 	 * ACTIVE subscription per org is enforced here, same "one active row" convention as
 	 * StudentEnrollment.is_current / the transport module's one-ACTIVE-assignment rule.
 	 */
-	@Transactional
+	@PlatformTransactional
 	public Subscription subscribe(Long organisationId, Long planId, LocalDate startDate) {
 		Organisation organisation = organisationRepository.findById(organisationId)
 				.orElseThrow(() -> new IllegalArgumentException("No organisation with id " + organisationId));
@@ -154,7 +155,7 @@ public class BillingService {
 		return invoice;
 	}
 
-	@Transactional
+	@PlatformTransactional
 	public PlatformInvoice markPaid(Long invoiceId) {
 		PlatformInvoice invoice = platformInvoiceRepository.findById(invoiceId)
 				.orElseThrow(() -> new IllegalArgumentException("No platform invoice with id " + invoiceId));

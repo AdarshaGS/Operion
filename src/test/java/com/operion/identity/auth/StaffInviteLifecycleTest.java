@@ -97,6 +97,7 @@ class StaffInviteLifecycleTest {
 		LoginResult result = staffInviteService().claim(organisation.getSlug(), issued.rawToken(), "MyOwnPass123!");
 
 		assertThat(result.organisationId()).isEqualTo(organisation.getId());
+		TenantContext.set(organisation.getId(), null);
 		User user = userRepository.findByEmail("claimant@staff-invite.test").orElseThrow();
 		assertThat(user.getStatus()).isEqualTo(UserStatus.ACTIVE);
 		assertThat(ENCODER.matches("MyOwnPass123!", user.getPasswordHash())).isTrue();

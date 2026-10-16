@@ -5,7 +5,7 @@ import java.util.List;
 import com.operion.organisation.Organisation;
 import com.operion.organisation.OrganisationRepository;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import com.operion.common.persistence.PlatformTransactional;
 
 @Service
 public class SupportTicketService {
@@ -18,7 +18,7 @@ public class SupportTicketService {
 		this.organisationRepository = organisationRepository;
 	}
 
-	@Transactional
+	@PlatformTransactional
 	public SupportTicket create(Long organisationId, String subject, String description, SupportTicketPriority priority,
 			String requesterEmail) {
 		Organisation organisation = organisationRepository.findById(organisationId)
@@ -34,14 +34,14 @@ public class SupportTicketService {
 		return supportTicketRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("No support ticket with id " + id));
 	}
 
-	@Transactional
+	@PlatformTransactional
 	public SupportTicket changeStatus(Long id, SupportTicketStatus target) {
 		SupportTicket ticket = get(id);
 		ticket.changeStatus(target);
 		return supportTicketRepository.save(ticket);
 	}
 
-	@Transactional
+	@PlatformTransactional
 	public SupportTicket assign(Long id, String assigneeEmail) {
 		SupportTicket ticket = get(id);
 		ticket.assign(assigneeEmail);

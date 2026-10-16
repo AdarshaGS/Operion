@@ -1,4 +1,6 @@
 package com.operion.examination.api;
 
-public record PublishReportCardRequest(Long studentEnrollmentId, Long gradingScaleId) {
+import jakarta.validation.constraints.NotNull;
+
+public record PublishReportCardRequest(@NotNull Long studentEnrollmentId, @NotNull Long gradingScaleId) {
 }

@@ -1,5 +1,7 @@
 package com.operion.inventory.api;
 
+import com.operion.common.EnumParam;
+import com.operion.common.InvalidRequestException;
 import java.util.List;
 
 import com.operion.authorization.RequirePermission;
@@ -26,6 +28,12 @@ import org.springframework.web.bind.annotation.RestController;
 @RequirePermission("INVENTORY_VIEW")
 public class AssetController {
 
+	private static void requireField(Object value, String field) {
+		if (value == null) {
+			throw new InvalidRequestException(field + " is required");
+		}
+	}
+
 	private final InventoryService inventoryService;
 	private final AssetRepository assetRepository;
 	private final ItemRepository itemRepository;
@@ -44,6 +52,8 @@ public class AssetController {
 	@PostMapping
 	@RequirePermission("INVENTORY_ASSET_MANAGE")
 	public AssetResponse create(@RequestBody CreateAssetRequest request) {
+		requireField(request.itemId(), "itemId");
+		requireField(request.campusId(), "campusId");
 		Item item = findItem(request.itemId());
 		Campus campus = findCampus(request.campusId());
 		Asset asset = inventoryService.createAsset(item, campus, request.assetTag(), request.purchaseDate(), request.warrantyExpiryDate());
@@ -59,7 +69,7 @@ public class AssetController {
 	@RequirePermission("INVENTORY_ASSET_MANAGE")
 	public AssetResponse changeStatus(@PathVariable Long id, @RequestBody ChangeAssetStatusRequest request) {
 		Asset asset = findOrThrow(id);
-		return AssetResponse.from(inventoryService.changeAssetStatus(asset, AssetStatus.valueOf(request.status())));
+		return AssetResponse.from(inventoryService.changeAssetStatus(asset, EnumParam.parse(AssetStatus.class, request.status())));
 	}
 
 	@PostMapping("/{id}/assign")

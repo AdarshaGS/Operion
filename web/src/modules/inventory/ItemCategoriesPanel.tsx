@@ -18,12 +18,16 @@ import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import AddIcon from "@mui/icons-material/Add";
+import { Can } from "../../auth/Can";
+import { DialogErrorAlert } from "../../components/DialogErrorAlert";
 import { ApiError } from "../../api/client";
 import { createItemCategory, listItemCategories, type ItemCategoryResponse } from "../../api/itemCategories";
 
 export function ItemCategoriesPanel() {
 	const [categories, setCategories] = useState<ItemCategoryResponse[]>([]);
 	const [error, setError] = useState<string | null>(null);
+	// Shown inside the dialog: the page-level alert sits behind its backdrop.
+	const [dialogError, setDialogError] = useState<string | null>(null);
 	const [dialogOpen, setDialogOpen] = useState(false);
 	const [code, setCode] = useState("");
 	const [name, setName] = useState("");
@@ -41,6 +45,7 @@ export function ItemCategoriesPanel() {
 	async function handleSubmit(event: FormEvent) {
 		event.preventDefault();
 		setSubmitting(true);
+		setDialogError(null);
 		try {
 			await createItemCategory({ code, name, description: description || null });
 			setCode("");
@@ -49,7 +54,7 @@ export function ItemCategoriesPanel() {
 			setDialogOpen(false);
 			refresh();
 		} catch (err) {
-			setError(err instanceof ApiError ? err.message : "Failed to create item category");
+			setDialogError(err instanceof ApiError ? err.message : "Failed to create item category");
 		} finally {
 			setSubmitting(false);
 		}
@@ -60,9 +65,11 @@ export function ItemCategoriesPanel() {
 			<Stack spacing={2}>
 				<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
 					<Typography variant="h6">Item categories</Typography>
-					<Button size="small" startIcon={<AddIcon />} onClick={() => setDialogOpen(true)}>
-						Add category
-					</Button>
+					<Can anyOf={["INVENTORY_CATALOG_MANAGE"]}>
+						<Button size="small" startIcon={<AddIcon />} onClick={() => { setDialogError(null); setDialogOpen(true); }}>
+							Add category
+						</Button>
+					</Can>
 				</Box>
 
 				{error && <Alert severity="error">{error}</Alert>}
@@ -97,6 +104,7 @@ export function ItemCategoriesPanel() {
 				<DialogTitle>Add item category</DialogTitle>
 				<DialogContent>
 					<Stack spacing={2} sx={{ mt: 1 }}>
+						{dialogError && <DialogErrorAlert>{dialogError}</DialogErrorAlert>}
 						<TextField label="Code" placeholder="STATIONERY" value={code} onChange={(e) => setCode(e.target.value)} required autoFocus fullWidth />
 						<TextField label="Name" placeholder="Stationery" value={name} onChange={(e) => setName(e.target.value)} required fullWidth />
 						<TextField label="Description" value={description} onChange={(e) => setDescription(e.target.value)} fullWidth />

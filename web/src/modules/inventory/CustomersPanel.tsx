@@ -20,6 +20,8 @@ import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import AddIcon from "@mui/icons-material/Add";
+import { Can } from "../../auth/Can";
+import { DialogErrorAlert } from "../../components/DialogErrorAlert";
 import { ApiError } from "../../api/client";
 import { changeCustomerStatus, createCustomer, listCustomers, type CustomerResponse } from "../../api/customers";
 import { listPersons, type PersonResponse } from "../../api/persons";
@@ -36,6 +38,8 @@ export function CustomersPanel() {
 	const [students, setStudents] = useState<StudentResponse[]>([]);
 	const [persons, setPersons] = useState<PersonResponse[]>([]);
 	const [error, setError] = useState<string | null>(null);
+	// Shown inside the dialog: the page-level alert sits behind its backdrop.
+	const [dialogError, setDialogError] = useState<string | null>(null);
 	const [dialogOpen, setDialogOpen] = useState(false);
 	const [studentId, setStudentId] = useState("");
 	const [name, setName] = useState("");
@@ -80,6 +84,7 @@ export function CustomersPanel() {
 	async function handleSubmit(event: FormEvent) {
 		event.preventDefault();
 		setSubmitting(true);
+		setDialogError(null);
 		try {
 			await createCustomer({ studentId: studentId ? Number(studentId) : null, name, phone: phone || null });
 			setStudentId("");
@@ -88,7 +93,7 @@ export function CustomersPanel() {
 			setDialogOpen(false);
 			refresh();
 		} catch (err) {
-			setError(err instanceof ApiError ? err.message : "Failed to create customer");
+			setDialogError(err instanceof ApiError ? err.message : "Failed to create customer");
 		} finally {
 			setSubmitting(false);
 		}
@@ -99,9 +104,11 @@ export function CustomersPanel() {
 			<Stack spacing={2}>
 				<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
 					<Typography variant="h6">Customers</Typography>
-					<Button size="small" startIcon={<AddIcon />} onClick={() => setDialogOpen(true)}>
-						Add customer
-					</Button>
+					<Can anyOf={["INVENTORY_CUSTOMER_MANAGE"]}>
+						<Button size="small" startIcon={<AddIcon />} onClick={() => { setDialogError(null); setDialogOpen(true); }}>
+							Add customer
+						</Button>
+					</Can>
 				</Box>
 
 				{error && <Alert severity="error">{error}</Alert>}
@@ -147,6 +154,7 @@ export function CustomersPanel() {
 				<DialogTitle>Add customer</DialogTitle>
 				<DialogContent>
 					<Stack spacing={2} sx={{ mt: 1 }}>
+						{dialogError && <DialogErrorAlert>{dialogError}</DialogErrorAlert>}
 						<TextField
 							select
 							label="Link to student (optional — walk-in if left blank)"

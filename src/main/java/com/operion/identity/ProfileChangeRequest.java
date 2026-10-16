@@ -2,6 +2,7 @@ package com.operion.identity;
 
 import java.time.Instant;
 
+import com.operion.common.InvalidRequestException;
 import com.operion.common.TenantScopedEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -56,7 +57,7 @@ public class ProfileChangeRequest extends TenantScopedEntity {
 
 	public ProfileChangeRequest(Person person, String phone, String email, String photoUrl, Long requestedBy) {
 		if (phone == null && email == null && photoUrl == null) {
-			throw new IllegalArgumentException("A profile change request must change at least one of phone, email, or photoUrl");
+			throw new InvalidRequestException("A profile change request must change at least one of phone, email, or photoUrl");
 		}
 		this.person = person;
 		this.phone = phone;

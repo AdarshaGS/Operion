@@ -22,6 +22,7 @@ function validateInquiry(form: FormState, today: string): Partial<Record<keyof F
 	if (!form.lastName.trim()) errors.lastName = "Required";
 	if (!form.dateOfBirth) errors.dateOfBirth = "Required";
 	else if (form.dateOfBirth >= today) errors.dateOfBirth = "Must be in the past";
+	if (!form.gender) errors.gender = "Required";
 	if (!form.guardianName.trim()) errors.guardianName = "Required";
 	if (!form.guardianPhone.trim()) errors.guardianPhone = "Required";
 	else if (form.guardianPhone.replace(/\D/g, "").length < 7) errors.guardianPhone = "Enter a valid phone number";
@@ -65,7 +66,7 @@ export function PublicAdmissionPage() {
 				firstName: form.firstName.trim(),
 				lastName: form.lastName.trim(),
 				dateOfBirth: form.dateOfBirth,
-				gender: form.gender || null,
+				gender: form.gender,
 				desiredGradeId: form.desiredGradeId ? Number(form.desiredGradeId) : null,
 				guardianName: form.guardianName.trim(),
 				guardianPhone: form.guardianPhone.trim(),
@@ -134,8 +135,7 @@ export function PublicAdmissionPage() {
 									fullWidth
 									slotProps={{ inputLabel: { shrink: true } }}
 								/>
-								<TextField select label="Gender" value={form.gender} onChange={field("gender")} fullWidth>
-									<MenuItem value="">Prefer not to say</MenuItem>
+								<TextField select label="Gender" value={form.gender} onChange={field("gender")} error={Boolean(errors.gender)} helperText={errors.gender} required fullWidth>
 									<MenuItem value="Male">Male</MenuItem>
 									<MenuItem value="Female">Female</MenuItem>
 									<MenuItem value="Other">Other</MenuItem>

@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import java.time.LocalDate;
 
 import com.operion.authorization.AuthorizationDeniedException;
+import com.operion.common.InvalidRequestException;
 import com.operion.common.JpaConfig;
 import com.operion.common.MultiTenancyConfig;
 import org.junit.jupiter.api.Test;
@@ -52,7 +53,7 @@ class LessonPlanServiceTest extends LearningTestBase {
 
 		assertThatThrownBy(() -> planService.approve(ashaTeachesMathsInA, plan.getId(), null))
 				.isInstanceOf(AuthorizationDeniedException.class);
-		assertThatThrownBy(() -> planService.reject(reviewer, plan.getId(), " ")).isInstanceOf(IllegalArgumentException.class);
+		assertThatThrownBy(() -> planService.reject(reviewer, plan.getId(), " ")).isInstanceOf(InvalidRequestException.class);
 
 		planService.reject(reviewer, plan.getId(), "Add objectives");
 		assertThat(planRepository.findById(plan.getId()).orElseThrow().getStatus()).isEqualTo(LessonPlanStatus.REJECTED);

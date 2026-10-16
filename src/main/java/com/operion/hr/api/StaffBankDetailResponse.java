@@ -8,6 +8,14 @@ public record StaffBankDetailResponse(
 
 	public static StaffBankDetailResponse from(StaffBankDetail detail) {
 		return new StaffBankDetailResponse(detail.getId(), detail.getStaffProfile().getId(), detail.getBankAccountHolderName(),
-				detail.getBankAccountNumber(), detail.getBankName(), detail.getBankBranchCode(), detail.getTaxIdentifier());
+				mask(detail.getBankAccountNumber()), detail.getBankName(), detail.getBankBranchCode(), detail.getTaxIdentifier());
+	}
+
+	/** Only the last four digits ever leave the server; the full number stays in the database for payroll. */
+	static String mask(String accountNumber) {
+		if (accountNumber == null || accountNumber.length() <= 4) {
+			return accountNumber;
+		}
+		return "*".repeat(accountNumber.length() - 4) + accountNumber.substring(accountNumber.length() - 4);
 	}
 }

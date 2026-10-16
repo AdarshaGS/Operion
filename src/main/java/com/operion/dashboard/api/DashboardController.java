@@ -3,8 +3,14 @@ package com.operion.dashboard.api;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.time.ZoneOffset;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeMap;
 
 import com.operion.academic.SchoolClassRepository;
 import com.operion.attendance.AttendanceStatus;
@@ -15,13 +21,14 @@ import com.operion.authorization.RequirePermission;
 import com.operion.authorization.RoleRepository;
 import com.operion.communication.AnnouncementRepository;
 import com.operion.communication.AnnouncementStatus;
-import com.operion.dashboard.DashboardPreference;
 import com.operion.dashboard.DashboardPreferenceRepository;
 import com.operion.examination.ExamRepository;
 import com.operion.examination.ExamStatus;
 import com.operion.finance.FeeStructureRepository;
 import com.operion.finance.InvoiceRepository;
 import com.operion.finance.InvoiceStatus;
+import com.operion.finance.PaymentRepository;
+import com.operion.finance.PaymentStatus;
 import com.operion.hr.StaffProfileRepository;
 import com.operion.hr.StaffProfileStatus;
 import com.operion.inventory.InventoryService;
@@ -33,9 +40,9 @@ import com.operion.library.BookStatus;
 import com.operion.library.BorrowRecordRepository;
 import com.operion.library.BorrowStatus;
 import com.operion.common.TenantContext;
+import org.springframework.dao.DataAccessException;
 import com.operion.organisation.AcademicYearRepository;
 import com.operion.organisation.CampusRepository;
-import com.operion.organisation.CampusStatus;
 import com.operion.organisation.DepartmentRepository;
 import com.operion.organisation.DesignationRepository;
 import com.operion.organisation.OrganisationConfiguration;
@@ -43,6 +50,7 @@ import com.operion.organisation.OrganisationConfigurationRepository;
 import com.operion.purchase.PurchaseOrderRepository;
 import com.operion.purchase.PurchaseOrderStatus;
 import com.operion.sales.SaleRepository;
+import com.operion.student.StudentEnrollmentRepository;
 import com.operion.student.StudentRepository;
 import com.operion.student.StudentStatus;
 import com.operion.transport.RouteRepository;
@@ -73,6 +81,8 @@ public class DashboardController {
 	// the old Teacher/Accountant/Front Desk/Guardian defaults), so "Roles" reads done as
 	// soon as one role beyond Owner exists.
 	private static final int DEFAULT_ROLE_COUNT = 1;
+	private static final int TREND_DAYS = 30;
+	private static final int FEE_CHART_MONTHS = 6;
 
 	private final StudentRepository studentRepository;
 	private final CampusRepository campusRepository;
@@ -100,6 +110,8 @@ public class DashboardController {
 	private final FeeStructureRepository feeStructureRepository;
 	private final OrganisationConfigurationRepository organisationConfigurationRepository;
 	private final DashboardPreferenceRepository dashboardPreferenceRepository;
+	private final PaymentRepository paymentRepository;
+	private final StudentEnrollmentRepository studentEnrollmentRepository;
 
 	public DashboardController(StudentRepository studentRepository, CampusRepository campusRepository,
 			StudentAttendanceRepository studentAttendanceRepository, InvoiceRepository invoiceRepository,
@@ -112,7 +124,8 @@ public class DashboardController {
 			PurchaseOrderRepository purchaseOrderRepository, InventoryService inventoryService,
 			SchoolClassRepository schoolClassRepository, AcademicYearRepository academicYearRepository,
 			FeeStructureRepository feeStructureRepository, OrganisationConfigurationRepository organisationConfigurationRepository,
-			DashboardPreferenceRepository dashboardPreferenceRepository) {
+			DashboardPreferenceRepository dashboardPreferenceRepository, PaymentRepository paymentRepository,
+			StudentEnrollmentRepository studentEnrollmentRepository) {
 		this.studentRepository = studentRepository;
 		this.campusRepository = campusRepository;
 		this.studentAttendanceRepository = studentAttendanceRepository;
@@ -139,6 +152,8 @@ public class DashboardController {
 		this.feeStructureRepository = feeStructureRepository;
 		this.organisationConfigurationRepository = organisationConfigurationRepository;
 		this.dashboardPreferenceRepository = dashboardPreferenceRepository;
+		this.paymentRepository = paymentRepository;
+		this.studentEnrollmentRepository = studentEnrollmentRepository;
 	}
 
 	@GetMapping("/summary")
@@ -148,38 +163,70 @@ public class DashboardController {
 		long designations = designationRepository.count();
 		long activeMembers = membershipRepository.countByStatus(MembershipStatus.ACTIVE);
 		long totalRoles = roleRepository.count();
+		Access access = access();
 
+		// Each module section is returned only to a caller who may view that module, the same rule
+		// the page applies - ORGANISATION_MANAGE opens the dashboard, not every module's figures.
 		return new DashboardSummaryResponse(
 				new EnrollmentSummary(activeStudents, campusRepository.count()),
-				attendanceToday(),
-				fees(),
-				new StaffSummary(staffProfileRepository.countByStatus(StaffProfileStatus.ACTIVE), departments, designations),
-				new ExaminationSummary(examRepository.countByStatus(ExamStatus.ACTIVE)),
-				library(),
-				transport(),
-				new InventorySummary(itemRepository.countByStatus(ItemStatus.ACTIVE), itemCategoryRepository.count(), lowStockItemCount()),
-				new CommunicationSummary(announcementRepository.countByStatusAndPublishedAtAfter(
-						AnnouncementStatus.PUBLISHED, startOfThisMonth())),
-				sales(),
-				purchase(),
+				access.any("ATTENDANCE_VIEW", "STAFF_ATTENDANCE_VIEW") ? attendanceToday() : null,
+				access.any("FEE_VIEW") ? fees() : null,
+				access.any("HR_VIEW")
+						? new StaffSummary(staffProfileRepository.countByStatus(StaffProfileStatus.ACTIVE), departments, designations)
+						: null,
+				access.any("EXAM_VIEW") ? new ExaminationSummary(examRepository.countByStatus(ExamStatus.ACTIVE)) : null,
+				access.any("LIBRARY_VIEW") ? library() : null,
+				access.any("TRANSPORT_VIEW") ? transport() : null,
+				access.any("INVENTORY_VIEW")
+						? new InventorySummary(itemRepository.countByStatus(ItemStatus.ACTIVE), itemCategoryRepository.count(),
+								lowStockItemCount())
+						: null,
+				access.any("COMMUNICATION_VIEW")
+						? new CommunicationSummary(announcementRepository.countByStatusAndPublishedAtAfter(
+								AnnouncementStatus.PUBLISHED, startOfThisMonth()))
+						: null,
+				access.any("SALES_VIEW") ? sales() : null,
+				access.any("PURCHASE_VIEW") ? purchase() : null,
 				new SetupChecklist(structureConfigured(), totalRoles > DEFAULT_ROLE_COUNT, activeMembers > 1,
 						academicYearRepository.existsByCurrentTrue() && schoolClassRepository.count() > 0, activeStudents > 0,
 						feeStructureRepository.count() > 0, studentAttendanceRepository.count() > 0),
 				preferences());
 	}
 
+	@GetMapping("/charts")
+	public DashboardChartsResponse charts() {
+		Access access = access();
+		return new DashboardChartsResponse(access.any("ATTENDANCE_VIEW") ? attendanceTrend() : List.of(),
+				access.any("FEE_VIEW") ? feeCollections() : List.of(), access.any("STUDENT_VIEW") ? studentsByClass() : List.of());
+	}
+
+	/** What the caller may see, resolved the same way PermissionInterceptor does: the Owner and
+	 * ALL_FUNCTIONS see everything, anyone else needs one of the module's view permissions. */
+	private Access access() {
+		Long actorId = TenantContext.getActorId();
+		if (membershipRepository.existsByUserIdAndStatusAndOwner(actorId, MembershipStatus.ACTIVE, true)) {
+			return new Access(true, Set.of());
+		}
+		Set<String> codes = membershipRepository.findActivePermissionCodesForUser(actorId);
+		return new Access(codes.contains("ALL_FUNCTIONS"), codes);
+	}
+
+	private record Access(boolean everything, Set<String> codes) {
+		boolean any(String... anyOf) {
+			return everything || java.util.Arrays.stream(anyOf).anyMatch(codes::contains);
+		}
+	}
+
 	@PostMapping("/setup-progress/dismiss")
 	public void dismissSetupProgress() {
-		DashboardPreference preference = currentPreference();
-		preference.dismissSetupProgress();
-		dashboardPreferenceRepository.save(preference);
+		ensurePreferenceRow();
+		dashboardPreferenceRepository.markSetupProgressDismissed(TenantContext.getActorId());
 	}
 
 	@PostMapping("/quick-actions/dismiss")
 	public void dismissQuickActions() {
-		DashboardPreference preference = currentPreference();
-		preference.dismissQuickActions();
-		dashboardPreferenceRepository.save(preference);
+		ensurePreferenceRow();
+		dashboardPreferenceRepository.markQuickActionsDismissed(TenantContext.getActorId());
 	}
 
 	private DashboardPreferences preferences() {
@@ -188,24 +235,89 @@ public class DashboardController {
 				.orElse(new DashboardPreferences(false, false));
 	}
 
-	private DashboardPreference currentPreference() {
-		return dashboardPreferenceRepository.findByUserId(TenantContext.getActorId())
-				.orElseGet(() -> new DashboardPreference(TenantContext.getActorId()));
+	private void ensurePreferenceRow() {
+		try {
+			dashboardPreferenceRepository.createIfMissing(TenantContext.getActorId());
+		} catch (DataAccessException concurrentInsert) {
+			// Another first dismissal by the same user created the row - it is there either way.
+		}
 	}
 
-	// Departments/designations are optional and deliberately not part of this signal
-	// (GitHub #141/Structure Setup workflow) - only the organisation profile, business
-	// settings, and at least one active campus are required for Structure to read complete.
+	// Mirrors the Structure Setup wizard's required steps: organisation profile contact,
+	// business settings, and a current academic year. Campuses (one is auto-created at
+	// provisioning), fees, departments and designations are optional and configured in
+	// their own modules, so they deliberately don't gate this signal.
 	private boolean structureConfigured() {
 		OrganisationConfiguration configuration = organisationConfigurationRepository.findById(TenantContext.getOrganisationId())
 				.orElse(null);
 		if (configuration == null) {
 			return false;
 		}
-		boolean organisationProfileConfigured = configuration.getPrimaryContactName() != null && configuration.getPrimaryContactEmail() != null;
-		boolean businessSettingsConfigured = configuration.getTimezone() != null;
-		boolean hasActiveCampus = campusRepository.countByStatus(CampusStatus.ACTIVE) > 0;
-		return organisationProfileConfigured && businessSettingsConfigured && hasActiveCampus;
+		return isStructureConfigured(configuration.getPrimaryContactName(), configuration.getPrimaryContactEmail(),
+				configuration.getTimezone(), academicYearRepository.existsByCurrentTrue());
+	}
+
+	static boolean isStructureConfigured(String primaryContactName, String primaryContactEmail, String timezone,
+			boolean hasCurrentAcademicYear) {
+		return !isBlank(primaryContactName) && !isBlank(primaryContactEmail) && !isBlank(timezone) && hasCurrentAcademicYear;
+	}
+
+	private static boolean isBlank(String value) {
+		return value == null || value.isBlank();
+	}
+
+	private List<DashboardChartsResponse.AttendanceTrendPoint> attendanceTrend() {
+		LocalDate today = LocalDate.now();
+		// date -> [marked, present]; days with no marks simply don't appear (weekends, holidays)
+		Map<LocalDate, long[]> byDate = new TreeMap<>();
+		for (Object[] row : studentAttendanceRepository.countByDateAndStatusBetween(today.minusDays(TREND_DAYS - 1), today)) {
+			long[] counts = byDate.computeIfAbsent((LocalDate) row[0], date -> new long[2]);
+			long count = (Long) row[2];
+			counts[0] += count;
+			if (row[1] == AttendanceStatus.PRESENT) {
+				counts[1] += count;
+			}
+		}
+		return byDate.entrySet().stream().map(entry -> {
+			long marked = entry.getValue()[0];
+			long present = entry.getValue()[1];
+			return new DashboardChartsResponse.AttendanceTrendPoint(entry.getKey(), marked, present,
+					marked == 0 ? 0 : (int) (present * 100 / marked));
+		}).toList();
+	}
+
+	private List<DashboardChartsResponse.FeeCollectionPoint> feeCollections() {
+		YearMonth thisMonth = YearMonth.now();
+		YearMonth first = thisMonth.minusMonths(FEE_CHART_MONTHS - 1);
+		LocalDate fromDate = first.atDay(1);
+		LocalDate toDate = thisMonth.atEndOfMonth();
+		Map<YearMonth, BigDecimal> collected = sumByMonth(
+				paymentRepository.sumAmountByPaymentDateBetween(PaymentStatus.CLEARED, fromDate, toDate));
+		Map<YearMonth, BigDecimal> invoiced = sumByMonth(invoiceRepository.sumTotalAmountByDueDateBetween(fromDate, toDate));
+		List<DashboardChartsResponse.FeeCollectionPoint> points = new java.util.ArrayList<>();
+		// every month in the window is emitted, zero-filled, so the x-axis has no gaps
+		for (YearMonth month = first; !month.isAfter(thisMonth); month = month.plusMonths(1)) {
+			points.add(new DashboardChartsResponse.FeeCollectionPoint(month.toString(),
+					collected.getOrDefault(month, BigDecimal.ZERO), invoiced.getOrDefault(month, BigDecimal.ZERO)));
+		}
+		return points;
+	}
+
+	private static Map<YearMonth, BigDecimal> sumByMonth(List<Object[]> rowsOfDateAndAmount) {
+		Map<YearMonth, BigDecimal> totals = new HashMap<>();
+		for (Object[] row : rowsOfDateAndAmount) {
+			totals.merge(YearMonth.from((LocalDate) row[0]), (BigDecimal) row[1], BigDecimal::add);
+		}
+		return totals;
+	}
+
+	private List<DashboardChartsResponse.ClassEnrollmentPoint> studentsByClass() {
+		// LinkedHashMap keeps the grade-sequence order from the query; merging handles two classes sharing a display name
+		Map<String, Long> byName = new LinkedHashMap<>();
+		for (Object[] row : studentEnrollmentRepository.countCurrentEnrolledBySchoolClass()) {
+			byName.merge((String) row[0], (Long) row[1], Long::sum);
+		}
+		return byName.entrySet().stream().map(entry -> new DashboardChartsResponse.ClassEnrollmentPoint(entry.getKey(), entry.getValue())).toList();
 	}
 
 	private AttendanceSummary attendanceToday() {
@@ -221,7 +333,9 @@ public class DashboardController {
 
 	private FeeSummary fees() {
 		BigDecimal totalInvoiced = invoiceRepository.sumTotalAmount();
-		BigDecimal totalCollected = invoiceRepository.sumAmountPaid();
+		// Refunds larger than the payments they reverse would otherwise show a negative amount
+		// collected and a negative rate on the tile.
+		BigDecimal totalCollected = invoiceRepository.sumAmountPaid().max(BigDecimal.ZERO);
 		int collectionRatePercent = totalInvoiced.signum() == 0 ? 0
 				: totalCollected.multiply(BigDecimal.valueOf(100)).divide(totalInvoiced, 0, java.math.RoundingMode.HALF_UP).intValue();
 		long overdueInvoices = invoiceRepository.countByStatusNotAndDueDateBefore(InvoiceStatus.PAID, LocalDate.now());
@@ -256,7 +370,12 @@ public class DashboardController {
 	 * campus rather than re-deriving the same arithmetic here - campus counts are small enough that
 	 * looping is cheaper than maintaining a second copy of that calculation. */
 	private long lowStockItemCount() {
-		return campusRepository.findAll().stream().mapToLong(campus -> inventoryService.getLowStockItems(campus).size()).sum();
+		// An item below its reorder level at two campuses is still one low-stock item.
+		return campusRepository.findAll().stream()
+				.flatMap(campus -> inventoryService.getLowStockItems(campus).stream())
+				.map(lowStock -> lowStock.item().getId())
+				.distinct()
+				.count();
 	}
 
 	private static Instant startOfThisMonth() {

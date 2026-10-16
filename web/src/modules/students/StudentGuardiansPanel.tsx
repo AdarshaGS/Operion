@@ -31,9 +31,10 @@ import ContentCopyIcon from "@mui/icons-material/ContentCopy";
 import EditIcon from "@mui/icons-material/Edit";
 import KeyIcon from "@mui/icons-material/Key";
 import { Can } from "../../auth/Can";
+import { DialogErrorAlert } from "../../components/DialogErrorAlert";
 import { ApiError } from "../../api/client";
 import { createOrGetGuardian, getGuardian, grantPortalAccess, type PortalInviteResponse } from "../../api/guardians";
-import { createPerson, listPersons, type PersonResponse } from "../../api/persons";
+import { createPerson, GENDER_OPTIONS, listPersons, type PersonResponse } from "../../api/persons";
 import {
 	GUARDIAN_RELATIONSHIP_TYPES,
 	linkGuardian,
@@ -69,12 +70,15 @@ interface GuardianRow {
 export function StudentGuardiansPanel({ studentId }: { studentId: number }) {
 	const [rows, setRows] = useState<GuardianRow[] | null>(null);
 	const [error, setError] = useState<string | null>(null);
+	const [addError, setAddError] = useState<string | null>(null);
+	const [editError, setEditError] = useState<string | null>(null);
 
 	const [addOpen, setAddOpen] = useState(false);
 	const [addTab, setAddTab] = useState<"new" | "existing">("new");
 	const [persons, setPersons] = useState<PersonResponse[]>([]);
 	const [newFirstName, setNewFirstName] = useState("");
 	const [newLastName, setNewLastName] = useState("");
+	const [newGender, setNewGender] = useState("");
 	const [newPhone, setNewPhone] = useState("");
 	const [newEmail, setNewEmail] = useState("");
 	const [existingPersonId, setExistingPersonId] = useState("");
@@ -134,6 +138,7 @@ export function StudentGuardiansPanel({ studentId }: { studentId: number }) {
 		setAddTab("new");
 		setNewFirstName("");
 		setNewLastName("");
+		setNewGender("");
 		setNewPhone("");
 		setNewEmail("");
 		setExistingPersonId("");
@@ -143,7 +148,7 @@ export function StudentGuardiansPanel({ studentId }: { studentId: number }) {
 
 	async function handleAdd(event: FormEvent) {
 		event.preventDefault();
-		setError(null);
+		setAddError(null);
 		setSubmitting(true);
 		try {
 			const personId =
@@ -153,6 +158,7 @@ export function StudentGuardiansPanel({ studentId }: { studentId: number }) {
 							await createPerson({
 								firstName: newFirstName,
 								lastName: newLastName,
+								gender: newGender,
 								phone: newPhone || null,
 								email: newEmail || null,
 							})
@@ -173,13 +179,14 @@ export function StudentGuardiansPanel({ studentId }: { studentId: number }) {
 			resetAddForm();
 			refresh();
 		} catch (err) {
-			setError(err instanceof ApiError ? err.message : "Failed to add guardian");
+			setAddError(err instanceof ApiError ? err.message : "Failed to add guardian");
 		} finally {
 			setSubmitting(false);
 		}
 	}
 
 	function openEdit(link: StudentGuardianResponse) {
+		setEditError(null);
 		setEditTarget(link);
 		setEditForm({
 			relationshipType: link.relationshipType,
@@ -194,7 +201,7 @@ export function StudentGuardiansPanel({ studentId }: { studentId: number }) {
 	async function handleEditSave(event: FormEvent) {
 		event.preventDefault();
 		if (!editTarget) return;
-		setError(null);
+		setEditError(null);
 		setSubmitting(true);
 		try {
 			await updateGuardianRelationship(studentId, editTarget.id, {
@@ -208,7 +215,7 @@ export function StudentGuardiansPanel({ studentId }: { studentId: number }) {
 			setEditTarget(null);
 			refresh();
 		} catch (err) {
-			setError(err instanceof ApiError ? err.message : "Failed to update relationship");
+			setEditError(err instanceof ApiError ? err.message : "Failed to update relationship");
 		} finally {
 			setSubmitting(false);
 		}
@@ -231,7 +238,7 @@ export function StudentGuardiansPanel({ studentId }: { studentId: number }) {
 				<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
 					<Typography variant="h6">Guardians</Typography>
 					<Can anyOf={["GUARDIAN_MANAGE"]}>
-						<Button size="small" startIcon={<AddIcon />} onClick={() => setAddOpen(true)}>
+						<Button size="small" startIcon={<AddIcon />} onClick={() => { setAddError(null); setAddOpen(true); }}>
 							Add guardian
 						</Button>
 					</Can>
@@ -300,6 +307,7 @@ export function StudentGuardiansPanel({ studentId }: { studentId: number }) {
 				<DialogTitle>Add guardian</DialogTitle>
 				<DialogContent>
 					<Stack spacing={2} sx={{ mt: 1 }}>
+						{addError && <DialogErrorAlert>{addError}</DialogErrorAlert>}
 						<Tabs value={addTab} onChange={(_, value) => setAddTab(value)}>
 							<Tab label="New person" value="new" />
 							<Tab label="Existing person" value="existing" />
@@ -311,6 +319,13 @@ export function StudentGuardiansPanel({ studentId }: { studentId: number }) {
 									<TextField label="First name" value={newFirstName} onChange={(e) => setNewFirstName(e.target.value)} required fullWidth />
 									<TextField label="Last name" value={newLastName} onChange={(e) => setNewLastName(e.target.value)} required fullWidth />
 								</Box>
+								<TextField select label="Gender" value={newGender} onChange={(e) => setNewGender(e.target.value)} required fullWidth>
+									{GENDER_OPTIONS.map((option) => (
+										<MenuItem key={option} value={option}>
+											{option}
+										</MenuItem>
+									))}
+								</TextField>
 								<Box sx={{ display: "flex", gap: 2 }}>
 									<TextField label="Phone" value={newPhone} onChange={(e) => setNewPhone(e.target.value)} fullWidth />
 									<TextField label="Email" type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} fullWidth />
@@ -354,6 +369,7 @@ export function StudentGuardiansPanel({ studentId }: { studentId: number }) {
 				<DialogTitle>Edit relationship</DialogTitle>
 				<DialogContent>
 					<Stack spacing={2} sx={{ mt: 1 }}>
+						{editError && <DialogErrorAlert>{editError}</DialogErrorAlert>}
 						<RelationshipFields value={editForm} onChange={setEditForm} />
 					</Stack>
 				</DialogContent>

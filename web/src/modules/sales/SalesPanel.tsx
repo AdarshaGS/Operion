@@ -26,6 +26,9 @@ import { listCampuses, type CampusResponse } from "../../api/campuses";
 import { ApiError } from "../../api/client";
 import { listCustomers, type CustomerResponse } from "../../api/customers";
 import { listItems, type ItemResponse } from "../../api/items";
+import { Can } from "../../auth/Can";
+import { DialogErrorAlert } from "../../components/DialogErrorAlert";
+import { loadErrorMessage } from "../hr/loadError";
 import { createSale, listSales, type SaleResponse } from "../../api/sales";
 import { CustomerPicker } from "../../components/CustomerPicker";
 
@@ -62,11 +65,17 @@ export function SalesPanel() {
 	const [saleDate, setSaleDate] = useState(todayIso());
 	const [lines, setLines] = useState<DraftLine[]>([emptyLine()]);
 	const [submitting, setSubmitting] = useState(false);
+	const [loaded, setLoaded] = useState(false);
+	// A rejection from inside the dialog shows in the dialog: the page alert sits behind the modal.
+	const [dialogError, setDialogError] = useState<string | null>(null);
 
 	function refresh() {
 		listSales()
-			.then(setSales)
-			.catch((err) => setError(err instanceof ApiError ? err.message : "Failed to load sales"));
+			.then((list) => {
+				setSales(list);
+				setLoaded(true);
+			})
+			.catch((err) => setError(loadErrorMessage(err, "Failed to load sales")));
 	}
 
 	useEffect(refresh, []);
@@ -94,6 +103,7 @@ export function SalesPanel() {
 		setCampusId("");
 		setSaleDate(todayIso());
 		setLines([emptyLine()]);
+		setDialogError(null);
 		setDialogOpen(true);
 	}
 
@@ -109,6 +119,7 @@ export function SalesPanel() {
 
 	async function handleSubmit(event: FormEvent) {
 		event.preventDefault();
+		setDialogError(null);
 		setSubmitting(true);
 		try {
 			await createSale({
@@ -124,7 +135,7 @@ export function SalesPanel() {
 			setDialogOpen(false);
 			refresh();
 		} catch (err) {
-			setError(err instanceof ApiError ? err.message : "Failed to create sale");
+			setDialogError(err instanceof ApiError ? err.message : "Failed to create sale");
 		} finally {
 			setSubmitting(false);
 		}
@@ -141,14 +152,16 @@ export function SalesPanel() {
 			<Stack spacing={2}>
 				<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
 					<Typography variant="h6">Sales</Typography>
-					<Button size="small" startIcon={<AddIcon />} onClick={openDialog}>
-						New sale
-					</Button>
+					<Can anyOf={["SALES_MANAGE"]}>
+						<Button size="small" startIcon={<AddIcon />} onClick={openDialog}>
+							New sale
+						</Button>
+					</Can>
 				</Box>
 
 				{error && <Alert severity="error">{error}</Alert>}
 
-				{sales.length === 0 && <Alert severity="info">No sales yet.</Alert>}
+				{loaded && sales.length === 0 && <Alert severity="info">No sales yet.</Alert>}
 
 				{sales.length > 0 && (
 					<TableContainer>
@@ -186,6 +199,7 @@ export function SalesPanel() {
 				<DialogTitle>New sale</DialogTitle>
 				<DialogContent>
 					<Stack spacing={2} sx={{ mt: 1 }}>
+						{dialogError && <DialogErrorAlert>{dialogError}</DialogErrorAlert>}
 						<CustomerPicker value={customerId} onChange={setCustomerId} required fullWidth />
 						<TextField select label="Campus" value={campusId} onChange={(e) => setCampusId(e.target.value)} required fullWidth>
 							{campuses.map((campus) => (

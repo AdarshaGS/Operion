@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
+import { Can } from "../../auth/Can";
+import { useAuth } from "../../auth/AuthContext";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import Grid from "@mui/material/Grid";
 import Paper from "@mui/material/Paper";
@@ -15,6 +17,8 @@ import { getLibrarySettings, updateLibrarySettings, type LibrarySettingsResponse
 /** Borrowing policy (#169: max concurrent loans + default period, per borrower type;
  * #170: block issue when a borrower already has an overdue book). */
 export function LibrarySettingsPanel() {
+	const { hasPermission } = useAuth();
+	const canEdit = hasPermission("LIBRARY_BORROW_MANAGE");
 	const [settings, setSettings] = useState<LibrarySettingsResponse | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	const [saved, setSaved] = useState(false);
@@ -67,6 +71,7 @@ export function LibrarySettingsPanel() {
 							label="Max books - student"
 							type="number"
 							fullWidth
+							disabled={!canEdit}
 							value={settings.maxLoansStudent}
 							onChange={(e) => update("maxLoansStudent", Number(e.target.value))}
 						/>
@@ -76,6 +81,7 @@ export function LibrarySettingsPanel() {
 							label="Max books - staff"
 							type="number"
 							fullWidth
+							disabled={!canEdit}
 							value={settings.maxLoansStaff}
 							onChange={(e) => update("maxLoansStaff", Number(e.target.value))}
 						/>
@@ -85,6 +91,7 @@ export function LibrarySettingsPanel() {
 							label="Borrowing period (days) - student"
 							type="number"
 							fullWidth
+							disabled={!canEdit}
 							value={settings.borrowingPeriodDaysStudent}
 							onChange={(e) => update("borrowingPeriodDaysStudent", Number(e.target.value))}
 						/>
@@ -94,6 +101,7 @@ export function LibrarySettingsPanel() {
 							label="Borrowing period (days) - staff"
 							type="number"
 							fullWidth
+							disabled={!canEdit}
 							value={settings.borrowingPeriodDaysStaff}
 							onChange={(e) => update("borrowingPeriodDaysStaff", Number(e.target.value))}
 						/>
@@ -102,15 +110,17 @@ export function LibrarySettingsPanel() {
 
 				<FormControlLabel
 					control={
-						<Switch checked={settings.blockIssueOnOverdue} onChange={(e) => update("blockIssueOnOverdue", e.target.checked)} />
+						<Switch disabled={!canEdit} checked={settings.blockIssueOnOverdue} onChange={(e) => update("blockIssueOnOverdue", e.target.checked)} />
 					}
 					label="Block issuing a new book to a borrower who already has an overdue book"
 				/>
 
 				<Box>
-					<Button variant="contained" onClick={handleSave} disabled={saving}>
-						Save
-					</Button>
+					<Can anyOf={["LIBRARY_BORROW_MANAGE"]}>
+						<Button variant="contained" onClick={handleSave} disabled={saving}>
+							Save
+						</Button>
+					</Can>
 				</Box>
 			</Stack>
 		</Paper>

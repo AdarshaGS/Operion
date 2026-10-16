@@ -52,7 +52,8 @@ public class SchoolTemplateItemService {
 		List<SchoolTemplateItem> copies = masterRepository.findAll().stream()
 				.map(master -> SchoolTemplateItem.of(master.getCategory(), master.getName(), master.getCode(), master.getDescription(),
 						master.getSequenceOrder(), master.getStage(), master.getCategoryType(), master.getMinPercentage(),
-						master.getRemark(), master.getPermissionCodes()))
+						master.getRemark(), master.getPermissionCodes()).taggedWith(master.getModuleCode())
+						.withItemDetails(master.getUnit(), master.getItemCategoryCode()))
 				.toList();
 		repository.saveAll(copies);
 	}
@@ -64,23 +65,72 @@ public class SchoolTemplateItemService {
 
 	@Transactional
 	public SchoolTemplateItem create(SchoolTemplateItemCategory category, String name, String code, String description,
-			Integer sequenceOrder, String stage, String categoryType, Double minPercentage, String remark, Set<String> permissionCodes) {
+			Integer sequenceOrder, String stage, String categoryType, Double minPercentage, String remark, Set<String> permissionCodes,
+			String unit, String itemCategoryCode) {
 		SchoolTemplateItem item = SchoolTemplateItem.of(
-				category, name, code, description, sequenceOrder, stage, categoryType, minPercentage, remark, join(permissionCodes));
-		return repository.save(item);
+				category, name, code, description, sequenceOrder, stage, categoryType, minPercentage, remark, join(permissionCodes))
+				.withItemDetails(unit, itemCategoryCode);
+		SchoolTemplateItem saved = repository.save(item);
+		if (category == SchoolTemplateItemCategory.GRADE) {
+			addClassRowFor(saved);
+		}
+		return saved;
 	}
 
 	@Transactional
 	public SchoolTemplateItem update(Long id, String name, String code, String description, Integer sequenceOrder, String stage,
-			String categoryType, Double minPercentage, String remark, Set<String> permissionCodes) {
+			String categoryType, Double minPercentage, String remark, Set<String> permissionCodes, String unit, String itemCategoryCode) {
 		SchoolTemplateItem item = findOrThrow(id);
-		item.update(name, code, description, sequenceOrder, stage, categoryType, minPercentage, remark, join(permissionCodes));
+		String previousName = item.getName();
+		item.update(name, code, description, sequenceOrder, stage, categoryType, minPercentage, remark, join(permissionCodes), unit,
+				itemCategoryCode);
+		SchoolTemplateItem saved = repository.save(item);
+		if (saved.getCategory() == SchoolTemplateItemCategory.GRADE && !previousName.equalsIgnoreCase(name)) {
+			classRowNamed(previousName).ifPresentOrElse(row -> {
+				row.update(name, null, null, saved.getSequenceOrder(), saved.getStage(), null, null, null, null, null, null);
+				repository.save(row);
+			}, () -> addClassRowFor(saved));
+		}
+		return saved;
+	}
+
+	@Transactional
+	public SchoolTemplateItem setIncluded(Long id, boolean included) {
+		SchoolTemplateItem item = findOrThrow(id);
+		item.setIncluded(included);
 		return repository.save(item);
+	}
+
+	/** Select-all / select-none for one category's rows. */
+	@Transactional
+	public List<SchoolTemplateItem> setIncludedForCategory(SchoolTemplateItemCategory category, boolean included) {
+		ensureSeeded();
+		List<SchoolTemplateItem> rows = repository.findByCategoryOrderBySequenceOrderAscNameAsc(category);
+		rows.forEach(row -> row.setIncluded(included));
+		return repository.saveAll(rows);
 	}
 
 	@Transactional
 	public void delete(Long id) {
-		repository.delete(findOrThrow(id));
+		SchoolTemplateItem item = findOrThrow(id);
+		if (item.getCategory() == SchoolTemplateItemCategory.GRADE) {
+			classRowNamed(item.getName()).ifPresent(repository::delete);
+		}
+		repository.delete(item);
+	}
+
+	/** Every grade row has a matching CLASS row of the same name (created ticked), so a grade added in the settings
+	 * screen gets a class on apply like the defaults do. The CLASS row can then be unticked on its own. */
+	private void addClassRowFor(SchoolTemplateItem grade) {
+		if (classRowNamed(grade.getName()).isEmpty()) {
+			repository.save(SchoolTemplateItem.of(SchoolTemplateItemCategory.CLASS, grade.getName(), null, null, grade.getSequenceOrder(),
+					grade.getStage(), null, null, null, null).taggedWith("ACADEMICS"));
+		}
+	}
+
+	private java.util.Optional<SchoolTemplateItem> classRowNamed(String name) {
+		return repository.findByCategoryOrderBySequenceOrderAscNameAsc(SchoolTemplateItemCategory.CLASS).stream()
+				.filter(row -> row.getName().equalsIgnoreCase(name)).findFirst();
 	}
 
 	private String join(Set<String> permissionCodes) {

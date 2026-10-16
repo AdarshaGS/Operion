@@ -1,5 +1,6 @@
 package com.operion.finance;
 
+import com.operion.common.InvalidRequestException;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -154,7 +155,7 @@ class StudentFeeAssignmentTest {
 
 		assertThatThrownBy(() -> feeService.assignFee(
 				fixture.enrollment(), fixture.feeStructure(), new BigDecimal("1000.00"), null, null))
-				.isInstanceOf(IllegalArgumentException.class);
+				.isInstanceOf(InvalidRequestException.class);
 
 		StudentFeeAssignment assignment = feeService.assignFee(
 				fixture.enrollment(), fixture.feeStructure(), new BigDecimal("1000.00"), "Sibling discount", 42L);
@@ -195,6 +196,9 @@ class StudentFeeAssignmentTest {
 		StudentFeeAssignment defaulted = feeService.assignFee(fixture.enrollment(), fixture.feeStructure(), null, null, null);
 		assertThat(defaulted.getPaymentFrequency()).isNull();
 		assertThat(defaulted.effectiveFrequency()).isEqualTo(PaymentFrequency.MONTHLY);
+		// One live assignment per (enrolment, structure): close the first before assigning again.
+		defaulted.supersede();
+		studentFeeAssignmentRepository.save(defaulted);
 
 		StudentFeeAssignment assignment = feeService.assignFee(fixture.enrollment(), fixture.feeStructure(), new BigDecimal("500.00"),
 				"One-shot payment discount", 42L, PaymentFrequency.ONE_SHOT, "asset-ref-1", "approval.pdf");

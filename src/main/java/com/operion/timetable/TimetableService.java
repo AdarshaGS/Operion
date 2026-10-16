@@ -37,7 +37,11 @@ public class TimetableService {
 		if (periodRepository.existsByOrdinal(ordinal)) {
 			throw new IllegalStateException("A period with ordinal " + ordinal + " already exists");
 		}
-		return periodRepository.save(new Period(ordinal, label, startTime, endTime, breakSlot));
+		Period period = new Period(ordinal, label, startTime, endTime, breakSlot);
+		if (periodRepository.existsByStartTimeLessThanAndEndTimeGreaterThan(endTime, startTime)) {
+			throw new IllegalStateException("The period's times overlap an existing period");
+		}
+		return periodRepository.save(period);
 	}
 
 	/** A slot that already holds entries can't become a break - it would strand them. */
@@ -47,6 +51,9 @@ public class TimetableService {
 			throw new IllegalStateException("Period " + period.getLabel() + " has timetable entries and cannot become a break");
 		}
 		period.update(label, startTime, endTime, breakSlot);
+		if (periodRepository.existsByIdNotAndStartTimeLessThanAndEndTimeGreaterThan(period.getId(), endTime, startTime)) {
+			throw new IllegalStateException("The period's times overlap an existing period");
+		}
 		return periodRepository.save(period);
 	}
 

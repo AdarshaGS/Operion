@@ -154,6 +154,7 @@ class PortalInviteLifecycleTest {
 		LoginResult result = portalInviteService().claim(organisation.getSlug(), issued.rawToken(), "NewParentPass123!");
 
 		assertThat(result.organisationId()).isEqualTo(organisation.getId());
+		TenantContext.set(organisation.getId(), null);
 		User createdUser = userRepository.findByEmail("rahul-claim@example.com").orElseThrow();
 		assertThat(result.userId()).isEqualTo(createdUser.getId());
 		assertThat(ENCODER.matches("NewParentPass123!", createdUser.getPasswordHash())).isTrue();
@@ -220,6 +221,7 @@ class PortalInviteLifecycleTest {
 		LoginResult result = portalInviteService().claim(organisation.getSlug(), issued.rawToken(), "AttemptedNewPass1!");
 
 		assertThat(result.userId()).isEqualTo(existingUser.getId());
+		TenantContext.set(organisation.getId(), null);
 		User reloaded = userRepository.findById(existingUser.getId()).orElseThrow();
 		assertThat(ENCODER.matches("OriginalPass1!", reloaded.getPasswordHash())).isTrue();
 	}

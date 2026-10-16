@@ -2,6 +2,7 @@ package com.operion.common;
 
 import com.operion.authorization.PermissionInterceptor;
 import com.operion.identity.auth.JwtAuthenticationInterceptor;
+import com.operion.modules.ModuleAccessInterceptor;
 import com.operion.platform.auth.PlatformAuthenticationInterceptor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
@@ -17,6 +18,7 @@ public class WebConfig implements WebMvcConfigurer {
 
 	private final JwtAuthenticationInterceptor jwtAuthenticationInterceptor;
 	private final PermissionInterceptor permissionInterceptor;
+	private final ModuleAccessInterceptor moduleAccessInterceptor;
 	private final PlatformAuthenticationInterceptor platformAuthenticationInterceptor;
 
 	/** Defaults to the Vite dev server - the React admin portal calls the API directly, no BFF, per erp-system-plan.md §4. */
@@ -28,9 +30,11 @@ public class WebConfig implements WebMvcConfigurer {
 	private String assetStorageBaseDir;
 
 	public WebConfig(JwtAuthenticationInterceptor jwtAuthenticationInterceptor, PermissionInterceptor permissionInterceptor,
+			ModuleAccessInterceptor moduleAccessInterceptor,
 			PlatformAuthenticationInterceptor platformAuthenticationInterceptor) {
 		this.jwtAuthenticationInterceptor = jwtAuthenticationInterceptor;
 		this.permissionInterceptor = permissionInterceptor;
+		this.moduleAccessInterceptor = moduleAccessInterceptor;
 		this.platformAuthenticationInterceptor = platformAuthenticationInterceptor;
 	}
 
@@ -43,6 +47,7 @@ public class WebConfig implements WebMvcConfigurer {
 		// gated by its own interceptor instead, so an org-scoped token can never reach a
 		// platform endpoint and a platform token can never reach an org-scoped one.
 		registry.addInterceptor(jwtAuthenticationInterceptor).addPathPatterns("/api/v1/**").excludePathPatterns(PLATFORM_PATH_PATTERN);
+		registry.addInterceptor(moduleAccessInterceptor).addPathPatterns("/api/v1/**").excludePathPatterns(PLATFORM_PATH_PATTERN);
 		registry.addInterceptor(permissionInterceptor).addPathPatterns("/api/v1/**").excludePathPatterns(PLATFORM_PATH_PATTERN);
 		registry.addInterceptor(platformAuthenticationInterceptor).addPathPatterns(PLATFORM_PATH_PATTERN);
 	}

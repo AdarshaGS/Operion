@@ -3,6 +3,7 @@ package com.operion.student;
 import java.time.LocalDate;
 import java.util.Map;
 
+import com.operion.identity.Genders;
 import com.operion.identity.Person;
 import com.operion.identity.PersonRepository;
 import com.operion.student.api.StudentImportRowResult;
@@ -39,7 +40,7 @@ public class StudentRowImportService {
 
 		Person person = new Person(firstName, lastName);
 		person.setDateOfBirth(parseDate(row.get("dateOfBirth")));
-		person.setGender(blankToNull(row.get("gender")));
+		person.setGender(Genders.validate(require(row, "gender")));
 		person.setPhone(blankToNull(row.get("phone")));
 		person.setEmail(blankToNull(row.get("email")));
 		person = personRepository.save(person);

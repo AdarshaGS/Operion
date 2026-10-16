@@ -4,7 +4,7 @@ import java.time.Instant;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import com.operion.common.persistence.PlatformTransactional;
 
 @Service
 public class CrmTaskService {
@@ -34,7 +34,7 @@ public class CrmTaskService {
 	}
 
 	/** An unspecified assignee defaults to the platform admin creating the task. */
-	@Transactional
+	@PlatformTransactional
 	public CrmTask create(Long leadId, Long organisationId, String title, Instant dueAt, Long assigneeId) {
 		CrmOwner owner = crmDirectory.owner(leadId, organisationId);
 		Long assignee = assigneeId != null ? assigneeId : crmDirectory.currentAdminId();
@@ -43,7 +43,7 @@ public class CrmTaskService {
 	}
 
 	/** Partial update: a null field leaves the current value alone. */
-	@Transactional
+	@PlatformTransactional
 	public CrmTask update(Long id, String title, Instant dueAt, Long assigneeId) {
 		CrmTask task = get(id);
 		crmDirectory.requireAdmin(assigneeId);
@@ -53,7 +53,7 @@ public class CrmTaskService {
 		return crmTaskRepository.save(task);
 	}
 
-	@Transactional
+	@PlatformTransactional
 	public CrmTask complete(Long id) {
 		CrmTask task = get(id);
 		task.complete(Instant.now());

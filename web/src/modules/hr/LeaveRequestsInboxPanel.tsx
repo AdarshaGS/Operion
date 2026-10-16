@@ -12,7 +12,9 @@ import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
+import { Can } from "../../auth/Can";
 import { ApiError } from "../../api/client";
+import { loadErrorMessage } from "./loadError";
 import { approveLeaveRequest, listLeaveRequests, rejectLeaveRequest, type LeaveRequestResponse } from "../../api/leaveRequests";
 import { listLeaveTypes, type LeaveTypeResponse } from "../../api/leaveTypes";
 import { listPersons, type PersonResponse } from "../../api/persons";
@@ -31,7 +33,7 @@ export function LeaveRequestsInboxPanel() {
 	function refresh() {
 		listLeaveRequests({ status: "PENDING" })
 			.then(setRequests)
-			.catch((err) => setError(err instanceof ApiError ? err.message : "Failed to load pending leave requests"));
+			.catch((err) => setError(loadErrorMessage(err, "Failed to load pending leave requests")));
 	}
 
 	useEffect(refresh, []);
@@ -56,7 +58,7 @@ export function LeaveRequestsInboxPanel() {
 
 	async function handleApprove(id: number) {
 		try {
-			await approveLeaveRequest(id, { decidedBy: 1 });
+			await approveLeaveRequest(id);
 			refresh();
 		} catch (err) {
 			setError(err instanceof ApiError ? err.message : "Failed to approve leave request");
@@ -65,7 +67,7 @@ export function LeaveRequestsInboxPanel() {
 
 	async function handleReject(id: number) {
 		try {
-			await rejectLeaveRequest(id, { decidedBy: 1 });
+			await rejectLeaveRequest(id);
 			refresh();
 		} catch (err) {
 			setError(err instanceof ApiError ? err.message : "Failed to reject leave request");
@@ -81,7 +83,7 @@ export function LeaveRequestsInboxPanel() {
 
 				{error && <Alert severity="error">{error}</Alert>}
 
-				{requests.length === 0 && <Alert severity="info">No pending leave requests.</Alert>}
+				{requests.length === 0 && !error && <Alert severity="info">No pending leave requests.</Alert>}
 
 				{requests.length > 0 && (
 					<TableContainer>
@@ -110,12 +112,14 @@ export function LeaveRequestsInboxPanel() {
 										<TableCell>{request.endDate}</TableCell>
 										<TableCell>{request.numberOfDays}</TableCell>
 										<TableCell onClick={(e) => e.stopPropagation()}>
-											<Button size="small" onClick={() => handleApprove(request.id)}>
-												Approve
-											</Button>
-											<Button size="small" color="error" onClick={() => handleReject(request.id)}>
-												Reject
-											</Button>
+											<Can anyOf={["HR_LEAVE_MANAGE"]}>
+												<Button size="small" onClick={() => handleApprove(request.id)}>
+													Approve
+												</Button>
+												<Button size="small" color="error" onClick={() => handleReject(request.id)}>
+													Reject
+												</Button>
+											</Can>
 										</TableCell>
 									</TableRow>
 								))}

@@ -9,10 +9,13 @@ import com.operion.academic.SchoolClass;
 import com.operion.academic.SchoolClassRepository;
 import com.operion.academic.SchoolClassStatus;
 import com.operion.authorization.RequirePermission;
+import com.operion.common.EnumParam;
 import com.operion.organisation.AcademicYear;
 import com.operion.organisation.AcademicYearRepository;
 import com.operion.organisation.Campus;
+import com.operion.student.StudentEnrollmentRepository;
 import com.operion.organisation.CampusRepository;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -32,10 +35,12 @@ public class SchoolClassController {
 	private final AcademicYearRepository academicYearRepository;
 	private final CampusRepository campusRepository;
 	private final GradeLevelRepository gradeLevelRepository;
+	private final StudentEnrollmentRepository studentEnrollmentRepository;
 
 	public SchoolClassController(AcademicService academicService, SchoolClassRepository schoolClassRepository,
 			AcademicYearRepository academicYearRepository, CampusRepository campusRepository,
-			GradeLevelRepository gradeLevelRepository) {
+			GradeLevelRepository gradeLevelRepository, StudentEnrollmentRepository studentEnrollmentRepository) {
+		this.studentEnrollmentRepository = studentEnrollmentRepository;
 		this.academicService = academicService;
 		this.schoolClassRepository = schoolClassRepository;
 		this.academicYearRepository = academicYearRepository;
@@ -45,7 +50,7 @@ public class SchoolClassController {
 
 	@PostMapping
 	@RequirePermission("CLASS_MANAGE")
-	public SchoolClassResponse create(@RequestBody CreateSchoolClassRequest request) {
+	public SchoolClassResponse create(@Valid @RequestBody CreateSchoolClassRequest request) {
 		AcademicYear academicYear = academicYearRepository.findById(request.academicYearId())
 				.orElseThrow(() -> new IllegalArgumentException("No academic year with id " + request.academicYearId()));
 		Campus campus = campusRepository.findById(request.campusId())
@@ -70,13 +75,16 @@ public class SchoolClassController {
 	public SchoolClassResponse changeStatus(@PathVariable Long id, @RequestBody ChangeStatusRequest request) {
 		SchoolClass schoolClass = schoolClassRepository.findById(id)
 				.orElseThrow(() -> new IllegalArgumentException("No school class with id " + id));
-		return SchoolClassResponse.from(
-				academicService.changeSchoolClassStatus(schoolClass, SchoolClassStatus.valueOf(request.status())));
+		SchoolClassStatus status = EnumParam.parse(SchoolClassStatus.class, request.status());
+		if (status == SchoolClassStatus.INACTIVE && studentEnrollmentRepository.existsBySectionSchoolClassIdAndCurrentTrue(id)) {
+			throw new IllegalStateException("Class has students currently enrolled and cannot be deactivated");
+		}
+		return SchoolClassResponse.from(academicService.changeSchoolClassStatus(schoolClass, status));
 	}
 
 	@PatchMapping("/{id}")
 	@RequirePermission("CLASS_MANAGE")
-	public SchoolClassResponse update(@PathVariable Long id, @RequestBody UpdateSchoolClassRequest request) {
+	public SchoolClassResponse update(@PathVariable Long id, @Valid @RequestBody UpdateSchoolClassRequest request) {
 		SchoolClass schoolClass = schoolClassRepository.findById(id)
 				.orElseThrow(() -> new IllegalArgumentException("No school class with id " + id));
 		return SchoolClassResponse.from(academicService.updateSchoolClassDisplayName(schoolClass, request.displayName()));

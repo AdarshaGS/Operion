@@ -45,7 +45,7 @@ public class PurchaseOrderLine extends TenantScopedEntity {
 
 	public PurchaseOrderLine(PurchaseOrder purchaseOrder, Item item, int quantity, BigDecimal unitCost) {
 		if (quantity <= 0) {
-			throw new IllegalArgumentException("Purchase order line quantity must be positive");
+			throw new com.operion.common.InvalidRequestException("Purchase order line quantity must be positive");
 		}
 		this.purchaseOrder = purchaseOrder;
 		this.item = item;
@@ -56,7 +56,7 @@ public class PurchaseOrderLine extends TenantScopedEntity {
 
 	public void receive(int quantityThisReceipt) {
 		if (quantityThisReceipt <= 0) {
-			throw new IllegalArgumentException("Received quantity must be positive");
+			throw new com.operion.common.InvalidRequestException("Received quantity must be positive");
 		}
 		if (quantityReceived + quantityThisReceipt > quantity) {
 			throw new IllegalStateException(

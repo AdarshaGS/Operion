@@ -30,6 +30,7 @@ import { TeacherTimetablePanel } from "../academics/TeacherTimetablePanel";
 import { SalaryStructurePanel } from "../payroll/SalaryStructurePanel";
 import { BorrowerLoanHistoryPanel } from "../library/BorrowerLoanHistoryPanel";
 import { listAcademicYears, type AcademicYearResponse } from "../../api/academicYears";
+import { DialogErrorAlert } from "../../components/DialogErrorAlert";
 import { ApiError } from "../../api/client";
 import { listCampuses, type CampusResponse } from "../../api/campuses";
 import { listDepartments, type DepartmentResponse } from "../../api/departments";
@@ -100,6 +101,8 @@ export function StaffDetailPage() {
 	const [error, setError] = useState<string | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [submitting, setSubmitting] = useState(false);
+	// Errors from a save inside a dialog are shown in that dialog - the page-level alert sits behind its backdrop.
+	const [dialogError, setDialogError] = useState<string | null>(null);
 
 	const [statusValue, setStatusValue] = useState("ACTIVE");
 
@@ -206,6 +209,7 @@ export function StaffDetailPage() {
 		event.preventDefault();
 		if (!person || grantRoleId === "") return;
 		setGrantSubmitting(true);
+		setDialogError(null);
 		try {
 			const invite = await inviteUser({ email: person.email ?? "", phone: person.phone });
 			await grantMembership({
@@ -222,7 +226,7 @@ export function StaffDetailPage() {
 			setIssuedInvite(invite);
 			refreshLoginAccess(person.id);
 		} catch (err) {
-			setError(err instanceof ApiError ? err.message : "Failed to grant login access");
+			setDialogError(err instanceof ApiError ? err.message : "Failed to grant login access");
 		} finally {
 			setGrantSubmitting(false);
 		}
@@ -284,6 +288,7 @@ export function StaffDetailPage() {
 		event.preventDefault();
 		if (!staffProfileId) return;
 		setSubmitting(true);
+		setDialogError(null);
 		try {
 			await addStaffDocument(Number(staffProfileId), { documentType, fileReference, fileName, expiryDate: documentExpiryDate || null });
 			setDocumentType("");
@@ -293,7 +298,7 @@ export function StaffDetailPage() {
 			setDocumentDialogOpen(false);
 			refreshDocuments();
 		} catch (err) {
-			setError(err instanceof ApiError ? err.message : "Failed to add document");
+			setDialogError(err instanceof ApiError ? err.message : "Failed to add document");
 		} finally {
 			setSubmitting(false);
 		}
@@ -301,7 +306,7 @@ export function StaffDetailPage() {
 
 	async function handleVerifyDocument(id: number, verificationStatus: string) {
 		try {
-			await verifyStaffDocument(id, { verificationStatus, verifiedBy: 1 });
+			await verifyStaffDocument(id, { verificationStatus });
 			refreshDocuments();
 		} catch (err) {
 			setError(err instanceof ApiError ? err.message : "Failed to verify document");
@@ -337,6 +342,7 @@ export function StaffDetailPage() {
 		event.preventDefault();
 		if (!staffProfileId) return;
 		setSubmitting(true);
+		setDialogError(null);
 		try {
 			await raiseLeaveRequest({
 				staffProfileId: Number(staffProfileId),
@@ -352,7 +358,7 @@ export function StaffDetailPage() {
 			setRequestDialogOpen(false);
 			refreshLeaveRequests();
 		} catch (err) {
-			setError(err instanceof ApiError ? err.message : "Failed to raise leave request");
+			setDialogError(err instanceof ApiError ? err.message : "Failed to raise leave request");
 		} finally {
 			setSubmitting(false);
 		}
@@ -360,7 +366,7 @@ export function StaffDetailPage() {
 
 	async function handleApprove(id: number) {
 		try {
-			await approveLeaveRequest(id, { decidedBy: 1 });
+			await approveLeaveRequest(id);
 			refreshLeaveRequests();
 		} catch (err) {
 			setError(err instanceof ApiError ? err.message : "Failed to approve leave request");
@@ -369,7 +375,7 @@ export function StaffDetailPage() {
 
 	async function handleReject(id: number) {
 		try {
-			await rejectLeaveRequest(id, { decidedBy: 1 });
+			await rejectLeaveRequest(id);
 			refreshLeaveRequests();
 		} catch (err) {
 			setError(err instanceof ApiError ? err.message : "Failed to reject leave request");
@@ -389,6 +395,7 @@ export function StaffDetailPage() {
 		event.preventDefault();
 		if (!staffProfileId || transferDesignationId === "") return;
 		setSubmitting(true);
+		setDialogError(null);
 		try {
 			const updated = await transferStaff(Number(staffProfileId), {
 				campusId: transferCampusId === "" ? null : transferCampusId,
@@ -400,7 +407,7 @@ export function StaffDetailPage() {
 			setTransferDialogOpen(false);
 			refreshAssignments();
 		} catch (err) {
-			setError(err instanceof ApiError ? err.message : "Failed to transfer staff member");
+			setDialogError(err instanceof ApiError ? err.message : "Failed to transfer staff member");
 		} finally {
 			setSubmitting(false);
 		}
@@ -410,6 +417,7 @@ export function StaffDetailPage() {
 		event.preventDefault();
 		if (!staffProfileId) return;
 		setSubmitting(true);
+		setDialogError(null);
 		try {
 			await recordStaffExit(Number(staffProfileId), { exitType, exitDate, reason: exitReason || null });
 			const updated = await getStaffProfile(Number(staffProfileId));
@@ -418,7 +426,7 @@ export function StaffDetailPage() {
 			setExitDialogOpen(false);
 			refreshExits();
 		} catch (err) {
-			setError(err instanceof ApiError ? err.message : "Failed to record exit");
+			setDialogError(err instanceof ApiError ? err.message : "Failed to record exit");
 		} finally {
 			setSubmitting(false);
 		}
@@ -499,18 +507,20 @@ export function StaffDetailPage() {
 								</MenuItem>
 							))}
 						</TextField>
-						<Button size="small" variant="outlined" onClick={handleStatusChange} disabled={statusValue === profile?.status}>
-							Update status
-						</Button>
 						<Can anyOf={["HR_STAFF_MANAGE"]}>
-							<Button size="small" variant="outlined" onClick={() => setTransferDialogOpen(true)}>
+							<Button size="small" variant="outlined" onClick={handleStatusChange} disabled={statusValue === profile?.status}>
+								Update status
+							</Button>
+						</Can>
+						<Can anyOf={["HR_STAFF_MANAGE"]}>
+							<Button size="small" variant="outlined" onClick={() => { setDialogError(null); setTransferDialogOpen(true); }}>
 								Transfer
 							</Button>
 							<Button
 								size="small"
 								variant="outlined"
 								color="error"
-								onClick={() => setExitDialogOpen(true)}
+								onClick={() => { setDialogError(null); setExitDialogOpen(true); }}
 								disabled={profile?.status === "RESIGNED" || profile?.status === "TERMINATED"}
 							>
 								Record exit
@@ -599,7 +609,7 @@ export function StaffDetailPage() {
 						<MemberStatusChip status={memberStatus} />
 					) : (
 						<Can anyOf={["MEMBERSHIP_MANAGE"]}>
-							<Button size="small" variant="outlined" onClick={() => setGrantDialogOpen(true)}>
+							<Button size="small" variant="outlined" onClick={() => { setDialogError(null); setGrantDialogOpen(true); }}>
 								Grant login access
 							</Button>
 						</Can>
@@ -611,9 +621,11 @@ export function StaffDetailPage() {
 				<Stack spacing={2}>
 					<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
 						<Typography variant="h6">Documents</Typography>
-						<Button size="small" startIcon={<AddIcon />} onClick={() => setDocumentDialogOpen(true)}>
-							Add document
-						</Button>
+						<Can anyOf={["HR_STAFF_MANAGE"]}>
+							<Button size="small" startIcon={<AddIcon />} onClick={() => { setDialogError(null); setDocumentDialogOpen(true); }}>
+								Add document
+							</Button>
+						</Can>
 					</Box>
 
 					{documents.length === 0 && <Alert severity="info">No documents on file.</Alert>}
@@ -641,14 +653,14 @@ export function StaffDetailPage() {
 											</TableCell>
 											<TableCell>
 												{doc.verificationStatus === "PENDING" && (
-													<>
+													<Can anyOf={["HR_STAFF_MANAGE"]}>
 														<Button size="small" onClick={() => handleVerifyDocument(doc.id, "VERIFIED")}>
 															Verify
 														</Button>
 														<Button size="small" color="error" onClick={() => handleVerifyDocument(doc.id, "REJECTED")}>
 															Reject
 														</Button>
-													</>
+													</Can>
 												)}
 											</TableCell>
 										</TableRow>
@@ -688,15 +700,17 @@ export function StaffDetailPage() {
 						<Button size="small" onClick={handleCheckBalance} disabled={!balanceLeaveTypeId || !balanceAcademicYearId}>
 							Check
 						</Button>
-						<TextField label="Allocate days" type="number" size="small" value={allocatedDays} onChange={(e) => setAllocatedDays(e.target.value)} sx={{ width: 130 }} />
-						<Button
-							size="small"
-							variant="contained"
-							onClick={handleAllocate}
-							disabled={!balanceLeaveTypeId || !balanceAcademicYearId || !allocatedDays}
-						>
-							Allocate
-						</Button>
+						<Can anyOf={["HR_LEAVE_MANAGE"]}>
+							<TextField label="Allocate days" type="number" size="small" value={allocatedDays} onChange={(e) => setAllocatedDays(e.target.value)} sx={{ width: 130 }} />
+							<Button
+								size="small"
+								variant="contained"
+								onClick={handleAllocate}
+								disabled={!balanceLeaveTypeId || !balanceAcademicYearId || !allocatedDays}
+							>
+								Allocate
+							</Button>
+						</Can>
 					</Box>
 
 					{balance && (
@@ -718,9 +732,11 @@ export function StaffDetailPage() {
 				<Stack spacing={2}>
 					<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
 						<Typography variant="h6">Leave requests</Typography>
-						<Button size="small" startIcon={<AddIcon />} onClick={() => setRequestDialogOpen(true)}>
-							Raise request
-						</Button>
+						<Can anyOf={["HR_LEAVE_MANAGE"]}>
+							<Button size="small" startIcon={<AddIcon />} onClick={() => { setDialogError(null); setRequestDialogOpen(true); }}>
+								Raise request
+							</Button>
+						</Can>
 					</Box>
 
 					{leaveRequests.length === 0 && <Alert severity="info">No leave requests.</Alert>}
@@ -750,7 +766,7 @@ export function StaffDetailPage() {
 											</TableCell>
 											<TableCell>
 												{request.status === "PENDING" && (
-													<>
+													<Can anyOf={["HR_LEAVE_MANAGE"]}>
 														<Button size="small" onClick={() => handleApprove(request.id)}>
 															Approve
 														</Button>
@@ -760,7 +776,7 @@ export function StaffDetailPage() {
 														<Button size="small" onClick={() => handleCancel(request.id)}>
 															Cancel
 														</Button>
-													</>
+													</Can>
 												)}
 											</TableCell>
 										</TableRow>
@@ -794,6 +810,7 @@ export function StaffDetailPage() {
 			>
 				<DialogTitle>Add document</DialogTitle>
 				<DialogContent>
+					{dialogError && <DialogErrorAlert>{dialogError}</DialogErrorAlert>}
 					<Stack spacing={2} sx={{ mt: 1 }}>
 						<TextField
 							label="Document type"
@@ -841,6 +858,7 @@ export function StaffDetailPage() {
 			>
 				<DialogTitle>Raise leave request</DialogTitle>
 				<DialogContent>
+					{dialogError && <DialogErrorAlert>{dialogError}</DialogErrorAlert>}
 					<Stack spacing={2} sx={{ mt: 1 }}>
 						<TextField
 							select
@@ -913,6 +931,7 @@ export function StaffDetailPage() {
 			<Dialog open={grantDialogOpen} onClose={() => setGrantDialogOpen(false)} component="form" onSubmit={handleGrantLoginAccess} fullWidth maxWidth="xs">
 				<DialogTitle>Grant login access</DialogTitle>
 				<DialogContent>
+					{dialogError && <DialogErrorAlert>{dialogError}</DialogErrorAlert>}
 					<Stack spacing={2} sx={{ mt: 1 }}>
 						<TextField label="Email" value={person?.email ?? ""} fullWidth disabled />
 						<TextField
@@ -972,6 +991,7 @@ export function StaffDetailPage() {
 			<Dialog open={transferDialogOpen} onClose={() => setTransferDialogOpen(false)} component="form" onSubmit={handleTransfer} fullWidth maxWidth="xs">
 				<DialogTitle>Transfer staff member</DialogTitle>
 				<DialogContent>
+					{dialogError && <DialogErrorAlert>{dialogError}</DialogErrorAlert>}
 					<Stack spacing={2} sx={{ mt: 1 }}>
 						<TextField
 							select
@@ -1037,6 +1057,7 @@ export function StaffDetailPage() {
 			<Dialog open={exitDialogOpen} onClose={() => setExitDialogOpen(false)} component="form" onSubmit={handleRecordExit} fullWidth maxWidth="xs">
 				<DialogTitle>Record exit</DialogTitle>
 				<DialogContent>
+					{dialogError && <DialogErrorAlert>{dialogError}</DialogErrorAlert>}
 					<Stack spacing={2} sx={{ mt: 1 }}>
 						<TextField select label="Exit type" value={exitType} onChange={(e) => setExitType(e.target.value)} required fullWidth>
 							{EXIT_TYPES.map((type) => (

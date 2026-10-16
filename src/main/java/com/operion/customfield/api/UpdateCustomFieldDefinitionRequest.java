@@ -1,4 +1,6 @@
 package com.operion.customfield.api;
 
-public record UpdateCustomFieldDefinitionRequest(String label, String dataType, String options, boolean required) {
+import jakarta.validation.constraints.NotBlank;
+
+public record UpdateCustomFieldDefinitionRequest(@NotBlank String label, @NotBlank String dataType, String options, boolean required) {
 }

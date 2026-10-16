@@ -57,7 +57,7 @@ public class ExternalServiceSettingsController {
 	@PutMapping("/{serviceKey}/properties")
 	@RequirePermission("ORGANISATION_MANAGE")
 	public ExternalServiceSettingsResponse updateProperties(@PathVariable String serviceKey,
-			@RequestBody UpdateExternalServicePropertiesRequest request) {
+			@jakarta.validation.Valid @RequestBody UpdateExternalServicePropertiesRequest request) {
 		organisationExternalServicePropertyService.updateProperties(serviceKey, request.properties());
 		ExternalService service = externalServiceRepository.findByServiceKey(serviceKey)
 				.orElseThrow(() -> new IllegalArgumentException("No external service with key " + serviceKey));

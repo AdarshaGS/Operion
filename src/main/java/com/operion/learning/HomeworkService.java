@@ -1,5 +1,8 @@
 package com.operion.learning;
 
+import com.operion.academic.ClassSubjectStatus;
+import com.operion.academic.ClassSubjectRepository;
+import com.operion.common.InvalidRequestException;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -44,10 +47,13 @@ public class HomeworkService {
 	private final PersonRepository personRepository;
 	private final StudentRepository studentRepository;
 	private final StudentEnrollmentRepository enrollmentRepository;
+	private final ClassSubjectRepository classSubjectRepository;
 
 	public HomeworkService(HomeworkRepository homeworkRepository, HomeworkSubmissionRepository submissionRepository,
 			SectionRepository sectionRepository, SubjectRepository subjectRepository, PersonRepository personRepository,
-			StudentRepository studentRepository, StudentEnrollmentRepository enrollmentRepository) {
+			StudentRepository studentRepository, StudentEnrollmentRepository enrollmentRepository,
+			ClassSubjectRepository classSubjectRepository) {
+		this.classSubjectRepository = classSubjectRepository;
 		this.homeworkRepository = homeworkRepository;
 		this.submissionRepository = submissionRepository;
 		this.sectionRepository = sectionRepository;
@@ -60,19 +66,33 @@ public class HomeworkService {
 	public Homework assign(LearningActor actor, Long sectionId, Long subjectId, String title, String description,
 			LocalDate dueDate, String attachmentRef) {
 		if (title == null || title.isBlank()) {
-			throw new IllegalArgumentException("Title is required");
+			throw new InvalidRequestException("Title is required");
 		}
 		if (dueDate == null) {
-			throw new IllegalArgumentException("Due date is required");
+			throw new InvalidRequestException("Due date is required");
+		}
+		if (sectionId == null || subjectId == null) {
+			throw new InvalidRequestException("A section and a subject are required");
 		}
 		actor.requireWrite(sectionId, subjectId);
 		Section section = sectionRepository.findById(sectionId)
 				.orElseThrow(() -> new IllegalArgumentException("Section not found: " + sectionId));
 		Subject subject = subjectRepository.findById(subjectId)
 				.orElseThrow(() -> new IllegalArgumentException("Subject not found: " + subjectId));
+		boolean onClass = classSubjectRepository.findBySchoolClassId(section.getSchoolClass().getId()).stream()
+				.anyMatch(cs -> cs.getStatus() == ClassSubjectStatus.ACTIVE && cs.getSubject().getId().equals(subjectId));
+		if (!onClass) {
+			throw new InvalidRequestException("The class does not take " + subject.getName());
+		}
 		Person assignedBy = personRepository.findById(actor.personId()).orElseThrow();
 		return homeworkRepository.save(new Homework(section, subject, title.trim(), blankToNull(description), dueDate,
 				blankToNull(attachmentRef), assignedBy));
+	}
+
+	/** The create response reports the same rollup the list does, so a new row and a refreshed one agree. */
+	@Transactional(readOnly = true)
+	public HomeworkView viewOf(Homework homework) {
+		return rollup(List.of(homework)).get(0);
 	}
 
 	public Homework cancel(LearningActor actor, Long homeworkId) {
@@ -146,7 +166,7 @@ public class HomeworkService {
 			throw new IllegalStateException("This homework has been cancelled");
 		}
 		if ((text == null || text.isBlank()) && (attachmentRef == null || attachmentRef.isBlank())) {
-			throw new IllegalArgumentException("Provide an answer or an attachment");
+			throw new InvalidRequestException("Provide an answer or an attachment");
 		}
 		Instant now = Instant.now();
 		boolean late = now.isAfter(homework.getDueDate().plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant());

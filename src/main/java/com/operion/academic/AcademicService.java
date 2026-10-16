@@ -4,6 +4,7 @@ import java.time.LocalDate;
 import java.util.Optional;
 
 import com.operion.identity.Person;
+import com.operion.common.InvalidRequestException;
 import com.operion.organisation.AcademicYear;
 import com.operion.organisation.Campus;
 import org.springframework.stereotype.Service;
@@ -45,12 +46,21 @@ public class AcademicService {
 		return gradeLevelRepository.save(gradeLevel);
 	}
 
-	public GradeLevel updateGradeLevel(GradeLevel gradeLevel, String name, int sequenceOrder, String stage) {
-		gradeLevel.update(name, sequenceOrder, stage);
+	/** Partial update - a null argument leaves that field unchanged. */
+	public GradeLevel updateGradeLevel(GradeLevel gradeLevel, String name, Integer sequenceOrder, String stage) {
+		if (name != null && name.isBlank()) {
+			throw new InvalidRequestException("Grade level name must not be blank");
+		}
+		gradeLevel.update(name != null ? name : gradeLevel.getName(),
+				sequenceOrder != null ? sequenceOrder : gradeLevel.getSequenceOrder(),
+				stage != null ? stage : gradeLevel.getStage());
 		return gradeLevelRepository.save(gradeLevel);
 	}
 
 	public Subject createSubject(String name, String code) {
+		if (code != null && !code.isBlank() && subjectRepository.findByCodeIgnoreCase(code).isPresent()) {
+			throw new IllegalStateException("Subject with code " + code + " already exists");
+		}
 		return subjectRepository.save(new Subject(name, code));
 	}
 
@@ -60,6 +70,12 @@ public class AcademicService {
 	}
 
 	public SchoolClass createSchoolClass(AcademicYear academicYear, Campus campus, GradeLevel gradeLevel, String displayName) {
+		if (academicYear.isClosed()) {
+			throw new IllegalStateException("Academic year " + academicYear.getName() + " is closed and accepts no new classes");
+		}
+		if (gradeLevel.getStatus() != GradeLevelStatus.ACTIVE) {
+			throw new IllegalStateException("Grade level " + gradeLevel.getName() + " is not active and cannot be used for a new class");
+		}
 		return schoolClassRepository.save(new SchoolClass(academicYear, campus, gradeLevel, displayName));
 	}
 
@@ -88,6 +104,9 @@ public class AcademicService {
 	}
 
 	public ClassSubject assignSubjectToClass(SchoolClass schoolClass, Subject subject, boolean mandatory) {
+		if (subject.getStatus() != SubjectStatus.ACTIVE) {
+			throw new IllegalStateException("Subject " + subject.getName() + " is not active and cannot be added to a class");
+		}
 		return classSubjectRepository.save(new ClassSubject(schoolClass, subject, mandatory));
 	}
 

@@ -18,4 +18,6 @@ public interface TimetableEntryRepository extends JpaRepository<TimetableEntry, 
 			Long academicYearId, Long teacherPersonId, DayOfWeek dayOfWeek, Long periodId);
 
 	boolean existsByPeriodId(Long periodId);
+
+	List<TimetableEntry> findByAcademicYearId(Long academicYearId);
 }

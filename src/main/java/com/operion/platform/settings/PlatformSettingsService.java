@@ -2,7 +2,7 @@ package com.operion.platform.settings;
 
 import com.operion.audit.AuditLogService;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import com.operion.common.persistence.PlatformTransactional;
 
 @Service
 public class PlatformSettingsService {
@@ -23,7 +23,7 @@ public class PlatformSettingsService {
 				.orElseGet(() -> platformSettingRepository.save(new PlatformSetting(PlatformSetting.DEFAULT_TRIAL_DAYS)));
 	}
 
-	@Transactional
+	@PlatformTransactional
 	public PlatformSetting updateTrialDays(int trialDays) {
 		PlatformSetting setting = current();
 		int previous = setting.getTrialDays();

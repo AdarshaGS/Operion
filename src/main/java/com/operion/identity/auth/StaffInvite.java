@@ -45,6 +45,12 @@ public class StaffInvite extends TenantScopedEntity {
 		this.status = StaffInviteStatus.PENDING;
 	}
 
+	public void revoke() {
+		if (status == StaffInviteStatus.PENDING) {
+			this.status = StaffInviteStatus.REVOKED;
+		}
+	}
+
 	public void claim() {
 		if (status != StaffInviteStatus.PENDING) {
 			throw new IllegalStateException("Invite has already been claimed");

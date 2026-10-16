@@ -3,6 +3,7 @@ package com.operion.attendance;
 import java.time.Instant;
 import java.time.LocalDate;
 
+import com.operion.common.InvalidRequestException;
 import com.operion.common.TenantScopedEntity;
 import com.operion.identity.Person;
 import com.operion.organisation.Campus;
@@ -69,6 +70,12 @@ public class StaffAttendance extends TenantScopedEntity {
 	public void checkOut(Instant checkOutTime) {
 		if (this.checkOutTime != null) {
 			throw new IllegalStateException("Staff attendance " + getId() + " is already checked out");
+		}
+		if (checkInTime == null) {
+			throw new IllegalStateException("Staff attendance " + getId() + " has no check-in time to check out from");
+		}
+		if (checkOutTime.isBefore(checkInTime)) {
+			throw new InvalidRequestException("Check-out time cannot be earlier than the check-in time");
 		}
 		this.checkOutTime = checkOutTime;
 	}

@@ -30,6 +30,8 @@ import {
 	type FeeStructureGroupResponse,
 } from "../../api/feeStructureGroups";
 import { createFeeStructure, listFeeStructures, type FeeStructureResponse, type InstallmentEntry } from "../../api/feeStructures";
+import { listCampuses, type CampusResponse } from "../../api/campuses";
+import { listGradeLevels, type GradeLevelResponse } from "../../api/gradeLevels";
 import { listSchoolClasses, type SchoolClassResponse } from "../../api/schoolClasses";
 
 const EMPTY_INSTALLMENT: InstallmentEntry = { installmentNumber: 1, dueDate: "", amount: 0 };
@@ -39,6 +41,8 @@ export function FeeStructuresPanel() {
 	const [academicYears, setAcademicYears] = useState<AcademicYearResponse[]>([]);
 	const [classes, setClasses] = useState<SchoolClassResponse[]>([]);
 	const [categories, setCategories] = useState<FeeCategoryResponse[]>([]);
+	const [gradeLevels, setGradeLevels] = useState<GradeLevelResponse[]>([]);
+	const [campuses, setCampuses] = useState<CampusResponse[]>([]);
 	const [academicYearId, setAcademicYearId] = useState("");
 	const [schoolClassId, setSchoolClassId] = useState("");
 	const [group, setGroup] = useState<FeeStructureGroupResponse | null | undefined>(undefined);
@@ -61,7 +65,19 @@ export function FeeStructuresPanel() {
 		listAcademicYears().then(setAcademicYears).catch(() => {});
 		listSchoolClasses().then(setClasses).catch(() => {});
 		listFeeCategories().then(setCategories).catch(() => {});
+		listGradeLevels().then(setGradeLevels).catch(() => {});
+		listCampuses().then(setCampuses).catch(() => {});
 	}, []);
+
+	// Template-created classes have no display name, and the same grade exists once per
+	// campus - label by grade and campus so each option is identifiable.
+	function classLabel(schoolClass: SchoolClassResponse): string {
+		const name = schoolClass.displayName ?? gradeLevels.find((g) => g.id === schoolClass.gradeLevelId)?.name ?? `Class #${schoolClass.id}`;
+		const campus = campuses.find((c) => c.id === schoolClass.campusId)?.name;
+		return campus ? `${name} · ${campus}` : name;
+	}
+
+	const yearClasses = classes.filter((c) => String(c.academicYearId) === String(academicYearId));
 
 	function refreshGroup() {
 		if (!academicYearId || !schoolClassId) {
@@ -92,9 +108,9 @@ export function FeeStructuresPanel() {
 	const totalsMatch = installments.length > 0 && Math.abs(installmentTotal - (Number(amount) || 0)) < 0.005;
 
 	function openGroupDialog() {
-		const year = academicYears.find((y) => String(y.id) === academicYearId);
-		const schoolClass = classes.find((c) => String(c.id) === schoolClassId);
-		const defaultName = [schoolClass?.displayName, year?.name].filter(Boolean).join(" Fees ");
+		const year = academicYears.find((y) => String(y.id) === String(academicYearId));
+		const schoolClass = classes.find((c) => String(c.id) === String(schoolClassId));
+		const defaultName = [schoolClass && classLabel(schoolClass), year?.name].filter(Boolean).join(" Fees ");
 		setGroupName(defaultName || "");
 		setGroupDialogOpen(true);
 	}
@@ -175,7 +191,10 @@ export function FeeStructuresPanel() {
 						select
 						label="Academic year"
 						value={academicYearId}
-						onChange={(e) => setAcademicYearId(e.target.value)}
+						onChange={(e) => {
+							setAcademicYearId(e.target.value);
+							setSchoolClassId("");
+						}}
 						sx={{ minWidth: 200 }}
 					>
 						{academicYears.map((year) => (
@@ -184,10 +203,17 @@ export function FeeStructuresPanel() {
 							</MenuItem>
 						))}
 					</TextField>
-					<TextField select label="Class" value={schoolClassId} onChange={(e) => setSchoolClassId(e.target.value)} sx={{ minWidth: 200 }}>
-						{classes.map((schoolClass) => (
+					<TextField
+						select
+						label="Class"
+						value={schoolClassId}
+						onChange={(e) => setSchoolClassId(e.target.value)}
+						disabled={!academicYearId}
+						sx={{ minWidth: 260 }}
+					>
+						{yearClasses.map((schoolClass) => (
 							<MenuItem key={schoolClass.id} value={schoolClass.id}>
-								{schoolClass.displayName ?? `Class #${schoolClass.id}`}
+								{classLabel(schoolClass)}
 							</MenuItem>
 						))}
 					</TextField>

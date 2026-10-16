@@ -1,5 +1,8 @@
 package com.operion.organisation;
 
+import java.time.LocalDate;
+
+import com.operion.common.InvalidRequestException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -11,6 +14,18 @@ public class AcademicYearService {
 
 	public AcademicYearService(AcademicYearRepository academicYearRepository) {
 		this.academicYearRepository = academicYearRepository;
+	}
+
+	/** Years are tenant-scoped, so the overlap check only sees the caller's own organisation. */
+	@Transactional
+	public AcademicYear create(String name, LocalDate startDate, LocalDate endDate) {
+		if (endDate.isBefore(startDate)) {
+			throw new InvalidRequestException("End date must not be before the start date");
+		}
+		if (academicYearRepository.existsByStartDateLessThanEqualAndEndDateGreaterThanEqual(endDate, startDate)) {
+			throw new IllegalStateException("The date range overlaps an existing academic year");
+		}
+		return academicYearRepository.save(new AcademicYear(name, startDate, endDate));
 	}
 
 	@Transactional

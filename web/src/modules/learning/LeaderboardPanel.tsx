@@ -68,6 +68,9 @@ export function LeaderboardPanel({ scope }: { scope: LearningScope }) {
 		}
 	}, [scope.manager]);
 
+	// Rewards are granted by managers and by teachers of the section; a view-only user can only read the boards.
+	const canGrant = scope.manager || scope.sections.some((s) => s.sectionId === sectionId && s.writableSubjectIds.length > 0);
+
 	return (
 		<Stack spacing={2}>
 			{error && <Alert severity="error" onClose={() => setError(null)}>{error}</Alert>}
@@ -80,7 +83,7 @@ export function LeaderboardPanel({ scope }: { scope: LearningScope }) {
 						<ToggleButtonGroup size="small" exclusive value={track} onChange={(_, next) => next && setTrack(next)}>
 							{(Object.keys(TRACK_LABEL) as LeaderboardTrack[]).map((t) => <ToggleButton key={t} value={t}>{TRACK_LABEL[t]}</ToggleButton>)}
 						</ToggleButtonGroup>
-						<Button startIcon={<EmojiEventsIcon />} variant="outlined" disabled={sectionId === ""} onClick={() => setGranting("pick")}>Grant reward</Button>
+						<Button startIcon={<EmojiEventsIcon />} variant="outlined" disabled={sectionId === "" || !canGrant} onClick={() => setGranting("pick")}>Grant reward</Button>
 					</Stack>
 					{entries.length === 0 && <Alert severity="info">Nobody in this section has a {TRACK_LABEL[track].toLowerCase()} score yet.</Alert>}
 					{entries.length > 0 && (

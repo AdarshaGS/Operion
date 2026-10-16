@@ -22,6 +22,8 @@ import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import AddIcon from "@mui/icons-material/Add";
 import { ApiError } from "../../api/client";
+import { Can } from "../../auth/Can";
+import { DialogErrorAlert } from "../../components/DialogErrorAlert";
 import {
 	changeCustomFieldDefinitionStatus,
 	createCustomFieldDefinition,
@@ -61,6 +63,8 @@ const EMPTY_FORM: FormState = { entityType: "STUDENT", fieldKey: "", label: "", 
 export function CustomFieldsPanel() {
 	const [definitions, setDefinitions] = useState<CustomFieldDefinitionResponse[]>([]);
 	const [error, setError] = useState<string | null>(null);
+	// A failed save shows inside the dialog: the page banner sits behind the modal.
+	const [dialogError, setDialogError] = useState<string | null>(null);
 	const [dialogOpen, setDialogOpen] = useState(false);
 	const [form, setForm] = useState<FormState>(EMPTY_FORM);
 	const [submitting, setSubmitting] = useState(false);
@@ -88,6 +92,7 @@ export function CustomFieldsPanel() {
 
 	async function handleSubmit(event: FormEvent) {
 		event.preventDefault();
+		setDialogError(null);
 		setSubmitting(true);
 		try {
 			await createCustomFieldDefinition({
@@ -102,7 +107,7 @@ export function CustomFieldsPanel() {
 			setDialogOpen(false);
 			refresh();
 		} catch (err) {
-			setError(err instanceof ApiError ? err.message : "Failed to create custom field");
+			setDialogError(err instanceof ApiError ? err.message : "Failed to create custom field");
 		} finally {
 			setSubmitting(false);
 		}
@@ -113,9 +118,18 @@ export function CustomFieldsPanel() {
 			<Stack spacing={2}>
 				<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
 					<Typography variant="h6">Custom fields</Typography>
-					<Button size="small" startIcon={<AddIcon />} onClick={() => setDialogOpen(true)}>
-						Add custom field
-					</Button>
+					<Can anyOf={["ORGANISATION_MANAGE"]}>
+						<Button
+							size="small"
+							startIcon={<AddIcon />}
+							onClick={() => {
+								setDialogError(null);
+								setDialogOpen(true);
+							}}
+						>
+							Add custom field
+						</Button>
+					</Can>
 				</Box>
 				<Typography variant="body2" color="text.secondary">
 					Add extra fields your organisation needs (e.g. blood group, transport route) to a record's create/edit
@@ -151,9 +165,11 @@ export function CustomFieldsPanel() {
 										<Chip label={definition.status} size="small" color={definition.status === "ACTIVE" ? "success" : "default"} />
 									</TableCell>
 									<TableCell>
-										<Button size="small" onClick={() => handleToggleStatus(definition)}>
-											{definition.status === "ACTIVE" ? "Archive" : "Reactivate"}
-										</Button>
+										<Can anyOf={["ORGANISATION_MANAGE"]}>
+											<Button size="small" onClick={() => handleToggleStatus(definition)}>
+												{definition.status === "ACTIVE" ? "Archive" : "Reactivate"}
+											</Button>
+										</Can>
 									</TableCell>
 								</TableRow>
 							))}
@@ -175,6 +191,7 @@ export function CustomFieldsPanel() {
 				<DialogTitle>Add custom field</DialogTitle>
 				<DialogContent>
 					<Stack spacing={2} sx={{ mt: 1 }}>
+						{dialogError && <DialogErrorAlert>{dialogError}</DialogErrorAlert>}
 						<TextField select label="Applies to" value={form.entityType} onChange={set("entityType")} fullWidth>
 							{ENTITY_TYPES.map((type) => (
 								<MenuItem key={type.value} value={type.value}>
@@ -219,7 +236,7 @@ export function CustomFieldsPanel() {
 				</DialogContent>
 				<DialogActions>
 					<Button onClick={() => setDialogOpen(false)}>Cancel</Button>
-					<Button type="submit" variant="contained" disabled={submitting || !form.label.trim() || !form.fieldKey.trim()}>
+					<Button type="submit" variant="contained" disabled={submitting || !form.label.trim() || !form.fieldKey.trim() || (form.dataType === "SELECT" && !form.options.split(",").some((option) => option.trim()))}>
 						Add
 					</Button>
 				</DialogActions>

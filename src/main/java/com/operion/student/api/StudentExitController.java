@@ -1,5 +1,7 @@
 package com.operion.student.api;
 
+import com.operion.common.EnumParam;
+import jakarta.validation.Valid;
 import java.util.List;
 
 import com.operion.authorization.RequirePermission;
@@ -34,11 +36,11 @@ public class StudentExitController {
 
 	@PostMapping
 	@RequirePermission("STUDENT_EXIT_MANAGE")
-	public StudentExitResponse recordExit(@PathVariable Long studentId, @RequestBody RecordExitRequest request) {
+	public StudentExitResponse recordExit(@PathVariable Long studentId, @Valid @RequestBody RecordExitRequest request) {
 		Student student = studentRepository.findById(studentId)
 				.orElseThrow(() -> new IllegalArgumentException("No student with id " + studentId));
 
-		StudentExit exit = studentService.recordExit(student, StudentExitType.valueOf(request.exitType()),
+		StudentExit exit = studentService.recordExit(student, EnumParam.parse(StudentExitType.class, request.exitType()),
 				request.exitDate(), request.reason(), request.destinationSchool(), request.initiatedBy());
 		return StudentExitResponse.from(exit);
 	}

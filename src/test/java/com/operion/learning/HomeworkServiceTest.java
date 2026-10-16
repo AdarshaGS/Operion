@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import java.time.LocalDate;
 
 import com.operion.authorization.AuthorizationDeniedException;
+import com.operion.common.InvalidRequestException;
 import com.operion.common.JpaConfig;
 import com.operion.common.MultiTenancyConfig;
 import org.junit.jupiter.api.Test;
@@ -83,7 +84,7 @@ class HomeworkServiceTest extends LearningTestBase {
 		assertThatThrownBy(() -> homeworkService.submitForChild(guardianOf(raviEnrollment), other.getId(), "x", null))
 				.isInstanceOf(IllegalArgumentException.class);
 		assertThatThrownBy(() -> homeworkService.submitForChild(guardianOf(raviEnrollment), overdue.getId(), " ", null))
-				.isInstanceOf(IllegalArgumentException.class);
+				.isInstanceOf(InvalidRequestException.class);
 	}
 
 	@Test

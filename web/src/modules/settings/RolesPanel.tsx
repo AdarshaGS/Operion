@@ -7,12 +7,16 @@ import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Checkbox from "@mui/material/Checkbox";
 import Chip from "@mui/material/Chip";
+import { DialogErrorAlert } from "../../components/DialogErrorAlert";
 import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
 import FormControlLabel from "@mui/material/FormControlLabel";
 import FormGroup from "@mui/material/FormGroup";
+import IconButton from "@mui/material/IconButton";
+import Menu from "@mui/material/Menu";
+import MenuItem from "@mui/material/MenuItem";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Table from "@mui/material/Table";
@@ -22,9 +26,14 @@ import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
+import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import AddIcon from "@mui/icons-material/Add";
+import UnfoldLessIcon from "@mui/icons-material/UnfoldLess";
+import UnfoldMoreIcon from "@mui/icons-material/UnfoldMore";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import MoreVertIcon from "@mui/icons-material/MoreVert";
+import { useAuth } from "../../auth/AuthContext";
 import { Can } from "../../auth/Can";
 import { ApiError } from "../../api/client";
 import { listPermissions, type PermissionResponse } from "../../api/permissions";
@@ -81,8 +90,19 @@ function PermissionCheckboxes({
 		});
 	}
 
+	const allExpanded = grouped.size > 0 && expanded.size === grouped.size;
+
 	return (
 		<Stack spacing={1}>
+			<Box sx={{ display: "flex", justifyContent: "flex-end" }}>
+				<Button
+					size="small"
+					startIcon={allExpanded ? <UnfoldLessIcon /> : <UnfoldMoreIcon />}
+					onClick={() => setExpanded(allExpanded ? new Set() : new Set(grouped.keys()))}
+				>
+					{allExpanded ? "Collapse all" : "Expand all"}
+				</Button>
+			</Box>
 			{[...grouped.entries()].map(([module, modulePermissions]) => {
 				const selectedCount = modulePermissions.filter((permission) => selected.has(permission.code)).length;
 				return (
@@ -123,9 +143,13 @@ function PermissionCheckboxes({
 }
 
 export function RolesPanel() {
+	const { profile } = useAuth();
+	const ownRoleNames = useMemo(() => new Set(profile?.roleNames ?? []), [profile]);
 	const [roles, setRoles] = useState<RoleResponse[]>([]);
 	const [permissions, setPermissions] = useState<PermissionResponse[]>([]);
 	const [error, setError] = useState<string | null>(null);
+	// Shown inside whichever dialog is open - the page-level alert sits behind its backdrop.
+	const [dialogError, setDialogError] = useState<string | null>(null);
 
 	const [createOpen, setCreateOpen] = useState(false);
 	const [name, setName] = useState("");
@@ -136,6 +160,7 @@ export function RolesPanel() {
 
 	const [editingRole, setEditingRole] = useState<RoleResponse | null>(null);
 	const [editSelected, setEditSelected] = useState<Set<string>>(new Set());
+	const [menu, setMenu] = useState<{ anchor: HTMLElement; role: RoleResponse } | null>(null);
 
 	function refresh() {
 		listRoles()
@@ -160,6 +185,7 @@ export function RolesPanel() {
 	async function handleCreate(event: FormEvent) {
 		event.preventDefault();
 		setSubmitting(true);
+		setDialogError(null);
 		try {
 			await createRole({ name, description, permissionCodes: [...createSelected], portal: createPortal });
 			setName("");
@@ -169,13 +195,14 @@ export function RolesPanel() {
 			setCreateOpen(false);
 			refresh();
 		} catch (err) {
-			setError(err instanceof ApiError ? err.message : "Failed to create role");
+			setDialogError(err instanceof ApiError ? err.message : "Failed to create role");
 		} finally {
 			setSubmitting(false);
 		}
 	}
 
 	function openEdit(role: RoleResponse) {
+		setDialogError(null);
 		setEditingRole(role);
 		setEditSelected(new Set(role.permissionCodes));
 	}
@@ -183,12 +210,13 @@ export function RolesPanel() {
 	async function handleSavePermissions() {
 		if (!editingRole) return;
 		setSubmitting(true);
+		setDialogError(null);
 		try {
 			await updateRolePermissions(editingRole.id, [...editSelected]);
 			setEditingRole(null);
 			refresh();
 		} catch (err) {
-			setError(err instanceof ApiError ? err.message : "Failed to update role permissions");
+			setDialogError(err instanceof ApiError ? err.message : "Failed to update role permissions");
 		} finally {
 			setSubmitting(false);
 		}
@@ -218,7 +246,7 @@ export function RolesPanel() {
 				<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
 					<Typography variant="h6">Roles</Typography>
 					<Can anyOf={["ROLE_MANAGE"]}>
-						<Button size="small" startIcon={<AddIcon />} onClick={() => setCreateOpen(true)}>
+						<Button size="small" startIcon={<AddIcon />} onClick={() => { setDialogError(null); setCreateOpen(true); }}>
 							Add role
 						</Button>
 					</Can>
@@ -251,21 +279,17 @@ export function RolesPanel() {
 										<Chip label={role.status} size="small" />
 									</TableCell>
 									<TableCell align="right">
-										<Can anyOf={["ROLE_MANAGE"]}>
-											<Button size="small" onClick={() => openEdit(role)}>
-												Edit permissions
-											</Button>
-											{!role.systemDefault && (
-												<Button size="small" onClick={() => togglePortal(role)}>
-													{role.portal ? "Unmark portal" : "Mark as portal role"}
-												</Button>
-											)}
-											{!role.systemDefault && (
-												<Button size="small" onClick={() => toggleStatus(role)}>
-													{role.status === "ACTIVE" ? "Deactivate" : "Reactivate"}
-												</Button>
-											)}
-										</Can>
+										{ownRoleNames.has(role.name) ? (
+											<Tooltip title="You hold this role, so you can't change it - ask another administrator">
+												<Chip label="your role" size="small" variant="outlined" />
+											</Tooltip>
+										) : (
+											<Can anyOf={["ROLE_MANAGE"]}>
+												<IconButton size="small" aria-label="Role actions" onClick={(event) => setMenu({ anchor: event.currentTarget, role })}>
+													<MoreVertIcon fontSize="small" />
+												</IconButton>
+											</Can>
+										)}
 									</TableCell>
 								</TableRow>
 							))}
@@ -274,18 +298,45 @@ export function RolesPanel() {
 				</TableContainer>
 			</Stack>
 
+			<Menu anchorEl={menu?.anchor} open={menu !== null} onClose={() => setMenu(null)}>
+				<MenuItem
+					onClick={() => {
+						if (menu) openEdit(menu.role);
+						setMenu(null);
+					}}
+				>
+					Edit permissions
+				</MenuItem>
+				{menu && !menu.role.systemDefault && (
+					<MenuItem
+						onClick={() => {
+							togglePortal(menu.role);
+							setMenu(null);
+						}}
+					>
+						{menu.role.portal ? "Unmark portal" : "Mark as portal role"}
+					</MenuItem>
+				)}
+				{menu && !menu.role.systemDefault && (
+					<MenuItem
+						onClick={() => {
+							toggleStatus(menu.role);
+							setMenu(null);
+						}}
+						sx={{ color: menu.role.status === "ACTIVE" ? "error.main" : undefined }}
+					>
+						{menu.role.status === "ACTIVE" ? "Deactivate" : "Reactivate"}
+					</MenuItem>
+				)}
+			</Menu>
+
 			<Dialog open={createOpen} onClose={() => setCreateOpen(false)} component="form" onSubmit={handleCreate} fullWidth maxWidth="sm">
 				<DialogTitle>Add role</DialogTitle>
 				<DialogContent>
 					<Stack spacing={2} sx={{ mt: 1 }}>
+						{dialogError && <DialogErrorAlert>{dialogError}</DialogErrorAlert>}
 						<TextField label="Name" value={name} onChange={(e) => setName(e.target.value)} required autoFocus fullWidth />
-						<TextField
-							label="Description"
-							value={description}
-							onChange={(e) => setDescription(e.target.value)}
-							required
-							fullWidth
-						/>
+						<TextField label="Description (optional)" value={description} onChange={(e) => setDescription(e.target.value)} fullWidth />
 						<FormControlLabel
 							control={<Checkbox checked={createPortal} onChange={(e) => setCreatePortal(e.target.checked)} />}
 							label="Portal role — holders land in the self-service portal shell instead of the admin shell"
@@ -308,6 +359,7 @@ export function RolesPanel() {
 			<Dialog open={editingRole !== null} onClose={() => setEditingRole(null)} fullWidth maxWidth="sm">
 				<DialogTitle>Edit permissions — {editingRole?.name}</DialogTitle>
 				<DialogContent>
+					{dialogError && <DialogErrorAlert>{dialogError}</DialogErrorAlert>}
 					<PermissionCheckboxes
 						permissions={permissions}
 						selected={editSelected}

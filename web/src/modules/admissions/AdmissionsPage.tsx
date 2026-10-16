@@ -60,6 +60,7 @@ export function AdmissionsPage() {
 	const [approveTarget, setApproveTarget] = useState<AdmissionApplicantResponse | null>(null);
 	const [convertForm, setConvertForm] = useState(CONVERT_FORM);
 	const [createdStudentId, setCreatedStudentId] = useState<number | null>(null);
+	const [approveError, setApproveError] = useState<string | null>(null);
 	const [rejectTarget, setRejectTarget] = useState<AdmissionApplicantResponse | null>(null);
 	const [reason, setReason] = useState("");
 	const [docsTarget, setDocsTarget] = useState<AdmissionApplicantResponse | null>(null);
@@ -105,6 +106,7 @@ export function AdmissionsPage() {
 		event.preventDefault();
 		if (!approveTarget) return;
 		setSubmitting(true);
+		setApproveError(null);
 		try {
 			const student = await convertApplicant(approveTarget.id, {
 				admissionNumber: convertForm.admissionNumber || null,
@@ -118,8 +120,7 @@ export function AdmissionsPage() {
 			setConvertForm(CONVERT_FORM);
 			refresh();
 		} catch (err) {
-			setError(errMsg(err, "Failed to approve applicant"));
-			setApproveTarget(null);
+			setApproveError(errMsg(err, "Failed to approve applicant"));
 		} finally {
 			setSubmitting(false);
 		}
@@ -128,6 +129,7 @@ export function AdmissionsPage() {
 	function closeApprove() {
 		setApproveTarget(null);
 		setCreatedStudentId(null);
+		setApproveError(null);
 	}
 
 	async function handleReject(event: FormEvent) {
@@ -320,6 +322,7 @@ export function AdmissionsPage() {
 						</Alert>
 					) : (
 						<Stack spacing={2} sx={{ mt: 1 }}>
+							{approveError && <Alert severity="error">{approveError}</Alert>}
 							<Typography variant="body2" color="text.secondary">
 								Approving admits the applicant as a student. Other student details can be completed on their record afterwards.
 							</Typography>

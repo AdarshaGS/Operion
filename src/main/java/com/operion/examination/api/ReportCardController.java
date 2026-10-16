@@ -26,6 +26,7 @@ import com.operion.organisation.OrganisationBrandingRepository;
 import com.operion.student.Student;
 import com.operion.student.StudentEnrollment;
 import com.operion.student.StudentEnrollmentRepository;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -71,7 +72,7 @@ public class ReportCardController {
 	/** Publishes a fresh report card, or - if the current one is stale (#138) - supersedes it and republishes. */
 	@PostMapping("/exams/{examId}/report-cards")
 	@RequirePermission("REPORT_CARD_PUBLISH")
-	public ReportCardResponse publish(@PathVariable Long examId, @RequestBody PublishReportCardRequest request) {
+	public ReportCardResponse publish(@PathVariable Long examId, @Valid @RequestBody PublishReportCardRequest request) {
 		Exam exam = examRepository.findById(examId).orElseThrow(() -> new IllegalArgumentException("No exam with id " + examId));
 		StudentEnrollment enrollment = studentEnrollmentRepository.findById(request.studentEnrollmentId())
 				.orElseThrow(() -> new IllegalArgumentException("No student enrollment with id " + request.studentEnrollmentId()));

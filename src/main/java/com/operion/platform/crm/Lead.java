@@ -1,5 +1,6 @@
 package com.operion.platform.crm;
 
+import com.operion.common.persistence.PlatformPlane;
 import com.operion.common.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -20,6 +21,7 @@ import lombok.NoArgsConstructor;
 @Entity
 @Table(name = "crm_leads")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
+@PlatformPlane
 public class Lead extends BaseEntity {
 
 	@Column(name = "school_name", nullable = false)

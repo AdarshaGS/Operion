@@ -12,23 +12,28 @@ import DialogTitle from "@mui/material/DialogTitle";
 import MenuItem from "@mui/material/MenuItem";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
+import Tab from "@mui/material/Tab";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
 import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
+import Tabs from "@mui/material/Tabs";
 import TextField from "@mui/material/TextField";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import {
+	type AttendanceCorrectionResponse,
 	type AttendanceRegisterResponse,
 	type StudentAttendanceResponse,
 	correctAttendance,
+	getCorrections,
 	getRegister,
 	lockRegister,
 	markAttendance,
 	submitRegister,
+	unlockRegister,
 } from "../../api/attendance";
 import { ApiError } from "../../api/client";
 import { type StudentEnrollmentResponse, listSectionEnrollments } from "../../api/enrollments";
@@ -36,6 +41,8 @@ import { type PersonResponse, listPersons } from "../../api/persons";
 import { listSchoolClasses, type SchoolClassResponse } from "../../api/schoolClasses";
 import { listSections, type SectionResponse } from "../../api/sections";
 import { listStudents, type StudentResponse } from "../../api/students";
+import { useAuth } from "../../auth/AuthContext";
+import { StaffAttendancePanel } from "./StaffAttendancePanel";
 
 const STATUS_OPTIONS = ["PRESENT", "ABSENT", "LATE", "HALF_DAY", "LEAVE"];
 
@@ -61,7 +68,35 @@ interface DraftRow {
 	remarks: string;
 }
 
+/** Class register and staff attendance, each shown only to callers who may view it. */
 export function AttendancePage() {
+	const { hasPermission, permissionsLoaded } = useAuth();
+	// Until permissions load, show both tabs - the backend enforces access either way.
+	const showClass = !permissionsLoaded || hasPermission("ATTENDANCE_VIEW");
+	const showStaff = !permissionsLoaded || hasPermission("STAFF_ATTENDANCE_VIEW");
+	const [tab, setTab] = useState<"class" | "staff">("class");
+	const active = showClass ? tab : "staff";
+
+	return (
+		<Stack spacing={2}>
+			{showClass && showStaff && (
+				<Tabs value={active} onChange={(_, value) => setTab(value)}>
+					<Tab value="class" label="Class register" />
+					<Tab value="staff" label="Staff attendance" />
+				</Tabs>
+			)}
+			{active === "class" ? <ClassRegisterPanel /> : <StaffAttendancePanel />}
+		</Stack>
+	);
+}
+
+function ClassRegisterPanel() {
+	const { hasPermission } = useAuth();
+	const canMark = hasPermission("ATTENDANCE_MARK");
+	const canCorrect = hasPermission("ATTENDANCE_CORRECT");
+	const canLock = hasPermission("ATTENDANCE_LOCK");
+	const canUnlock = hasPermission("ATTENDANCE_UNLOCK");
+
 	const [classes, setClasses] = useState<SchoolClassResponse[]>([]);
 	const [sections, setSections] = useState<SectionResponse[]>([]);
 	const [classId, setClassId] = useState("");
@@ -80,7 +115,9 @@ export function AttendancePage() {
 
 	const [register, setRegister] = useState<AttendanceRegisterResponse | null>(null);
 	const [draftRows, setDraftRows] = useState<DraftRow[] | null>(null);
+	const [corrections, setCorrections] = useState<Map<number, AttendanceCorrectionResponse[]>>(new Map());
 	const [correctingId, setCorrectingId] = useState<number | null>(null);
+	const [originalStatus, setOriginalStatus] = useState("PRESENT");
 	const [correctStatus, setCorrectStatus] = useState("PRESENT");
 	const [correctReason, setCorrectReason] = useState("");
 
@@ -104,6 +141,14 @@ export function AttendancePage() {
 		return person ? `${person.firstName} ${person.lastName}` : `Student #${student.id}`;
 	}
 
+	/** Shows a register together with the correction trail of every entry that was ever corrected. */
+	async function showRegister(next: AttendanceRegisterResponse | null) {
+		setRegister(next);
+		const corrected = (next?.entries ?? []).filter((entry) => entry.correctedAt);
+		const trails = await Promise.all(corrected.map((entry) => getCorrections(entry.id).catch(() => [])));
+		setCorrections(new Map(corrected.map((entry, i) => [entry.id, trails[i]])));
+	}
+
 	async function handleLoad(dateOverride?: string) {
 		if (!sectionId) return;
 		const targetDate = dateOverride ?? date;
@@ -112,6 +157,7 @@ export function AttendancePage() {
 		setError(null);
 		setLoaded(false);
 		setRegister(null);
+		setCorrections(new Map());
 		setDraftRows(null);
 		try {
 			const [enrollmentList, studentList, personList] = await Promise.all([
@@ -125,7 +171,7 @@ export function AttendancePage() {
 
 			const existing = await getRegister(Number(sectionId), targetDate);
 			if (existing) {
-				setRegister(existing);
+				await showRegister(existing);
 			} else {
 				setDraftRows(enrollmentList.map((enrollment) => ({ enrollmentId: enrollment.id, status: "PRESENT", excused: false, remarks: "" })));
 			}
@@ -163,7 +209,7 @@ export function AttendancePage() {
 					remarks: row.remarks || null,
 				})),
 			});
-			setRegister(result);
+			await showRegister(result);
 			setDraftRows(null);
 		} catch (err) {
 			setError(err instanceof ApiError ? err.message : "Failed to mark attendance");
@@ -196,12 +242,24 @@ export function AttendancePage() {
 		}
 	}
 
+	async function handleUnlockRegister() {
+		if (!register) return;
+		setLoading(true);
+		try {
+			setRegister(await unlockRegister(register.register.id));
+		} catch (err) {
+			setError(err instanceof ApiError ? err.message : "Failed to unlock register");
+		} finally {
+			setLoading(false);
+		}
+	}
+
 	async function handleCorrect() {
 		if (correctingId === null) return;
 		setLoading(true);
 		try {
 			await correctAttendance(correctingId, correctStatus, correctReason);
-			setRegister(await getRegister(Number(sectionId), date));
+			await showRegister(await getRegister(Number(sectionId), date));
 			setCorrectingId(null);
 			setCorrectReason("");
 		} catch (err) {
@@ -276,7 +334,16 @@ export function AttendancePage() {
 				</Box>
 			)}
 
-			{loaded && draftRows && (
+			{loaded && draftRows && !canMark && (
+				<Paper sx={{ p: 3 }}>
+					<Stack spacing={2}>
+						<Typography variant="h6">Register — {date}</Typography>
+						<Alert severity="info">No attendance has been marked for this day.</Alert>
+					</Stack>
+				</Paper>
+			)}
+
+			{loaded && draftRows && canMark && (
 				<Paper sx={{ p: 3 }}>
 					<Stack spacing={2}>
 						<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -355,14 +422,19 @@ export function AttendancePage() {
 							<Typography variant="h6">Register — {register.register.attendanceDate}</Typography>
 							<Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
 								<Chip label={register.register.registerStatus} size="small" />
-								{register.register.registerStatus === "DRAFT" && (
+								{register.register.registerStatus === "DRAFT" && canMark && (
 									<Button size="small" variant="contained" onClick={handleSubmitRegister} disabled={loading}>
 										Submit
 									</Button>
 								)}
-								{register.register.registerStatus === "SUBMITTED" && (
+								{register.register.registerStatus === "SUBMITTED" && canLock && (
 									<Button size="small" variant="contained" onClick={handleLockRegister} disabled={loading}>
 										Lock
+									</Button>
+								)}
+								{register.register.registerStatus === "LOCKED" && canUnlock && (
+									<Button size="small" variant="outlined" onClick={handleUnlockRegister} disabled={loading}>
+										Unlock
 									</Button>
 								)}
 							</Stack>
@@ -384,6 +456,7 @@ export function AttendancePage() {
 										<TableCell>Status</TableCell>
 										<TableCell>Excused</TableCell>
 										<TableCell>Remarks</TableCell>
+										<TableCell>Corrections</TableCell>
 										<TableCell />
 									</TableRow>
 								</TableHead>
@@ -399,11 +472,25 @@ export function AttendancePage() {
 											<TableCell>{entry.excused ? "Yes" : "No"}</TableCell>
 											<TableCell>{entry.remarks ?? "—"}</TableCell>
 											<TableCell>
-												{register.register.registerStatus !== "LOCKED" && (
+												{(corrections.get(entry.id) ?? []).length === 0
+													? "—"
+													: corrections.get(entry.id)!.map((correction) => (
+															<Typography key={correction.id} variant="body2">
+																{correction.previousStatus} → {correction.newStatus}: {correction.reason}
+																<Typography component="span" variant="caption" color="text.secondary">
+																	{" "}
+																	(user #{correction.correctedBy ?? "—"}, {new Date(correction.correctedAt).toLocaleString()})
+																</Typography>
+															</Typography>
+														))}
+											</TableCell>
+											<TableCell>
+												{register.register.registerStatus !== "LOCKED" && canCorrect && (
 													<Button
 														size="small"
 														onClick={() => {
 															setCorrectingId(entry.id);
+															setOriginalStatus(entry.attendanceStatus);
 															setCorrectStatus(entry.attendanceStatus);
 															setCorrectReason("");
 														}}
@@ -445,7 +532,7 @@ export function AttendancePage() {
 				</DialogContent>
 				<DialogActions>
 					<Button onClick={() => setCorrectingId(null)}>Cancel</Button>
-					<Button variant="contained" onClick={handleCorrect} disabled={!correctReason || loading}>
+					<Button variant="contained" onClick={handleCorrect} disabled={!correctReason.trim() || correctStatus === originalStatus || loading}>
 						Save
 					</Button>
 				</DialogActions>

@@ -7,5 +7,11 @@ public enum SchoolTemplateItemCategory {
 	ROLE,
 	FEE_CATEGORY,
 	ITEM_CATEGORY,
+	ITEM,
+	ASSET_TYPE,
+	CLASS,
+	LEAVE_TYPE,
+	SECTION,
+	SUBJECT,
 	GRADING_BAND
 }

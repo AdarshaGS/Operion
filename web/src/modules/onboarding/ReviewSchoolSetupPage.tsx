@@ -7,6 +7,7 @@ import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import RadioButtonUncheckedIcon from "@mui/icons-material/RadioButtonUnchecked";
+import { useAuth } from "../../auth/AuthContext";
 import { ApiError } from "../../api/client";
 import { getSchoolTemplatePreview, type SchoolTemplatePreviewResponse } from "../../api/schoolTemplate";
 import { colors } from "../../theme";
@@ -22,11 +23,17 @@ function rowsFrom(preview: SchoolTemplatePreviewResponse): ReviewRow[] {
 	const anyPresent = (items: { alreadyExists: boolean }[]) => items.some((item) => item.alreadyExists);
 	return [
 		{ label: "Grades", done: anyPresent(preview.grades), path: "/academics", ctaLabel: "Manage grades" },
+		{ label: "Classes (current year)", done: anyPresent(preview.classes), path: "/academics", ctaLabel: "Manage classes" },
+		{ label: "Sections", done: anyPresent(preview.sections), path: "/academics", ctaLabel: "Manage sections" },
+		{ label: "Subjects", done: anyPresent(preview.subjects), path: "/academics", ctaLabel: "Manage subjects" },
 		{ label: "Departments", done: anyPresent(preview.departments), path: "/settings/departments", ctaLabel: "Manage departments" },
 		{ label: "Designations", done: anyPresent(preview.designations), path: "/settings/designations", ctaLabel: "Manage designations" },
 		{ label: "Roles", done: anyPresent(preview.roles), path: "/settings/roles", ctaLabel: "Manage roles" },
 		{ label: "Fee categories", done: anyPresent(preview.feeCategories), path: "/fees/setup", ctaLabel: "Manage fee categories" },
 		{ label: "Inventory categories", done: anyPresent(preview.itemCategories), path: "/inventory", ctaLabel: "Manage inventory categories" },
+		{ label: "Inventory items", done: anyPresent(preview.items), path: "/inventory", ctaLabel: "Manage inventory items" },
+		{ label: "Asset types", done: anyPresent(preview.assetTypes), path: "/inventory", ctaLabel: "Manage assets" },
+		{ label: "Leave types", done: anyPresent(preview.leaveTypes), path: "/hr", ctaLabel: "Manage leave types" },
 		{ label: "Grading scale", done: preview.gradingScaleExists, path: "/examinations", ctaLabel: "Manage grading scales" },
 	];
 }
@@ -39,6 +46,7 @@ function rowsFrom(preview: SchoolTemplatePreviewResponse): ReviewRow[] {
  * same philosophy as the Dashboard's SetupProgress card. */
 export function ReviewSchoolSetupPage() {
 	const navigate = useNavigate();
+	const { isPathEnabled } = useAuth();
 	const [preview, setPreview] = useState<SchoolTemplatePreviewResponse | null>(null);
 	const [error, setError] = useState<string | null>(null);
 
@@ -48,7 +56,8 @@ export function ReviewSchoolSetupPage() {
 			.catch((err) => setError(err instanceof ApiError ? err.message : "Failed to load school setup status"));
 	}, []);
 
-	const rows = preview ? rowsFrom(preview) : [];
+	// A module the school switched off has nothing to review - hiding its row beats showing it as forever "not done".
+	const rows = preview ? rowsFrom(preview).filter((row) => isPathEnabled(row.path)) : [];
 
 	return (
 		<Stack spacing={3}>
@@ -101,7 +110,10 @@ export function ReviewSchoolSetupPage() {
 				</Stack>
 			</Paper>
 
-			<Box>
+			<Box sx={{ display: "flex", gap: 1.5, flexWrap: "wrap" }}>
+				<Button variant="contained" onClick={() => navigate("/setup/go-live")}>
+					Run go-live check
+				</Button>
 				<Button onClick={() => navigate("/settings/school-template")} sx={{ color: colors.inkSoft }}>
 					Back to school setup template
 				</Button>

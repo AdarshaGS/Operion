@@ -4,6 +4,8 @@ import org.hibernate.context.spi.CurrentTenantIdentifierResolver;
 import org.springframework.boot.hibernate.autoconfigure.HibernatePropertiesCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Import;
+import com.operion.common.persistence.PersistenceConfig;
 
 /**
  * Wires Hibernate's discriminator-based multi-tenancy (the {@code @TenantId} fields on
@@ -12,6 +14,7 @@ import org.springframework.context.annotation.Configuration;
  * OrganisationTenantIsolationTest.
  */
 @Configuration
+@Import(PersistenceConfig.class)
 public class MultiTenancyConfig {
 
 	private static final Long NO_TENANT = -1L;

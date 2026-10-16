@@ -12,6 +12,8 @@ import com.operion.common.MultiTenancyConfig;
 import com.operion.common.TenantContext;
 import com.operion.identity.Person;
 import com.operion.identity.PersonRepository;
+import com.operion.identity.User;
+import com.operion.identity.UserRepository;
 import com.operion.organisation.Campus;
 import com.operion.organisation.CampusRepository;
 import com.operion.organisation.Organisation;
@@ -55,6 +57,9 @@ class FineTest {
 	@Autowired
 	private LibraryService libraryService;
 
+	@Autowired
+	private UserRepository userRepository;
+
 	@AfterEach
 	void clearTenant() {
 		TenantContext.clear();
@@ -88,10 +93,11 @@ class FineTest {
 		BorrowRecord record = setUpBorrowRecord("library-fine-waive");
 		Fine fine = libraryService.raiseFine(record, new BigDecimal("50.00"), FineReason.OVERDUE);
 
-		libraryService.waiveFine(fine, 42L, "Family hardship");
+		Long waiver = userRepository.save(new User("librarian@example.test", null, "x")).getId();
+		libraryService.waiveFine(fine, waiver, "Family hardship");
 
 		assertThat(fine.getStatus()).isEqualTo(FineStatus.WAIVED);
-		assertThat(fine.getWaivedBy()).isEqualTo(42L);
+		assertThat(fine.getWaivedBy()).isEqualTo(waiver);
 		assertThat(fine.getWaivedReason()).isEqualTo("Family hardship");
 	}
 

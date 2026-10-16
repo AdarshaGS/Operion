@@ -111,11 +111,16 @@ public class FeeStructureRowImportService {
 
 	private static BigDecimal requireAmount(Map<String, String> row, String field) {
 		String value = require(row, field);
+		BigDecimal amount;
 		try {
-			return new BigDecimal(value.trim());
+			amount = new BigDecimal(value.trim());
 		} catch (NumberFormatException e) {
 			throw new IllegalArgumentException(field + " '" + value + "' is not a valid amount");
 		}
+		if (amount.signum() <= 0) {
+			throw new IllegalArgumentException(field + " must be greater than zero");
+		}
+		return amount;
 	}
 
 	private static LocalDate requireDate(Map<String, String> row, String field) {

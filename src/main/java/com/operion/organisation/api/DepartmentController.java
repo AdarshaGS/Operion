@@ -1,5 +1,7 @@
 package com.operion.organisation.api;
 
+import com.operion.common.EnumParam;
+import com.operion.common.InvalidRequestException;
 import java.util.List;
 
 import com.operion.authorization.RequirePermission;
@@ -28,7 +30,14 @@ public class DepartmentController {
 	@PostMapping
 	@RequirePermission("ORGANISATION_MANAGE")
 	public DepartmentResponse create(@RequestBody CreateDepartmentRequest request) {
-		return DepartmentResponse.from(departmentRepository.save(new Department(request.name())));
+		String name = request.name() == null ? "" : request.name().trim();
+		if (name.isEmpty()) {
+			throw new InvalidRequestException("A department name is required");
+		}
+		if (departmentRepository.findByNameIgnoreCase(name).isPresent()) {
+			throw new IllegalStateException("A department named '" + name + "' already exists");
+		}
+		return DepartmentResponse.from(departmentRepository.save(new Department(name)));
 	}
 
 	@GetMapping
@@ -41,7 +50,7 @@ public class DepartmentController {
 	public DepartmentResponse changeStatus(@PathVariable Long id, @RequestBody ChangeStatusRequest request) {
 		Department department = departmentRepository.findById(id)
 				.orElseThrow(() -> new IllegalArgumentException("No department with id " + id));
-		department.changeStatus(DepartmentStatus.valueOf(request.status()));
+		department.changeStatus(EnumParam.parse(DepartmentStatus.class, request.status()));
 		return DepartmentResponse.from(departmentRepository.save(department));
 	}
 }

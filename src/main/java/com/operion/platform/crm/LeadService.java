@@ -8,6 +8,7 @@ import com.operion.organisation.Organisation;
 import com.operion.organisation.OrganisationService;
 import com.operion.organisation.api.CreateOrganisationRequest;
 import org.springframework.stereotype.Service;
+import com.operion.common.persistence.PlatformTransactional;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -37,7 +38,7 @@ public class LeadService {
 	}
 
 	/** An unspecified owner defaults to the platform admin creating the lead. */
-	@Transactional
+	@PlatformTransactional
 	public Lead create(String schoolName, LeadSource source, Integer estimatedStudentCount, Long ownerId, String notes) {
 		Long owner = ownerId != null ? ownerId : crmDirectory.currentAdminId();
 		crmDirectory.requireAdmin(owner);
@@ -45,7 +46,7 @@ public class LeadService {
 	}
 
 	/** Partial update: a null field leaves the current value alone; a blank notes string clears it. */
-	@Transactional
+	@PlatformTransactional
 	public Lead update(Long id, String schoolName, LeadSource source, Integer estimatedStudentCount, Long ownerId, String notes) {
 		Lead lead = get(id);
 		crmDirectory.requireAdmin(ownerId);
@@ -57,7 +58,7 @@ public class LeadService {
 		return leadRepository.save(lead);
 	}
 
-	@Transactional
+	@PlatformTransactional
 	public Lead changeStage(Long id, LeadStage target) {
 		Lead lead = get(id);
 		lead.changeStage(target);

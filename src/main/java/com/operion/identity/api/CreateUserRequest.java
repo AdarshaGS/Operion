@@ -1,4 +1,9 @@
 package com.operion.identity.api;
 
-public record CreateUserRequest(String email, String phone, String password) {
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+
+public record CreateUserRequest(@NotBlank @Email(message = "must be a valid email address") String email, String phone,
+		@NotBlank @Size(min = 8, message = "must be at least 8 characters") String password) {
 }

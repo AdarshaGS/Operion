@@ -4,11 +4,11 @@ import { ExamsPanel } from "./ExamsPanel";
 import { GradingScalesPanel } from "./GradingScalesPanel";
 
 export function ExaminationsPage() {
-	return (
-		<Stack spacing={3}>
-			<ExaminationSettingsPanel />
-			<GradingScalesPanel />
-			<ExamsPanel />
-		</Stack>
-	);
+  return (
+    <Stack spacing={3}>
+      <ExaminationSettingsPanel />
+      <GradingScalesPanel />
+      <ExamsPanel />
+    </Stack>
+  );
 }

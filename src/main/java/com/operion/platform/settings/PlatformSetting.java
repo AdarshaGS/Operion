@@ -1,5 +1,6 @@
 package com.operion.platform.settings;
 
+import com.operion.common.persistence.PlatformPlane;
 import com.operion.common.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -19,6 +20,7 @@ import lombok.NoArgsConstructor;
 @Entity
 @Table(name = "platform_settings")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
+@PlatformPlane
 public class PlatformSetting extends BaseEntity {
 
 	public static final int DEFAULT_TRIAL_DAYS = 14;

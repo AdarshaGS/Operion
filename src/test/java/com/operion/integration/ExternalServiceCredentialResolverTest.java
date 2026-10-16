@@ -72,7 +72,7 @@ class ExternalServiceCredentialResolverTest {
 
 		TenantContext.set(organisation.getId(), null);
 		organisationExternalServicePropertyRepository
-				.save(new OrganisationExternalServiceProperty(service, "email.api-key", cipher.encrypt("xkeysib-real-key"), true));
+				.save(new OrganisationExternalServiceProperty(service.getId(), "email.api-key", cipher.encrypt("xkeysib-real-key"), true));
 
 		assertThat(resolver().resolve(service.getServiceKey(), "email.api-key")).contains("xkeysib-real-key");
 	}
@@ -95,7 +95,7 @@ class ExternalServiceCredentialResolverTest {
 
 		TenantContext.set(organisation.getId(), null);
 		organisationExternalServicePropertyRepository
-				.save(new OrganisationExternalServiceProperty(service, "email.api-key", cipher.encrypt("xkeysib-real-key"), true));
+				.save(new OrganisationExternalServiceProperty(service.getId(), "email.api-key", cipher.encrypt("xkeysib-real-key"), true));
 
 		assertThat(resolver().resolve(service.getServiceKey(), "email.api-key")).isEmpty();
 	}
@@ -120,7 +120,7 @@ class ExternalServiceCredentialResolverTest {
 
 		TenantContext.set(organisationA.getId(), null);
 		organisationExternalServicePropertyRepository
-				.save(new OrganisationExternalServiceProperty(service, "email.api-key", cipher.encrypt("org-a-key"), true));
+				.save(new OrganisationExternalServiceProperty(service.getId(), "email.api-key", cipher.encrypt("org-a-key"), true));
 		TenantContext.clear();
 
 		TenantContext.set(organisationB.getId(), null);

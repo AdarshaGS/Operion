@@ -1,10 +1,13 @@
 package com.operion.organisation.api;
 
 import com.operion.authorization.RequirePermission;
+import com.operion.common.EnumParam;
+import com.operion.common.TenantContext;
 import com.operion.organisation.Organisation;
 import com.operion.organisation.OrganisationService;
 import com.operion.organisation.OrganisationStatus;
 import com.operion.platform.settings.PlatformSettingsService;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -37,7 +40,7 @@ public class OrganisationController {
 	}
 
 	@PostMapping
-	public OrganisationResponse create(@RequestBody CreateOrganisationRequest request) {
+	public OrganisationResponse create(@Valid @RequestBody CreateOrganisationRequest request) {
 		Organisation organisation = organisationService.provision(request.toOrganisation(), request.toProfile(),
 				request.toAdminAccount(), request.toAcademicYearDetails(), request.toPlanSelection());
 		return OrganisationResponse.from(organisation, platformSettingsService.current().getTrialDays());
@@ -45,8 +48,12 @@ public class OrganisationController {
 
 	@PatchMapping("/{id}/status")
 	@RequirePermission("ORGANISATION_MANAGE")
-	public OrganisationResponse changeStatus(@PathVariable Long id, @RequestBody ChangeOrganisationStatusRequest request) {
-		OrganisationStatus target = OrganisationStatus.valueOf(request.status());
+	public OrganisationResponse changeStatus(@PathVariable Long id, @Valid @RequestBody ChangeOrganisationStatusRequest request) {
+		// An organisation's own admin changes only its own status; the platform console handles any other.
+		if (!id.equals(TenantContext.getOrganisationId())) {
+			throw new IllegalArgumentException("No organisation with id " + id);
+		}
+		OrganisationStatus target = EnumParam.parse(OrganisationStatus.class, request.status());
 		return OrganisationResponse.from(organisationService.changeStatus(id, target), platformSettingsService.current().getTrialDays());
 	}
 }

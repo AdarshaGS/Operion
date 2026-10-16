@@ -1,13 +1,14 @@
 package com.operion.academic.api;
 
 import java.time.LocalTime;
+import java.time.format.DateTimeParseException;
+import java.util.Map;
 
 import com.operion.academic.AcademicConfiguration;
 import com.operion.academic.AcademicConfigurationRepository;
 import com.operion.authorization.RequirePermission;
+import com.operion.common.InvalidRequestException;
 import com.operion.common.TenantContext;
-import com.operion.organisation.Organisation;
-import com.operion.organisation.OrganisationRepository;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -27,12 +28,9 @@ import org.springframework.web.bind.annotation.RestController;
 public class AcademicConfigurationController {
 
 	private final AcademicConfigurationRepository configurationRepository;
-	private final OrganisationRepository organisationRepository;
 
-	public AcademicConfigurationController(AcademicConfigurationRepository configurationRepository,
-			OrganisationRepository organisationRepository) {
+	public AcademicConfigurationController(AcademicConfigurationRepository configurationRepository) {
 		this.configurationRepository = configurationRepository;
-		this.organisationRepository = organisationRepository;
 	}
 
 	@GetMapping
@@ -40,21 +38,35 @@ public class AcademicConfigurationController {
 		return AcademicConfigurationResponse.from(currentConfiguration());
 	}
 
+	/** Partial update: a time left out of the body is unchanged, an explicit null (or empty string) clears it. */
 	@PatchMapping
 	@RequirePermission("ACADEMIC_CONFIGURATION_MANAGE")
-	public AcademicConfigurationResponse update(@RequestBody UpdateAcademicConfigurationRequest request) {
+	public AcademicConfigurationResponse update(@RequestBody Map<String, String> request) {
 		AcademicConfiguration configuration = currentConfiguration();
-		configuration.setSchoolStartTime(request.schoolStartTime() != null ? LocalTime.parse(request.schoolStartTime()) : null);
-		configuration.setSchoolEndTime(request.schoolEndTime() != null ? LocalTime.parse(request.schoolEndTime()) : null);
+		LocalTime start = request.containsKey("schoolStartTime") ? parseTime("schoolStartTime", request.get("schoolStartTime")) : configuration.getSchoolStartTime();
+		LocalTime end = request.containsKey("schoolEndTime") ? parseTime("schoolEndTime", request.get("schoolEndTime")) : configuration.getSchoolEndTime();
+		if (start != null && end != null && !end.isAfter(start)) {
+			throw new InvalidRequestException("School end time must be after the start time");
+		}
+		configuration.setSchoolStartTime(start);
+		configuration.setSchoolEndTime(end);
 		return AcademicConfigurationResponse.from(configurationRepository.save(configuration));
+	}
+
+	private static LocalTime parseTime(String field, String value) {
+		if (value == null || value.isBlank()) {
+			return null;
+		}
+		try {
+			return LocalTime.parse(value);
+		} catch (DateTimeParseException ex) {
+			throw new InvalidRequestException(field + " must be a time like 08:30");
+		}
 	}
 
 	private AcademicConfiguration currentConfiguration() {
 		Long organisationId = TenantContext.getOrganisationId();
-		return configurationRepository.findById(organisationId).orElseGet(() -> {
-			Organisation organisation = organisationRepository.findById(organisationId)
-					.orElseThrow(() -> new IllegalArgumentException("No organisation with id " + organisationId));
-			return configurationRepository.save(new AcademicConfiguration(organisation));
-		});
+		return configurationRepository.findById(organisationId)
+				.orElseGet(() -> configurationRepository.save(new AcademicConfiguration(organisationId)));
 	}
 }

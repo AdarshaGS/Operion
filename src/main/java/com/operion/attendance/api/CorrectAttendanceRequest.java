@@ -1,4 +1,6 @@
 package com.operion.attendance.api;
 
-public record CorrectAttendanceRequest(String newStatus, String reason) {
+import jakarta.validation.constraints.NotBlank;
+
+public record CorrectAttendanceRequest(@NotBlank String newStatus, @NotBlank String reason) {
 }

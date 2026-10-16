@@ -10,6 +10,7 @@ import Typography from "@mui/material/Typography";
 import CheckIcon from "@mui/icons-material/Check";
 import CloseIcon from "@mui/icons-material/Close";
 import type { SetupChecklist } from "../../api/dashboard";
+import { useAuth } from "../../auth/AuthContext";
 import { colors } from "../../theme";
 
 interface Step {
@@ -20,22 +21,20 @@ interface Step {
 	ctaLabel: string;
 }
 
-/** Order matches #97's stated sequence: Structure -> Roles -> Members -> Academic
- * setup -> Students -> Fees. Guidance, not a gate - every linked screen is reachable
- * normally regardless of progress state. */
-const STEPS: Step[] = [
-	{ key: "structureConfigured", label: "Structure", description: "School structure is ready", path: "/setup/structure", ctaLabel: "Go to structure" },
-	{ key: "rolesConfigured", label: "Roles", description: "Roles and permissions set", path: "/settings/roles", ctaLabel: "Manage roles" },
-	{ key: "membersAdded", label: "Members", description: "Team members added", path: "/members", ctaLabel: "Invite members" },
+/** Order: Structure -> Academic setup -> Members -> Students. Roles and Fees are left out on
+ * purpose - both are reachable from their own screens and aren't first-run blockers. Guidance,
+ * not a gate - every linked screen is reachable normally regardless of progress state. */
+const ALL_STEPS: Step[] = [
+	{ key: "structureConfigured", label: "Structure", description: "School profile, business settings and current academic year", path: "/setup/structure", ctaLabel: "Go to structure" },
 	{
 		key: "academicSetupConfigured",
 		label: "Academic setup",
-		description: "Set up academic year, classes and subjects",
+		description: "Add classes and subjects for the current year",
 		path: "/academics/setup",
-		ctaLabel: "Set up academic year",
+		ctaLabel: "Set up classes",
 	},
+	{ key: "membersAdded", label: "Members", description: "Team members added", path: "/members", ctaLabel: "Invite members" },
 	{ key: "studentsAdded", label: "Students", description: "Add your students", path: "/students", ctaLabel: "Add students" },
-	{ key: "feesConfigured", label: "Fees", description: "Configure fee structure", path: "/fees/setup", ctaLabel: "Configure fees" },
 ];
 
 interface SetupProgressProps {
@@ -43,22 +42,37 @@ interface SetupProgressProps {
 	onDismiss: () => void;
 }
 
+/** The steps that can still apply: one for a module the platform owner switched off can
+ * never be completed, so it is dropped rather than leaving the guide stuck on it. */
+function applicableSteps(isPathEnabled: (path: string) => boolean): Step[] {
+	return ALL_STEPS.filter((step) => isPathEnabled(step.path));
+}
+
+/** True once every applicable step reports done - the dashboard uses this to retire the
+ * quick-actions shortcuts along with the setup guide itself. */
+export function isSetupComplete(checklist: SetupChecklist, isPathEnabled: (path: string) => boolean): boolean {
+	const steps = applicableSteps(isPathEnabled);
+	return steps.length === 0 || steps.every((step) => checklist[step.key]);
+}
+
 /** Post-login "next setup step" card (#97) - a numbered vertical stepper over the
  * SetupChecklist signal, shown until every step reports done or the user dismisses it
  * early (permanent per-user dismissal, for anyone who already knows the system). */
 export function SetupProgress({ checklist, onDismiss }: SetupProgressProps) {
 	const navigate = useNavigate();
+	const { isPathEnabled } = useAuth();
 
-	const doneCount = STEPS.filter((step) => checklist[step.key]).length;
-	if (doneCount === STEPS.length) {
+	const steps = applicableSteps(isPathEnabled);
+	const doneCount = steps.filter((step) => checklist[step.key]).length;
+	if (steps.length === 0 || doneCount === steps.length) {
 		return null;
 	}
-	const currentIndex = STEPS.findIndex((step) => !checklist[step.key]);
+	const currentIndex = steps.findIndex((step) => !checklist[step.key]);
 
 	return (
 		<Paper sx={{ p: 3, height: "100%" }}>
 			<Stack spacing={2}>
-				<Stack direction="row" alignItems="center" justifyContent="space-between">
+				<Stack direction="row" sx={{ alignItems: "center", justifyContent: "space-between" }}>
 					<Typography variant="subtitle1">Next setup step</Typography>
 					<Tooltip title="Hide this - you can always reach setup from Settings">
 						<IconButton size="small" onClick={onDismiss} aria-label="Dismiss setup guide">
@@ -71,11 +85,11 @@ export function SetupProgress({ checklist, onDismiss }: SetupProgressProps) {
 						<Box component="span" sx={{ color: colors.accent, fontWeight: 700 }}>
 							{doneCount}
 						</Box>{" "}
-						of {STEPS.length} setup tasks complete
+						of {steps.length} setup tasks complete
 					</Typography>
 					<LinearProgress
 						variant="determinate"
-						value={(doneCount / STEPS.length) * 100}
+						value={(doneCount / steps.length) * 100}
 						sx={{
 							height: 6,
 							borderRadius: 3,
@@ -85,10 +99,10 @@ export function SetupProgress({ checklist, onDismiss }: SetupProgressProps) {
 					/>
 				</Box>
 				<Stack spacing={0}>
-					{STEPS.map((step, index) => {
+					{steps.map((step, index) => {
 						const done = checklist[step.key];
 						const isCurrent = index === currentIndex;
-						const isLast = index === STEPS.length - 1;
+						const isLast = index === steps.length - 1;
 						return (
 							<Box
 								key={step.key}

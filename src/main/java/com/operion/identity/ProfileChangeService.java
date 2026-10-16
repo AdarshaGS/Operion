@@ -21,6 +21,7 @@ public class ProfileChangeService {
 	/** Applies the requested fields onto Person and saves both rows in one transaction. */
 	@Transactional
 	public ProfileChangeRequest approve(ProfileChangeRequest request, Long reviewedBy) {
+		requireNotOwnRequest(request, reviewedBy);
 		request.approve(reviewedBy);
 		personRepository.save(request.getPerson());
 		return profileChangeRequestRepository.save(request);
@@ -29,5 +30,12 @@ public class ProfileChangeService {
 	public ProfileChangeRequest reject(ProfileChangeRequest request, Long reviewedBy) {
 		request.reject(reviewedBy);
 		return profileChangeRequestRepository.save(request);
+	}
+
+	/** Approval is a second pair of eyes: nobody approves a change they asked for themselves (rejecting your own is a withdrawal). */
+	private void requireNotOwnRequest(ProfileChangeRequest request, Long reviewedBy) {
+		if (request.getRequestedBy().equals(reviewedBy)) {
+			throw new IllegalStateException("You cannot decide your own profile change request");
+		}
 	}
 }

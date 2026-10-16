@@ -29,21 +29,31 @@ public final class ImportFileParser {
 	}
 
 	public static List<Map<String, String>> parse(MultipartFile file) {
+		return toRowMaps(parseRows(file));
+	}
+
+	/** Raw rows (header row first) from a .csv or .xlsx upload. Every problem with the file
+	 * itself surfaces as {@link ImportFileException} (400), never as a 404/500. */
+	public static List<List<String>> parseRows(MultipartFile file) {
+		if (file == null || file.isEmpty()) {
+			throw new ImportFileException("No file uploaded - attach a .csv or .xlsx file");
+		}
 		String filename = file.getOriginalFilename();
 		String lowerName = filename == null ? "" : filename.toLowerCase(Locale.ROOT);
 		try {
-			List<List<String>> rows;
 			if (lowerName.endsWith(".xlsx")) {
-				rows = readXlsxRows(file);
-			} else if (lowerName.endsWith(".csv") || filename == null) {
-				rows = readCsvRows(file);
-			} else {
-				throw new IllegalArgumentException("Unsupported file type '" + filename + "' - upload a .csv or .xlsx file");
+				return readXlsxRows(file);
 			}
-			return toRowMaps(rows);
+			if (lowerName.endsWith(".csv") || filename == null) {
+				return readCsvRows(file);
+			}
 		} catch (IOException e) {
-			throw new IllegalArgumentException("Could not read uploaded file: " + e.getMessage(), e);
+			throw new ImportFileException("Could not read uploaded file - is it a valid " + (lowerName.endsWith(".xlsx") ? ".xlsx workbook" : ".csv file") + "?", e);
+		} catch (RuntimeException e) {
+			// POI throws unchecked exceptions for a file that merely carries an .xlsx name.
+			throw new ImportFileException("Could not read uploaded file - is it a valid .xlsx workbook?", e);
 		}
+		throw new ImportFileException("Unsupported file type '" + filename + "' - upload a .csv or .xlsx file");
 	}
 
 	private static List<Map<String, String>> toRowMaps(List<List<String>> rows) {
@@ -71,6 +81,10 @@ public final class ImportFileParser {
 		try (BufferedReader reader = new BufferedReader(new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8))) {
 			String line;
 			while ((line = reader.readLine()) != null) {
+				if (rows.isEmpty() && line.startsWith("\uFEFF")) {
+					// Excel's "CSV UTF-8" prepends a byte-order mark that would otherwise stick to the first header.
+					line = line.substring(1);
+				}
 				if (!line.isBlank() || !rows.isEmpty()) {
 					rows.add(CsvUtil.parseLine(line));
 				}

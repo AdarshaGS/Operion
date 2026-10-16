@@ -8,7 +8,9 @@ import com.operion.academic.SubjectImportService;
 import com.operion.academic.SubjectRepository;
 import com.operion.academic.SubjectStatus;
 import com.operion.authorization.RequirePermission;
+import com.operion.common.EnumParam;
 import com.operion.common.imports.ImportRowResult;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -36,7 +38,7 @@ public class SubjectController {
 
 	@PostMapping
 	@RequirePermission("SUBJECT_MANAGE")
-	public SubjectResponse create(@RequestBody CreateSubjectRequest request) {
+	public SubjectResponse create(@Valid @RequestBody CreateSubjectRequest request) {
 		return SubjectResponse.from(academicService.createSubject(request.name(), request.code()));
 	}
 
@@ -50,7 +52,7 @@ public class SubjectController {
 	public SubjectResponse changeStatus(@PathVariable Long id, @RequestBody ChangeStatusRequest request) {
 		Subject subject = subjectRepository.findById(id)
 				.orElseThrow(() -> new IllegalArgumentException("No subject with id " + id));
-		return SubjectResponse.from(academicService.changeSubjectStatus(subject, SubjectStatus.valueOf(request.status())));
+		return SubjectResponse.from(academicService.changeSubjectStatus(subject, EnumParam.parse(SubjectStatus.class, request.status())));
 	}
 
 	/** Bulk CSV/Excel import - reuses the same createSubject path as create() above, one

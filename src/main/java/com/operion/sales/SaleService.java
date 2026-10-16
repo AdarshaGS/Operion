@@ -4,9 +4,12 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
+import com.operion.common.InvalidRequestException;
 import com.operion.inventory.Customer;
+import com.operion.inventory.CustomerStatus;
 import com.operion.inventory.InventoryService;
 import com.operion.inventory.Item;
+import com.operion.inventory.ItemStatus;
 import com.operion.organisation.Campus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -40,7 +43,15 @@ public class SaleService {
 	@Transactional
 	public Sale createSale(Customer customer, Campus campus, LocalDate saleDate, List<LineInput> lines) {
 		if (lines.isEmpty()) {
-			throw new IllegalArgumentException("A sale must have at least one line item");
+			throw new InvalidRequestException("A sale must have at least one line item");
+		}
+		if (customer.getStatus() != CustomerStatus.ACTIVE) {
+			throw new IllegalStateException("Customer " + customer.getName() + " is inactive and cannot be sold to");
+		}
+		for (LineInput line : lines) {
+			if (line.item().getStatus() != ItemStatus.ACTIVE) {
+				throw new IllegalStateException("Item " + line.item().getName() + " is discontinued and cannot be sold");
+			}
 		}
 		BigDecimal total = lines.stream()
 				.map(line -> line.unitPrice().multiply(BigDecimal.valueOf(line.quantity())))
@@ -55,13 +66,15 @@ public class SaleService {
 	}
 
 	@Transactional
-	public SalePayment recordPayment(Sale sale, PaymentMethod method, BigDecimal amount, LocalDate paidAt) {
+	public Sale recordPayment(Long saleId, PaymentMethod method, BigDecimal amount, LocalDate paidAt) {
 		if (amount.compareTo(BigDecimal.ZERO) <= 0) {
-			throw new IllegalArgumentException("Payment amount must be positive");
+			throw new InvalidRequestException("Payment amount must be positive");
 		}
+		// Row lock: two payments for the same sale take turns, so each sees what the other already paid.
+		Sale sale = saleRepository.findByIdForUpdate(saleId).orElseThrow(() -> new IllegalArgumentException("No sale with id " + saleId));
 		sale.applyPayment(amount);
-		saleRepository.save(sale);
-		return salePaymentRepository.save(new SalePayment(sale, method, amount, paidAt));
+		salePaymentRepository.save(new SalePayment(sale, method, amount, paidAt));
+		return saleRepository.save(sale);
 	}
 
 	/** Atomic per-organisation sequence - never SELECT MAX()+1. */

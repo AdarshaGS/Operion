@@ -1,5 +1,6 @@
 package com.operion.learning;
 
+import com.operion.common.InvalidRequestException;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -39,29 +40,29 @@ public class LearningMaterialService {
 	public LearningMaterial add(LearningActor actor, Long classId, Long subjectId, String title, String description,
 			MaterialKind kind, String attachmentRef, String url) {
 		if (title == null || title.isBlank()) {
-			throw new IllegalArgumentException("Title is required");
+			throw new InvalidRequestException("Title is required");
 		}
 		if (kind == null) {
-			throw new IllegalArgumentException("Kind is required");
+			throw new InvalidRequestException("Kind is required");
 		}
 		String cleanRef = blankToNull(attachmentRef);
 		String cleanUrl = blankToNull(url);
 		switch (kind) {
 			case FILE -> {
 				if (cleanRef == null) {
-					throw new IllegalArgumentException("Attach a file");
+					throw new InvalidRequestException("Attach a file");
 				}
 				cleanUrl = null;
 			}
 			case LINK -> {
 				if (cleanUrl == null || !(cleanUrl.startsWith("http://") || cleanUrl.startsWith("https://"))) {
-					throw new IllegalArgumentException("A link must start with http:// or https://");
+					throw new InvalidRequestException("A link must start with http:// or https://");
 				}
 				cleanRef = null;
 			}
 			case NOTE -> {
 				if (blankToNull(description) == null) {
-					throw new IllegalArgumentException("A note needs some text in the description");
+					throw new InvalidRequestException("A note needs some text in the description");
 				}
 				cleanRef = null;
 				cleanUrl = null;

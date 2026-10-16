@@ -1,5 +1,6 @@
 package com.operion.finance;
 
+import com.operion.common.InvalidRequestException;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
@@ -41,7 +42,7 @@ class FeeApproverPolicyTest {
 		when(repository.findActiveMembersWithPermission("FEE_STRUCTURE_MANAGE")).thenReturn(List.of(approver));
 
 		assertThatThrownBy(() -> policy.requireEligible(99L))
-				.isInstanceOf(IllegalArgumentException.class)
+				.isInstanceOf(InvalidRequestException.class)
 				.hasMessageContaining("not an eligible fee approver");
 	}
 }

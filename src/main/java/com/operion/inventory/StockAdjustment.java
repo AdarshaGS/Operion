@@ -1,5 +1,6 @@
 package com.operion.inventory;
 
+import com.operion.common.InvalidRequestException;
 import java.time.LocalDate;
 
 import com.operion.common.TenantScopedEntity;
@@ -49,7 +50,7 @@ public class StockAdjustment extends TenantScopedEntity {
 
 	public StockAdjustment(Item item, Campus campus, int quantityDelta, StockAdjustmentReason reason, LocalDate adjustmentDate, String remarks) {
 		if (quantityDelta == 0) {
-			throw new IllegalArgumentException("Stock adjustment quantity delta cannot be zero");
+			throw new InvalidRequestException("Stock adjustment quantity delta cannot be zero");
 		}
 		this.item = item;
 		this.campus = campus;

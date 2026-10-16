@@ -1,5 +1,6 @@
 package com.operion.billing;
 
+import com.operion.common.persistence.PlatformPlane;
 import java.math.BigDecimal;
 
 import com.operion.common.BaseEntity;
@@ -21,6 +22,7 @@ import lombok.NoArgsConstructor;
 @Entity
 @Table(name = "plans")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
+@PlatformPlane
 public class Plan extends BaseEntity {
 
 	@Column(nullable = false, unique = true)

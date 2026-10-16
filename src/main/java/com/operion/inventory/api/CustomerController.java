@@ -1,5 +1,7 @@
 package com.operion.inventory.api;
 
+import com.operion.common.EnumParam;
+import com.operion.common.InvalidRequestException;
 import java.util.List;
 
 import com.operion.authorization.RequirePermission;
@@ -39,8 +41,11 @@ public class CustomerController {
 	@PostMapping
 	@RequirePermission("INVENTORY_CUSTOMER_MANAGE")
 	public CustomerResponse create(@RequestBody CreateCustomerRequest request) {
+		if (request.name() == null || request.name().isBlank()) {
+			throw new InvalidRequestException("A customer name is required");
+		}
 		if (request.studentId() != null && request.guardianId() != null) {
-			throw new IllegalArgumentException("A customer can link to a student or a guardian, not both");
+			throw new InvalidRequestException("A customer can link to a student or a guardian, not both");
 		}
 		Student student = request.studentId() == null ? null : studentRepository.findById(request.studentId())
 				.orElseThrow(() -> new IllegalArgumentException("No student with id " + request.studentId()));
@@ -61,7 +66,7 @@ public class CustomerController {
 	@RequirePermission("INVENTORY_CUSTOMER_MANAGE")
 	public CustomerResponse changeStatus(@PathVariable Long id, @RequestBody ChangeCustomerStatusRequest request) {
 		Customer customer = findOrThrow(id);
-		customer.changeStatus(CustomerStatus.valueOf(request.status()));
+		customer.changeStatus(EnumParam.parse(CustomerStatus.class, request.status()));
 		return CustomerResponse.from(customerRepository.save(customer));
 	}
 

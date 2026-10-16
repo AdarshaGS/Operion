@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 
 import com.operion.authorization.RequirePermission;
+import com.operion.common.InvalidRequestException;
 import com.operion.finance.FeeService;
 import com.operion.finance.FeeService.AllocationInput;
 import com.operion.finance.Payment;
@@ -44,6 +45,11 @@ public class PaymentController {
 	@PostMapping
 	@RequirePermission("FEE_COLLECT")
 	public PaymentResponse record(@RequestBody RecordPaymentRequest request) {
+		RequestChecks.required(request.academicYearId(), "academicYearId");
+		RequestChecks.required(request.amount(), "amount");
+		RequestChecks.required(request.paymentDate(), "paymentDate");
+		RequestChecks.required(request.allocations(), "allocations");
+		PaymentMethod method = parseMethod(request.paymentMethod());
 		AcademicYear academicYear = academicYearRepository.findById(request.academicYearId())
 				.orElseThrow(() -> new IllegalArgumentException("No academic year with id " + request.academicYearId()));
 
@@ -51,7 +57,7 @@ public class PaymentController {
 				.map(entry -> new AllocationInput(entry.invoiceId(), entry.amount()))
 				.toList();
 
-		Payment payment = feeService.recordPayment(academicYear, request.amount(), PaymentMethod.valueOf(request.paymentMethod()),
+		Payment payment = feeService.recordPayment(academicYear, request.amount(), method,
 				request.paymentDate(), request.remarks(), allocations, request.paymentReference(), request.paymentBankName());
 		return PaymentResponse.from(payment);
 	}
@@ -80,6 +86,17 @@ public class PaymentController {
 				.sorted(Comparator.comparing(Payment::getPaymentDate).reversed())
 				.map(PaymentResponse::from)
 				.toList();
+	}
+
+	private static PaymentMethod parseMethod(String value) {
+		if (value == null || value.isBlank()) {
+			throw new InvalidRequestException("paymentMethod is required");
+		}
+		try {
+			return PaymentMethod.valueOf(value);
+		} catch (IllegalArgumentException e) {
+			throw new InvalidRequestException("Unknown payment method '" + value + "'");
+		}
 	}
 
 	private Payment findPayment(Long paymentId) {

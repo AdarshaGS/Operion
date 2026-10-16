@@ -4,6 +4,7 @@ import Alert from "@mui/material/Alert";
 import Autocomplete from "@mui/material/Autocomplete";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
+import { Can } from "../../auth/Can";
 import Chip from "@mui/material/Chip";
 import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
@@ -118,9 +119,11 @@ export function BooksPanel() {
 			<Stack spacing={2}>
 				<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
 					<Typography variant="h6">Books</Typography>
-					<Button size="small" startIcon={<AddIcon />} onClick={openAddDialog}>
-						Add book
-					</Button>
+					<Can anyOf={["LIBRARY_CATALOG_MANAGE"]}>
+						<Button size="small" startIcon={<AddIcon />} onClick={openAddDialog}>
+							Add book
+						</Button>
+					</Can>
 				</Box>
 
 				{error && <Alert severity="error">{error}</Alert>}
@@ -129,9 +132,11 @@ export function BooksPanel() {
 					<Alert
 						severity="info"
 						action={
-							<Button size="small" onClick={openAddDialog}>
-								Add first book
-							</Button>
+							<Can anyOf={["LIBRARY_CATALOG_MANAGE"]}>
+								<Button size="small" onClick={openAddDialog}>
+									Add first book
+								</Button>
+							</Can>
 						}
 					>
 						No books yet.
@@ -189,9 +194,11 @@ export function BooksPanel() {
 											<Chip label={book.status} size="small" />
 										</TableCell>
 										<TableCell>
-											<IconButton size="small" onClick={(e) => openEditDialog(book, e)} aria-label="Edit book">
-												<EditIcon fontSize="small" />
-											</IconButton>
+											<Can anyOf={["LIBRARY_CATALOG_MANAGE"]}>
+												<IconButton size="small" onClick={(e) => openEditDialog(book, e)} aria-label="Edit book">
+													<EditIcon fontSize="small" />
+												</IconButton>
+											</Can>
 										</TableCell>
 									</TableRow>
 								))}

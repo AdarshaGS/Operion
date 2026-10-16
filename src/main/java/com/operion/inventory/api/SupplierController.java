@@ -1,5 +1,7 @@
 package com.operion.inventory.api;
 
+import com.operion.common.EnumParam;
+import com.operion.common.InvalidRequestException;
 import java.util.List;
 
 import com.operion.authorization.RequirePermission;
@@ -29,6 +31,12 @@ public class SupplierController {
 	@PostMapping
 	@RequirePermission("INVENTORY_SUPPLIER_MANAGE")
 	public SupplierResponse create(@RequestBody CreateSupplierRequest request) {
+		if (request.name() == null || request.name().isBlank()) {
+			throw new InvalidRequestException("A supplier name is required");
+		}
+		if (request.email() != null && !request.email().isBlank() && !request.email().trim().matches("[^@\\s]+@[^@\\s]+\\.[^@\\s]+")) {
+			throw new InvalidRequestException("The supplier email is not a valid address");
+		}
 		Supplier supplier = supplierRepository
 				.save(new Supplier(request.name(), request.contactPerson(), request.phone(), request.email(), request.address()));
 		return SupplierResponse.from(supplier);
@@ -46,7 +54,7 @@ public class SupplierController {
 	@RequirePermission("INVENTORY_SUPPLIER_MANAGE")
 	public SupplierResponse changeStatus(@PathVariable Long id, @RequestBody ChangeSupplierStatusRequest request) {
 		Supplier supplier = findOrThrow(id);
-		supplier.changeStatus(SupplierStatus.valueOf(request.status()));
+		supplier.changeStatus(EnumParam.parse(SupplierStatus.class, request.status()));
 		return SupplierResponse.from(supplierRepository.save(supplier));
 	}
 

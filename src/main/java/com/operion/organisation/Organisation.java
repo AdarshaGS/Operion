@@ -1,5 +1,6 @@
 package com.operion.organisation;
 
+import com.operion.common.persistence.PlatformPlane;
 import com.operion.common.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -20,6 +21,7 @@ import lombok.Setter;
 @Entity
 @Table(name = "organisations")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
+@PlatformPlane
 public class Organisation extends BaseEntity {
 
 	@Setter
@@ -58,6 +60,11 @@ public class Organisation extends BaseEntity {
 		this.slug = slug;
 		this.status = OrganisationStatus.TRIAL;
 		this.organisationType = OrganisationType.SCHOOL;
+	}
+
+	/** A suspended or archived organisation takes no sign-ins (nor token refreshes) until it is moved back. */
+	public boolean isOpenForSignIn() {
+		return status != OrganisationStatus.SUSPENDED && status != OrganisationStatus.ARCHIVED;
 	}
 
 	/** Only path by which status changes - no restricted transition map, any status can move to any other. */

@@ -1,6 +1,8 @@
 package com.operion.finance;
 
 import java.math.BigDecimal;
+
+import com.operion.common.InvalidRequestException;
 import java.time.Instant;
 import java.time.LocalDate;
 
@@ -83,8 +85,14 @@ public class Invoice extends TenantScopedEntity {
 		return totalAmount.subtract(amountPaid);
 	}
 
-	/** Called by FeeService within the same transaction as the PaymentAllocation write. */
+	/** Called by FeeService within the same transaction as the PaymentAllocation write. A
+	 * conflict (not "not found") when the amount exceeds what is still owed - an invoice is
+	 * never overpaid; the surplus belongs on another invoice. */
 	public void applyPayment(BigDecimal amount) {
+		if (amount.compareTo(getOutstanding()) > 0) {
+			throw new IllegalStateException(
+					"Payment allocation " + amount + " exceeds invoice " + getId() + "'s outstanding balance (" + getOutstanding() + ")");
+		}
 		this.amountPaid = this.amountPaid.add(amount);
 		recomputeStatus();
 	}
@@ -101,7 +109,7 @@ public class Invoice extends TenantScopedEntity {
 	public void applyAdjustment(BigDecimal amount) {
 		BigDecimal revised = this.totalAmount.add(amount);
 		if (revised.compareTo(this.amountPaid) < 0) {
-			throw new IllegalArgumentException(
+			throw new InvalidRequestException(
 					"Adjustment would reduce invoice " + getId() + "'s total below the amount already paid (" + this.amountPaid + ")");
 		}
 		this.totalAmount = revised;
@@ -112,7 +120,7 @@ public class Invoice extends TenantScopedEntity {
 	 * by FeeService alongside an insert-only Waiver audit row. Per #131. */
 	public void applyWaiver(BigDecimal amount) {
 		if (amount.compareTo(getOutstanding()) > 0) {
-			throw new IllegalArgumentException("Waiver amount " + amount + " exceeds invoice " + getId() + "'s outstanding balance (" + getOutstanding() + ")");
+			throw new InvalidRequestException("Waiver amount " + amount + " exceeds invoice " + getId() + "'s outstanding balance (" + getOutstanding() + ")");
 		}
 		this.totalAmount = this.totalAmount.subtract(amount);
 		recomputeStatus();

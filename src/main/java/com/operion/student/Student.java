@@ -151,6 +151,14 @@ public class Student extends TenantScopedEntity {
 		this.status = StudentStatus.ACTIVE;
 	}
 
+	/** A withdrawn or transferred-out student who is enrolled again becomes active; graduates/alumni are not re-activated. */
+	public void reactivate() {
+		if (status != StudentStatus.WITHDRAWN && status != StudentStatus.TRANSFERRED_OUT) {
+			throw new IllegalStateException("Only a withdrawn or transferred-out student can be re-activated");
+		}
+		this.status = StudentStatus.ACTIVE;
+	}
+
 	public void exit(StudentStatus exitStatus) {
 		if (status != StudentStatus.ACTIVE) {
 			throw new IllegalStateException("Only an active student can exit");

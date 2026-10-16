@@ -6,8 +6,6 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EntityListeners;
 import jakarta.persistence.Id;
-import jakarta.persistence.MapsId;
-import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -43,10 +41,6 @@ public class OrganisationBranding {
 	@Id
 	@Column(name = "organisation_id")
 	private Long organisationId;
-
-	@OneToOne
-	@MapsId
-	private Organisation organisation;
 
 	@Column(name = "logo_ref")
 	private String logoRef;
@@ -88,8 +82,8 @@ public class OrganisationBranding {
 	@Column(name = "updated_by")
 	private Long updatedBy;
 
-	public OrganisationBranding(Organisation organisation) {
-		this.organisation = organisation;
+	public OrganisationBranding(Long organisationId) {
+		this.organisationId = organisationId;
 		this.admissionNumberFormat = DEFAULT_ADMISSION_NUMBER_FORMAT;
 		this.invoiceNumberFormat = DEFAULT_INVOICE_NUMBER_FORMAT;
 		this.receiptNumberFormat = DEFAULT_RECEIPT_NUMBER_FORMAT;

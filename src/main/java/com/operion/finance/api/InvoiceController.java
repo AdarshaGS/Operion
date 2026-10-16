@@ -56,7 +56,7 @@ public class InvoiceController {
 	@PostMapping("/send-reminders")
 	@RequirePermission("FEE_REMINDER_SEND")
 	public List<ReminderResultResponse> sendReminders(@RequestBody SendRemindersRequest request) {
-		return request.invoiceIds().stream()
+		return RequestChecks.required(request.invoiceIds(), "invoiceIds").stream()
 				.map(invoiceId -> new ReminderResultResponse(invoiceId, feeReminderService.sendOverdueReminder(findInvoice(invoiceId))))
 				.toList();
 	}

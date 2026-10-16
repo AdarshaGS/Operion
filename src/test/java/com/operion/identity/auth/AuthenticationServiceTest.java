@@ -130,11 +130,25 @@ class AuthenticationServiceTest {
 
 	@Test
 	void lockoutSurvivesARestartBecauseStateLivesInTheDatabase() {
-		new LoginAttemptService(loginAttemptRepository, 2, 15).recordFailure("Restart@Auth-Svc.test");
-		new LoginAttemptService(loginAttemptRepository, 2, 15).recordFailure("restart@auth-svc.test");
+		new LoginAttemptService(loginAttemptRepository, 2, 15).recordFailure(7L, "Restart@Auth-Svc.test");
+		new LoginAttemptService(loginAttemptRepository, 2, 15).recordFailure(7L, "restart@auth-svc.test");
 
 		// A brand-new service instance (as after a restart or on a second node) sees the lock.
-		assertThat(new LoginAttemptService(loginAttemptRepository, 2, 15).isLocked("restart@auth-svc.test")).isTrue();
+		assertThat(new LoginAttemptService(loginAttemptRepository, 2, 15).isLocked(7L, "restart@auth-svc.test")).isTrue();
+		// Identities are per school: the same email at another school is a different account.
+		assertThat(new LoginAttemptService(loginAttemptRepository, 2, 15).isLocked(8L, "restart@auth-svc.test")).isFalse();
+	}
+
+	@Test
+	void sameEmailAtTwoSchoolsIsTwoIndependentAccounts() {
+		Organisation first = newOrgWithMember("first", "shared@auth-svc.test", "FirstPass123!", UserStatus.ACTIVE);
+		Organisation second = newOrgWithMember("second", "shared@auth-svc.test", "SecondPass123!", UserStatus.ACTIVE);
+		AuthenticationService service = authenticationService(new LoginAttemptService(loginAttemptRepository, 5, 15));
+
+		assertThat(service.login(first.getSlug(), "shared@auth-svc.test", "FirstPass123!").organisationId()).isEqualTo(first.getId());
+		assertThat(service.login(second.getSlug(), "shared@auth-svc.test", "SecondPass123!").organisationId()).isEqualTo(second.getId());
+		assertThatThrownBy(() -> service.login(first.getSlug(), "shared@auth-svc.test", "SecondPass123!"))
+				.isInstanceOf(AuthenticationFailedException.class);
 	}
 
 	@Test

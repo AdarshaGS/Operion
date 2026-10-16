@@ -1,9 +1,11 @@
 package com.operion.platform.settings;
 
+import com.operion.common.persistence.PlatformPlane;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 
+@PlatformPlane
 public interface PlatformSettingRepository extends JpaRepository<PlatformSetting, Long> {
 
 	/** Singleton table - looks up "the" row by insertion order rather than assuming it

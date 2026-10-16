@@ -2,5 +2,9 @@ package com.operion.purchase.api;
 
 import java.math.BigDecimal;
 
-public record PurchaseOrderLineItemRequest(Long itemId, int quantity, BigDecimal unitCost) {
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.PositiveOrZero;
+
+public record PurchaseOrderLineItemRequest(@NotNull Long itemId, @Positive int quantity, @NotNull @PositiveOrZero BigDecimal unitCost) {
 }

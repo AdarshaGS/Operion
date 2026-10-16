@@ -3,6 +3,7 @@ package com.operion.library.api;
 import java.util.List;
 
 import com.operion.authorization.RequirePermission;
+import com.operion.common.InvalidRequestException;
 import com.operion.common.imports.ImportRowResult;
 import com.operion.library.Book;
 import com.operion.library.BookCopy;
@@ -74,6 +75,9 @@ public class BookController {
 	@RequirePermission("LIBRARY_CATALOG_MANAGE")
 	public BookCopyResponse addCopy(@PathVariable Long id, @RequestBody AddBookCopyRequest request) {
 		Book book = findBook(id);
+		if (request.campusId() == null) {
+			throw new InvalidRequestException("A campus is required");
+		}
 		Campus campus = campusRepository.findById(request.campusId())
 				.orElseThrow(() -> new IllegalArgumentException("No campus with id " + request.campusId()));
 		BookCopy copy = libraryService.addCopy(book, campus, request.accessionNumber(), request.acquiredDate(), request.shelfLocation());

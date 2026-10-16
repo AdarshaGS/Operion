@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
+import { Can } from "../../auth/Can";
 import Chip from "@mui/material/Chip";
 import CircularProgress from "@mui/material/CircularProgress";
 import Dialog from "@mui/material/Dialog";
@@ -190,9 +191,11 @@ export function BookDetailPage() {
 					)}
 				</Box>
 				{book && (
-					<Button size="small" startIcon={<EditIcon />} onClick={openEditBook}>
-						Edit
-					</Button>
+					<Can anyOf={["LIBRARY_CATALOG_MANAGE"]}>
+						<Button size="small" startIcon={<EditIcon />} onClick={openEditBook}>
+							Edit
+						</Button>
+					</Can>
 				)}
 			</Box>
 
@@ -202,9 +205,11 @@ export function BookDetailPage() {
 				<Stack spacing={2}>
 					<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
 						<Typography variant="h6">Copies</Typography>
-						<Button size="small" startIcon={<AddIcon />} onClick={() => setDialogOpen(true)}>
-							Add copy
-						</Button>
+						<Can anyOf={["LIBRARY_CATALOG_MANAGE"]}>
+							<Button size="small" startIcon={<AddIcon />} onClick={() => setDialogOpen(true)}>
+								Add copy
+							</Button>
+						</Can>
 					</Box>
 
 					{copies.length === 0 && <Alert severity="info">No copies yet.</Alert>}
@@ -231,9 +236,11 @@ export function BookDetailPage() {
 												<Chip label={copy.status} size="small" />
 											</TableCell>
 											<TableCell>
-												<IconButton size="small" onClick={() => openShelfDialog(copy)} aria-label="Edit shelf location">
-													<EditIcon fontSize="small" />
-												</IconButton>
+												<Can anyOf={["LIBRARY_CATALOG_MANAGE"]}>
+													<IconButton size="small" onClick={() => openShelfDialog(copy)} aria-label="Edit shelf location">
+														<EditIcon fontSize="small" />
+													</IconButton>
+												</Can>
 											</TableCell>
 										</TableRow>
 									))}

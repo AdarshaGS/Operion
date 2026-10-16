@@ -3,13 +3,10 @@ package com.operion.academic;
 import java.time.Instant;
 import java.time.LocalTime;
 
-import com.operion.organisation.Organisation;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EntityListeners;
 import jakarta.persistence.Id;
-import jakarta.persistence.MapsId;
-import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -37,10 +34,6 @@ public class AcademicConfiguration {
 	@Column(name = "organisation_id")
 	private Long organisationId;
 
-	@OneToOne
-	@MapsId
-	private Organisation organisation;
-
 	@Column(name = "school_start_time")
 	private LocalTime schoolStartTime;
 
@@ -55,7 +48,7 @@ public class AcademicConfiguration {
 	@Column(name = "updated_by")
 	private Long updatedBy;
 
-	public AcademicConfiguration(Organisation organisation) {
-		this.organisation = organisation;
+	public AcademicConfiguration(Long organisationId) {
+		this.organisationId = organisationId;
 	}
 }

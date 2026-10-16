@@ -1,6 +1,8 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import Alert from "@mui/material/Alert";
+import { Can } from "../../auth/Can";
+import { DialogErrorAlert } from "../../components/DialogErrorAlert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
@@ -47,6 +49,8 @@ export function SaleDetailPage() {
 	const [loading, setLoading] = useState(true);
 	const [submitting, setSubmitting] = useState(false);
 
+	// A rejection from inside the dialog shows in the dialog: the page alert sits behind the modal.
+	const [dialogError, setDialogError] = useState<string | null>(null);
 	const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
 	const [paymentMethod, setPaymentMethod] = useState("CASH");
 	const [paymentAmount, setPaymentAmount] = useState("");
@@ -85,6 +89,7 @@ export function SaleDetailPage() {
 		setPaymentMethod("CASH");
 		setPaymentAmount((sale.totalAmount - sale.amountPaid).toFixed(2));
 		setPaidAt(todayIso());
+		setDialogError(null);
 		setPaymentDialogOpen(true);
 	}
 
@@ -97,7 +102,7 @@ export function SaleDetailPage() {
 			setPaymentDialogOpen(false);
 			refresh();
 		} catch (err) {
-			setError(err instanceof ApiError ? err.message : "Failed to record payment");
+			setDialogError(err instanceof ApiError ? err.message : "Failed to record payment");
 		} finally {
 			setSubmitting(false);
 		}
@@ -181,11 +186,13 @@ export function SaleDetailPage() {
 					</Stack>
 
 					{outstanding > 0 && (
-						<Box className="no-print">
-							<Button variant="contained" onClick={openPaymentDialog}>
-								Record payment
-							</Button>
-						</Box>
+						<Can anyOf={["SALES_MANAGE"]}>
+							<Box className="no-print">
+								<Button variant="contained" onClick={openPaymentDialog}>
+									Record payment
+								</Button>
+							</Box>
+						</Can>
 					)}
 				</Stack>
 			</Paper>
@@ -223,6 +230,7 @@ export function SaleDetailPage() {
 				<DialogTitle>Record payment</DialogTitle>
 				<DialogContent>
 					<Stack spacing={2} sx={{ mt: 1 }}>
+						{dialogError && <DialogErrorAlert>{dialogError}</DialogErrorAlert>}
 						<TextField select label="Method" value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)} required fullWidth>
 							{PAYMENT_METHODS.map((method) => (
 								<MenuItem key={method} value={method}>

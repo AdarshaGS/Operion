@@ -66,8 +66,8 @@ interface QuickActionsProps {
  * Dismissible (permanent per-user) for anyone who already knows the system. */
 export function QuickActions({ onDismiss }: QuickActionsProps) {
 	const navigate = useNavigate();
-	const { hasAnyPermission } = useAuth();
-	const actions = ACTIONS.filter((action) => hasAnyPermission([action.requiredPermission]));
+	const { hasAnyPermission, isPathEnabled } = useAuth();
+	const actions = ACTIONS.filter((action) => isPathEnabled(action.path) && hasAnyPermission([action.requiredPermission]));
 
 	if (actions.length === 0) {
 		return null;
@@ -76,7 +76,7 @@ export function QuickActions({ onDismiss }: QuickActionsProps) {
 	return (
 		<Paper sx={{ p: 3, height: "100%" }}>
 			<Stack spacing={1.5}>
-				<Stack direction="row" alignItems="center" justifyContent="space-between">
+				<Stack direction="row" sx={{ alignItems: "center", justifyContent: "space-between" }}>
 					<Typography variant="subtitle1">Quick actions</Typography>
 					<Tooltip title="Hide this - you can always reach these from the sidebar">
 						<IconButton size="small" onClick={onDismiss} aria-label="Dismiss quick actions">

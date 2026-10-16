@@ -11,8 +11,8 @@ import TodayIcon from "@mui/icons-material/Today";
 import { listAcademicYears, type AcademicYearResponse } from "../api/academicYears";
 import { listCampuses, type CampusResponse } from "../api/campuses";
 import { colors } from "../theme";
+import { CAMPUS_KEY, setSelectedCampusId } from "./selectedCampus";
 
-const CAMPUS_KEY = "operion.selectedCampusId";
 const ACADEMIC_YEAR_KEY = "operion.selectedAcademicYearId";
 
 function readStored(key: string): number | null {
@@ -59,17 +59,18 @@ function PillSelect({ icon, label, options, selectedId, onSelect }: PillSelectPr
 					display: "flex",
 					alignItems: "center",
 					gap: 1,
-					px: 1.5,
+					px: { xs: 1, sm: 1.5 },
 					py: 0.75,
 					borderRadius: 2,
 					border: `1px solid ${colors.rule}`,
 				}}
 			>
 				<Stack sx={{ color: colors.inkFaint, display: "flex" }}>{icon}</Stack>
-				<Typography variant="body2" sx={{ color: colors.ink, fontWeight: 600 }}>
+				{/* Phone width: icon only (the aria-label still names the picker) so the top bar fits. */}
+				<Typography variant="body2" sx={{ color: colors.ink, fontWeight: 600, display: { xs: "none", sm: "block" } }}>
 					{selected?.label ?? label}
 				</Typography>
-				<KeyboardArrowDownIcon fontSize="small" sx={{ color: colors.inkFaint }} />
+				<KeyboardArrowDownIcon fontSize="small" sx={{ color: colors.inkFaint, display: { xs: "none", sm: "block" } }} />
 			</ButtonBase>
 			<Menu anchorEl={anchorEl} open={anchorEl !== null} onClose={() => setAnchorEl(null)}>
 				{options.map((option) => (
@@ -89,9 +90,9 @@ function PillSelect({ icon, label, options, selectedId, onSelect }: PillSelectPr
 	);
 }
 
-/** Campus and Academic Year context pickers in the top bar. Pure display/selection
- * context for now - no dashboard or module data is filtered by this yet, since nothing
- * downstream is campus- or year-scoped. Selection persists per-browser only. */
+/** Campus and Academic Year context pickers in the top bar. The campus choice is shared via
+ * selectedCampus.ts (class lists filter by it); the year choice is still display-only.
+ * Selection persists per-browser only. */
 export function ContextSelectors() {
 	const [campuses, setCampuses] = useState<CampusResponse[]>([]);
 	const [academicYears, setAcademicYears] = useState<AcademicYearResponse[]>([]);
@@ -104,7 +105,9 @@ export function ContextSelectors() {
 				setCampuses(result);
 				const stored = readStored(CAMPUS_KEY);
 				const fallback = result[0]?.id ?? null;
-				setCampusId(result.some((c) => c.id === stored) ? stored : fallback);
+				const resolved = result.some((c) => c.id === stored) ? stored : fallback;
+				setCampusId(resolved);
+				setSelectedCampusId(resolved);
 			})
 			.catch(() => {});
 		listAcademicYears()
@@ -121,7 +124,7 @@ export function ContextSelectors() {
 	const academicYearOptions = useMemo(() => academicYears.map((y) => ({ id: y.id, label: y.name })), [academicYears]);
 
 	return (
-		<Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}>
+		<Stack direction="row" spacing={{ xs: 0.75, sm: 1.5 }} sx={{ alignItems: "center", flexShrink: 0 }}>
 			<PillSelect
 				icon={<ApartmentIcon fontSize="small" />}
 				label="Campus"
@@ -129,6 +132,7 @@ export function ContextSelectors() {
 				selectedId={campusId}
 				onSelect={(id) => {
 					setCampusId(id);
+					setSelectedCampusId(id);
 					writeStored(CAMPUS_KEY, id);
 				}}
 			/>
@@ -142,7 +146,7 @@ export function ContextSelectors() {
 					writeStored(ACADEMIC_YEAR_KEY, id);
 				}}
 			/>
-			<Stack direction="row" spacing={0.75} sx={{ alignItems: "center", color: colors.inkFaint, px: 0.5 }}>
+			<Stack direction="row" spacing={0.75} sx={{ alignItems: "center", color: colors.inkFaint, px: 0.5, display: { xs: "none", md: "flex" } }}>
 				<TodayIcon fontSize="small" />
 				<Typography variant="body2" sx={{ fontWeight: 600 }}>
 					{TODAY_FORMATTER.format(new Date())}

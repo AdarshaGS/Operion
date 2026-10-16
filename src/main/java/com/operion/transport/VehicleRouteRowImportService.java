@@ -44,8 +44,8 @@ public class VehicleRouteRowImportService {
 	public ImportRowResult importRow(int rowNumber, Map<String, String> row, boolean validateOnly) {
 		String campusName = require(row, "campus");
 		String registrationNumber = require(row, "registrationNumber");
-		VehicleType vehicleType = VehicleType.valueOf(require(row, "vehicleType").toUpperCase());
-		int capacity = Integer.parseInt(require(row, "capacity"));
+		VehicleType vehicleType = parseVehicleType(require(row, "vehicleType"));
+		int capacity = parseCapacity(require(row, "capacity"));
 
 		String routeName = blankToNull(row.get("routeName"));
 		String routeCode = blankToNull(row.get("routeCode"));
@@ -136,5 +136,22 @@ public class VehicleRouteRowImportService {
 
 	private static String blankToNull(String value) {
 		return value == null || value.isBlank() ? null : value.trim();
+	}
+
+	private static VehicleType parseVehicleType(String value) {
+		try {
+			return VehicleType.valueOf(value.trim().toUpperCase());
+		} catch (IllegalArgumentException e) {
+			throw new IllegalArgumentException("Unknown vehicleType '" + value + "' - use one of "
+					+ java.util.Arrays.stream(VehicleType.values()).map(Enum::name).collect(java.util.stream.Collectors.joining(", ")));
+		}
+	}
+
+	private static int parseCapacity(String value) {
+		try {
+			return Integer.parseInt(value.trim());
+		} catch (NumberFormatException e) {
+			throw new IllegalArgumentException("capacity '" + value + "' is not a whole number");
+		}
 	}
 }

@@ -2,6 +2,7 @@ package com.operion.payroll;
 
 import java.math.BigDecimal;
 
+import com.operion.common.InvalidRequestException;
 import com.operion.common.TenantScopedEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -32,11 +33,11 @@ public class SalaryStructureLine extends TenantScopedEntity {
 
 	public SalaryStructureLine(SalaryStructure salaryStructure, SalaryComponent component, BigDecimal value) {
 		if (value == null || value.signum() < 0) {
-			throw new IllegalArgumentException("Component value must be zero or more");
+			throw new InvalidRequestException("Component value must be zero or more");
 		}
 		if (component.getCalculationBasis() == CalculationBasis.PERCENT_OF_BASIC
 				&& value.compareTo(BigDecimal.valueOf(100)) > 0) {
-			throw new IllegalArgumentException("A percentage component cannot exceed 100");
+			throw new InvalidRequestException("A percentage component cannot exceed 100");
 		}
 		this.salaryStructure = salaryStructure;
 		this.component = component;

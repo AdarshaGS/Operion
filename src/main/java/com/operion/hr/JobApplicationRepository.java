@@ -7,4 +7,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface JobApplicationRepository extends JpaRepository<JobApplication, Long> {
 
 	List<JobApplication> findByStatus(JobApplicationStatus status);
+
+	boolean existsByEmailIgnoreCase(String email);
 }

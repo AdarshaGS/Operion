@@ -1,6 +1,8 @@
 package com.operion.identity.auth;
 
 import com.operion.common.TenantContext;
+import com.operion.identity.UserRepository;
+import com.operion.identity.UserStatus;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
@@ -21,9 +23,11 @@ public class JwtAuthenticationInterceptor implements HandlerInterceptor {
 	private static final Logger log = LoggerFactory.getLogger(JwtAuthenticationInterceptor.class);
 
 	private final JwtService jwtService;
+	private final UserRepository userRepository;
 
-	public JwtAuthenticationInterceptor(JwtService jwtService) {
+	public JwtAuthenticationInterceptor(JwtService jwtService, UserRepository userRepository) {
 		this.jwtService = jwtService;
+		this.userRepository = userRepository;
 	}
 
 	@Override
@@ -46,6 +50,18 @@ public class JwtAuthenticationInterceptor implements HandlerInterceptor {
 		try {
 			JwtService.TokenPrincipal principal = jwtService.decodeToPrincipal(header.substring(BEARER_PREFIX.length()));
 			TenantContext.set(principal.organisationId(), principal.userId());
+			// A signature-valid token outlives the account state it was issued under - disabling
+			// a user has to cut off tokens already in their hands, not just future logins.
+			boolean active = userRepository.findById(principal.userId())
+					.map(user -> user.getStatus() == UserStatus.ACTIVE)
+					.orElse(false);
+			if (!active) {
+				log.warn("Rejected request from a user who is no longer active: userId={} {} {}", principal.userId(),
+						request.getMethod(), request.getRequestURI());
+				TenantContext.clear();
+				response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+				return false;
+			}
 			return true;
 		} catch (InvalidTokenException ex) {
 			log.warn("Rejected request with invalid/expired token: {} {} ({})", request.getMethod(), request.getRequestURI(), ex.getMessage());

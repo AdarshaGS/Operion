@@ -3,6 +3,8 @@ package com.operion.portal.api;
 import java.util.List;
 
 import com.operion.common.TenantContext;
+import com.operion.modules.AppModule;
+import com.operion.modules.RequireModule;
 import com.operion.portal.GuardianAttendanceSummary;
 import com.operion.portal.GuardianInvoiceSummary;
 import com.operion.portal.GuardianPortalService;
@@ -29,21 +31,25 @@ public class GuardianPortalController {
 	}
 
 	@GetMapping("/children/{studentId}/attendance")
+	@RequireModule(AppModule.ATTENDANCE)
 	public GuardianAttendanceSummary attendance(@PathVariable Long studentId) {
 		return guardianPortalService.attendanceFor(TenantContext.getActorId(), studentId);
 	}
 
 	@GetMapping("/children/{studentId}/fees")
+	@RequireModule(AppModule.FEES)
 	public List<GuardianInvoiceSummary> fees(@PathVariable Long studentId) {
 		return guardianPortalService.feesFor(TenantContext.getActorId(), studentId);
 	}
 
 	@GetMapping("/children/{studentId}/report-cards")
+	@RequireModule(AppModule.EXAMINATIONS)
 	public List<GuardianReportCardSummary> reportCards(@PathVariable Long studentId) {
 		return guardianPortalService.reportCardsFor(TenantContext.getActorId(), studentId);
 	}
 
 	@GetMapping("/announcements")
+	@RequireModule(AppModule.COMMUNICATION)
 	public List<PortalAnnouncementSummary> announcements() {
 		return guardianPortalService.announcementsFor(TenantContext.getActorId());
 	}

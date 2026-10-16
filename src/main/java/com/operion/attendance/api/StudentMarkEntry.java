@@ -1,4 +1,7 @@
 package com.operion.attendance.api;
 
-public record StudentMarkEntry(Long studentEnrollmentId, String status, boolean excused, String remarks) {
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+
+public record StudentMarkEntry(@NotNull Long studentEnrollmentId, @NotBlank String status, boolean excused, String remarks) {
 }

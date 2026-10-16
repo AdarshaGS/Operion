@@ -24,6 +24,27 @@ public class SchoolTemplateResult {
 	private final List<String> itemCategoriesCreated = new ArrayList<>();
 	private final List<String> itemCategoriesSkipped = new ArrayList<>();
 
+	private final List<String> itemsCreated = new ArrayList<>();
+	private final List<String> itemsSkipped = new ArrayList<>();
+	private final List<String> assetTypesCreated = new ArrayList<>();
+	private final List<String> assetTypesSkipped = new ArrayList<>();
+
+	private final List<String> leaveTypesCreated = new ArrayList<>();
+	private final List<String> leaveTypesSkipped = new ArrayList<>();
+
+	private final List<String> classesCreated = new ArrayList<>();
+	private final List<String> classesSkipped = new ArrayList<>();
+
+	private final List<String> sectionsCreated = new ArrayList<>();
+	private final List<String> sectionsSkipped = new ArrayList<>();
+
+	private final List<String> subjectsCreated = new ArrayList<>();
+	private final List<String> subjectsSkipped = new ArrayList<>();
+
+	/** Why no classes could be created at all (no current academic year, no active campus); null when there was nothing in the way. */
+	@Setter
+	private String classesNote;
+
 	@Setter
 	private boolean gradingScaleCreated;
 

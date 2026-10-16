@@ -14,7 +14,7 @@ export interface SubmitAdmissionInquiryRequest {
 	firstName: string;
 	lastName: string;
 	dateOfBirth: string;
-	gender?: string | null;
+	gender: string;
 	desiredGradeId?: number | null;
 	guardianName: string;
 	guardianPhone: string;

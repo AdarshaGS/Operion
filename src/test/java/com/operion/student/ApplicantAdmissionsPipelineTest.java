@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import java.time.LocalDate;
 import java.util.Map;
 
+import com.operion.common.InvalidRequestException;
 import com.operion.academic.GradeLevel;
 import com.operion.academic.GradeLevelRepository;
 import com.operion.academic.GradeLevelStatus;
@@ -192,6 +193,6 @@ class ApplicantAdmissionsPipelineTest {
 		assertThat(docs).containsEntry("PHOTO", false).containsEntry("ADDRESS_PROOF", true);
 		assertThat(applicantDocumentRepository.findByApplicantId(one.getId())).hasSize(2);
 		assertThatThrownBy(() -> applicantService.updateDocuments(one, Map.of("BOGUS", true)))
-				.isInstanceOf(IllegalArgumentException.class);
+				.isInstanceOf(InvalidRequestException.class);
 	}
 }

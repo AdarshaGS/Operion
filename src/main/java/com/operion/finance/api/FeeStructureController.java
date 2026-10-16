@@ -50,6 +50,10 @@ public class FeeStructureController {
 	@PostMapping
 	@RequirePermission("FEE_STRUCTURE_MANAGE")
 	public FeeStructureResponse create(@RequestBody CreateFeeStructureRequest request) {
+		RequestChecks.required(request.feeStructureGroupId(), "feeStructureGroupId");
+		RequestChecks.required(request.feeCategoryId(), "feeCategoryId");
+		RequestChecks.required(request.amount(), "amount");
+		RequestChecks.required(request.installments(), "installments");
 		FeeStructureGroup feeStructureGroup = feeStructureGroupRepository.findById(request.feeStructureGroupId())
 				.orElseThrow(() -> new IllegalArgumentException("No fee structure group with id " + request.feeStructureGroupId()));
 		FeeCategory feeCategory = feeCategoryRepository.findById(request.feeCategoryId())

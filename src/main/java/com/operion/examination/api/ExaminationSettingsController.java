@@ -5,6 +5,8 @@ import com.operion.common.TenantContext;
 import com.operion.examination.ExaminationSettings;
 import com.operion.examination.ExaminationSettingsRepository;
 import com.operion.examination.PassFailStrategy;
+import com.operion.common.EnumParam;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -36,11 +38,11 @@ public class ExaminationSettingsController {
 
 	@PutMapping
 	@RequirePermission("EXAM_MANAGE")
-	public ExaminationSettingsResponse update(@RequestBody UpdateExaminationSettingsRequest request) {
+	public ExaminationSettingsResponse update(@Valid @RequestBody UpdateExaminationSettingsRequest request) {
 		ExaminationSettings settings = examinationSettingsRepository.findByOrganisationId(TenantContext.getOrganisationId())
 				.orElseGet(ExaminationSettings::new);
 		settings.setRankingEnabled(request.rankingEnabled());
-		settings.setPassFailStrategy(PassFailStrategy.valueOf(request.passFailStrategy()));
+		settings.setPassFailStrategy(EnumParam.parse(PassFailStrategy.class, request.passFailStrategy()));
 		settings.setMinimumAggregatePercentage(request.minimumAggregatePercentage());
 		return ExaminationSettingsResponse.from(examinationSettingsRepository.save(settings));
 	}

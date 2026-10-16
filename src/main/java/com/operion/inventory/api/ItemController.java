@@ -1,5 +1,6 @@
 package com.operion.inventory.api;
 
+import com.operion.common.InvalidRequestException;
 import java.util.List;
 
 import com.operion.authorization.RequirePermission;
@@ -29,6 +30,12 @@ import org.springframework.web.multipart.MultipartFile;
 @RequirePermission("INVENTORY_VIEW")
 public class ItemController {
 
+	private static void requireField(Object value, String field) {
+		if (value == null) {
+			throw new InvalidRequestException(field + " is required");
+		}
+	}
+
 	private final InventoryService inventoryService;
 	private final ItemRepository itemRepository;
 	private final ItemCategoryRepository itemCategoryRepository;
@@ -50,6 +57,7 @@ public class ItemController {
 	@PostMapping
 	@RequirePermission("INVENTORY_CATALOG_MANAGE")
 	public ItemResponse create(@RequestBody CreateItemRequest request) {
+		requireField(request.categoryId(), "categoryId");
 		ItemCategory category = itemCategoryRepository.findById(request.categoryId())
 				.orElseThrow(() -> new IllegalArgumentException("No item category with id " + request.categoryId()));
 		Supplier defaultSupplier = request.defaultSupplierId() != null ? findSupplier(request.defaultSupplierId()) : null;

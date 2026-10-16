@@ -8,6 +8,7 @@ import java.util.Optional;
 
 import com.operion.academic.SchoolClass;
 import com.operion.audit.AuditLogService;
+import com.operion.common.InvalidRequestException;
 import com.operion.common.TenantContext;
 import com.operion.organisation.AcademicYear;
 import com.operion.organisation.DocumentNumberFormatter;
@@ -15,6 +16,8 @@ import com.operion.organisation.OrganisationBranding;
 import com.operion.organisation.OrganisationBrandingRepository;
 import com.operion.student.StudentEnrollment;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -45,6 +48,10 @@ public class FeeService {
 	// @DataJpaTest slices that have no ObjectMapper bean (see AuditLogService's dependency), so
 	// a hard dependency would break every one of them. Always present in the real app.
 	private final ObjectProvider<AuditLogService> auditLogService;
+	// Optional field, not a constructor arg: slices and tests that build FeeService by hand
+	// have no such bean and fall back to creating the counter inline (fine single-threaded).
+	@Autowired(required = false)
+	private FeeDocumentCounterInitializer counterInitializer;
 
 	public FeeService(FeeCategoryRepository feeCategoryRepository, FeeStructureGroupRepository feeStructureGroupRepository,
 			FeeStructureRepository feeStructureRepository, FeeStructureInstallmentRepository feeStructureInstallmentRepository,
@@ -93,9 +100,24 @@ public class FeeService {
 	@Transactional
 	public FeeStructure createFeeStructure(FeeStructureGroup feeStructureGroup, FeeCategory feeCategory, BigDecimal amount,
 			List<InstallmentInput> installments, PaymentFrequency paymentFrequency, BigDecimal oneShotDiscountAmount) {
+		if (amount == null || amount.signum() <= 0) {
+			throw new InvalidRequestException("A fee structure amount must be greater than zero");
+		}
+		if (installments == null || installments.isEmpty()) {
+			throw new InvalidRequestException("A fee structure needs at least one installment");
+		}
+		if (installments.stream().anyMatch(i -> i.amount() == null || i.amount().signum() <= 0 || i.dueDate() == null)) {
+			throw new InvalidRequestException("Every installment needs a due date and an amount greater than zero");
+		}
+		if (installments.stream().map(InstallmentInput::installmentNumber).distinct().count() != installments.size()) {
+			throw new InvalidRequestException("Installment numbers must be unique within a fee structure");
+		}
+		if (oneShotDiscountAmount != null && (oneShotDiscountAmount.signum() < 0 || oneShotDiscountAmount.compareTo(amount) > 0)) {
+			throw new InvalidRequestException("A one-shot discount must be between zero and the structure amount");
+		}
 		BigDecimal installmentTotal = installments.stream().map(InstallmentInput::amount).reduce(BigDecimal.ZERO, BigDecimal::add);
 		if (installmentTotal.compareTo(amount) != 0) {
-			throw new IllegalArgumentException(
+			throw new InvalidRequestException(
 					"Installment amounts (" + installmentTotal + ") must sum to the structure amount (" + amount + ")");
 		}
 
@@ -121,14 +143,19 @@ public class FeeService {
 			String proofFileReference, String proofFileName) {
 		FeeStructureGroup feeStructureGroup = feeStructure.getFeeStructureGroup();
 		if (!studentEnrollment.getAcademicYear().getId().equals(feeStructureGroup.getAcademicYear().getId())) {
-			throw new IllegalArgumentException("Enrollment and fee structure are for different academic years");
+			throw new InvalidRequestException("Enrollment and fee structure are for different academic years");
 		}
 		if (!studentEnrollment.getSection().getSchoolClass().getId().equals(feeStructureGroup.getSchoolClass().getId())) {
-			throw new IllegalArgumentException("Enrollment and fee structure are for different classes");
+			throw new InvalidRequestException("Enrollment and fee structure are for different classes");
+		}
+		boolean alreadyAssigned = studentFeeAssignmentRepository.findByStudentEnrollmentId(studentEnrollment.getId()).stream()
+				.anyMatch(a -> a.getStatus() == StudentFeeAssignmentStatus.ACTIVE && a.getFeeStructure().getId().equals(feeStructure.getId()));
+		if (alreadyAssigned) {
+			throw new IllegalStateException("This fee structure is already assigned to the enrollment");
 		}
 
 		BigDecimal discount = normalizeDiscount(discountAmount);
-		requireApprovalIfDiscounted(discount, discountReason, approvedBy);
+		requireValidDiscount(discount, feeStructure.getAmount(), discountReason, approvedBy);
 
 		BigDecimal effective = feeStructure.getAmount().subtract(discount);
 		return studentFeeAssignmentRepository.save(
@@ -154,7 +181,7 @@ public class FeeService {
 		String proofRef = proofFileReference != null ? proofFileReference : assignment.getProofFileReference();
 		String proofName = proofFileReference != null ? proofFileName : assignment.getProofFileName();
 		BigDecimal discount = normalizeDiscount(discountAmount);
-		requireApprovalIfDiscounted(discount, discountReason, approvedBy);
+		requireValidDiscount(discount, assignment.getBaseAmount(), discountReason, approvedBy);
 		BigDecimal effective = assignment.getBaseAmount().subtract(discount);
 
 		if (invoiceRepository.existsByStudentFeeAssignmentId(assignment.getId())) {
@@ -176,7 +203,7 @@ public class FeeService {
 			throw new IllegalStateException("Fee assignment " + assignment.getId() + " is not ACTIVE, cannot invoice");
 		}
 		if (!installment.getFeeStructure().getId().equals(assignment.getFeeStructure().getId())) {
-			throw new IllegalArgumentException("Installment does not belong to the assignment's fee structure");
+			throw new InvalidRequestException("Installment does not belong to the assignment's fee structure");
 		}
 		invoiceRepository.findByStudentFeeAssignmentIdAndFeeStructureInstallmentId(assignment.getId(), installment.getId())
 				.ifPresent(existing -> {
@@ -208,9 +235,25 @@ public class FeeService {
 	@Transactional
 	public Payment recordPayment(AcademicYear academicYear, BigDecimal amount, PaymentMethod paymentMethod, LocalDate paymentDate,
 			String remarks, List<AllocationInput> allocations, String paymentReference, String paymentBankName) {
+		if (amount == null || amount.signum() <= 0) {
+			throw new InvalidRequestException("A payment amount must be greater than zero");
+		}
+		if (paymentDate == null) {
+			throw new InvalidRequestException("A payment date is required");
+		}
+		if (allocations == null || allocations.isEmpty()) {
+			throw new InvalidRequestException("A payment must be allocated to at least one invoice");
+		}
+		if (allocations.stream().anyMatch(a -> a.invoiceId() == null || a.amount() == null || a.amount().signum() <= 0)) {
+			throw new InvalidRequestException("Every allocation needs an invoice and an amount greater than zero");
+		}
+		if (paymentMethod == PaymentMethod.CHEQUE
+				&& (paymentReference == null || paymentReference.isBlank() || paymentBankName == null || paymentBankName.isBlank())) {
+			throw new InvalidRequestException("A cheque payment needs both a cheque number and a bank name");
+		}
 		BigDecimal allocatedTotal = allocations.stream().map(AllocationInput::amount).reduce(BigDecimal.ZERO, BigDecimal::add);
 		if (allocatedTotal.compareTo(amount) != 0) {
-			throw new IllegalArgumentException("Allocated amount (" + allocatedTotal + ") must equal the payment amount (" + amount + ")");
+			throw new InvalidRequestException("Allocated amount (" + allocatedTotal + ") must equal the payment amount (" + amount + ")");
 		}
 
 		String receiptNumber = nextDocumentNumber(academicYear, FeeDocumentType.PAYMENT);
@@ -234,7 +277,11 @@ public class FeeService {
 		payment.markBounced();
 		for (PaymentAllocation allocation : paymentAllocationRepository.findByPaymentId(payment.getId())) {
 			Invoice invoice = allocation.getInvoice();
-			invoice.reversePayment(allocation.getAllocatedAmount());
+			BigDecimal alreadyRefunded = refundRepository.findByPaymentId(payment.getId()).stream()
+					.filter(r -> r.getInvoice().getId().equals(invoice.getId()))
+					.map(Refund::getAmount)
+					.reduce(BigDecimal.ZERO, BigDecimal::add);
+			invoice.reversePayment(allocation.getAllocatedAmount().subtract(alreadyRefunded));
 			invoiceRepository.save(invoice);
 		}
 		Payment saved = paymentRepository.save(payment);
@@ -245,6 +292,28 @@ public class FeeService {
 	@Transactional
 	public Refund recordRefund(Payment payment, Invoice invoice, BigDecimal amount, String reason, Long approvedBy, LocalDate refundDate,
 			String proofFileReference, String proofFileName) {
+		requireReasonAndApprover(reason, approvedBy);
+		if (amount == null || amount.signum() <= 0) {
+			throw new InvalidRequestException("A refund amount must be greater than zero");
+		}
+		if (payment.getStatus() == PaymentStatus.BOUNCED) {
+			throw new InvalidRequestException("A bounced payment cannot be refunded");
+		}
+		BigDecimal paidToInvoice = paymentAllocationRepository.findByPaymentId(payment.getId()).stream()
+				.filter(a -> a.getInvoice().getId().equals(invoice.getId()))
+				.map(PaymentAllocation::getAllocatedAmount)
+				.reduce(BigDecimal.ZERO, BigDecimal::add);
+		if (paidToInvoice.signum() == 0) {
+			throw new InvalidRequestException("Payment " + payment.getId() + " did not pay invoice " + invoice.getId());
+		}
+		BigDecimal alreadyRefunded = refundRepository.findByPaymentId(payment.getId()).stream()
+				.filter(r -> r.getInvoice().getId().equals(invoice.getId()))
+				.map(Refund::getAmount)
+				.reduce(BigDecimal.ZERO, BigDecimal::add);
+		if (amount.compareTo(paidToInvoice.subtract(alreadyRefunded)) > 0) {
+			throw new InvalidRequestException("Refund " + amount + " exceeds what this payment still holds for the invoice ("
+					+ paidToInvoice.subtract(alreadyRefunded) + ")");
+		}
 		invoice.reversePayment(amount);
 		invoiceRepository.save(invoice);
 		Refund refund = refundRepository.save(new Refund(payment, invoice, amount, reason, approvedBy, refundDate, proofFileReference, proofFileName));
@@ -256,6 +325,10 @@ public class FeeService {
 	@Transactional
 	public Adjustment recordAdjustment(Invoice invoice, BigDecimal amount, String reason, Long approvedBy, LocalDate adjustmentDate,
 			String proofFileReference, String proofFileName) {
+		requireReasonAndApprover(reason, approvedBy);
+		if (amount == null || amount.signum() == 0) {
+			throw new InvalidRequestException("An adjustment amount cannot be zero");
+		}
 		invoice.applyAdjustment(amount);
 		invoiceRepository.save(invoice);
 		Adjustment adjustment = adjustmentRepository.save(
@@ -268,6 +341,10 @@ public class FeeService {
 	@Transactional
 	public Waiver recordWaiver(Invoice invoice, BigDecimal amount, String reason, Long approvedBy, LocalDate waiverDate,
 			String proofFileReference, String proofFileName) {
+		requireReasonAndApprover(reason, approvedBy);
+		if (amount == null || amount.signum() <= 0) {
+			throw new InvalidRequestException("A waiver amount must be greater than zero");
+		}
 		invoice.applyWaiver(amount);
 		invoiceRepository.save(invoice);
 		Waiver waiver = waiverRepository.save(new Waiver(invoice, amount, reason, approvedBy, waiverDate, proofFileReference, proofFileName));
@@ -278,6 +355,7 @@ public class FeeService {
 	/** Atomic per-(organisation, academicYear, documentType) sequence - never SELECT MAX()+1.
 	 * Format is org-configurable (#142); see OrganisationBranding.invoiceNumberFormat/receiptNumberFormat. */
 	private String nextDocumentNumber(AcademicYear academicYear, FeeDocumentType documentType) {
+		ensureCounterExists(academicYear, documentType);
 		FeeDocumentCounter counter = feeDocumentCounterRepository
 				.findByAcademicYearIdAndDocumentType(academicYear.getId(), documentType)
 				.orElseGet(() -> feeDocumentCounterRepository.save(new FeeDocumentCounter(academicYear, documentType)));
@@ -293,13 +371,42 @@ public class FeeService {
 		return DocumentNumberFormatter.format(template, number, academicYear.getName(), academicYear.getStartDate().getYear());
 	}
 
+	/** Creates the counter row outside this transaction so the locking read below never has to
+	 * lock a missing row - see FeeDocumentCounterInitializer for the deadlock that avoids. */
+	private void ensureCounterExists(AcademicYear academicYear, FeeDocumentType documentType) {
+		if (counterInitializer == null
+				|| feeDocumentCounterRepository.existsByAcademicYearIdAndDocumentType(academicYear.getId(), documentType)) {
+			return;
+		}
+		try {
+			counterInitializer.create(academicYear, documentType);
+		} catch (DataIntegrityViolationException alreadyCreatedConcurrently) {
+			// another request created it first - the row exists, which is all we need
+		}
+	}
+
 	private BigDecimal normalizeDiscount(BigDecimal discountAmount) {
 		return discountAmount == null ? BigDecimal.ZERO : discountAmount;
 	}
 
-	private void requireApprovalIfDiscounted(BigDecimal discount, String discountReason, Long approvedBy) {
-		if (discount.compareTo(BigDecimal.ZERO) > 0 && (discountReason == null || approvedBy == null)) {
-			throw new IllegalArgumentException("A discount requires both a reason and an approver");
+	private void requireValidDiscount(BigDecimal discount, BigDecimal baseAmount, String discountReason, Long approvedBy) {
+		if (discount.signum() < 0) {
+			throw new InvalidRequestException("A discount cannot be negative");
+		}
+		if (discount.compareTo(baseAmount) > 0) {
+			throw new InvalidRequestException("A discount cannot be larger than the fee amount (" + baseAmount + ")");
+		}
+		if (discount.signum() > 0 && (discountReason == null || discountReason.isBlank() || approvedBy == null)) {
+			throw new InvalidRequestException("A discount requires both a reason and an approver");
+		}
+	}
+
+	private static void requireReasonAndApprover(String reason, Long approvedBy) {
+		if (reason == null || reason.isBlank()) {
+			throw new InvalidRequestException("A reason is required");
+		}
+		if (approvedBy == null) {
+			throw new InvalidRequestException("An approver is required");
 		}
 	}
 

@@ -36,6 +36,9 @@ public class LibraryReminderService {
 	 * usable contact channel on file. */
 	@Transactional
 	public int sendOverdueReminder(BorrowRecord borrowRecord) {
+		if (borrowRecord.getStatus() != BorrowStatus.BORROWED) {
+			throw new IllegalStateException("This book is no longer on loan, so there is nothing to remind about");
+		}
 		return communicationService.sendTemplatedNotification(reminderTemplate(), List.of(borrowRecord.getBorrower())).size();
 	}
 

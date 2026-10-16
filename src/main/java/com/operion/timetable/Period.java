@@ -2,6 +2,7 @@ package com.operion.timetable;
 
 import java.time.LocalTime;
 
+import com.operion.common.InvalidRequestException;
 import com.operion.common.TenantScopedEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -43,10 +44,10 @@ public class Period extends TenantScopedEntity {
 
 	public void update(String label, LocalTime startTime, LocalTime endTime, boolean breakSlot) {
 		if (label == null || label.isBlank()) {
-			throw new IllegalArgumentException("Period label is required");
+			throw new InvalidRequestException("Period label is required");
 		}
 		if (startTime == null || endTime == null || !endTime.isAfter(startTime)) {
-			throw new IllegalStateException("Period end time must be after its start time");
+			throw new InvalidRequestException("Period end time must be after its start time");
 		}
 		this.label = label.trim();
 		this.startTime = startTime;

@@ -35,6 +35,7 @@ public class WaiverController {
 	@PostMapping
 	@RequirePermission("FEE_WAIVER_APPROVE")
 	public WaiverResponse record(@RequestBody RecordWaiverRequest request) {
+		RequestChecks.required(request.invoiceId(), "invoiceId");
 		Invoice invoice = invoiceRepository.findById(request.invoiceId())
 				.orElseThrow(() -> new IllegalArgumentException("No invoice with id " + request.invoiceId()));
 

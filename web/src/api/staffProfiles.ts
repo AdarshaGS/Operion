@@ -55,7 +55,7 @@ export interface StaffDocumentResponse {
 
 export interface VerifyStaffDocumentRequest {
 	verificationStatus: string;
-	verifiedBy: number;
+	verifiedBy?: number;
 }
 
 export interface TransferStaffRequest {

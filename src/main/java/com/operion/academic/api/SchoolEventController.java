@@ -6,6 +6,8 @@ import java.util.List;
 import com.operion.academic.SchoolEvent;
 import com.operion.academic.SchoolEventRepository;
 import com.operion.authorization.RequirePermission;
+import com.operion.common.InvalidRequestException;
+import jakarta.validation.Valid;
 import com.operion.organisation.Campus;
 import com.operion.organisation.CampusRepository;
 import org.springframework.http.HttpStatus;
@@ -38,12 +40,15 @@ public class SchoolEventController {
 
 	@GetMapping
 	public List<SchoolEventResponse> list(@RequestParam LocalDate from, @RequestParam LocalDate to) {
+		if (from.isAfter(to)) {
+			throw new InvalidRequestException("'from' must not be after 'to'");
+		}
 		return schoolEventRepository.findByDateBetweenOrderByDateAsc(from, to).stream().map(SchoolEventResponse::from).toList();
 	}
 
 	@PostMapping
 	@RequirePermission("SCHOOL_EVENT_MANAGE")
-	public SchoolEventResponse create(@RequestBody CreateSchoolEventRequest request) {
+	public SchoolEventResponse create(@Valid @RequestBody CreateSchoolEventRequest request) {
 		Campus campus = request.campusId() != null
 				? campusRepository.findById(request.campusId())
 						.orElseThrow(() -> new IllegalArgumentException("No campus with id " + request.campusId()))

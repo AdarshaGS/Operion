@@ -1,5 +1,6 @@
 package com.operion.inventory;
 
+import com.operion.common.InvalidRequestException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
@@ -64,7 +65,7 @@ public class StockEntry extends TenantScopedEntity {
 	public StockEntry(Item item, Campus campus, int quantity, BigDecimal unitCost, LocalDate entryDate, String source, Supplier supplier,
 			String remarks) {
 		if (quantity <= 0) {
-			throw new IllegalArgumentException("Stock entry quantity must be positive");
+			throw new InvalidRequestException("Stock entry quantity must be positive");
 		}
 		this.item = item;
 		this.campus = campus;

@@ -5,12 +5,14 @@ import java.util.List;
 import com.operion.authorization.OrganisationMembership;
 import com.operion.authorization.OrganisationMembershipRepository;
 import com.operion.authorization.RequirePermission;
+import com.operion.common.EnumParam;
 import com.operion.identity.User;
 import com.operion.identity.UserRepository;
 import com.operion.identity.UserService;
 import com.operion.identity.UserStatus;
 import com.operion.identity.auth.EmailVerificationService;
 import com.operion.identity.auth.StaffInviteService;
+import jakarta.validation.Valid;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -60,7 +62,7 @@ public class UserController {
 	}
 
 	@PostMapping
-	public UserResponse create(@RequestBody CreateUserRequest request) {
+	public UserResponse create(@Valid @RequestBody CreateUserRequest request) {
 		User user = new User(request.email(), request.phone(), passwordEncoder.encode(request.password()));
 		user = userRepository.save(user);
 		emailVerificationService.issue(user.getId());
@@ -73,7 +75,7 @@ public class UserController {
 	 * that it exists, so #48's "on create" trigger has to fire here too, not just from the
 	 * older direct-password endpoint. */
 	@PostMapping("/invite")
-	public StaffInviteResponse invite(@RequestBody InviteUserRequest request) {
+	public StaffInviteResponse invite(@Valid @RequestBody InviteUserRequest request) {
 		StaffInviteService.IssuedInvite invite = staffInviteService.issue(request.email(), request.phone());
 		emailVerificationService.issue(invite.userId());
 		return new StaffInviteResponse(invite.userId(), invite.inviteId(), invite.rawToken(), invite.expiresAt(), invite.emailSent());
@@ -100,14 +102,14 @@ public class UserController {
 	}
 
 	@PutMapping("/{id}")
-	public UserResponse update(@PathVariable Long id, @RequestBody UpdateUserRequest request) {
+	public UserResponse update(@PathVariable Long id, @Valid @RequestBody UpdateUserRequest request) {
 		return UserResponse.from(userService.update(id, request.email(), request.phone()));
 	}
 
 	/** Also the deactivate path (status=DISABLED) - see UserService.changeStatus. */
 	@PostMapping("/{id}/status")
 	public UserResponse changeStatus(@PathVariable Long id, @RequestBody ChangeUserStatusRequest request) {
-		return UserResponse.from(userService.changeStatus(id, UserStatus.valueOf(request.status())));
+		return UserResponse.from(userService.changeStatus(id, EnumParam.parse(UserStatus.class, request.status())));
 	}
 
 	/** Re-issues a claim link for a member who never claimed their original invite - see

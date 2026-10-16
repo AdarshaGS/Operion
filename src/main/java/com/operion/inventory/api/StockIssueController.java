@@ -1,5 +1,6 @@
 package com.operion.inventory.api;
 
+import com.operion.common.InvalidRequestException;
 import java.util.List;
 
 import com.operion.authorization.RequirePermission;
@@ -28,6 +29,12 @@ import org.springframework.web.bind.annotation.RestController;
 @RequirePermission("INVENTORY_VIEW")
 public class StockIssueController {
 
+	private static void requireField(Object value, String field) {
+		if (value == null) {
+			throw new InvalidRequestException(field + " is required");
+		}
+	}
+
 	private final InventoryService inventoryService;
 	private final StockIssueRepository stockIssueRepository;
 	private final ItemRepository itemRepository;
@@ -51,13 +58,16 @@ public class StockIssueController {
 	@PostMapping
 	@RequirePermission("INVENTORY_STOCK_MANAGE")
 	public StockIssueResponse record(@RequestBody RecordStockIssueRequest request) {
+		requireField(request.itemId(), "itemId");
+		requireField(request.campusId(), "campusId");
+		requireField(request.issuedDate(), "issuedDate");
 		Item item = findItem(request.itemId());
 		Campus campus = findCampus(request.campusId());
 
 		int recipientRefs = (request.departmentId() != null ? 1 : 0) + (request.recipientPersonId() != null ? 1 : 0)
 				+ (request.recipientStudentId() != null ? 1 : 0);
 		if (recipientRefs > 1) {
-			throw new IllegalArgumentException("A stock issue can link to a department, a staff member, or a student - not more than one");
+			throw new InvalidRequestException("A stock issue can link to a department, a staff member, or a student - not more than one");
 		}
 		Department department = request.departmentId() == null ? null
 				: departmentRepository.findById(request.departmentId())

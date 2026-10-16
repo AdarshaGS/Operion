@@ -6,6 +6,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import com.operion.authorization.RequirePermission;
+import com.operion.common.InvalidRequestException;
 import com.operion.common.api.PageResponse;
 import com.operion.customfield.CustomFieldService;
 import com.operion.identity.Person;
@@ -22,6 +23,7 @@ import com.operion.student.StudentService;
 import com.operion.student.StudentStatus;
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
@@ -88,16 +90,18 @@ public class StudentController {
 	 * that live on other entities entirely. */
 	@GetMapping("/search")
 	public PageResponse<StudentListRowResponse> search(@RequestParam(required = false) String search,
-			@RequestParam(required = false) String status, @RequestParam(required = false) Long schoolClassId,
+			@RequestParam(required = false) StudentStatus status, @RequestParam(required = false) Long schoolClassId,
 			@RequestParam(required = false) Long sectionId,
 			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate admissionDateFrom,
 			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate admissionDateTo,
 			@PageableDefault(size = 25, sort = "admissionDate", direction = Sort.Direction.DESC) Pageable pageable) {
-		StudentStatus parsedStatus = status != null && !status.isBlank() ? StudentStatus.valueOf(status) : null;
+		if (admissionDateFrom != null && admissionDateTo != null && admissionDateFrom.isAfter(admissionDateTo)) {
+			throw new InvalidRequestException("The admitted-from date must not be after the admitted-to date");
+		}
 		String likeSearch = search != null && !search.isBlank() ? "%" + search.toLowerCase() + "%" : null;
 
 		Page<Student> page = studentRepository.search(
-				likeSearch, parsedStatus, schoolClassId, sectionId, admissionDateFrom, admissionDateTo, pageable);
+				likeSearch, status, schoolClassId, sectionId, admissionDateFrom, admissionDateTo, withQuerySort(pageable));
 
 		List<Long> studentIds = page.getContent().stream().map(Student::getId).toList();
 		Map<Long, StudentEnrollment> currentEnrollmentByStudentId = studentEnrollmentRepository
@@ -109,6 +113,22 @@ public class StudentController {
 
 		return PageResponse.from(page.map(student -> StudentListRowResponse.from(
 				student, currentEnrollmentByStudentId.get(student.getId()), primaryGuardianByStudentId.get(student.getId()))));
+	}
+
+	/** Sortable columns -> the JPQL path in StudentRepository.search (person columns live on the joined alias p). */
+	private static final Map<String, String> SORT_COLUMNS = Map.of("id", "s.id", "admissionNumber", "s.admissionNumber",
+			"admissionDate", "s.admissionDate", "studentId", "s.studentId", "status", "s.status", "firstName", "p.firstName",
+			"lastName", "p.lastName");
+
+	private static Pageable withQuerySort(Pageable pageable) {
+		Sort mapped = Sort.by(pageable.getSort().stream().map(order -> {
+			String path = SORT_COLUMNS.get(order.getProperty());
+			if (path == null) {
+				throw new InvalidRequestException("Cannot sort by '" + order.getProperty() + "'; expected one of " + SORT_COLUMNS.keySet());
+			}
+			return new Sort.Order(order.getDirection(), path);
+		}).toList());
+		return PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), mapped);
 	}
 
 	@GetMapping("/{studentId}")

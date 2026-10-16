@@ -1,11 +1,13 @@
 package com.operion.organisation.api;
 
 import com.operion.authorization.RequirePermission;
+import com.operion.common.InvalidRequestException;
 import com.operion.common.TenantContext;
 import com.operion.organisation.Organisation;
 import com.operion.organisation.OrganisationConfiguration;
 import com.operion.organisation.OrganisationConfigurationRepository;
 import com.operion.organisation.OrganisationRepository;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -41,27 +43,38 @@ public class OrganisationProfileController {
 
 	@PatchMapping
 	@RequirePermission("ORGANISATION_MANAGE")
-	public OrganisationProfileResponse update(@RequestBody UpdateOrganisationProfileRequest request) {
+	public OrganisationProfileResponse update(@Valid @RequestBody UpdateOrganisationProfileRequest request) {
 		Organisation organisation = currentOrganisation();
-		organisation.setName(request.name());
-		organisation.setLegalName(request.legalName());
+		if (request.name() != null && request.name().isBlank()) {
+			throw new InvalidRequestException("The organisation name cannot be blank");
+		}
+		organisation.setName(request.name() != null ? request.name().trim() : organisation.getName());
+		organisation.setLegalName(keep(organisation.getLegalName(), request.legalName()));
 		organisationRepository.save(organisation);
 
 		OrganisationConfiguration configuration = currentConfiguration();
-		configuration.setLogoUrl(request.logoUrl());
-		configuration.setPrimaryContactName(request.primaryContactName());
-		configuration.setPrimaryContactEmail(request.primaryContactEmail());
-		configuration.setPrimaryContactPhone(request.primaryContactPhone());
-		configuration.setAddressLine1(request.addressLine1());
-		configuration.setAddressLine2(request.addressLine2());
-		configuration.setCity(request.city());
-		configuration.setState(request.state());
-		configuration.setCountry(request.country());
-		configuration.setPincode(request.pincode());
-		configuration.setTaxIdentifier(request.taxIdentifier());
+		configuration.setLogoUrl(keep(configuration.getLogoUrl(), request.logoUrl()));
+		configuration.setPrimaryContactName(keep(configuration.getPrimaryContactName(), request.primaryContactName()));
+		configuration.setPrimaryContactEmail(keep(configuration.getPrimaryContactEmail(), request.primaryContactEmail()));
+		configuration.setPrimaryContactPhone(keep(configuration.getPrimaryContactPhone(), request.primaryContactPhone()));
+		configuration.setAddressLine1(keep(configuration.getAddressLine1(), request.addressLine1()));
+		configuration.setAddressLine2(keep(configuration.getAddressLine2(), request.addressLine2()));
+		configuration.setCity(keep(configuration.getCity(), request.city()));
+		configuration.setState(keep(configuration.getState(), request.state()));
+		configuration.setCountry(keep(configuration.getCountry(), request.country()));
+		configuration.setPincode(keep(configuration.getPincode(), request.pincode()));
+		configuration.setTaxIdentifier(keep(configuration.getTaxIdentifier(), request.taxIdentifier()));
 		configurationRepository.save(configuration);
 
 		return OrganisationProfileResponse.from(organisation, configuration);
+	}
+
+	/** Null keeps the stored value; an empty string clears it. */
+	private static String keep(String current, String sent) {
+		if (sent == null) {
+			return current;
+		}
+		return sent.isBlank() ? null : sent.trim();
 	}
 
 	private Organisation currentOrganisation() {

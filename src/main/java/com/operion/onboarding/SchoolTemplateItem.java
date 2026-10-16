@@ -16,7 +16,7 @@ import lombok.NoArgsConstructor;
  * One draft row in an organisation's editable "School setup template" catalog - what
  * {@link SchoolTemplateService#apply()} turns into a real Department/Designation/Role/
  * GradeLevel/FeeCategory/ItemCategory/GradingScaleBand row. Deliberately one flexible shape
- * across all seven categories rather than seven near-identical tables, since these rows
+ * across all nine categories rather than seven near-identical tables, since these rows
  * carry no business rules of their own - the real entities they produce already own those.
  * Most fields are only meaningful for a subset of categories (see the per-category static
  * factories below); unused fields for a given category are left null.
@@ -65,6 +65,25 @@ public class SchoolTemplateItem extends TenantScopedEntity {
 	 * draft row with no FK integrity to protect). */
 	@Column(name = "permission_codes", length = 2000)
 	private String permissionCodes;
+
+	/** Nullable - the AppModule code this item belongs to; apply skips it while that module is
+	 * switched off for the organisation. Null means the item is always applied. */
+	@Column(name = "module_code", length = 40)
+	private String moduleCode;
+
+	/** Nullable - ITEM's and ASSET_TYPE's unit of measure ("PCS"/"BOX"/"LTR"), free text like Item.unit. */
+	@Column(length = 20)
+	private String unit;
+
+	/** Nullable - ITEM's and ASSET_TYPE's parent inventory category, by ITEM_CATEGORY code (not id, so the
+	 * template row survives that category being re-created). Apply skips the row if the org has no such category. */
+	@Column(name = "item_category_code", length = 50)
+	private String itemCategoryCode;
+
+	/** False means the admin has marked this row "not required": it stays in the catalog, but preview and apply
+	 * ignore it. Distinct from deleting it, so a school can switch rows off and back on. */
+	@Column(nullable = false)
+	private boolean included = true;
 
 	private SchoolTemplateItem(SchoolTemplateItemCategory category, String name, String code, String description,
 			Integer sequenceOrder, String stage, String categoryType, Double minPercentage, String remark, String permissionCodes) {
@@ -116,6 +135,23 @@ public class SchoolTemplateItem extends TenantScopedEntity {
 		return new SchoolTemplateItem(category, name, code, description, sequenceOrder, stage, categoryType, minPercentage, remark, permissionCodes);
 	}
 
+	/** Copies the module tag from the catalog row an organisation's copy is made from. */
+	public SchoolTemplateItem taggedWith(String moduleCode) {
+		this.moduleCode = moduleCode;
+		return this;
+	}
+
+	/** Sets the item-shaped fields (ITEM / ASSET_TYPE rows only); chained like {@link #taggedWith}. */
+	public SchoolTemplateItem withItemDetails(String unit, String itemCategoryCode) {
+		this.unit = unit;
+		this.itemCategoryCode = itemCategoryCode;
+		return this;
+	}
+
+	public void setIncluded(boolean included) {
+		this.included = included;
+	}
+
 	public Set<String> permissionCodeSet() {
 		return permissionCodes == null || permissionCodes.isBlank() ? Set.of() : Set.of(permissionCodes.split(","));
 	}
@@ -123,7 +159,8 @@ public class SchoolTemplateItem extends TenantScopedEntity {
 	/** Generic edit - a management screen lets an admin change any field regardless of
 	 * category, so this mirrors the create shape rather than exposing one setter per field. */
 	public void update(String name, String code, String description, Integer sequenceOrder, String stage, String categoryType,
-			Double minPercentage, String remark, String permissionCodes) {
+			Double minPercentage, String remark, String permissionCodes,
+			String unit, String itemCategoryCode) {
 		this.name = name;
 		this.code = code;
 		this.description = description;
@@ -133,5 +170,7 @@ public class SchoolTemplateItem extends TenantScopedEntity {
 		this.minPercentage = minPercentage;
 		this.remark = remark;
 		this.permissionCodes = permissionCodes;
+		this.unit = unit;
+		this.itemCategoryCode = itemCategoryCode;
 	}
 }

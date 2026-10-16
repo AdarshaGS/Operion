@@ -1,5 +1,6 @@
 package com.operion.inventory.api;
 
+import com.operion.common.InvalidRequestException;
 import java.util.List;
 
 import com.operion.authorization.RequirePermission;
@@ -22,6 +23,12 @@ import org.springframework.web.bind.annotation.RestController;
 @RequirePermission("INVENTORY_VIEW")
 public class StockTransferController {
 
+	private static void requireField(Object value, String field) {
+		if (value == null) {
+			throw new InvalidRequestException(field + " is required");
+		}
+	}
+
 	private final InventoryService inventoryService;
 	private final StockTransferRepository stockTransferRepository;
 	private final ItemRepository itemRepository;
@@ -38,6 +45,10 @@ public class StockTransferController {
 	@PostMapping
 	@RequirePermission("INVENTORY_STOCK_MANAGE")
 	public StockTransferResponse record(@RequestBody RecordStockTransferRequest request) {
+		requireField(request.itemId(), "itemId");
+		requireField(request.fromCampusId(), "fromCampusId");
+		requireField(request.toCampusId(), "toCampusId");
+		requireField(request.transferDate(), "transferDate");
 		Item item = findItem(request.itemId());
 		Campus fromCampus = findCampus(request.fromCampusId());
 		Campus toCampus = findCampus(request.toCampusId());

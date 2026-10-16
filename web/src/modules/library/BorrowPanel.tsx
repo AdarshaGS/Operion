@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
+import { Can } from "../../auth/Can";
 import Checkbox from "@mui/material/Checkbox";
 import Chip from "@mui/material/Chip";
 import Dialog from "@mui/material/Dialog";
@@ -43,7 +44,7 @@ function todayIso(): string {
 }
 
 export function BorrowPanel() {
-	const { profile } = useAuth();
+	const { session } = useAuth();
 	const [persons, setPersons] = useState<PersonResponse[]>([]);
 	const [activeBorrows, setActiveBorrows] = useState<BorrowRecordResponse[]>([]);
 	const [books, setBooks] = useState<BookResponse[]>([]);
@@ -186,9 +187,9 @@ export function BorrowPanel() {
 	}
 
 	async function handleWaiveFine(id: number) {
-		if (!lastRecord || !profile?.personId) return;
+		if (!lastRecord || !session) return;
 		try {
-			await waiveFine(id, profile.personId, "Waived by admin");
+			await waiveFine(id, session.userId, "Waived by admin");
 			setFines(await listFinesForRecord(lastRecord.id));
 		} catch (err) {
 			setError(err instanceof ApiError ? err.message : "Failed to waive fine");
@@ -209,9 +210,11 @@ export function BorrowPanel() {
 			<Stack spacing={2}>
 				<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
 					<Typography variant="h6">Borrow / return</Typography>
-					<Button size="small" startIcon={<AddIcon />} onClick={openIssueDialog}>
-						Issue book
-					</Button>
+					<Can anyOf={["LIBRARY_BORROW_MANAGE"]}>
+						<Button size="small" startIcon={<AddIcon />} onClick={openIssueDialog}>
+							Issue book
+						</Button>
+					</Can>
 				</Box>
 
 				<TextField
@@ -255,12 +258,14 @@ export function BorrowPanel() {
 											{record.dueDate < today && <Chip label="Overdue" size="small" color="error" sx={{ ml: 1 }} />}
 										</TableCell>
 										<TableCell>
-											<Button size="small" onClick={() => openReturnDialog(record)}>
-												Return
-											</Button>
-											<Button size="small" color="error" onClick={() => handleMarkLost(record.id)}>
-												Mark lost
-											</Button>
+											<Can anyOf={["LIBRARY_BORROW_MANAGE"]}>
+												<Button size="small" onClick={() => openReturnDialog(record)}>
+													Return
+												</Button>
+												<Button size="small" color="error" onClick={() => handleMarkLost(record.id)}>
+													Mark lost
+												</Button>
+											</Can>
 										</TableCell>
 									</TableRow>
 								))}
@@ -297,14 +302,14 @@ export function BorrowPanel() {
 												</TableCell>
 												<TableCell>
 													{fine.status === "PENDING" && (
-														<>
+														<Can anyOf={["LIBRARY_FINE_MANAGE"]}>
 															<Button size="small" onClick={() => handlePayFine(fine.id)}>
 																Pay
 															</Button>
-															<Button size="small" onClick={() => handleWaiveFine(fine.id)} disabled={!profile?.personId}>
+															<Button size="small" onClick={() => handleWaiveFine(fine.id)} disabled={!session}>
 																Waive
 															</Button>
-														</>
+														</Can>
 													)}
 												</TableCell>
 											</TableRow>
@@ -314,19 +319,21 @@ export function BorrowPanel() {
 							</TableContainer>
 						)}
 
-						<Box sx={{ display: "flex", gap: 2, alignItems: "flex-end", maxWidth: 500 }}>
-							<TextField label="Fine amount" type="number" size="small" value={fineAmount} onChange={(e) => setFineAmount(e.target.value)} />
-							<TextField select label="Reason" size="small" value={fineReason} onChange={(e) => setFineReason(e.target.value)} sx={{ minWidth: 140 }}>
-								{FINE_REASONS.map((reason) => (
-									<MenuItem key={reason} value={reason}>
-										{reason}
-									</MenuItem>
-								))}
-							</TextField>
-							<Button size="small" variant="contained" onClick={handleRaiseFine} disabled={!fineAmount}>
-								Raise fine
-							</Button>
-						</Box>
+						<Can anyOf={["LIBRARY_FINE_MANAGE"]}>
+							<Box sx={{ display: "flex", gap: 2, alignItems: "flex-end", maxWidth: 500 }}>
+								<TextField label="Fine amount" type="number" size="small" value={fineAmount} onChange={(e) => setFineAmount(e.target.value)} />
+								<TextField select label="Reason" size="small" value={fineReason} onChange={(e) => setFineReason(e.target.value)} sx={{ minWidth: 140 }}>
+									{FINE_REASONS.map((reason) => (
+										<MenuItem key={reason} value={reason}>
+											{reason}
+										</MenuItem>
+									))}
+								</TextField>
+								<Button size="small" variant="contained" onClick={handleRaiseFine} disabled={!fineAmount}>
+									Raise fine
+								</Button>
+							</Box>
+						</Can>
 					</>
 				)}
 			</Stack>

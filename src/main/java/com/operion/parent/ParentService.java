@@ -41,9 +41,17 @@ public class ParentService {
 	}
 
 	@Transactional
-	public StudentGuardian updateRelationship(StudentGuardian studentGuardian, GuardianRelationshipType relationshipType,
-			boolean primaryGuardian, boolean emergencyContact, boolean canPickup, boolean canReceiveCommunication,
-			int contactPriority) {
+	public StudentGuardian updateRelationship(StudentGuardian studentGuardian, GuardianRelationshipType newRelationshipType,
+			Boolean newPrimaryGuardian, Boolean newEmergencyContact, Boolean newCanPickup, Boolean newCanReceiveCommunication,
+			Integer newContactPriority) {
+		GuardianRelationshipType relationshipType =
+				newRelationshipType != null ? newRelationshipType : studentGuardian.getRelationshipType();
+		boolean primaryGuardian = newPrimaryGuardian != null ? newPrimaryGuardian : studentGuardian.isPrimaryGuardian();
+		boolean emergencyContact = newEmergencyContact != null ? newEmergencyContact : studentGuardian.isEmergencyContact();
+		boolean canPickup = newCanPickup != null ? newCanPickup : studentGuardian.isCanPickup();
+		boolean canReceiveCommunication =
+				newCanReceiveCommunication != null ? newCanReceiveCommunication : studentGuardian.isCanReceiveCommunication();
+		int contactPriority = newContactPriority != null ? newContactPriority : studentGuardian.getContactPriority();
 		if (primaryGuardian) {
 			studentGuardianRepository.findByStudentIdAndPrimaryGuardianTrue(studentGuardian.getStudent().getId())
 					.filter(existing -> !existing.getId().equals(studentGuardian.getId()))

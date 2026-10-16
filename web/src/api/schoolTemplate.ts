@@ -12,6 +12,12 @@ export interface SchoolTemplatePreviewResponse {
 	roles: SchoolTemplateCategoryStatus[];
 	feeCategories: SchoolTemplateCategoryStatus[];
 	itemCategories: SchoolTemplateCategoryStatus[];
+	items: SchoolTemplateCategoryStatus[];
+	assetTypes: SchoolTemplateCategoryStatus[];
+	leaveTypes: SchoolTemplateCategoryStatus[];
+	classes: SchoolTemplateCategoryStatus[];
+	sections: SchoolTemplateCategoryStatus[];
+	subjects: SchoolTemplateCategoryStatus[];
 	gradingScaleExists: boolean;
 }
 
@@ -28,6 +34,20 @@ export interface SchoolTemplateApplyResponse {
 	feeCategoriesSkipped: string[];
 	itemCategoriesCreated: string[];
 	itemCategoriesSkipped: string[];
+	itemsCreated: string[];
+	itemsSkipped: string[];
+	assetTypesCreated: string[];
+	assetTypesSkipped: string[];
+	leaveTypesCreated: string[];
+	leaveTypesSkipped: string[];
+	classesCreated: string[];
+	classesSkipped: string[];
+	sectionsCreated: string[];
+	sectionsSkipped: string[];
+	subjectsCreated: string[];
+	subjectsSkipped: string[];
+	/** Why no classes could be created (no current academic year / no active campus); null otherwise. */
+	classesNote: string | null;
 	gradingScaleCreated: boolean;
 	gradingScaleAlreadyExists: boolean;
 }
@@ -36,6 +56,40 @@ export function getSchoolTemplatePreview(): Promise<SchoolTemplatePreviewRespons
 	return api.get<SchoolTemplatePreviewResponse>("/api/v1/organisations/settings/school-template/preview");
 }
 
-export function applySchoolTemplate(): Promise<SchoolTemplateApplyResponse> {
-	return api.post<SchoolTemplateApplyResponse>("/api/v1/organisations/settings/school-template/apply");
+export interface StarterPackQuestion {
+	key: string;
+	label: string;
+	helpText: string | null;
+	defaultYes: boolean;
+}
+
+export interface StarterPackNeeds {
+	questions: StarterPackQuestion[];
+	/** False once the organisation has module settings - after that only the platform owner changes them. */
+	canSelectModules: boolean;
+}
+
+export interface StarterPackModule {
+	code: string;
+	label: string;
+	enabled: boolean;
+	/** On because every school needs it, or because another selected module requires it. */
+	locked: boolean;
+	reason: string;
+}
+
+export type StarterPackAnswers = Record<string, boolean>;
+
+export function getStarterPackNeeds(): Promise<StarterPackNeeds> {
+	return api.get<StarterPackNeeds>("/api/v1/organisations/settings/school-template/needs");
+}
+
+/** Preview only - nothing is written. */
+export function recommendStarterPack(answers: StarterPackAnswers): Promise<{ modules: StarterPackModule[] }> {
+	return api.post<{ modules: StarterPackModule[] }>("/api/v1/organisations/settings/school-template/recommend", { answers });
+}
+
+/** With answers (first time only) the recommended modules are recorded too; without, only the template is applied. */
+export function applySchoolTemplate(answers?: StarterPackAnswers): Promise<SchoolTemplateApplyResponse> {
+	return api.post<SchoolTemplateApplyResponse>("/api/v1/organisations/settings/school-template/apply", answers ? { answers } : undefined);
 }

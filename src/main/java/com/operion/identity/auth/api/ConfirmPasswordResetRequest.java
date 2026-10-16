@@ -1,4 +1,8 @@
 package com.operion.identity.auth.api;
 
-public record ConfirmPasswordResetRequest(String organisationSlug, String token, String newPassword) {
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+
+public record ConfirmPasswordResetRequest(String organisationSlug, String token,
+		@NotBlank @Size(min = 8, message = "must be at least 8 characters") String newPassword) {
 }

@@ -54,7 +54,7 @@ class ProfileChangeRequestLifecycleTest {
 	@Test
 	void submittingWithNoFieldsIsRejected() {
 		Person person = setUpFixture("profile-change-empty");
-		assertThatThrownBy(() -> profileChangeService.submit(person, null, null, null, 1L)).isInstanceOf(IllegalArgumentException.class);
+		assertThatThrownBy(() -> profileChangeService.submit(person, null, null, null, 1L)).isInstanceOf(com.operion.common.InvalidRequestException.class);
 	}
 
 	@Test

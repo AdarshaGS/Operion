@@ -24,8 +24,9 @@ export interface LeaveRequestResponse {
 	decidedAt: string | null;
 }
 
+/** The server records the decision against the signed-in caller; decidedBy is ignored if sent. */
 export interface DecideLeaveRequestRequest {
-	decidedBy: number;
+	decidedBy?: number;
 }
 
 export function raiseLeaveRequest(request: RaiseLeaveRequestRequest): Promise<LeaveRequestResponse> {
@@ -41,11 +42,11 @@ export function listLeaveRequests(filter: { staffProfileId?: number; status?: st
 	return api.get<LeaveRequestResponse[]>(`/api/v1/hr/leave-requests?${params.toString()}`);
 }
 
-export function approveLeaveRequest(id: number, request: DecideLeaveRequestRequest): Promise<LeaveRequestResponse> {
+export function approveLeaveRequest(id: number, request: DecideLeaveRequestRequest = {}): Promise<LeaveRequestResponse> {
 	return api.post<LeaveRequestResponse>(`/api/v1/hr/leave-requests/${id}/approve`, request);
 }
 
-export function rejectLeaveRequest(id: number, request: DecideLeaveRequestRequest): Promise<LeaveRequestResponse> {
+export function rejectLeaveRequest(id: number, request: DecideLeaveRequestRequest = {}): Promise<LeaveRequestResponse> {
 	return api.post<LeaveRequestResponse>(`/api/v1/hr/leave-requests/${id}/reject`, request);
 }
 

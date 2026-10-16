@@ -3,6 +3,8 @@ package com.operion.learning;
 import java.time.LocalDate;
 import java.util.List;
 
+import com.operion.academic.ClassSubject;
+import com.operion.academic.ClassSubjectRepository;
 import com.operion.academic.GradeLevel;
 import com.operion.academic.GradeLevelRepository;
 import com.operion.academic.SchoolClass;
@@ -44,6 +46,7 @@ abstract class LearningTestBase {
 	@Autowired protected SchoolClassRepository schoolClassRepository;
 	@Autowired protected SectionRepository sectionRepository;
 	@Autowired protected SubjectRepository subjectRepository;
+	@Autowired protected ClassSubjectRepository classSubjectRepository;
 	@Autowired protected StudentRepository studentRepository;
 	@Autowired protected StudentEnrollmentRepository enrollmentRepository;
 
@@ -80,6 +83,8 @@ abstract class LearningTestBase {
 		sectionB = sectionRepository.save(new Section(schoolClass, "B", 40, null));
 		maths = subjectRepository.save(new Subject("Maths", "MATH"));
 		science = subjectRepository.save(new Subject("Science", "SCI"));
+		classSubjectRepository.save(new ClassSubject(schoolClass, maths, true));
+		classSubjectRepository.save(new ClassSubject(schoolClass, science, true));
 		asha = personRepository.save(new Person("Asha", "Rao"));
 		bala = personRepository.save(new Person("Bala", "Iyer"));
 		ravi = newStudent("Ravi", "Kumar", "S-1");

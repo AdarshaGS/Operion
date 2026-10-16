@@ -1,10 +1,14 @@
 import { api } from "./client";
 
+/** Gender choices offered wherever a person is added. Values match the public admission
+ * form. Gender is mandatory for every person the backend creates. */
+export const GENDER_OPTIONS = ["Male", "Female", "Other"] as const;
+
 export interface CreatePersonRequest {
 	firstName: string;
 	lastName: string;
 	dateOfBirth?: string | null;
-	gender?: string | null;
+	gender: string;
 	phone?: string | null;
 	email?: string | null;
 	photoUrl?: string | null;

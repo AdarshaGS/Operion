@@ -17,6 +17,9 @@ import com.operion.examination.ExamType;
 import com.operion.examination.ExaminationService;
 import com.operion.organisation.AcademicYear;
 import com.operion.organisation.AcademicYearRepository;
+import com.operion.common.EnumParam;
+import com.operion.common.InvalidRequestException;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -52,11 +55,11 @@ public class ExamController {
 
 	@PostMapping
 	@RequirePermission("EXAM_MANAGE")
-	public ExamResponse create(@RequestBody CreateExamRequest request) {
+	public ExamResponse create(@Valid @RequestBody CreateExamRequest request) {
 		AcademicYear academicYear = academicYearRepository.findById(request.academicYearId())
 				.orElseThrow(() -> new IllegalArgumentException("No academic year with id " + request.academicYearId()));
 
-		Exam exam = examinationService.createExam(academicYear, request.name(), ExamType.valueOf(request.examType()));
+		Exam exam = examinationService.createExam(academicYear, request.name(), EnumParam.parse(ExamType.class, request.examType()));
 		return ExamResponse.from(exam);
 	}
 
@@ -72,7 +75,7 @@ public class ExamController {
 
 	@PostMapping("/{examId}/schedules")
 	@RequirePermission("EXAM_MANAGE")
-	public ExamScheduleResponse addSchedule(@PathVariable Long examId, @RequestBody CreateExamScheduleRequest request) {
+	public ExamScheduleResponse addSchedule(@PathVariable Long examId, @Valid @RequestBody CreateExamScheduleRequest request) {
 		Exam exam = findExam(examId);
 		SchoolClass schoolClass = schoolClassRepository.findById(request.schoolClassId())
 				.orElseThrow(() -> new IllegalArgumentException("No school class with id " + request.schoolClassId()));
@@ -80,6 +83,7 @@ public class ExamController {
 				.orElseThrow(() -> new IllegalArgumentException("No section with id " + request.sectionId()));
 		Subject subject = subjectRepository.findById(request.subjectId())
 				.orElseThrow(() -> new IllegalArgumentException("No subject with id " + request.subjectId()));
+		requireConsistentSchedule(exam, schoolClass, section, request);
 
 		ExamSchedule schedule = examinationService.addSchedule(
 				exam, schoolClass, section, subject, request.examDate(), request.maxMarks(), request.passMarks());
@@ -88,7 +92,25 @@ public class ExamController {
 
 	@GetMapping("/{examId}/schedules")
 	public List<ExamScheduleResponse> listSchedules(@PathVariable Long examId) {
+		findExam(examId);
 		return examScheduleRepository.findByExamId(examId).stream().map(ExamScheduleResponse::from).toList();
+	}
+
+	private void requireConsistentSchedule(Exam exam, SchoolClass schoolClass, Section section, CreateExamScheduleRequest request) {
+		if (request.passMarks() > request.maxMarks()) {
+			throw new InvalidRequestException("Pass marks cannot be more than the maximum marks");
+		}
+		AcademicYear year = exam.getAcademicYear();
+		if (!schoolClass.getAcademicYear().getId().equals(year.getId())) {
+			throw new InvalidRequestException("Class " + schoolClass.getId() + " belongs to a different academic year than this exam");
+		}
+		if (section != null && !section.getSchoolClass().getId().equals(schoolClass.getId())) {
+			throw new InvalidRequestException("Section " + section.getId() + " does not belong to class " + schoolClass.getId());
+		}
+		if (request.examDate().isBefore(year.getStartDate()) || request.examDate().isAfter(year.getEndDate())) {
+			throw new InvalidRequestException("The exam date must fall within the academic year " + year.getName()
+					+ " (" + year.getStartDate() + " to " + year.getEndDate() + ")");
+		}
 	}
 
 	private Exam findExam(Long examId) {

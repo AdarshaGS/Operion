@@ -7,6 +7,7 @@ import com.operion.finance.FeeCategory;
 import com.operion.finance.FeeCategoryRepository;
 import com.operion.finance.FeeCategoryStatus;
 import com.operion.finance.FeeService;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -28,7 +29,7 @@ public class FeeCategoryController {
 
 	@PostMapping
 	@RequirePermission("FEE_CATEGORY_MANAGE")
-	public FeeCategoryResponse create(@RequestBody CreateFeeCategoryRequest request) {
+	public FeeCategoryResponse create(@Valid @RequestBody CreateFeeCategoryRequest request) {
 		FeeCategory category = feeService.createCategory(request.code(), request.name(), request.description(), request.categoryType());
 		return FeeCategoryResponse.from(category);
 	}

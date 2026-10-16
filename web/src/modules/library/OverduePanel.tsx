@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
+import { Can } from "../../auth/Can";
 import Chip from "@mui/material/Chip";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
@@ -92,9 +93,11 @@ export function OverduePanel() {
 													{reminderResult[record.id]}
 												</Typography>
 											) : (
-												<Button size="small" disabled={sending === record.id} onClick={() => handleSendReminder(record.id)}>
-													Send reminder
-												</Button>
+												<Can anyOf={["LIBRARY_BORROW_MANAGE"]}>
+													<Button size="small" disabled={sending === record.id} onClick={() => handleSendReminder(record.id)}>
+														Send reminder
+													</Button>
+												</Can>
 											)}
 										</TableCell>
 									</TableRow>

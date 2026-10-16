@@ -3,6 +3,7 @@ package com.operion.parent.api;
 import com.operion.identity.auth.api.ClaimInviteRequest;
 import com.operion.identity.auth.api.LoginResponse;
 import com.operion.parent.PortalInviteService;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -26,7 +27,7 @@ class PortalInviteAuthController {
 	}
 
 	@PostMapping("/claim-invite")
-	LoginResponse claimInvite(@RequestBody ClaimInviteRequest request) {
+	LoginResponse claimInvite(@Valid @RequestBody ClaimInviteRequest request) {
 		return LoginResponse.from(portalInviteService.claim(request.organisationSlug(), request.token(), request.password()));
 	}
 }

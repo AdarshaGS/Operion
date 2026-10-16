@@ -7,6 +7,7 @@ import java.util.Set;
 
 import com.operion.audit.AuditLogRepository;
 import com.operion.audit.AuditLogService;
+import com.operion.common.InvalidRequestException;
 import com.operion.common.JpaConfig;
 import com.operion.common.MultiTenancyConfig;
 import com.operion.common.TenantContext;
@@ -39,11 +40,14 @@ class RoleServiceTest {
 	private PermissionRepository permissionRepository;
 
 	@Autowired
+	private OrganisationMembershipRepository membershipRepository;
+
+	@Autowired
 	private AuditLogRepository auditLogRepository;
 
 	@BeforeEach
 	void setUp() {
-		roleService = new RoleService(roleRepository, permissionRepository, new AuditLogService(auditLogRepository, new ObjectMapper()));
+		roleService = new RoleService(roleRepository, permissionRepository, new AuditLogService(auditLogRepository, new ObjectMapper()), membershipRepository);
 
 		// A fresh unique slug per test method - Propagation.NOT_SUPPORTED means nothing
 		// rolls back between methods in this class, so a fixed slug would collide on the
@@ -108,7 +112,7 @@ class RoleServiceTest {
 	@Test
 	void createRejectsAnUnknownPermissionCode() {
 		assertThatThrownBy(() -> roleService.create("Bad Role", "desc", Set.of("DOES_NOT_EXIST")))
-				.isInstanceOf(IllegalArgumentException.class);
+				.isInstanceOf(InvalidRequestException.class);
 	}
 
 	@Test

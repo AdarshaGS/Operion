@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
+import Alert from "@mui/material/Alert";
 import AppBar from "@mui/material/AppBar";
 import Box from "@mui/material/Box";
 import ButtonBase from "@mui/material/ButtonBase";
@@ -14,6 +15,8 @@ import ListItemText from "@mui/material/ListItemText";
 import ListSubheader from "@mui/material/ListSubheader";
 import Stack from "@mui/material/Stack";
 import Toolbar from "@mui/material/Toolbar";
+import useMediaQuery from "@mui/material/useMediaQuery";
+import type { Theme } from "@mui/material/styles";
 import Tooltip from "@mui/material/Tooltip";
 import { Wordmark } from "../branding/Wordmark";
 import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
@@ -168,8 +171,11 @@ const NAV_GROUPS: NavGroup[] = [
 export function AppLayout() {
 	const navigate = useNavigate();
 	const location = useLocation();
-	const { hasAnyPermission, permissionsLoaded, profile } = useAuth();
-	const [collapsed, setCollapsed] = useState(readStoredCollapsed);
+	const { hasAnyPermission, permissionsLoaded, profile, isPathEnabled } = useAuth();
+	const [storedCollapsed, setCollapsed] = useState(readStoredCollapsed);
+	// Phone width always gets the icon rail - a full 240px drawer would leave the page ~150px.
+	const isNarrow = useMediaQuery((theme: Theme) => theme.breakpoints.down("sm"));
+	const collapsed = storedCollapsed || isNarrow;
 	const [collapsedGroups, setCollapsedGroups] = useState(readStoredGroupsCollapsed);
 	const [checklist, setChecklist] = useState<SetupChecklist | null>(null);
 
@@ -239,13 +245,24 @@ export function AppLayout() {
 		);
 	}
 
+	// A module the platform owner switched off, or one the caller has no permission for,
+	// disappears entirely (not just greyed out) so people only see what is theirs to use.
+	// Backend enforces both on every call, this only stops the UI offering dead ends.
+	const visibleGroups = NAV_GROUPS.map((group) => ({
+		...group,
+		items: group.items.filter((item) => isPathEnabled(item.path) && isPermitted(item)),
+	})).filter(
+		(group) => group.items.length > 0,
+	);
+	const currentModuleOff = !isPathEnabled(location.pathname);
+
 	const drawerWidth = collapsed ? DRAWER_WIDTH_COLLAPSED : DRAWER_WIDTH;
 
 	return (
 		<Box sx={{ display: "flex" }}>
 			<AppBar position="fixed" sx={{ zIndex: (theme) => theme.zIndex.drawer + 1 }}>
-				<Toolbar sx={{ gap: 2 }}>
-					<ButtonBase onClick={() => navigate("/")} disableRipple sx={{ borderRadius: 1 }} aria-label="Go to home">
+				<Toolbar sx={{ gap: { xs: 1, sm: 2 } }}>
+					<ButtonBase onClick={() => navigate("/")} disableRipple sx={{ borderRadius: 1, minWidth: 0, overflow: "hidden" }} aria-label="Go to home">
 						<Wordmark size="small" text={profile?.organisationName ?? "OPERION"} />
 					</ButtonBase>
 					<Box sx={{ flexGrow: 1 }} />
@@ -271,7 +288,7 @@ export function AppLayout() {
 				}}
 			>
 				<Toolbar />
-				<Box sx={{ display: "flex", justifyContent: collapsed ? "center" : "flex-end", px: 1, py: 0.5 }}>
+				<Box sx={{ display: isNarrow ? "none" : "flex", justifyContent: collapsed ? "center" : "flex-end", px: 1, py: 0.5 }}>
 					<Tooltip title={collapsed ? "Expand sidebar" : "Collapse sidebar"} placement="right">
 						<IconButton size="small" onClick={toggleCollapsed} aria-label="Toggle sidebar">
 							{collapsed ? <ChevronRightIcon fontSize="small" /> : <ChevronLeftIcon fontSize="small" />}
@@ -279,9 +296,13 @@ export function AppLayout() {
 					</Tooltip>
 				</Box>
 				<Box sx={{ overflowY: "auto" }}>
-					<List>{renderNavItem(DASHBOARD_ITEM)}</List>
-					<Divider sx={{ my: 0.5 }} />
-					{NAV_GROUPS.map((group, groupIndex) => {
+					{isPathEnabled(DASHBOARD_ITEM.path) && (
+						<>
+							<List>{renderNavItem(DASHBOARD_ITEM)}</List>
+							<Divider sx={{ my: 0.5 }} />
+						</>
+					)}
+					{visibleGroups.map((group, groupIndex) => {
 						const groupOpen = collapsed || !collapsedGroups[group.label];
 						return (
 						<Box key={group.label}>
@@ -322,10 +343,14 @@ export function AppLayout() {
 					})}
 				</Box>
 			</Drawer>
-			<Box component="main" sx={{ flexGrow: 1, p: { xs: 2, md: 4 } }}>
+			<Box component="main" sx={{ flexGrow: 1, minWidth: 0, p: { xs: 2, md: 4 } }}>
 				<Toolbar />
 				<Box sx={{ maxWidth: 1280, mx: "auto" }}>
-					<Outlet />
+					{currentModuleOff ? (
+						<Alert severity="info">This feature is not enabled for your organisation. Contact your administrator if you need it.</Alert>
+					) : (
+						<Outlet />
+					)}
 				</Box>
 			</Box>
 		</Box>

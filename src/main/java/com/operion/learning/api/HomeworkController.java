@@ -44,7 +44,7 @@ public class HomeworkController {
 		var actor = accessService.resolve(TenantContext.getActorId());
 		Homework h = homeworkService.assign(actor, request.sectionId(), request.subjectId(), request.title(),
 				request.description(), request.dueDate(), request.attachmentRef());
-		return HomeworkResponse.from(new HomeworkService.HomeworkView(h, 0, 0, 0), storage);
+		return HomeworkResponse.from(homeworkService.viewOf(h), storage);
 	}
 
 	@PostMapping("/{id}/cancel")

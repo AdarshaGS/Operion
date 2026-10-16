@@ -18,7 +18,10 @@ import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import AddIcon from "@mui/icons-material/Add";
+import { Can } from "../../auth/Can";
+import { DialogErrorAlert } from "../../components/DialogErrorAlert";
 import { ApiError } from "../../api/client";
+import { loadErrorMessage } from "./loadError";
 import { createLeaveType, listLeaveTypes, type LeaveTypeResponse } from "../../api/leaveTypes";
 
 export function LeaveTypesPanel() {
@@ -29,11 +32,13 @@ export function LeaveTypesPanel() {
 	const [name, setName] = useState("");
 	const [defaultAnnualDays, setDefaultAnnualDays] = useState("");
 	const [submitting, setSubmitting] = useState(false);
+	// Shown inside the dialog: the page-level alert sits behind the dialog's backdrop.
+	const [dialogError, setDialogError] = useState<string | null>(null);
 
 	function refresh() {
 		listLeaveTypes()
 			.then(setLeaveTypes)
-			.catch((err) => setError(err instanceof ApiError ? err.message : "Failed to load leave types"));
+			.catch((err) => setError(loadErrorMessage(err, "Failed to load leave types")));
 	}
 
 	useEffect(refresh, []);
@@ -41,6 +46,7 @@ export function LeaveTypesPanel() {
 	async function handleSubmit(event: FormEvent) {
 		event.preventDefault();
 		setSubmitting(true);
+		setDialogError(null);
 		try {
 			await createLeaveType({ code, name, defaultAnnualDays: defaultAnnualDays ? Number(defaultAnnualDays) : null });
 			setCode("");
@@ -49,7 +55,7 @@ export function LeaveTypesPanel() {
 			setDialogOpen(false);
 			refresh();
 		} catch (err) {
-			setError(err instanceof ApiError ? err.message : "Failed to create leave type");
+			setDialogError(err instanceof ApiError ? err.message : "Failed to create leave type");
 		} finally {
 			setSubmitting(false);
 		}
@@ -60,9 +66,11 @@ export function LeaveTypesPanel() {
 			<Stack spacing={2}>
 				<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
 					<Typography variant="h6">Leave types</Typography>
-					<Button size="small" startIcon={<AddIcon />} onClick={() => setDialogOpen(true)}>
-						Add leave type
-					</Button>
+					<Can anyOf={["HR_LEAVE_TYPE_MANAGE"]}>
+						<Button size="small" startIcon={<AddIcon />} onClick={() => { setDialogError(null); setDialogOpen(true); }}>
+							Add leave type
+						</Button>
+					</Can>
 				</Box>
 
 				{error && <Alert severity="error">{error}</Alert>}
@@ -97,6 +105,7 @@ export function LeaveTypesPanel() {
 				<DialogTitle>Add leave type</DialogTitle>
 				<DialogContent>
 					<Stack spacing={2} sx={{ mt: 1 }}>
+						{dialogError && <DialogErrorAlert>{dialogError}</DialogErrorAlert>}
 						<TextField label="Code" placeholder="CASUAL" value={code} onChange={(e) => setCode(e.target.value)} required autoFocus fullWidth />
 						<TextField label="Name" placeholder="Casual Leave" value={name} onChange={(e) => setName(e.target.value)} required fullWidth />
 						<TextField

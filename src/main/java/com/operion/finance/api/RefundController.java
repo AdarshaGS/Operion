@@ -32,6 +32,8 @@ public class RefundController {
 	@PostMapping
 	@RequirePermission("FEE_REFUND_APPROVE")
 	public RefundResponse record(@RequestBody RecordRefundRequest request) {
+		RequestChecks.required(request.paymentId(), "paymentId");
+		RequestChecks.required(request.invoiceId(), "invoiceId");
 		Payment payment = paymentRepository.findById(request.paymentId())
 				.orElseThrow(() -> new IllegalArgumentException("No payment with id " + request.paymentId()));
 		Invoice invoice = invoiceRepository.findById(request.invoiceId())

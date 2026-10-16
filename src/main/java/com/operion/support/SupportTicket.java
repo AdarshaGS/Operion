@@ -1,5 +1,6 @@
 package com.operion.support;
 
+import com.operion.common.persistence.PlatformPlane;
 import com.operion.common.BaseEntity;
 import com.operion.organisation.Organisation;
 import jakarta.persistence.Column;
@@ -24,6 +25,7 @@ import lombok.NoArgsConstructor;
 @Entity
 @Table(name = "support_tickets")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
+@PlatformPlane
 public class SupportTicket extends BaseEntity {
 
 	@ManyToOne(optional = false)

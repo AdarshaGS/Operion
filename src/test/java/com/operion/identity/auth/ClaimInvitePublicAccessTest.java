@@ -102,7 +102,7 @@ class ClaimInvitePublicAccessTest {
 				.andExpect(status().isNotFound());
 		mockMvc.perform(post("/api/v1/public/orgs/no-such-org/admission-inquiries")
 						.contentType(MediaType.APPLICATION_JSON)
-						.content("{\"firstName\":\"A\",\"lastName\":\"B\",\"dateOfBirth\":\"2018-01-01\",\"guardianName\":\"G\",\"guardianPhone\":\"1\"}"))
+						.content("{\"firstName\":\"A\",\"lastName\":\"B\",\"dateOfBirth\":\"2018-01-01\",\"gender\":\"MALE\",\"guardianName\":\"G\",\"guardianPhone\":\"1\"}"))
 				.andExpect(status().isNotFound());
 	}
 }

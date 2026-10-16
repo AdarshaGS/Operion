@@ -1,5 +1,6 @@
 package com.operion.organisation;
 
+import java.time.LocalDate;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -11,4 +12,6 @@ public interface AcademicYearRepository extends JpaRepository<AcademicYear, Long
 	boolean existsByCurrentTrue();
 
 	Optional<AcademicYear> findByNameIgnoreCase(String name);
+
+	boolean existsByStartDateLessThanEqualAndEndDateGreaterThanEqual(LocalDate endDate, LocalDate startDate);
 }

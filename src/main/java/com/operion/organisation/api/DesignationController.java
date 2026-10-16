@@ -1,5 +1,7 @@
 package com.operion.organisation.api;
 
+import com.operion.common.EnumParam;
+import com.operion.common.InvalidRequestException;
 import java.util.List;
 
 import com.operion.authorization.RequirePermission;
@@ -28,7 +30,14 @@ public class DesignationController {
 	@PostMapping
 	@RequirePermission("ORGANISATION_MANAGE")
 	public DesignationResponse create(@RequestBody CreateDesignationRequest request) {
-		return DesignationResponse.from(designationRepository.save(new Designation(request.name())));
+		String name = request.name() == null ? "" : request.name().trim();
+		if (name.isEmpty()) {
+			throw new InvalidRequestException("A designation name is required");
+		}
+		if (designationRepository.findByNameIgnoreCase(name).isPresent()) {
+			throw new IllegalStateException("A designation named '" + name + "' already exists");
+		}
+		return DesignationResponse.from(designationRepository.save(new Designation(name)));
 	}
 
 	@GetMapping
@@ -41,7 +50,7 @@ public class DesignationController {
 	public DesignationResponse changeStatus(@PathVariable Long id, @RequestBody ChangeStatusRequest request) {
 		Designation designation = designationRepository.findById(id)
 				.orElseThrow(() -> new IllegalArgumentException("No designation with id " + id));
-		designation.changeStatus(DesignationStatus.valueOf(request.status()));
+		designation.changeStatus(EnumParam.parse(DesignationStatus.class, request.status()));
 		return DesignationResponse.from(designationRepository.save(designation));
 	}
 }

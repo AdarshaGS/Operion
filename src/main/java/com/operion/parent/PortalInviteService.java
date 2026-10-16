@@ -106,8 +106,7 @@ public class PortalInviteService {
 					.filter(candidate -> candidate.getExpiresAt().isAfter(Instant.now()))
 					.orElseThrow(() -> invalidInvite);
 
-			// A guardian who already has a User from another context (e.g. also staff
-			// somewhere) is reused as-is rather than having their existing password
+			// A guardian who already has a User at this school (e.g. also staff here) is reused as-is rather than having their existing password
 			// silently overwritten - the password argument only takes effect for a
 			// brand-new User.
 			Person person = invite.getPerson();
@@ -136,7 +135,7 @@ public class PortalInviteService {
 	private Role createGuardianPortalRole() {
 		Permission portalAccess = permissionRepository.findByCode(PARENT_PORTAL_ACCESS_CODE)
 				.orElseThrow(() -> new IllegalStateException(PARENT_PORTAL_ACCESS_CODE + " permission is not seeded"));
-		Role role = new Role(GUARDIAN_ROLE_NAME, "Parent portal access - created automatically, system-managed", false, true);
+		Role role = new Role(GUARDIAN_ROLE_NAME, "Parent portal access - created automatically, system-managed", false, true, true);
 		role.grant(portalAccess);
 		return roleRepository.save(role);
 	}

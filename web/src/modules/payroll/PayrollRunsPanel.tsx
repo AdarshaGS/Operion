@@ -25,10 +25,14 @@ export function PayrollRunsPanel() {
 	const [year, setYear] = useState(String(now.getFullYear()));
 	const [month, setMonth] = useState(String(now.getMonth() + 1));
 	const [error, setError] = useState<string | null>(null);
+	const [loaded, setLoaded] = useState(false);
 
 	useEffect(() => {
 		listPayrollRuns()
-			.then(setRuns)
+			.then((list) => {
+				setRuns(list);
+				setLoaded(true);
+			})
 			.catch((err) => setError(err instanceof ApiError ? err.message : "Failed to load payroll runs"));
 	}, []);
 
@@ -63,7 +67,7 @@ export function PayrollRunsPanel() {
 						</Button>
 					</Stack>
 				</Can>
-				{runs.length === 0 ? (
+				{!loaded ? null : runs.length === 0 ? (
 					<Alert severity="info">
 						No payroll runs yet. A run covers every active staff member with a salary structure in force for the month.
 					</Alert>

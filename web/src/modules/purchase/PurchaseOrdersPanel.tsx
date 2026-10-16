@@ -25,6 +25,8 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import { listCampuses, type CampusResponse } from "../../api/campuses";
 import { ApiError } from "../../api/client";
 import { listItems, type ItemResponse } from "../../api/items";
+import { Can } from "../../auth/Can";
+import { loadErrorMessage } from "../hr/loadError";
 import { createPurchaseOrder, listPurchaseOrders, type PurchaseOrderResponse } from "../../api/purchaseOrders";
 import { listSuppliers, type SupplierResponse } from "../../api/suppliers";
 
@@ -65,10 +67,15 @@ export function PurchaseOrdersPanel() {
 	const [lines, setLines] = useState<DraftLine[]>([emptyLine()]);
 	const [submitting, setSubmitting] = useState(false);
 
+	const [loaded, setLoaded] = useState(false);
+
 	function refresh() {
 		listPurchaseOrders()
-			.then(setOrders)
-			.catch((err) => setError(err instanceof ApiError ? err.message : "Failed to load purchase orders"));
+			.then((list) => {
+				setOrders(list);
+				setLoaded(true);
+			})
+			.catch((err) => setError(loadErrorMessage(err, "Failed to load purchase orders")));
 	}
 
 	useEffect(refresh, []);
@@ -141,14 +148,16 @@ export function PurchaseOrdersPanel() {
 			<Stack spacing={2}>
 				<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
 					<Typography variant="h6">Purchase orders</Typography>
-					<Button size="small" startIcon={<AddIcon />} onClick={openDialog}>
-						New purchase order
-					</Button>
+					<Can anyOf={["PURCHASE_MANAGE"]}>
+						<Button size="small" startIcon={<AddIcon />} onClick={openDialog}>
+							New purchase order
+						</Button>
+					</Can>
 				</Box>
 
 				{error && <Alert severity="error">{error}</Alert>}
 
-				{orders.length === 0 && <Alert severity="info">No purchase orders yet.</Alert>}
+				{loaded && orders.length === 0 && <Alert severity="info">No purchase orders yet.</Alert>}
 
 				{orders.length > 0 && (
 					<TableContainer>

@@ -1,4 +1,6 @@
 package com.operion.organisation.api;
 
-public record ChangeOrganisationStatusRequest(String status) {
+import jakarta.validation.constraints.NotBlank;
+
+public record ChangeOrganisationStatusRequest(@NotBlank String status) {
 }

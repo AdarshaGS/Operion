@@ -3,6 +3,7 @@ package com.operion.examination.api;
 import java.util.List;
 
 import com.operion.authorization.RequirePermission;
+import com.operion.common.InvalidRequestException;
 import com.operion.examination.ExamSchedule;
 import com.operion.examination.ExamScheduleRepository;
 import com.operion.examination.ExaminationService;
@@ -14,6 +15,7 @@ import com.operion.examination.ReportCardRepository;
 import com.operion.examination.ReportCardStatus;
 import com.operion.student.StudentEnrollment;
 import com.operion.student.StudentEnrollmentRepository;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -47,11 +49,14 @@ public class MarksEntryController {
 
 	@PostMapping("/schedules/{scheduleId}/marks")
 	@RequirePermission("MARKS_ENTER")
-	public List<MarksEntryResponse> enter(@PathVariable Long scheduleId, @RequestBody EnterMarksRequest request) {
+	public List<MarksEntryResponse> enter(@PathVariable Long scheduleId, @Valid @RequestBody EnterMarksRequest request) {
 		ExamSchedule schedule = findSchedule(scheduleId);
 
 		List<MarkInput> marks = request.marks().stream()
-				.map(entry -> new MarkInput(findEnrollment(entry.studentEnrollmentId()), entry.marksObtained(), entry.absent(), entry.remarks()))
+				.map(entry -> {
+					requireMarksInRange(schedule, entry.marksObtained(), entry.absent());
+					return new MarkInput(findEnrollmentFor(schedule, entry.studentEnrollmentId()), entry.marksObtained(), entry.absent(), entry.remarks());
+				})
 				.toList();
 
 		return toResponses(examinationService.enterMarks(schedule, marks));
@@ -59,6 +64,7 @@ public class MarksEntryController {
 
 	@GetMapping("/schedules/{scheduleId}/marks")
 	public List<MarksEntryResponse> list(@PathVariable Long scheduleId) {
+		findSchedule(scheduleId);
 		return toResponses(marksEntryRepository.findByExamScheduleId(scheduleId));
 	}
 
@@ -66,8 +72,9 @@ public class MarksEntryController {
 	@PatchMapping("/marks/{marksEntryId}")
 	@RequirePermission("MARKS_CORRECT")
 	public MarksEntryResponse correct(@PathVariable Long marksEntryId, @RequestBody CorrectMarksRequest request) {
-		MarksEntry corrected =
-				examinationService.correctMarks(findMarksEntry(marksEntryId), request.marksObtained(), request.absent(), request.remarks());
+		MarksEntry entry = findMarksEntry(marksEntryId);
+		requireMarksInRange(entry.getExamSchedule(), request.marksObtained(), request.absent());
+		MarksEntry corrected = examinationService.correctMarks(entry, request.marksObtained(), request.absent(), request.remarks());
 		return MarksEntryResponse.from(corrected, isPublished(corrected));
 	}
 
@@ -75,15 +82,20 @@ public class MarksEntryController {
 	@PatchMapping("/marks/{marksEntryId}/correct-after-publish")
 	@RequirePermission("MARKS_CORRECT_AFTER_PUBLISH")
 	public MarksEntryResponse correctAfterPublish(@PathVariable Long marksEntryId, @RequestBody CorrectMarksRequest request) {
-		MarksEntry corrected = examinationService.correctMarksAfterPublish(
-				findMarksEntry(marksEntryId), request.marksObtained(), request.absent(), request.remarks());
+		MarksEntry entry = findMarksEntry(marksEntryId);
+		requireMarksInRange(entry.getExamSchedule(), request.marksObtained(), request.absent());
+		MarksEntry corrected = examinationService.correctMarksAfterPublish(entry, request.marksObtained(), request.absent(), request.remarks());
 		return MarksEntryResponse.from(corrected, isPublished(corrected));
 	}
 
 	@PostMapping("/schedules/{scheduleId}/submit")
 	@RequirePermission("MARKS_SUBMIT")
 	public MarksEntryRegisterResponse submit(@PathVariable Long scheduleId) {
-		return MarksEntryRegisterResponse.from(examinationService.submitMarksRegister(findSchedule(scheduleId)));
+		ExamSchedule schedule = findSchedule(scheduleId);
+		if (marksEntryRepository.findByExamScheduleId(scheduleId).isEmpty()) {
+			throw new IllegalStateException("No marks have been entered for this schedule yet - enter marks before submitting");
+		}
+		return MarksEntryRegisterResponse.from(examinationService.submitMarksRegister(schedule));
 	}
 
 	@PostMapping("/schedules/{scheduleId}/approve")
@@ -94,6 +106,7 @@ public class MarksEntryController {
 
 	@GetMapping("/schedules/{scheduleId}/register")
 	public MarksEntryRegisterResponse register(@PathVariable Long scheduleId) {
+		findSchedule(scheduleId);
 		return marksEntryRegisterRepository.findByExamScheduleId(scheduleId)
 				.map(MarksEntryRegisterResponse::from)
 				.orElseGet(() -> MarksEntryRegisterResponse.notStarted(scheduleId));
@@ -118,8 +131,29 @@ public class MarksEntryController {
 				.orElseThrow(() -> new IllegalArgumentException("No marks entry with id " + marksEntryId));
 	}
 
-	private StudentEnrollment findEnrollment(Long enrollmentId) {
-		return studentEnrollmentRepository.findById(enrollmentId)
+	/** A present student needs a mark within 0 and the schedule's maximum; an absent student's mark is ignored (stored as 0). */
+	private void requireMarksInRange(ExamSchedule schedule, Double marksObtained, boolean absent) {
+		if (absent) {
+			return;
+		}
+		if (marksObtained == null) {
+			throw new InvalidRequestException("A mark is required for a student who was present");
+		}
+		if (marksObtained < 0 || marksObtained > schedule.getMaxMarks()) {
+			throw new InvalidRequestException("Marks must be between 0 and the maximum of " + schedule.getMaxMarks());
+		}
+	}
+
+	/** The enrolment must be in the schedule's class and, for a section-only schedule, in that section. */
+	private StudentEnrollment findEnrollmentFor(ExamSchedule schedule, Long enrollmentId) {
+		StudentEnrollment enrollment = studentEnrollmentRepository.findById(enrollmentId)
 				.orElseThrow(() -> new IllegalArgumentException("No student enrollment with id " + enrollmentId));
+		boolean inClass = enrollment.getSection().getSchoolClass().getId().equals(schedule.getSchoolClass().getId());
+		boolean inSection = schedule.getSection() == null || schedule.getSection().getId().equals(enrollment.getSection().getId());
+		if (!inClass || !inSection) {
+			throw new InvalidRequestException("Student enrollment " + enrollmentId + " is not in the class"
+					+ (schedule.getSection() == null ? "" : " section") + " this exam schedule is for");
+		}
+		return enrollment;
 	}
 }

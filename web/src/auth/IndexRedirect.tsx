@@ -7,7 +7,7 @@ import { useAuth } from "./AuthContext";
  * Students for everyone else. Waits for permissionsLoaded so it doesn't flash one
  * destination then redirect to another once /auth/me and /api/v1/me resolve. */
 export function IndexRedirect() {
-	const { hasPermission, permissionsLoaded, portalIdentity } = useAuth();
+	const { hasPermission, permissionsLoaded, portalIdentity, isPathEnabled } = useAuth();
 
 	if (!permissionsLoaded) {
 		return null;
@@ -16,5 +16,9 @@ export function IndexRedirect() {
 		return <Navigate to="/portal" replace />;
 	}
 
-	return <Navigate to={hasPermission("ORGANISATION_MANAGE") ? "/dashboard" : "/students"} replace />;
+	// A module the platform owner switched off can't be the landing page - fall through to
+	// the next one that is on, ending at Settings which is core and always available.
+	const preferred = hasPermission("ORGANISATION_MANAGE") ? ["/dashboard", "/students"] : ["/students"];
+	const destination = [...preferred, "/settings"].find((path) => isPathEnabled(path)) ?? "/settings";
+	return <Navigate to={destination} replace />;
 }

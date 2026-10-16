@@ -1,5 +1,6 @@
 package com.operion.parent.api;
 
-public record UpdateGuardianRelationshipRequest(String relationshipType, boolean primaryGuardian,
-		boolean emergencyContact, boolean canPickup, boolean canReceiveCommunication, int contactPriority) {
+/** Partial update: a field left out (null) keeps the link's stored value. */
+public record UpdateGuardianRelationshipRequest(String relationshipType, Boolean primaryGuardian,
+		Boolean emergencyContact, Boolean canPickup, Boolean canReceiveCommunication, Integer contactPriority) {
 }

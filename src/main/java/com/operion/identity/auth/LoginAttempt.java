@@ -10,8 +10,9 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-/** Failed-login counter for one (lower-cased) email. Deliberately not tenant-scoped - see
- * {@link LoginAttemptService}. */
+/** Failed-login counter for one (organisation, lower-cased email) pair. Not a
+ * TenantScopedEntity: it is written on the failure path before any session-wide tenant is
+ * guaranteed, so organisation_id is an explicit part of the key - see {@link LoginAttemptService}. */
 @Getter
 @Entity
 @Table(name = "login_attempts")
@@ -19,6 +20,12 @@ import lombok.NoArgsConstructor;
 public class LoginAttempt {
 
 	@Id
+	@Column(name = "attempt_key", nullable = false)
+	private String key;
+
+	@Column(name = "organisation_id", nullable = false)
+	private Long organisationId;
+
 	@Column(nullable = false)
 	private String email;
 
@@ -31,7 +38,9 @@ public class LoginAttempt {
 	@Column(name = "updated_at", nullable = false)
 	private Instant updatedAt = Instant.now();
 
-	public LoginAttempt(String email) {
+	public LoginAttempt(String key, Long organisationId, String email) {
+		this.key = key;
+		this.organisationId = organisationId;
 		this.email = email;
 	}
 

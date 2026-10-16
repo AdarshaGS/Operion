@@ -173,7 +173,7 @@ class SectionCapacityTest {
 		Section section6A = sectionRepository.save(new Section(class6, "A", 1, null));
 
 		Student staying = admitAndSetupOrg(organisation, "ADM-CAP-5", "Staying");
-		studentService.enroll(staying, ay1, section6A, 1, LocalDate.of(2025, 6, 1));
+		studentService.enroll(staying, ay2, section6A, 1, LocalDate.of(2026, 6, 1));
 
 		Student promoting = admitAndSetupOrg(organisation, "ADM-CAP-6", "Promoting");
 		studentService.enroll(promoting, ay1, section5A, 2, LocalDate.of(2025, 6, 1));

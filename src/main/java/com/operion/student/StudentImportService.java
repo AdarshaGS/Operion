@@ -1,24 +1,16 @@
 package com.operion.student;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.nio.charset.StandardCharsets;
+import com.operion.common.imports.ImportFileParser;
+import com.operion.common.imports.ImportRowErrors;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import com.operion.common.CsvUtil;
 import com.operion.student.api.StudentImportRowResult;
-import org.apache.poi.ss.usermodel.DataFormatter;
-import org.apache.poi.ss.usermodel.Row;
-import org.apache.poi.ss.usermodel.Sheet;
-import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -51,19 +43,7 @@ public class StudentImportService {
 	}
 
 	public List<StudentImportRowResult> importFile(MultipartFile file) {
-		String filename = file.getOriginalFilename();
-		String lowerName = filename == null ? "" : filename.toLowerCase(Locale.ROOT);
-		try {
-			if (lowerName.endsWith(".xlsx")) {
-				return importRows(readXlsxRows(file));
-			}
-			if (lowerName.endsWith(".csv") || filename == null) {
-				return importRows(readCsvRows(file));
-			}
-		} catch (IOException e) {
-			throw new IllegalArgumentException("Could not read uploaded file: " + e.getMessage(), e);
-		}
-		throw new IllegalArgumentException("Unsupported file type '" + filename + "' - upload a .csv or .xlsx file");
+		return importRows(ImportFileParser.parseRows(file));
 	}
 
 	/** Validates headers once, up front, rather than letting every data row fail with
@@ -92,36 +72,6 @@ public class StudentImportService {
 		return results;
 	}
 
-	private List<List<String>> readCsvRows(MultipartFile file) throws IOException {
-		List<List<String>> rows = new ArrayList<>();
-		try (BufferedReader reader = new BufferedReader(new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8))) {
-			String line;
-			while ((line = reader.readLine()) != null) {
-				if (!line.isBlank() || !rows.isEmpty()) {
-					rows.add(CsvUtil.parseLine(line));
-				}
-			}
-		}
-		return rows;
-	}
-
-	private List<List<String>> readXlsxRows(MultipartFile file) throws IOException {
-		List<List<String>> rows = new ArrayList<>();
-		DataFormatter formatter = new DataFormatter();
-		try (XSSFWorkbook workbook = new XSSFWorkbook(file.getInputStream())) {
-			Sheet sheet = workbook.getSheetAt(0);
-			for (Row row : sheet) {
-				List<String> values = new ArrayList<>();
-				for (int col = 0; col < row.getLastCellNum(); col++) {
-					var cell = row.getCell(col);
-					values.add(cell == null ? "" : formatter.formatCellValue(cell));
-				}
-				rows.add(values);
-			}
-		}
-		return rows;
-	}
-
 	// StudentRowImportService.importRow throws (rather than catching internally) so its
 	// REQUIRES_NEW transaction actually rolls back the row on failure - this is where
 	// that exception becomes a reported failure instead of aborting the whole batch.
@@ -129,7 +79,7 @@ public class StudentImportService {
 		try {
 			return rowImportService.importRow(rowNumber, toRow(headers, values));
 		} catch (Exception e) {
-			return new StudentImportRowResult(rowNumber, false, e.getMessage(), null);
+			return new StudentImportRowResult(rowNumber, false, ImportRowErrors.message(e), null);
 		}
 	}
 

@@ -1,5 +1,6 @@
 package com.operion.inventory;
 
+import com.operion.common.InvalidRequestException;
 import java.time.LocalDate;
 
 import com.operion.common.TenantScopedEntity;
@@ -50,10 +51,10 @@ public class StockTransfer extends TenantScopedEntity {
 
 	public StockTransfer(Item item, Campus fromCampus, Campus toCampus, int quantity, LocalDate transferDate, String remarks) {
 		if (quantity <= 0) {
-			throw new IllegalArgumentException("Stock transfer quantity must be positive");
+			throw new InvalidRequestException("Stock transfer quantity must be positive");
 		}
 		if (fromCampus.getId().equals(toCampus.getId())) {
-			throw new IllegalArgumentException("Cannot transfer stock to the same campus");
+			throw new InvalidRequestException("Cannot transfer stock to the same campus");
 		}
 		this.item = item;
 		this.fromCampus = fromCampus;

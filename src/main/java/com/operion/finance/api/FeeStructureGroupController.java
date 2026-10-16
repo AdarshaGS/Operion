@@ -5,6 +5,7 @@ import java.util.List;
 import com.operion.academic.SchoolClass;
 import com.operion.academic.SchoolClassRepository;
 import com.operion.authorization.RequirePermission;
+import com.operion.common.InvalidRequestException;
 import com.operion.finance.FeeService;
 import com.operion.finance.FeeStructureGroup;
 import com.operion.finance.FeeStructureGroupRepository;
@@ -39,6 +40,11 @@ public class FeeStructureGroupController {
 	@PostMapping
 	@RequirePermission("FEE_STRUCTURE_MANAGE")
 	public FeeStructureGroupResponse create(@RequestBody CreateFeeStructureGroupRequest request) {
+		if (request.name() == null || request.name().isBlank()) {
+			throw new InvalidRequestException("name is required");
+		}
+		RequestChecks.required(request.academicYearId(), "academicYearId");
+		RequestChecks.required(request.schoolClassId(), "schoolClassId");
 		AcademicYear academicYear = academicYearRepository.findById(request.academicYearId())
 				.orElseThrow(() -> new IllegalArgumentException("No academic year with id " + request.academicYearId()));
 		SchoolClass schoolClass = schoolClassRepository.findById(request.schoolClassId())

@@ -14,8 +14,6 @@ import { Can } from "../../auth/Can";
 import { ApiError } from "../../api/client";
 import { listStudentEnrollments, type StudentEnrollmentResponse } from "../../api/enrollments";
 import { type PersonResponse, listPersons } from "../../api/persons";
-import { type SectionResponse, listSections } from "../../api/sections";
-import { listSchoolClasses } from "../../api/schoolClasses";
 import { listStudents, type StudentResponse } from "../../api/students";
 import { StudentFeesPanel } from "./StudentFeesPanel";
 
@@ -43,26 +41,14 @@ export function FeeCollectionPage() {
 		if (!studentId) return;
 
 		listStudentEnrollments(Number(studentId))
-			.then(async (enrollments) => {
+			.then((enrollments) => {
 				const current = enrollments.find((e) => e.current);
 				if (!current) {
 					setResolveError("This student has no current class enrollment yet — enroll them before assigning fees.");
 					return;
 				}
 				setCurrentEnrollment(current);
-				// Section only carries schoolClassId, not the reverse - resolve it by scanning this
-				// section's class. There's no GET-by-id for either Section or SchoolClass yet (same
-				// gap noted in the Academics module write-up), so fall back to the list+find pattern
-				// used throughout this frontend at this data scale.
-				const classes = await listSchoolClasses();
-				for (const schoolClass of classes) {
-					const sections: SectionResponse[] = await listSections(schoolClass.id);
-					if (sections.some((s) => s.id === current.sectionId)) {
-						setSchoolClassId(schoolClass.id);
-						return;
-					}
-				}
-				setResolveError("Could not resolve this student's class from their section.");
+				setSchoolClassId(current.schoolClassId);
 			})
 			.catch((err) => setResolveError(err instanceof ApiError ? err.message : "Failed to load student enrollment"));
 	}, [studentId]);

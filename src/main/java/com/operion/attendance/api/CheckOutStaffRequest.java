@@ -2,5 +2,7 @@ package com.operion.attendance.api;
 
 import java.time.Instant;
 
-public record CheckOutStaffRequest(Instant checkOutTime) {
+import jakarta.validation.constraints.NotNull;
+
+public record CheckOutStaffRequest(@NotNull Instant checkOutTime) {
 }

@@ -4,7 +4,10 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
+import com.operion.common.InvalidRequestException;
 import com.operion.inventory.InventoryService;
+import com.operion.inventory.ItemStatus;
+import com.operion.inventory.SupplierStatus;
 import com.operion.inventory.Item;
 import com.operion.inventory.StockAdjustmentReason;
 import com.operion.inventory.Supplier;
@@ -40,7 +43,15 @@ public class PurchaseOrderService {
 	@Transactional
 	public PurchaseOrder createOrder(Supplier supplier, Campus campus, LocalDate expectedDate, List<LineInput> lines) {
 		if (lines.isEmpty()) {
-			throw new IllegalArgumentException("A purchase order must have at least one line item");
+			throw new InvalidRequestException("A purchase order must have at least one line item");
+		}
+		if (supplier.getStatus() != SupplierStatus.ACTIVE) {
+			throw new IllegalStateException("Supplier " + supplier.getName() + " is inactive and cannot be ordered from");
+		}
+		for (LineInput line : lines) {
+			if (line.item().getStatus() != ItemStatus.ACTIVE) {
+				throw new IllegalStateException("Item " + line.item().getName() + " is discontinued and cannot be ordered");
+			}
 		}
 		PurchaseOrder order = purchaseOrderRepository.save(new PurchaseOrder(supplier, campus, expectedDate));
 		for (LineInput line : lines) {
@@ -68,12 +79,20 @@ public class PurchaseOrderService {
 	}
 
 	@Transactional
-	public PurchaseOrder receiveGoods(PurchaseOrder order, LocalDate entryDate, List<ReceiveLineInput> receivedLines) {
+	public PurchaseOrder receiveGoods(PurchaseOrder unlockedOrder, LocalDate entryDate, List<ReceiveLineInput> receivedLines) {
+		// Re-read the order under a row lock: the caller's copy was loaded before this transaction, so a receipt
+		// that committed in the meantime would not show in its status or in its lines' received quantities.
+		PurchaseOrder order = purchaseOrderRepository.findByIdForUpdate(unlockedOrder.getId())
+				.orElseThrow(() -> new IllegalArgumentException("No purchase order with id " + unlockedOrder.getId()));
 		if (order.getStatus() != PurchaseOrderStatus.APPROVED && order.getStatus() != PurchaseOrderStatus.PARTIALLY_RECEIVED) {
 			throw new IllegalStateException("Only an approved purchase order can receive goods, was " + order.getStatus());
 		}
 		for (ReceiveLineInput received : receivedLines) {
-			PurchaseOrderLine line = received.line();
+			PurchaseOrderLine line = purchaseOrderLineRepository.findById(received.line().getId())
+					.orElseThrow(() -> new IllegalArgumentException("No purchase order line with id " + received.line().getId()));
+			if (!line.getPurchaseOrder().getId().equals(order.getId())) {
+				throw new IllegalArgumentException("Line " + line.getId() + " does not belong to purchase order " + order.getId());
+			}
 			line.receive(received.quantity());
 			purchaseOrderLineRepository.save(line);
 			BigDecimal unitCost = received.unitCost() != null ? received.unitCost() : line.getUnitCost();
@@ -86,10 +105,13 @@ public class PurchaseOrderService {
 	}
 
 	@Transactional
-	public PurchaseReturn recordReturn(PurchaseOrderLine line, int quantity, PurchaseReturnReason reason, LocalDate returnDate, String remarks) {
+	public PurchaseReturn recordReturn(PurchaseOrderLine unlockedLine, int quantity, PurchaseReturnReason reason, LocalDate returnDate, String remarks) {
 		if (quantity <= 0) {
-			throw new IllegalArgumentException("Purchase return quantity must be positive");
+			throw new InvalidRequestException("Purchase return quantity must be positive");
 		}
+		// Same row lock as receiving, so concurrent returns cannot both pass the "available to return" check.
+		purchaseOrderRepository.findByIdForUpdate(unlockedLine.getPurchaseOrder().getId());
+		PurchaseOrderLine line = purchaseOrderLineRepository.findById(unlockedLine.getId()).orElseThrow();
 		int alreadyReturned = purchaseReturnRepository.sumQuantityByPurchaseOrderLineId(line.getId());
 		int availableToReturn = line.getQuantityReceived() - alreadyReturned;
 		if (quantity > availableToReturn) {

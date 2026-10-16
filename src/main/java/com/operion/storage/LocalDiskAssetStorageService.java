@@ -26,6 +26,9 @@ public class LocalDiskAssetStorageService implements AssetStorageService {
 	private static final Map<String, String> ALLOWED_CONTENT_TYPES =
 			Map.of("image/png", "png", "image/jpeg", "jpg", "application/pdf", "pdf");
 
+	private static final java.util.regex.Pattern REFERENCE_PATTERN =
+			java.util.regex.Pattern.compile("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\\.(png|jpg|pdf)");
+
 	private final Path baseDir;
 
 	public LocalDiskAssetStorageService(@Value("${app.storage.local.base-dir:./data/uploads}") String baseDir) {
@@ -45,6 +48,10 @@ public class LocalDiskAssetStorageService implements AssetStorageService {
 			throw new AssetStorageException("Only PNG, JPG, or PDF files are accepted");
 		}
 
+		if (!bytesMatch(file, extension)) {
+			throw new AssetStorageException("The file's contents are not a valid " + extension.toUpperCase() + " file");
+		}
+
 		String reference = UUID.randomUUID() + "." + extension;
 		try {
 			Files.createDirectories(baseDir);
@@ -53,6 +60,28 @@ public class LocalDiskAssetStorageService implements AssetStorageService {
 			throw new AssetStorageException("Failed to store the uploaded file", e);
 		}
 		return reference;
+	}
+
+	@Override
+	public boolean exists(String reference) {
+		return reference != null && REFERENCE_PATTERN.matcher(reference).matches() && Files.isRegularFile(baseDir.resolve(reference));
+	}
+
+	/** The declared content type is client-supplied, so the leading bytes must agree with it. */
+	private static boolean bytesMatch(MultipartFile file, String extension) {
+		byte[] head = new byte[8];
+		int read;
+		try (java.io.InputStream in = file.getInputStream()) {
+			read = in.readNBytes(head, 0, head.length);
+		} catch (IOException e) {
+			throw new AssetStorageException("Failed to read the uploaded file", e);
+		}
+		return switch (extension) {
+			case "png" -> read >= 8 && (head[0] & 0xFF) == 0x89 && head[1] == 'P' && head[2] == 'N' && head[3] == 'G';
+			case "jpg" -> read >= 3 && (head[0] & 0xFF) == 0xFF && (head[1] & 0xFF) == 0xD8 && (head[2] & 0xFF) == 0xFF;
+			case "pdf" -> read >= 4 && head[0] == '%' && head[1] == 'P' && head[2] == 'D' && head[3] == 'F';
+			default -> false;
+		};
 	}
 
 	@Override

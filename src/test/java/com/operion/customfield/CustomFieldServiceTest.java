@@ -115,7 +115,7 @@ class CustomFieldServiceTest {
 				new CustomFieldDefinition("STUDENT", "transport_route", "Transport route", CustomFieldDataType.TEXT, null, true));
 
 		assertThatThrownBy(() -> customFieldService.validateAndSerialize("STUDENT", Map.of()))
-				.isInstanceOf(IllegalArgumentException.class)
+				.isInstanceOf(com.operion.common.InvalidRequestException.class)
 				.hasMessageContaining("Transport route");
 	}
 

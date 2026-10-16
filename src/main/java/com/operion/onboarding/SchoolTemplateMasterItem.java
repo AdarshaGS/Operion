@@ -47,6 +47,15 @@ public class SchoolTemplateMasterItem extends BaseEntity {
 	@Column(name = "permission_codes", length = 2000)
 	private String permissionCodes;
 
+	@Column(name = "module_code", length = 40)
+	private String moduleCode;
+
+	@Column(length = 20)
+	private String unit;
+
+	@Column(name = "item_category_code", length = 50)
+	private String itemCategoryCode;
+
 	protected SchoolTemplateMasterItem() {
 	}
 
@@ -66,5 +75,18 @@ public class SchoolTemplateMasterItem extends BaseEntity {
 		this.minPercentage = minPercentage;
 		this.remark = remark;
 		this.permissionCodes = permissionCodes;
+	}
+
+	/** Test-fixture helper: production unit/category values come from the school V2 migration. */
+	public SchoolTemplateMasterItem withItemDetails(String unit, String itemCategoryCode) {
+		this.unit = unit;
+		this.itemCategoryCode = itemCategoryCode;
+		return this;
+	}
+
+	/** Test-fixture helper, same reasoning as the public constructor: production tags come from V132. */
+	public SchoolTemplateMasterItem forModule(String moduleCode) {
+		this.moduleCode = moduleCode;
+		return this;
 	}
 }

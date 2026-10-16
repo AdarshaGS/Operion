@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.operion.authorization.AuthorizationDeniedException;
+import com.operion.common.InvalidRequestException;
 import com.operion.common.JpaConfig;
 import com.operion.common.MultiTenancyConfig;
 import org.junit.jupiter.api.Test;
@@ -24,11 +25,11 @@ class LearningMaterialServiceTest extends LearningTestBase {
 	@Test
 	void kindsAreValidatedAndIrrelevantFieldsDropped() {
 		assertThatThrownBy(() -> materialService.add(admin, schoolClass.getId(), null, "No file", null, MaterialKind.FILE, null, null))
-				.isInstanceOf(IllegalArgumentException.class);
+				.isInstanceOf(InvalidRequestException.class);
 		assertThatThrownBy(() -> materialService.add(admin, schoolClass.getId(), null, "Bad", null, MaterialKind.LINK, null, "ftp://x"))
-				.isInstanceOf(IllegalArgumentException.class);
+				.isInstanceOf(InvalidRequestException.class);
 		assertThatThrownBy(() -> materialService.add(admin, schoolClass.getId(), null, "Empty", null, MaterialKind.NOTE, null, null))
-				.isInstanceOf(IllegalArgumentException.class);
+				.isInstanceOf(InvalidRequestException.class);
 
 		LearningMaterial link = materialService.add(admin, schoolClass.getId(), maths.getId(), "Khan", null, MaterialKind.LINK,
 				"stray-ref.pdf", "https://example.org/x");

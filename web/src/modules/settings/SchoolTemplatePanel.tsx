@@ -7,6 +7,7 @@ import Alert from "@mui/material/Alert";
 import Autocomplete from "@mui/material/Autocomplete";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
+import Checkbox from "@mui/material/Checkbox";
 import Chip from "@mui/material/Chip";
 import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
@@ -31,11 +32,23 @@ import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import { Can } from "../../auth/Can";
 import { ApiError } from "../../api/client";
 import { listPermissions, type PermissionResponse } from "../../api/permissions";
-import { applySchoolTemplate, getSchoolTemplatePreview, type SchoolTemplateApplyResponse, type SchoolTemplatePreviewResponse } from "../../api/schoolTemplate";
+import {
+	applySchoolTemplate,
+	getSchoolTemplatePreview,
+	getStarterPackNeeds,
+	type SchoolTemplateApplyResponse,
+	type SchoolTemplatePreviewResponse,
+	type StarterPackAnswers,
+	type StarterPackNeeds,
+} from "../../api/schoolTemplate";
+import { useAuth } from "../../auth/AuthContext";
+import { StarterPackDialog } from "./StarterPackDialog";
 import {
 	createSchoolTemplateItem,
 	deleteSchoolTemplateItem,
 	listSchoolTemplateItems,
+	setSchoolTemplateCategoryIncluded,
+	setSchoolTemplateItemIncluded,
 	updateSchoolTemplateItem,
 	type SaveSchoolTemplateItemRequest,
 	type SchoolTemplateItemCategory,
@@ -45,8 +58,10 @@ import {
 interface CategoryConfig {
 	key: SchoolTemplateItemCategory;
 	label: string;
-	fields: Array<"code" | "description" | "sequenceOrder" | "stage" | "categoryType" | "minPercentage" | "remark" | "permissionCodes">;
+	fields: Array<"code" | "description" | "sequenceOrder" | "stage" | "categoryType" | "minPercentage" | "remark" | "permissionCodes" | "unit" | "itemCategoryCode">;
 	extraColumn?: (item: SchoolTemplateItemResponse) => string;
+	/** Extra guidance shown above the rows. */
+	hint?: string;
 }
 
 const CATEGORIES: CategoryConfig[] = [
@@ -61,6 +76,27 @@ const CATEGORIES: CategoryConfig[] = [
 		extraColumn: (item) => item.code ?? "—",
 	},
 	{ key: "ITEM_CATEGORY", label: "Inventory categories", fields: ["code", "description"], extraColumn: (item) => item.code ?? "—" },
+	{
+		key: "ITEM",
+		label: "Inventory items",
+		fields: ["code", "description", "unit", "itemCategoryCode"],
+		extraColumn: (item) => [item.itemCategoryCode, item.unit].filter(Boolean).join(" · ") || "—",
+	},
+	{
+		key: "ASSET_TYPE",
+		label: "Asset types",
+		fields: ["code", "description", "unit", "itemCategoryCode"],
+		extraColumn: (item) => [item.itemCategoryCode, item.unit].filter(Boolean).join(" · ") || "—",
+	},
+	{
+		key: "CLASS",
+		label: "Classes",
+		fields: [],
+		hint: "A class is only created if the grade of the same name is also ticked under Grades.",
+	},
+	{ key: "SECTION", label: "Sections", fields: [] },
+	{ key: "SUBJECT", label: "Subjects", fields: ["code"], extraColumn: (item) => item.code ?? "—" },
+	{ key: "LEAVE_TYPE", label: "Leave types", fields: ["code"], extraColumn: (item) => item.code ?? "—" },
 	{
 		key: "GRADING_BAND",
 		label: "Grading scale bands",
@@ -79,9 +115,11 @@ const EMPTY_FORM = {
 	minPercentage: "",
 	remark: "",
 	permissionCodes: [] as string[],
+	unit: "PCS",
+	itemCategoryCode: "",
 };
 
-function TemplateCategorySection({ config }: { config: CategoryConfig }) {
+function TemplateCategorySection({ config, onChanged }: { config: CategoryConfig; onChanged?: () => void }) {
 	const [items, setItems] = useState<SchoolTemplateItemResponse[]>([]);
 	const [permissions, setPermissions] = useState<PermissionResponse[]>([]);
 	const [error, setError] = useState<string | null>(null);
@@ -104,6 +142,28 @@ function TemplateCategorySection({ config }: { config: CategoryConfig }) {
 		}
 	}, [config.fields]);
 
+	const includedCount = items.filter((item) => item.included).length;
+
+	async function handleToggleIncluded(item: SchoolTemplateItemResponse) {
+		try {
+			const updated = await setSchoolTemplateItemIncluded(item.id, !item.included);
+			setItems((previous) => previous.map((row) => (row.id === updated.id ? updated : row)));
+			onChanged?.();
+		} catch (err) {
+			setError(err instanceof ApiError ? err.message : "Failed to update item");
+		}
+	}
+
+	async function handleToggleAll(included: boolean) {
+		try {
+			await setSchoolTemplateCategoryIncluded(config.key, included);
+			refresh();
+			onChanged?.();
+		} catch (err) {
+			setError(err instanceof ApiError ? err.message : "Failed to update items");
+		}
+	}
+
 	function openCreate() {
 		setEditingId(null);
 		setForm(EMPTY_FORM);
@@ -122,6 +182,8 @@ function TemplateCategorySection({ config }: { config: CategoryConfig }) {
 			minPercentage: item.minPercentage != null ? String(item.minPercentage) : "",
 			remark: item.remark ?? "",
 			permissionCodes: item.permissionCodes,
+			unit: item.unit ?? "PCS",
+			itemCategoryCode: item.itemCategoryCode ?? "",
 		});
 		setDialogOpen(true);
 	}
@@ -130,6 +192,7 @@ function TemplateCategorySection({ config }: { config: CategoryConfig }) {
 		try {
 			await deleteSchoolTemplateItem(item.id);
 			refresh();
+			onChanged?.();
 		} catch (err) {
 			setError(err instanceof ApiError ? err.message : "Failed to remove item");
 		}
@@ -149,6 +212,8 @@ function TemplateCategorySection({ config }: { config: CategoryConfig }) {
 				minPercentage: config.fields.includes("minPercentage") && form.minPercentage !== "" ? Number(form.minPercentage) : null,
 				remark: config.fields.includes("remark") ? form.remark || null : null,
 				permissionCodes: config.fields.includes("permissionCodes") ? form.permissionCodes : undefined,
+				unit: config.fields.includes("unit") ? form.unit || null : null,
+				itemCategoryCode: config.fields.includes("itemCategoryCode") ? form.itemCategoryCode || null : null,
 			};
 			if (editingId != null) {
 				await updateSchoolTemplateItem(editingId, request);
@@ -157,6 +222,7 @@ function TemplateCategorySection({ config }: { config: CategoryConfig }) {
 			}
 			setDialogOpen(false);
 			refresh();
+			onChanged?.();
 		} catch (err) {
 			setError(err instanceof ApiError ? err.message : "Failed to save item");
 		} finally {
@@ -171,13 +237,16 @@ function TemplateCategorySection({ config }: { config: CategoryConfig }) {
 					<Typography variant="body2" sx={{ fontWeight: 600 }}>
 						{config.label}
 					</Typography>
-					<Chip size="small" label={items.length} />
+					<Chip size="small" label={includedCount === items.length ? items.length : `${includedCount} of ${items.length} included`} />
 				</Stack>
 			</AccordionSummary>
 			<AccordionDetails>
 				<Stack spacing={1.5}>
 					{error && <Alert severity="error">{error}</Alert>}
-					<Box sx={{ display: "flex", justifyContent: "flex-end" }}>
+					<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 1 }}>
+						<Typography variant="caption" color="text.secondary">
+							Tick what your school needs - unticked rows are kept here but skipped when you apply.{config.hint ? ` ${config.hint}` : ""}
+						</Typography>
 						<Button size="small" startIcon={<AddIcon />} onClick={openCreate}>
 							Add
 						</Button>
@@ -186,6 +255,16 @@ function TemplateCategorySection({ config }: { config: CategoryConfig }) {
 						<Table size="small">
 							<TableHead>
 								<TableRow>
+									<TableCell padding="checkbox">
+										<Checkbox
+											size="small"
+											checked={items.length > 0 && includedCount === items.length}
+											indeterminate={includedCount > 0 && includedCount < items.length}
+											disabled={items.length === 0}
+											onChange={(e) => handleToggleAll(e.target.checked)}
+											slotProps={{ input: { "aria-label": `Include all ${config.label.toLowerCase()}` } }}
+										/>
+									</TableCell>
 									<TableCell>Name</TableCell>
 									{config.extraColumn && <TableCell />}
 									<TableCell />
@@ -193,7 +272,15 @@ function TemplateCategorySection({ config }: { config: CategoryConfig }) {
 							</TableHead>
 							<TableBody>
 								{items.map((item) => (
-									<TableRow key={item.id}>
+									<TableRow key={item.id} sx={item.included ? undefined : { opacity: 0.55 }}>
+										<TableCell padding="checkbox">
+											<Checkbox
+												size="small"
+												checked={item.included}
+												onChange={() => handleToggleIncluded(item)}
+												slotProps={{ input: { "aria-label": `${item.included ? "Exclude" : "Include"} ${item.name}` } }}
+											/>
+										</TableCell>
 										<TableCell>{item.name}</TableCell>
 										{config.extraColumn && <TableCell>{config.extraColumn(item)}</TableCell>}
 										<TableCell align="right">
@@ -208,7 +295,7 @@ function TemplateCategorySection({ config }: { config: CategoryConfig }) {
 								))}
 								{items.length === 0 && (
 									<TableRow>
-										<TableCell colSpan={config.extraColumn ? 3 : 2}>
+										<TableCell colSpan={config.extraColumn ? 4 : 3}>
 											<Typography variant="body2" color="text.secondary">
 												Nothing here - add one, or leave it empty to skip this category entirely.
 											</Typography>
@@ -245,6 +332,25 @@ function TemplateCategorySection({ config }: { config: CategoryConfig }) {
 								onChange={(e) => setForm({ ...form, description: e.target.value })}
 								fullWidth
 								multiline
+							/>
+						)}
+						{config.fields.includes("itemCategoryCode") && (
+							<TextField
+								label="Inventory category code"
+								value={form.itemCategoryCode}
+								onChange={(e) => setForm({ ...form, itemCategoryCode: e.target.value })}
+								helperText="Code of an inventory category, e.g. STATIONERY. Skipped on apply if your school has no such category."
+								required
+								fullWidth
+							/>
+						)}
+						{config.fields.includes("unit") && (
+							<TextField
+								label="Unit"
+								value={form.unit}
+								onChange={(e) => setForm({ ...form, unit: e.target.value })}
+								helperText="e.g. PCS, BOX, LTR"
+								fullWidth
 							/>
 						)}
 						{config.fields.includes("stage") && (
@@ -322,6 +428,15 @@ export function SchoolTemplatePanel() {
 	const [applyResult, setApplyResult] = useState<SchoolTemplateApplyResponse | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	const [applying, setApplying] = useState(false);
+	const { refreshModules } = useAuth();
+	const [needs, setNeeds] = useState<StarterPackNeeds | null>(null);
+	const [dialogOpen, setDialogOpen] = useState(false);
+
+	useEffect(() => {
+		getStarterPackNeeds()
+			.then(setNeeds)
+			.catch(() => setNeeds(null));
+	}, []);
 
 	function refreshPreview() {
 		getSchoolTemplatePreview()
@@ -331,12 +446,17 @@ export function SchoolTemplatePanel() {
 
 	useEffect(refreshPreview, []);
 
-	async function handleApply() {
+	async function handleApply(answers?: StarterPackAnswers) {
 		setApplying(true);
 		setError(null);
 		try {
-			const result = await applySchoolTemplate();
+			const result = await applySchoolTemplate(answers);
 			setApplyResult(result);
+			if (answers) {
+				setDialogOpen(false);
+				setNeeds((previous) => (previous ? { ...previous, canSelectModules: false } : previous));
+				await refreshModules();
+			}
 			refreshPreview();
 		} catch (err) {
 			setError(err instanceof ApiError ? err.message : "Failed to apply the school setup template");
@@ -352,6 +472,12 @@ export function SchoolTemplatePanel() {
 			applyResult.rolesCreated.length +
 			applyResult.feeCategoriesCreated.length +
 			applyResult.itemCategoriesCreated.length +
+			applyResult.itemsCreated.length +
+			applyResult.assetTypesCreated.length +
+			applyResult.leaveTypesCreated.length +
+			applyResult.classesCreated.length +
+			applyResult.sectionsCreated.length +
+			applyResult.subjectsCreated.length +
 			(applyResult.gradingScaleCreated ? 1 : 0)
 		: 0;
 
@@ -363,18 +489,34 @@ export function SchoolTemplatePanel() {
 						<Typography variant="h6">School setup template</Typography>
 						<Typography variant="body2" color="text.secondary">
 							Your own editable catalog of grades, departments, designations, roles, fee categories, inventory
-							categories, and grading scale bands - add, edit, or remove anything below, then apply to create the
+							categories, items, asset types, leave types, subjects, and grading scale bands (a class is created for each ticked grade that also has a ticked class, with every ticked section added to each class) - add, edit, or remove anything below, then apply to create the
 							real records. Nothing is applied automatically.
 						</Typography>
 					</Box>
 					<Can anyOf={["ORGANISATION_MANAGE"]}>
-						<Button variant="contained" onClick={handleApply} disabled={applying}>
-							Apply school template
-						</Button>
+						{needs?.canSelectModules ? (
+							<Button variant="contained" onClick={() => setDialogOpen(true)} disabled={applying}>
+								Set up with starter pack
+							</Button>
+						) : (
+							<Button variant="contained" onClick={() => handleApply()} disabled={applying}>
+								Apply school template
+							</Button>
+						)}
 					</Can>
 				</Box>
 
 				{error && <Alert severity="error">{error}</Alert>}
+
+				{needs && (
+					<StarterPackDialog
+						open={dialogOpen}
+						questions={needs.questions}
+						applying={applying}
+						onClose={() => setDialogOpen(false)}
+						onApply={handleApply}
+					/>
+				)}
 
 				{applyResult && (
 					<Alert severity="success" onClose={() => setApplyResult(null)}>
@@ -386,6 +528,7 @@ export function SchoolTemplatePanel() {
 						</Button>
 					</Alert>
 				)}
+				{applyResult?.classesNote && <Alert severity="warning">{applyResult.classesNote}</Alert>}
 
 				{preview && (
 					<Alert severity="info" variant="outlined">
@@ -397,7 +540,7 @@ export function SchoolTemplatePanel() {
 
 				<Stack spacing={0.5}>
 					{CATEGORIES.map((config) => (
-						<TemplateCategorySection key={config.key} config={config} />
+						<TemplateCategorySection key={config.key} config={config} onChanged={refreshPreview} />
 					))}
 				</Stack>
 			</Stack>

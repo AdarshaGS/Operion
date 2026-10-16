@@ -18,6 +18,8 @@ import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import AddIcon from "@mui/icons-material/Add";
+import { Can } from "../../auth/Can";
+import { DialogErrorAlert } from "../../components/DialogErrorAlert";
 import { ApiError } from "../../api/client";
 import { changeSupplierStatus, createSupplier, listSuppliers, type SupplierResponse } from "../../api/suppliers";
 
@@ -26,6 +28,8 @@ import { changeSupplierStatus, createSupplier, listSuppliers, type SupplierRespo
 export function SuppliersPanel() {
 	const [suppliers, setSuppliers] = useState<SupplierResponse[]>([]);
 	const [error, setError] = useState<string | null>(null);
+	// Shown inside the dialog: the page-level alert sits behind its backdrop.
+	const [dialogError, setDialogError] = useState<string | null>(null);
 	const [dialogOpen, setDialogOpen] = useState(false);
 	const [name, setName] = useState("");
 	const [contactPerson, setContactPerson] = useState("");
@@ -54,6 +58,7 @@ export function SuppliersPanel() {
 	async function handleSubmit(event: FormEvent) {
 		event.preventDefault();
 		setSubmitting(true);
+		setDialogError(null);
 		try {
 			await createSupplier({
 				name,
@@ -70,7 +75,7 @@ export function SuppliersPanel() {
 			setDialogOpen(false);
 			refresh();
 		} catch (err) {
-			setError(err instanceof ApiError ? err.message : "Failed to create supplier");
+			setDialogError(err instanceof ApiError ? err.message : "Failed to create supplier");
 		} finally {
 			setSubmitting(false);
 		}
@@ -81,9 +86,11 @@ export function SuppliersPanel() {
 			<Stack spacing={2}>
 				<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
 					<Typography variant="h6">Suppliers</Typography>
-					<Button size="small" startIcon={<AddIcon />} onClick={() => setDialogOpen(true)}>
-						Add supplier
-					</Button>
+					<Can anyOf={["INVENTORY_SUPPLIER_MANAGE"]}>
+						<Button size="small" startIcon={<AddIcon />} onClick={() => { setDialogError(null); setDialogOpen(true); }}>
+							Add supplier
+						</Button>
+					</Can>
 				</Box>
 
 				{error && <Alert severity="error">{error}</Alert>}
@@ -126,6 +133,7 @@ export function SuppliersPanel() {
 				<DialogTitle>Add supplier</DialogTitle>
 				<DialogContent>
 					<Stack spacing={2} sx={{ mt: 1 }}>
+						{dialogError && <DialogErrorAlert>{dialogError}</DialogErrorAlert>}
 						<TextField label="Name" value={name} onChange={(e) => setName(e.target.value)} required autoFocus fullWidth />
 						<TextField label="Contact person" value={contactPerson} onChange={(e) => setContactPerson(e.target.value)} fullWidth />
 						<TextField label="Phone" value={phone} onChange={(e) => setPhone(e.target.value)} fullWidth />

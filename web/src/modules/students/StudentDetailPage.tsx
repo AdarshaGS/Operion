@@ -19,6 +19,7 @@ import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { listAcademicYears, type AcademicYearResponse } from "../../api/academicYears";
+import { Can } from "../../auth/Can";
 import { ApiError } from "../../api/client";
 import {
 	createEnrollment,
@@ -32,6 +33,7 @@ import { getStudent, updateStudent, type StudentResponse } from "../../api/stude
 import { resolveAssetUrl, uploadAsset } from "../../api/assets";
 import { CustomFieldsDisplay, CustomFieldsFormSection } from "../../components/CustomFieldsFormSection";
 import { BorrowerLoanHistoryPanel } from "../library/BorrowerLoanHistoryPanel";
+import { useSchoolClassLabel } from "../../utils/useSchoolClassLabel";
 import { StudentAttendanceSummaryPanel } from "./StudentAttendanceSummaryPanel";
 import { StudentDocumentsPanel } from "./StudentDocumentsPanel";
 import { StudentGuardiansPanel } from "./StudentGuardiansPanel";
@@ -61,6 +63,7 @@ interface EnrollDialogProps {
  * academic year -> class -> section, the same drill-down FeesPage/AttendancePage already
  * use for scoping to a section. */
 function EnrollDialog({ open, onClose, onEnrolled, studentId }: EnrollDialogProps) {
+	const classLabel = useSchoolClassLabel();
 	const [academicYears, setAcademicYears] = useState<AcademicYearResponse[]>([]);
 	const [schoolClasses, setSchoolClasses] = useState<SchoolClassResponse[]>([]);
 	const [sections, setSections] = useState<SectionResponse[]>([]);
@@ -134,7 +137,7 @@ function EnrollDialog({ open, onClose, onEnrolled, studentId }: EnrollDialogProp
 					>
 						{schoolClasses.map((schoolClass) => (
 							<MenuItem key={schoolClass.id} value={schoolClass.id}>
-								{schoolClass.displayName ?? `Class #${schoolClass.id}`}
+								{classLabel(schoolClass)}
 							</MenuItem>
 						))}
 					</TextField>
@@ -436,9 +439,11 @@ export function StudentDetailPage() {
 				<Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}>
 					<Chip label={student.status} />
 					{student.status === "ADMITTED" && (
-						<Button size="small" variant="contained" onClick={() => setEnrollDialogOpen(true)}>
-							Enroll student
-						</Button>
+						<Can anyOf={["STUDENT_ENROLLMENT_MANAGE"]}>
+							<Button size="small" variant="contained" onClick={() => setEnrollDialogOpen(true)}>
+								Enroll student
+							</Button>
+						</Can>
 					)}
 				</Stack>
 			</Box>
@@ -478,15 +483,17 @@ export function StudentDetailPage() {
 						<Typography variant="subtitle1">Person details</Typography>
 						<Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
 							<Avatar src={person?.photoUrl ? resolveAssetUrl(person.photoUrl) : undefined} sx={{ width: 40, height: 40 }} />
-							<Button component="label" size="small" disabled={uploadingPhoto}>
-								{uploadingPhoto ? "Uploading..." : "Upload photo"}
-								<input type="file" hidden accept="image/png,image/jpeg" onChange={handlePhotoChange} />
-							</Button>
-							{person && (
-								<Button size="small" variant="outlined" onClick={() => setEditDialogOpen(true)}>
-									Edit
+							<Can anyOf={["STUDENT_MANAGE"]}>
+								<Button component="label" size="small" disabled={uploadingPhoto}>
+									{uploadingPhoto ? "Uploading..." : "Upload photo"}
+									<input type="file" hidden accept="image/png,image/jpeg" onChange={handlePhotoChange} />
 								</Button>
-							)}
+								{person && (
+									<Button size="small" variant="outlined" onClick={() => setEditDialogOpen(true)}>
+										Edit
+									</Button>
+								)}
+							</Can>
 						</Box>
 					</Box>
 					<Grid container spacing={2}>

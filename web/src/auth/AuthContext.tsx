@@ -7,6 +7,7 @@ import {
 	me as meRequest,
 } from "../api/auth";
 import { getPortalIdentity, type PortalIdentity } from "../api/portal";
+import { moduleForPath } from "./modules";
 import { clearSession, getSession, setSession, type StoredSession } from "../api/tokenStore";
 
 export interface Profile {
@@ -27,6 +28,12 @@ interface AuthContextValue {
 	portalIdentity: PortalIdentity | null;
 	hasPermission: (code: string) => boolean;
 	hasAnyPermission: (codes: string[]) => boolean;
+	/** False when the platform owner switched this module off for the organisation. */
+	isModuleEnabled: (code: string) => boolean;
+	/** Same check keyed by route - true for core routes that belong to no module. */
+	isPathEnabled: (path: string) => boolean;
+	/** Re-reads which modules are switched off - after the School Starter Pack chooses them, no re-login needed. */
+	refreshModules: () => Promise<void>;
 	login: (organisationSlug: string, email: string, password: string) => Promise<void>;
 	claimInvite: (organisationSlug: string, token: string, password: string) => Promise<void>;
 	claimStaffInvite: (organisationSlug: string, token: string, password: string) => Promise<void>;
@@ -38,6 +45,7 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
 	const [session, setSessionState] = useState<StoredSession | null>(() => getSession());
 	const [permissions, setPermissions] = useState<Set<string>>(new Set());
+	const [disabledModules, setDisabledModules] = useState<Set<string>>(new Set());
 	const [permissionsLoaded, setPermissionsLoaded] = useState(false);
 	const [profile, setProfile] = useState<Profile | null>(null);
 	const [portalIdentity, setPortalIdentity] = useState<PortalIdentity | null>(null);
@@ -45,6 +53,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 	useEffect(() => {
 		if (!session) {
 			setPermissions(new Set());
+			setDisabledModules(new Set());
 			setProfile(null);
 			setPortalIdentity(null);
 			setPermissionsLoaded(true);
@@ -54,6 +63,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 		Promise.all([meRequest(), getPortalIdentity()])
 			.then(([response, identity]) => {
 				setPermissions(new Set(response.permissions));
+				setDisabledModules(new Set(response.disabledModules ?? []));
 				setProfile({
 					personId: response.personId,
 					personName: response.personName,
@@ -113,6 +123,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 	const hasPermission = useCallback((code: string) => permissions.has(code), [permissions]);
 	const hasAnyPermission = useCallback((codes: string[]) => codes.some((code) => permissions.has(code)), [permissions]);
+	const isModuleEnabled = useCallback((code: string) => !disabledModules.has(code), [disabledModules]);
+	const isPathEnabled = useCallback(
+		(path: string) => {
+			const code = moduleForPath(path);
+			return code === null || !disabledModules.has(code);
+		},
+		[disabledModules],
+	);
+
+	const refreshModules = useCallback(async () => {
+		const response = await meRequest();
+		setDisabledModules(new Set(response.disabledModules ?? []));
+	}, []);
 
 	const value = useMemo<AuthContextValue>(
 		() => ({
@@ -123,6 +146,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 			portalIdentity,
 			hasPermission,
 			hasAnyPermission,
+			isModuleEnabled,
+			refreshModules,
+			isPathEnabled,
 			login,
 			claimInvite,
 			claimStaffInvite,
@@ -135,6 +161,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 			portalIdentity,
 			hasPermission,
 			hasAnyPermission,
+			isModuleEnabled,
+			refreshModules,
+			isPathEnabled,
 			login,
 			claimInvite,
 			claimStaffInvite,

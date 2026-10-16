@@ -1,5 +1,6 @@
 package com.operion.learning;
 
+import com.operion.common.InvalidRequestException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -85,10 +86,13 @@ public class QuizService {
 	public Quiz createQuiz(LearningActor actor, Long sectionId, Long subjectId, String title, String instructions,
 			Instant opensAt, Instant closesAt) {
 		if (title == null || title.isBlank()) {
-			throw new IllegalArgumentException("Title is required");
+			throw new InvalidRequestException("Title is required");
 		}
 		if (opensAt == null || closesAt == null || !closesAt.isAfter(opensAt)) {
-			throw new IllegalArgumentException("The quiz must close after it opens");
+			throw new InvalidRequestException("The quiz must close after it opens");
+		}
+		if (sectionId == null || subjectId == null) {
+			throw new InvalidRequestException("A section and a subject are required");
 		}
 		actor.requireWrite(sectionId, subjectId);
 		Section section = sectionRepository.findById(sectionId)
@@ -111,7 +115,7 @@ public class QuizService {
 		QuizQuestion bank = questionRepository.findById(bankQuestionId).filter(q -> q.getQuiz() == null)
 				.orElseThrow(() -> new IllegalArgumentException("Question bank item not found: " + bankQuestionId));
 		if (!bank.getSubject().getId().equals(quiz.getSubject().getId())) {
-			throw new IllegalArgumentException("That bank question belongs to a different subject");
+			throw new InvalidRequestException("That bank question belongs to a different subject");
 		}
 		List<OptionInput> options = optionRepository.findByQuestionIdOrderByOrdinalAsc(bank.getId()).stream()
 				.map(o -> new OptionInput(o.getText(), o.isCorrect())).toList();
@@ -202,6 +206,15 @@ public class QuizService {
 		}).toList();
 	}
 
+	/** The same counts the list reports, for one quiz - used by the publish response. */
+	@Transactional(readOnly = true)
+	public QuizView viewOf(Quiz quiz) {
+		List<QuizQuestion> qs = questionRepository.findByQuizIdIn(List.of(quiz.getId()));
+		int attempts = attemptRepository.findByQuizIdIn(List.of(quiz.getId())).size();
+		int enrolled = enrollmentRepository.findBySectionIdAndCurrentTrue(quiz.getSection().getId()).size();
+		return new QuizView(quiz, qs.size(), qs.stream().mapToInt(QuizQuestion::getMarks).sum(), attempts, enrolled);
+	}
+
 	/** Full question list including which option is correct - only for callers who can see the section. */
 	@Transactional(readOnly = true)
 	public List<QuestionView> questions(LearningActor actor, Long quizId) {
@@ -270,7 +283,7 @@ public class QuizService {
 		List<QuestionView> questions = withOptions(questionRepository.findByQuizIdOrderByOrdinalAsc(quizId));
 		Map<Long, QuizQuestion> byId = questions.stream().collect(Collectors.toMap(v -> v.question().getId(), QuestionView::question));
 		if (!byId.keySet().containsAll(chosen.keySet())) {
-			throw new IllegalArgumentException("Answers reference a question that is not part of this quiz");
+			throw new InvalidRequestException("Answers reference a question that is not part of this quiz");
 		}
 
 		int score = 0;
@@ -281,7 +294,7 @@ public class QuizService {
 			QuizOption picked = null;
 			if (optionId != null) {
 				picked = view.options().stream().filter(o -> o.getId().equals(optionId)).findFirst()
-						.orElseThrow(() -> new IllegalArgumentException("Option " + optionId + " does not belong to its question"));
+						.orElseThrow(() -> new InvalidRequestException("Option " + optionId + " does not belong to its question"));
 			}
 			boolean correct = picked != null && picked.isCorrect();
 			int awarded = correct ? view.question().getMarks() : 0;
@@ -349,19 +362,19 @@ public class QuizService {
 	private QuizQuestion saveQuestion(Quiz quiz, Subject subject, int ordinal, String text, int marks, List<OptionInput> options,
 			LearningActor actor) {
 		if (text == null || text.isBlank()) {
-			throw new IllegalArgumentException("Question text is required");
+			throw new InvalidRequestException("Question text is required");
 		}
 		if (marks < 1) {
-			throw new IllegalArgumentException("Marks must be at least 1");
+			throw new InvalidRequestException("Marks must be at least 1");
 		}
 		if (options == null || options.size() < 2 || options.size() > 6) {
-			throw new IllegalArgumentException("A question needs between 2 and 6 options");
+			throw new InvalidRequestException("A question needs between 2 and 6 options");
 		}
 		if (options.stream().anyMatch(o -> o.text() == null || o.text().isBlank())) {
-			throw new IllegalArgumentException("Every option needs text");
+			throw new InvalidRequestException("Every option needs text");
 		}
 		if (options.stream().filter(OptionInput::correct).count() != 1) {
-			throw new IllegalArgumentException("Mark exactly one option as correct");
+			throw new InvalidRequestException("Mark exactly one option as correct");
 		}
 		QuizQuestion question = questionRepository.save(new QuizQuestion(quiz, subject, ordinal, text.trim(), marks,
 				personRepository.findById(actor.personId()).orElseThrow()));

@@ -19,6 +19,8 @@ import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import AddIcon from "@mui/icons-material/Add";
 import { listCampuses, type CampusResponse } from "../../api/campuses";
+import { Can } from "../../auth/Can";
+import { DialogErrorAlert } from "../../components/DialogErrorAlert";
 import { ApiError } from "../../api/client";
 import {
 	assignInventoryAsset,
@@ -43,6 +45,8 @@ export function AssetsPanel() {
 	const [staffOptions, setStaffOptions] = useState<{ personId: number; label: string }[]>([]);
 	const [campusId, setCampusId] = useState("");
 	const [error, setError] = useState<string | null>(null);
+	// Shown inside the dialog: the page-level alert sits behind its backdrop.
+	const [dialogError, setDialogError] = useState<string | null>(null);
 	const [submitting, setSubmitting] = useState(false);
 
 	const [dialogOpen, setDialogOpen] = useState(false);
@@ -96,6 +100,7 @@ export function AssetsPanel() {
 		event.preventDefault();
 		if (!campusId) return;
 		setSubmitting(true);
+		setDialogError(null);
 		try {
 			await createInventoryAsset({
 				itemId: Number(itemId),
@@ -111,7 +116,7 @@ export function AssetsPanel() {
 			setDialogOpen(false);
 			refresh();
 		} catch (err) {
-			setError(err instanceof ApiError ? err.message : "Failed to create asset");
+			setDialogError(err instanceof ApiError ? err.message : "Failed to create asset");
 		} finally {
 			setSubmitting(false);
 		}
@@ -152,9 +157,11 @@ export function AssetsPanel() {
 			<Stack spacing={2}>
 				<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
 					<Typography variant="h6">Assets</Typography>
-					<Button size="small" startIcon={<AddIcon />} onClick={() => setDialogOpen(true)}>
-						Add asset
-					</Button>
+					<Can anyOf={["INVENTORY_ASSET_MANAGE"]}>
+						<Button size="small" startIcon={<AddIcon />} onClick={() => { setDialogError(null); setDialogOpen(true); }}>
+							Add asset
+						</Button>
+					</Can>
 				</Box>
 
 				{error && <Alert severity="error">{error}</Alert>}
@@ -224,6 +231,7 @@ export function AssetsPanel() {
 				<DialogTitle>Add asset</DialogTitle>
 				<DialogContent>
 					<Stack spacing={2} sx={{ mt: 1 }}>
+						{dialogError && <DialogErrorAlert>{dialogError}</DialogErrorAlert>}
 						<TextField select label="Item" value={itemId} onChange={(e) => setItemId(e.target.value)} required autoFocus fullWidth>
 							{items.map((item) => (
 								<MenuItem key={item.id} value={item.id}>

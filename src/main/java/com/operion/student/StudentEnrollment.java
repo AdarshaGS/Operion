@@ -81,6 +81,19 @@ public class StudentEnrollment extends TenantScopedEntity {
 		this.exitDate = exitDate;
 	}
 
+	/** Re-enrolment after an exit within the same academic year: the (student, year) pair is unique, so the closed row is revived rather than duplicated. */
+	public void reopen(Section section, Integer rollNumber, LocalDate enrolledDate) {
+		if (current) {
+			throw new IllegalStateException("Enrollment is already current");
+		}
+		this.section = section;
+		this.rollNumber = rollNumber;
+		this.enrolledDate = enrolledDate;
+		this.enrollmentStatus = StudentEnrollmentStatus.ENROLLED;
+		this.current = true;
+		this.exitDate = null;
+	}
+
 	/** Mid-year move only - see class-level note. Never used across an academic-year boundary. */
 	public void reassignSection(Section newSection) {
 		if (!current) {

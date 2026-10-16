@@ -1,5 +1,6 @@
 package com.operion.learning;
 
+import com.operion.common.InvalidRequestException;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
@@ -71,7 +72,7 @@ public class LessonPlanService {
 	public LessonPlan reject(LearningActor actor, Long planId, String note) {
 		actor.requireReviewer();
 		if (note == null || note.isBlank()) {
-			throw new IllegalArgumentException("Tell the teacher what to change when rejecting a plan");
+			throw new InvalidRequestException("Tell the teacher what to change when rejecting a plan");
 		}
 		LessonPlan plan = find(planId);
 		plan.reject(personRepository.findById(actor.personId()).orElseThrow(), note.trim(), Instant.now());
@@ -94,7 +95,7 @@ public class LessonPlanService {
 	@Transactional(readOnly = true)
 	public List<LessonPlan> calendar(LearningActor actor, LocalDate from, LocalDate to) {
 		if (from == null || to == null || to.isBefore(from)) {
-			throw new IllegalArgumentException("A valid date range is required");
+			throw new InvalidRequestException("A valid date range is required");
 		}
 		List<LessonPlan> approved = planRepository.findByStatusAndPlanDateBetweenOrderByPlanDateAsc(LessonPlanStatus.APPROVED, from, to);
 		if (seesAll(actor)) {
@@ -106,7 +107,7 @@ public class LessonPlanService {
 	@Transactional(readOnly = true)
 	public List<LessonPlan> calendarForChild(StudentEnrollment enrollment, LocalDate from, LocalDate to) {
 		if (from == null || to == null || to.isBefore(from)) {
-			throw new IllegalArgumentException("A valid date range is required");
+			throw new InvalidRequestException("A valid date range is required");
 		}
 		return planRepository.findBySectionIdAndStatusAndPlanDateBetweenOrderByPlanDateAsc(enrollment.getSection().getId(),
 				LessonPlanStatus.APPROVED, from, to);
@@ -132,10 +133,10 @@ public class LessonPlanService {
 
 	private static void requireContent(LocalDate planDate, String title) {
 		if (planDate == null) {
-			throw new IllegalArgumentException("Date is required");
+			throw new InvalidRequestException("Date is required");
 		}
 		if (title == null || title.isBlank()) {
-			throw new IllegalArgumentException("Title is required");
+			throw new InvalidRequestException("Title is required");
 		}
 	}
 

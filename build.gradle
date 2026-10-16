@@ -1,5 +1,6 @@
 plugins {
 	id 'java'
+	id 'war'
 	id 'org.springframework.boot' version '4.1.0'
 	id 'io.spring.dependency-management' version '1.1.7'
 }
@@ -44,6 +45,9 @@ dependencies {
 	// gson backend, not jackson - avoids clashing with this project's Jackson 3.x (tools.jackson) stack
 	runtimeOnly 'io.jsonwebtoken:jjwt-gson:0.12.6'
 	runtimeOnly 'com.mysql:mysql-connector-j'
+	// Embedded Tomcat stays out of the WAR's WEB-INF/lib so an external Tomcat supplies it;
+	// bootWar still bundles it under WEB-INF/lib-provided so `java -jar *.war` keeps working.
+	providedRuntime 'org.springframework.boot:spring-boot-starter-tomcat-runtime'
 	compileOnly 'org.projectlombok:lombok'
 	annotationProcessor 'org.projectlombok:lombok'
 	testImplementation 'org.springframework.boot:spring-boot-starter-data-jpa-test'
@@ -65,4 +69,29 @@ tasks.named('test') {
 // every controller, not just this one.
 tasks.withType(JavaCompile).configureEach {
 	options.compilerArgs += ['-parameters']
+}
+
+// Builds the React app (web/) and bundles it into the WAR under static/, so one
+// `java -jar operion-*.war` serves both the UI and the API from the same origin.
+// VITE_API_BASE_URL is set to empty so the UI calls relative paths (/api/v1/...).
+// Skip with -PskipWeb (e.g. when web/dist is already built).
+def buildWeb = tasks.register('buildWeb', Exec) {
+	workingDir = file('web')
+	environment 'VITE_API_BASE_URL', ''
+	commandLine 'npm', 'run', 'build'
+	onlyIf { !project.hasProperty('skipWeb') }
+}
+
+// src/main/resources/static/index.html is a leftover "Foundation smoke test" page, not the real
+// UI. It is excluded from the build output so the React app's index.html (bundled below) is the
+// one the WAR serves at "/".
+tasks.named('processResources') {
+	exclude 'static/index.html'
+}
+
+tasks.named('bootWar') {
+	dependsOn buildWeb
+	from('web/dist') {
+		into 'WEB-INF/classes/static'
+	}
 }

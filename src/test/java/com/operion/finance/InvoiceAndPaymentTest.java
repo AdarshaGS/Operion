@@ -1,5 +1,6 @@
 package com.operion.finance;
 
+import com.operion.common.InvalidRequestException;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -187,7 +188,7 @@ class InvoiceAndPaymentTest {
 
 		assertThatThrownBy(() -> feeService.recordPayment(fixture.academicYear(), new BigDecimal("9000.00"), PaymentMethod.CASH,
 				LocalDate.of(2025, 6, 20), null, List.of(new AllocationInput(invoice1.getId(), new BigDecimal("4000.00")))))
-				.isInstanceOf(IllegalArgumentException.class);
+				.isInstanceOf(InvalidRequestException.class);
 
 		Payment payment = feeService.recordPayment(fixture.academicYear(), new BigDecimal("9000.00"), PaymentMethod.CASH,
 				LocalDate.of(2025, 6, 20), "Full term settlement",
@@ -222,7 +223,8 @@ class InvoiceAndPaymentTest {
 		Fixture fixture = setUpFixture("fee-bounce-school", "ADM-302");
 		Invoice invoice = feeService.generateInvoice(fixture.assignment(), fixture.installments().get(0));
 		Payment payment = feeService.recordPayment(fixture.academicYear(), new BigDecimal("4500.00"), PaymentMethod.CHEQUE,
-				LocalDate.of(2025, 6, 20), null, List.of(new AllocationInput(invoice.getId(), new BigDecimal("4500.00"))));
+				LocalDate.of(2025, 6, 20), null, List.of(new AllocationInput(invoice.getId(), new BigDecimal("4500.00"))),
+				"CHQ-000124", "State Bank");
 
 		Payment bounced = feeService.bouncePayment(payment);
 		assertThat(bounced.getStatus()).isEqualTo(PaymentStatus.BOUNCED);

@@ -1,5 +1,6 @@
 package com.operion.inventory;
 
+import com.operion.common.InvalidRequestException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.HashMap;
@@ -45,6 +46,8 @@ public class InventoryService {
 	}
 
 	public ItemCategory createCategory(String code, String name, String description) {
+		requireText(code, "A category code is required");
+		requireText(name, "A category name is required");
 		return itemCategoryRepository.save(new ItemCategory(code, name, description));
 	}
 
@@ -54,6 +57,14 @@ public class InventoryService {
 
 	public Item createItem(ItemCategory category, String code, String name, String unit, String description, Integer reorderLevel,
 			String storageLocation, Supplier defaultSupplier) {
+		if (category == null) {
+			throw new InvalidRequestException("An item needs a category");
+		}
+		requireText(code, "An item code is required");
+		requireText(name, "An item name is required");
+		requireText(unit, "An item unit is required");
+		requireReorderLevel(reorderLevel);
+		requireActiveSupplier(defaultSupplier);
 		Item item = new Item(category, code, name, unit, description);
 		item.setReorderLevel(reorderLevel);
 		item.setStorageLocation(storageLocation);
@@ -67,6 +78,7 @@ public class InventoryService {
 	}
 
 	public Item updateReorderLevel(Item item, Integer reorderLevel) {
+		requireReorderLevel(reorderLevel);
 		item.setReorderLevel(reorderLevel);
 		return itemRepository.save(item);
 	}
@@ -77,6 +89,7 @@ public class InventoryService {
 	}
 
 	public Item updateDefaultSupplier(Item item, Supplier defaultSupplier) {
+		requireActiveSupplier(defaultSupplier);
 		item.setDefaultSupplier(defaultSupplier);
 		return itemRepository.save(item);
 	}
@@ -110,6 +123,35 @@ public class InventoryService {
 				.toList();
 	}
 
+	private void lockItem(Item item) {
+		itemRepository.findByIdForUpdate(item.getId())
+				.orElseThrow(() -> new IllegalArgumentException("No item with id " + item.getId()));
+	}
+
+	private static void requireText(String value, String message) {
+		if (value == null || value.isBlank()) {
+			throw new InvalidRequestException(message);
+		}
+	}
+
+	private static void requireReorderLevel(Integer reorderLevel) {
+		if (reorderLevel != null && reorderLevel < 0) {
+			throw new InvalidRequestException("A reorder level cannot be negative");
+		}
+	}
+
+	private static void requireActiveSupplier(Supplier supplier) {
+		if (supplier != null && supplier.getStatus() != SupplierStatus.ACTIVE) {
+			throw new IllegalStateException("Supplier " + supplier.getId() + " is inactive");
+		}
+	}
+
+	private static void requireNotDisposed(Asset asset) {
+		if (asset.getStatus() == AssetStatus.DISPOSED) {
+			throw new IllegalStateException("Asset " + asset.getId() + " has been disposed of");
+		}
+	}
+
 	private Map<Long, Integer> sumsByItemId(List<Object[]> rows) {
 		Map<Long, Integer> sums = new HashMap<>();
 		for (Object[] row : rows) {
@@ -124,6 +166,13 @@ public class InventoryService {
 
 	public StockEntry recordEntry(Item item, Campus campus, int quantity, BigDecimal unitCost, LocalDate entryDate, String source,
 			Supplier supplier, String remarks) {
+		if (item.getStatus() == ItemStatus.DISCONTINUED) {
+			throw new IllegalStateException("Item " + item.getId() + " is discontinued and cannot receive new stock");
+		}
+		if (unitCost != null && unitCost.signum() < 0) {
+			throw new InvalidRequestException("A stock entry's unit cost cannot be negative");
+		}
+		requireActiveSupplier(supplier);
 		return stockEntryRepository.save(new StockEntry(item, campus, quantity, unitCost, entryDate, source, supplier, remarks));
 	}
 
@@ -141,6 +190,13 @@ public class InventoryService {
 	@Transactional
 	public StockIssue recordIssue(Item item, Campus campus, int quantity, LocalDate issuedDate, String issuedTo, String purpose,
 			BigDecimal unitCost, Department department, Person recipientPerson, Student recipientStudent, String remarks) {
+		if (quantity <= 0) {
+			throw new InvalidRequestException("Stock issue quantity must be positive");
+		}
+		if (unitCost != null && unitCost.signum() < 0) {
+			throw new InvalidRequestException("A stock issue's unit cost cannot be negative");
+		}
+		lockItem(item);
 		if (quantity > getBalance(item, campus)) {
 			throw new IllegalStateException(
 					"Cannot issue " + quantity + " of item " + item.getId() + " at campus " + campus.getId() + " - insufficient stock");
@@ -155,6 +211,13 @@ public class InventoryService {
 	@Transactional
 	public StockAdjustment recordAdjustment(Item item, Campus campus, int quantityDelta, StockAdjustmentReason reason,
 			LocalDate adjustmentDate, String remarks) {
+		if (reason == null) {
+			throw new InvalidRequestException("A stock adjustment needs a reason");
+		}
+		if (quantityDelta == 0) {
+			throw new InvalidRequestException("Stock adjustment quantity delta cannot be zero");
+		}
+		lockItem(item);
 		if (getBalance(item, campus) + quantityDelta < 0) {
 			throw new IllegalStateException(
 					"Adjustment of " + quantityDelta + " would take item " + item.getId() + " at campus " + campus.getId() + " negative");
@@ -172,7 +235,10 @@ public class InventoryService {
 	@Transactional
 	public StockTransfer recordTransfer(Item item, Campus fromCampus, Campus toCampus, int quantity, LocalDate transferDate, String remarks) {
 		if (fromCampus.getId().equals(toCampus.getId())) {
-			throw new IllegalArgumentException("Cannot transfer stock to the same campus");
+			throw new InvalidRequestException("Cannot transfer stock to the same campus");
+		}
+		if (quantity <= 0) {
+			throw new InvalidRequestException("Stock transfer quantity must be positive");
 		}
 		String detail = remarks != null ? ": " + remarks : "";
 		recordAdjustment(item, fromCampus, -quantity, StockAdjustmentReason.TRANSFER_OUT, transferDate,
@@ -183,15 +249,21 @@ public class InventoryService {
 	}
 
 	public Asset createAsset(Item item, Campus campus, String assetTag, LocalDate purchaseDate, LocalDate warrantyExpiryDate) {
+		requireText(assetTag, "An asset tag is required");
+		if (purchaseDate != null && warrantyExpiryDate != null && warrantyExpiryDate.isBefore(purchaseDate)) {
+			throw new InvalidRequestException("The warranty cannot end before the purchase date");
+		}
 		return assetRepository.save(new Asset(item, campus, assetTag, purchaseDate, warrantyExpiryDate));
 	}
 
 	public Asset changeAssetStatus(Asset asset, AssetStatus status) {
+		requireNotDisposed(asset);
 		asset.changeStatus(status);
 		return assetRepository.save(asset);
 	}
 
 	public Asset assignAsset(Asset asset, Person assignedPerson, String assignedLocation) {
+		requireNotDisposed(asset);
 		asset.setAssignedPerson(assignedPerson);
 		asset.setAssignedLocation(assignedLocation);
 		return assetRepository.save(asset);

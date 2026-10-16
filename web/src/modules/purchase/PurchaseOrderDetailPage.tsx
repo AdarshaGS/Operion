@@ -1,6 +1,8 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import Alert from "@mui/material/Alert";
+import { Can } from "../../auth/Can";
+import { DialogErrorAlert } from "../../components/DialogErrorAlert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
@@ -55,6 +57,8 @@ export function PurchaseOrderDetailPage() {
 	const [loading, setLoading] = useState(true);
 	const [actionSubmitting, setActionSubmitting] = useState(false);
 
+	// A rejection from inside a dialog shows in that dialog: the page alert sits behind the modal.
+	const [dialogError, setDialogError] = useState<string | null>(null);
 	const [receiveDialogOpen, setReceiveDialogOpen] = useState(false);
 	const [receiveEntryDate, setReceiveEntryDate] = useState(todayIso());
 	const [receiveQuantities, setReceiveQuantities] = useState<Record<number, string>>({});
@@ -115,6 +119,7 @@ export function PurchaseOrderDetailPage() {
 		}
 		setReceiveQuantities(initial);
 		setReceiveEntryDate(todayIso());
+		setDialogError(null);
 		setReceiveDialogOpen(true);
 	}
 
@@ -131,7 +136,7 @@ export function PurchaseOrderDetailPage() {
 			setReceiveDialogOpen(false);
 			refresh();
 		} catch (err) {
-			setError(err instanceof ApiError ? err.message : "Failed to record goods receipt");
+			setDialogError(err instanceof ApiError ? err.message : "Failed to record goods receipt");
 		} finally {
 			setActionSubmitting(false);
 		}
@@ -139,6 +144,7 @@ export function PurchaseOrderDetailPage() {
 
 	function openReturnDialog(line: PurchaseOrderLineResponse) {
 		setReturnLine(line);
+		setDialogError(null);
 		setReturnQuantity("");
 		setReturnReason("DEFECTIVE");
 		setReturnDate(todayIso());
@@ -159,7 +165,7 @@ export function PurchaseOrderDetailPage() {
 			setReturnLine(null);
 			refresh();
 		} catch (err) {
-			setError(err instanceof ApiError ? err.message : "Failed to record purchase return");
+			setDialogError(err instanceof ApiError ? err.message : "Failed to record purchase return");
 		} finally {
 			setActionSubmitting(false);
 		}
@@ -208,7 +214,8 @@ export function PurchaseOrderDetailPage() {
 						<Chip label={order.status} color={PURCHASE_ORDER_STATUS_COLOR[order.status] ?? "default"} />
 					</Box>
 
-					<Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
+					<Can anyOf={["PURCHASE_MANAGE"]}>
+						<Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
 						{order.status === "DRAFT" && (
 							<Button size="small" variant="outlined" disabled={actionSubmitting} onClick={() => runAction(() => submitPurchaseOrder(order.id), "Failed to submit purchase order")}>
 								Submit
@@ -230,6 +237,7 @@ export function PurchaseOrderDetailPage() {
 							</Button>
 						)}
 					</Stack>
+					</Can>
 				</Stack>
 			</Paper>
 
@@ -258,9 +266,11 @@ export function PurchaseOrderDetailPage() {
 										<TableCell>{line.quantityReturned}</TableCell>
 										<TableCell>
 											{line.quantityReceived - line.quantityReturned > 0 && (
-												<Button size="small" onClick={() => openReturnDialog(line)}>
-													Return
-												</Button>
+												<Can anyOf={["PURCHASE_MANAGE"]}>
+													<Button size="small" onClick={() => openReturnDialog(line)}>
+														Return
+													</Button>
+												</Can>
 											)}
 										</TableCell>
 									</TableRow>
@@ -275,6 +285,7 @@ export function PurchaseOrderDetailPage() {
 				<DialogTitle>Receive goods</DialogTitle>
 				<DialogContent>
 					<Stack spacing={2} sx={{ mt: 1 }}>
+						{dialogError && <DialogErrorAlert>{dialogError}</DialogErrorAlert>}
 						<TextField
 							label="Entry date"
 							type="date"
@@ -310,6 +321,7 @@ export function PurchaseOrderDetailPage() {
 				<DialogTitle>Return to supplier</DialogTitle>
 				<DialogContent>
 					<Stack spacing={2} sx={{ mt: 1 }}>
+						{dialogError && <DialogErrorAlert>{dialogError}</DialogErrorAlert>}
 						<TextField
 							label={`Quantity (max ${returnLine ? returnLine.quantityReceived - returnLine.quantityReturned : 0})`}
 							type="number"

@@ -58,7 +58,7 @@ public class StaffRowImportService {
 		String firstName = require(row, "firstName");
 		String lastName = blankToNull(row.get("lastName"));
 		LocalDate dateOfBirth = parseDate(row.get("dateOfBirth"));
-		String gender = blankToNull(row.get("gender"));
+		String gender = require(row, "gender");
 		String email = blankToNull(row.get("email"));
 		String phone = blankToNull(row.get("phone"));
 

@@ -3,6 +3,7 @@ package com.operion.authorization;
 import java.time.LocalDate;
 
 import com.operion.audit.AuditLogService;
+import com.operion.common.InvalidRequestException;
 import com.operion.identity.Person;
 import com.operion.identity.PersonRepository;
 import com.operion.identity.User;
@@ -44,12 +45,18 @@ public class MembershipService {
 	@Transactional
 	public OrganisationMembership grant(Long userId, Long personId, Long roleId, Long campusId, Long departmentId, String memberId,
 			LocalDate joiningDate) {
+		if (userId == null || personId == null || roleId == null) {
+			throw new InvalidRequestException("userId, personId and roleId are required");
+		}
 		User user = userRepository.findById(userId)
 				.orElseThrow(() -> new IllegalArgumentException("No user with id " + userId));
 		Person person = personRepository.findById(personId)
 				.orElseThrow(() -> new IllegalArgumentException("No person with id " + personId));
 		Role role = roleRepository.findById(roleId)
 				.orElseThrow(() -> new IllegalArgumentException("No role with id " + roleId));
+		if (role.getStatus() != RoleStatus.ACTIVE) {
+			throw new IllegalStateException("The role " + role.getName() + " is inactive and cannot be assigned");
+		}
 		Campus campus = campusId == null ? null : campusRepository.findById(campusId)
 				.orElseThrow(() -> new IllegalArgumentException("No campus with id " + campusId));
 		Department department = departmentId == null ? null : departmentRepository.findById(departmentId)

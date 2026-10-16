@@ -8,6 +8,8 @@ import org.springframework.data.jpa.repository.Lock;
 
 public interface FeeDocumentCounterRepository extends JpaRepository<FeeDocumentCounter, Long> {
 
+	boolean existsByAcademicYearIdAndDocumentType(Long academicYearId, FeeDocumentType documentType);
+
 	/** Locked so two concurrent invoice/receipt generations in the same (year, type) never hand out the same number. */
 	@Lock(LockModeType.PESSIMISTIC_WRITE)
 	Optional<FeeDocumentCounter> findByAcademicYearIdAndDocumentType(Long academicYearId, FeeDocumentType documentType);

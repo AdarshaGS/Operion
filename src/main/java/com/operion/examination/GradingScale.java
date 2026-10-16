@@ -25,4 +25,8 @@ public class GradingScale extends TenantScopedEntity {
 		this.name = name;
 		this.defaultScale = defaultScale;
 	}
+
+	public void clearDefault() {
+		this.defaultScale = false;
+	}
 }

@@ -14,6 +14,7 @@ import com.operion.identity.User;
 import com.operion.identity.UserRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import com.operion.common.persistence.PlatformTransactional;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
@@ -84,7 +85,7 @@ public class OrganisationService {
 			campus.setPincode(profile.pincode());
 			campusRepository.save(campus);
 
-			OrganisationConfiguration configuration = new OrganisationConfiguration(organisation, profile.timezone());
+			OrganisationConfiguration configuration = new OrganisationConfiguration(organisation.getId(), profile.timezone());
 			configuration.setPrimaryContactName(profile.primaryContactName());
 			configuration.setPrimaryContactEmail(profile.primaryContactEmail());
 			configuration.setPrimaryContactPhone(profile.primaryContactPhone());
@@ -96,7 +97,7 @@ public class OrganisationService {
 			configuration.setPincode(profile.pincode());
 			configurationRepository.save(configuration);
 
-			brandingRepository.save(new OrganisationBranding(organisation));
+			brandingRepository.save(new OrganisationBranding(organisation.getId()));
 			Role adminRole = seedDefaultRoles();
 			createAdminMembership(admin, adminRole);
 
@@ -107,6 +108,16 @@ public class OrganisationService {
 			}
 
 			auditLogService.record("Organisation", organisation.getId(), "CREATE", null, organisation.getStatus());
+		} catch (RuntimeException failure) {
+			// The organisation row lives in the Platform DB and its school data in the School DB -
+			// no transaction spans both, so compensate by removing the platform row. Any
+			// school rows already written under this id are unreachable (ids are never reused).
+			try {
+				organisationRepository.deleteById(organisation.getId());
+			} catch (RuntimeException compensationFailure) {
+				failure.addSuppressed(compensationFailure);
+			}
+			throw failure;
 		} finally {
 			TenantContext.clear();
 		}
@@ -119,11 +130,11 @@ public class OrganisationService {
 	}
 
 	private void createAdminMembership(NewAdminAccount admin, Role adminRole) {
-		// A person who already has a User from another org (or a retried provisioning
-		// attempt after a partial earlier failure - see the comment on provision() above)
-		// is reused as-is rather than crashing on User.email's global unique constraint;
-		// their existing password is never overwritten. Same pattern as
-		// PortalInviteService.claim().
+		// Users are per-school (tenant-scoped), so this lookup only sees this organisation's
+		// accounts. A retried provisioning attempt after a partial earlier failure - see the
+		// comment on provision() above - reuses the admin User it already created rather than
+		// crashing on the (organisation_id, email) unique constraint; the existing password is
+		// never overwritten. Same pattern as PortalInviteService.claim().
 		User user = userRepository.findByEmail(admin.email())
 				.orElseGet(() -> userRepository.save(new User(admin.email(), null, passwordEncoder.encode(admin.password()))));
 		Person person = new Person(admin.firstName(), admin.lastName());
@@ -143,7 +154,7 @@ public class OrganisationService {
 	 * as BillingService.countActiveStudents() - a no-op on the tenant plane, the actual fix
 	 * on the platform plane.
 	 */
-	@Transactional
+	@PlatformTransactional
 	public Organisation changeStatus(Long organisationId, OrganisationStatus target) {
 		Organisation organisation = organisationRepository.findById(organisationId)
 				.orElseThrow(() -> new IllegalArgumentException("No organisation with id " + organisationId));

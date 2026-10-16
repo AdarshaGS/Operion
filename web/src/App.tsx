@@ -51,6 +51,7 @@ import { MarketingPage } from "./marketing/MarketingPage";
 import { DashboardPage } from "./modules/dashboard/DashboardPage";
 import { MembersPage } from "./modules/members/MembersPage";
 import { StructureSetupPage } from "./modules/setup/StructureSetupPage";
+import { GoLiveCheckPage } from "./modules/onboarding/GoLiveCheckPage";
 import { ReviewSchoolSetupPage } from "./modules/onboarding/ReviewSchoolSetupPage";
 import { ProfilePage } from "./modules/profile/ProfilePage";
 // ProfilePage is also mounted at /portal/profile below - see PortalLayout's link.
@@ -166,6 +167,7 @@ function App() {
 							<Route path="/members/:userId" element={<UserDetailPage />} />
 							<Route path="/setup/structure" element={<StructureSetupPage />} />
 							<Route path="/setup/review" element={<ReviewSchoolSetupPage />} />
+							<Route path="/setup/go-live" element={<GoLiveCheckPage />} />
 							<Route path="/profile" element={<ProfilePage />} />
 							<Route path="/settings" element={<SettingsPage />} />
 							<Route path="/settings/users/:userId" element={<UserDetailPage />} />

@@ -67,10 +67,10 @@ public class LeaveRequest extends TenantScopedEntity {
 	public LeaveRequest(StaffProfile staffProfile, LeaveType leaveType, AcademicYear academicYear, LocalDate startDate,
 			LocalDate endDate, double numberOfDays, String reason) {
 		if (numberOfDays <= 0) {
-			throw new IllegalArgumentException("Leave request numberOfDays must be positive");
+			throw new com.operion.common.InvalidRequestException("Leave request numberOfDays must be positive");
 		}
 		if (endDate.isBefore(startDate)) {
-			throw new IllegalArgumentException("Leave request endDate cannot be before startDate");
+			throw new com.operion.common.InvalidRequestException("Leave request endDate cannot be before startDate");
 		}
 		this.staffProfile = staffProfile;
 		this.leaveType = leaveType;

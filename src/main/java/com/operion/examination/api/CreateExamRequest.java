@@ -1,4 +1,7 @@
 package com.operion.examination.api;
 
-public record CreateExamRequest(Long academicYearId, String name, String examType) {
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+
+public record CreateExamRequest(@NotNull Long academicYearId, @NotBlank String name, @NotBlank String examType) {
 }

@@ -3,10 +3,13 @@ package com.operion.customfield.api;
 import java.util.List;
 
 import com.operion.authorization.RequirePermission;
+import com.operion.common.EnumParam;
+import com.operion.common.InvalidRequestException;
 import com.operion.customfield.CustomFieldDataType;
 import com.operion.customfield.CustomFieldDefinition;
 import com.operion.customfield.CustomFieldDefinitionRepository;
 import com.operion.customfield.CustomFieldDefinitionStatus;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -41,18 +44,22 @@ public class CustomFieldDefinitionController {
 
 	@PostMapping
 	@RequirePermission("ORGANISATION_MANAGE")
-	public CustomFieldDefinitionResponse create(@RequestBody CreateCustomFieldDefinitionRequest request) {
-		CustomFieldDefinition definition = new CustomFieldDefinition(request.entityType(), request.fieldKey(), request.label(),
-				CustomFieldDataType.valueOf(request.dataType()), request.options(), request.required());
+	public CustomFieldDefinitionResponse create(@Valid @RequestBody CreateCustomFieldDefinitionRequest request) {
+		CustomFieldDataType dataType = EnumParam.parse(CustomFieldDataType.class, request.dataType());
+		requireOptionsForSelect(dataType, request.options());
+		CustomFieldDefinition definition = new CustomFieldDefinition(request.entityType().trim(), request.fieldKey(), request.label().trim(),
+				dataType, request.options(), request.required());
 		return CustomFieldDefinitionResponse.from(definitionRepository.save(definition));
 	}
 
 	@PatchMapping("/{id}")
 	@RequirePermission("ORGANISATION_MANAGE")
-	public CustomFieldDefinitionResponse update(@PathVariable Long id, @RequestBody UpdateCustomFieldDefinitionRequest request) {
+	public CustomFieldDefinitionResponse update(@PathVariable Long id, @Valid @RequestBody UpdateCustomFieldDefinitionRequest request) {
 		CustomFieldDefinition definition = definitionRepository.findById(id)
 				.orElseThrow(() -> new IllegalArgumentException("No custom field definition with id " + id));
-		definition.update(request.label(), CustomFieldDataType.valueOf(request.dataType()), request.options(), request.required());
+		CustomFieldDataType dataType = EnumParam.parse(CustomFieldDataType.class, request.dataType());
+		requireOptionsForSelect(dataType, request.options());
+		definition.update(request.label().trim(), dataType, request.options(), request.required());
 		return CustomFieldDefinitionResponse.from(definitionRepository.save(definition));
 	}
 
@@ -61,7 +68,14 @@ public class CustomFieldDefinitionController {
 	public CustomFieldDefinitionResponse changeStatus(@PathVariable Long id, @RequestBody ChangeStatusRequest request) {
 		CustomFieldDefinition definition = definitionRepository.findById(id)
 				.orElseThrow(() -> new IllegalArgumentException("No custom field definition with id " + id));
-		definition.changeStatus(CustomFieldDefinitionStatus.valueOf(request.status()));
+		definition.changeStatus(EnumParam.parse(CustomFieldDefinitionStatus.class, request.status()));
 		return CustomFieldDefinitionResponse.from(definitionRepository.save(definition));
+	}
+
+	private static void requireOptionsForSelect(CustomFieldDataType dataType, String options) {
+		if (dataType == CustomFieldDataType.SELECT
+				&& (options == null || java.util.Arrays.stream(options.split(",")).noneMatch(option -> !option.isBlank()))) {
+			throw new InvalidRequestException("A choice list needs at least one choice");
+		}
 	}
 }

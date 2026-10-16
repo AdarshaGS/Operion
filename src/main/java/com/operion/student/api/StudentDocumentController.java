@@ -1,5 +1,7 @@
 package com.operion.student.api;
 
+import com.operion.common.EnumParam;
+import jakarta.validation.Valid;
 import java.util.List;
 
 import com.operion.authorization.RequirePermission;
@@ -38,7 +40,7 @@ public class StudentDocumentController {
 
 	@PostMapping
 	@RequirePermission("STUDENT_DOCUMENT_MANAGE")
-	public StudentDocumentResponse upload(@PathVariable Long studentId, @RequestBody UploadDocumentRequest request) {
+	public StudentDocumentResponse upload(@PathVariable Long studentId, @Valid @RequestBody UploadDocumentRequest request) {
 		Student student = studentRepository.findById(studentId)
 				.orElseThrow(() -> new IllegalArgumentException("No student with id " + studentId));
 
@@ -50,12 +52,13 @@ public class StudentDocumentController {
 	@PatchMapping("/{documentId}/verify")
 	@RequirePermission("STUDENT_DOCUMENT_MANAGE")
 	public StudentDocumentResponse verify(
-			@PathVariable Long studentId, @PathVariable Long documentId, @RequestBody VerifyDocumentRequest request) {
+			@PathVariable Long studentId, @PathVariable Long documentId, @Valid @RequestBody VerifyDocumentRequest request) {
 		StudentDocument document = studentDocumentRepository.findById(documentId)
+				.filter(found -> found.getStudent().getId().equals(studentId))
 				.orElseThrow(() -> new IllegalArgumentException("No document with id " + documentId));
 
-		StudentDocument verified = studentService.verifyDocument(
-				document, DocumentVerificationStatus.valueOf(request.verificationStatus()), request.verifiedBy());
+		StudentDocument verified = studentService.verifyDocument(document,
+				EnumParam.parse(DocumentVerificationStatus.class, request.verificationStatus()), request.verifiedBy());
 		return StudentDocumentResponse.from(verified, assetStorageService);
 	}
 

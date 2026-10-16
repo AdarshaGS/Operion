@@ -70,6 +70,13 @@ public class Sale extends TenantScopedEntity {
 
 	/** Called by SaleService within the same transaction as the SalePayment write. */
 	public void applyPayment(BigDecimal amount) {
+		if (status == SaleStatus.PAID) {
+			throw new IllegalStateException("This sale is already fully paid");
+		}
+		BigDecimal outstanding = totalAmount.subtract(amountPaid);
+		if (amount.compareTo(outstanding) > 0) {
+			throw new IllegalStateException("Payment of " + amount + " is more than the " + outstanding + " still outstanding");
+		}
 		this.amountPaid = this.amountPaid.add(amount);
 		this.status = amountPaid.compareTo(totalAmount) >= 0 ? SaleStatus.PAID : SaleStatus.PARTIALLY_PAID;
 	}

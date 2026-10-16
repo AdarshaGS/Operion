@@ -1,5 +1,6 @@
 package com.operion.learning;
 
+import com.operion.common.InvalidRequestException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -109,19 +110,19 @@ public class LeaderboardService {
 		StudentEnrollment enrollment = enrollmentRepository.findById(enrollmentId)
 				.orElseThrow(() -> new IllegalArgumentException("Enrollment not found: " + enrollmentId));
 		if (!enrollment.isCurrent()) {
-			throw new IllegalArgumentException("Rewards can only be granted to currently enrolled students");
+			throw new InvalidRequestException("Rewards can only be granted to currently enrolled students");
 		}
 		if (!actor.manager() && !actor.teaches(enrollment.getSection().getId())) {
 			throw new AuthorizationDeniedException("You do not teach this student's section");
 		}
 		if (title == null || title.isBlank() || title.trim().length() > 200) {
-			throw new IllegalArgumentException("A reward needs a title of up to 200 characters");
+			throw new InvalidRequestException("A reward needs a title of up to 200 characters");
 		}
 		if (points < 1 || points > MAX_REWARD_POINTS) {
-			throw new IllegalArgumentException("Points must be between 1 and " + MAX_REWARD_POINTS);
+			throw new InvalidRequestException("Points must be between 1 and " + MAX_REWARD_POINTS);
 		}
 		if (reason != null && reason.length() > 1000) {
-			throw new IllegalArgumentException("The reason is too long");
+			throw new InvalidRequestException("The reason is too long");
 		}
 		return rewardRepository.save(new StudentReward(enrollment.getStudent(), title.trim(),
 				points, reason == null || reason.isBlank() ? null : reason.trim(), personRepository.findById(actor.personId()).orElseThrow(), now));

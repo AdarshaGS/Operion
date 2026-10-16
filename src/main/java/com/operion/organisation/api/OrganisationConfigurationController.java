@@ -2,9 +2,11 @@ package com.operion.organisation.api;
 
 import com.operion.audit.AuditLogService;
 import com.operion.authorization.RequirePermission;
+import com.operion.common.InvalidRequestException;
 import com.operion.common.TenantContext;
 import com.operion.organisation.OrganisationConfiguration;
 import com.operion.organisation.OrganisationConfigurationRepository;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -37,7 +39,10 @@ public class OrganisationConfigurationController {
 
 	@PatchMapping
 	@RequirePermission("ORGANISATION_MANAGE")
-	public OrganisationConfigurationResponse update(@RequestBody UpdateOrganisationConfigurationRequest request) {
+	public OrganisationConfigurationResponse update(@Valid @RequestBody UpdateOrganisationConfigurationRequest request) {
+		if (request.timezone() != null && !java.time.ZoneId.getAvailableZoneIds().contains(request.timezone())) {
+			throw new InvalidRequestException("Unknown timezone " + request.timezone());
+		}
 		OrganisationConfiguration configuration = currentConfiguration();
 		OrganisationConfigurationResponse before = OrganisationConfigurationResponse.from(configuration);
 		configuration.setTimezone(request.timezone());

@@ -26,7 +26,12 @@ function daysToMask(days: boolean[]): number {
 	return days.reduce((mask, checked, index) => (checked ? mask | (1 << index) : mask), 0);
 }
 
-export function BusinessSettingsPanel() {
+interface BusinessSettingsPanelProps {
+	/** Fired after a successful save - the Structure setup wizard uses it to advance. */
+	onSaved?: () => void;
+}
+
+export function BusinessSettingsPanel({ onSaved }: BusinessSettingsPanelProps = {}) {
 	const [timezone, setTimezone] = useState("");
 	const [timezones, setTimezones] = useState<TimezoneResponse[]>([]);
 	const [defaultCurrency, setDefaultCurrency] = useState("");
@@ -86,6 +91,7 @@ export function BusinessSettingsPanel() {
 				primaryColor: primaryColor || null,
 			});
 			setSaved(true);
+			onSaved?.();
 		} catch (err) {
 			setError(err instanceof ApiError ? err.message : "Failed to update business settings");
 		} finally {

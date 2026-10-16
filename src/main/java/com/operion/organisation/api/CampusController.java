@@ -1,10 +1,13 @@
 package com.operion.organisation.api;
 
+import java.time.ZoneId;
 import java.util.List;
 
 import com.operion.authorization.RequirePermission;
+import com.operion.common.InvalidRequestException;
 import com.operion.organisation.Campus;
 import com.operion.organisation.CampusRepository;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -25,8 +28,14 @@ public class CampusController {
 
 	@PostMapping
 	@RequirePermission("ORGANISATION_MANAGE")
-	public CampusResponse create(@RequestBody CreateCampusRequest request) {
-		Campus campus = new Campus(request.name(), request.code());
+	public CampusResponse create(@Valid @RequestBody CreateCampusRequest request) {
+		if (request.timezone() != null && !ZoneId.getAvailableZoneIds().contains(request.timezone())) {
+			throw new InvalidRequestException("Unknown timezone '" + request.timezone() + "'");
+		}
+		campusRepository.findByNameIgnoreCase(request.name().trim()).ifPresent(existing -> {
+			throw new IllegalStateException("A campus named '" + existing.getName() + "' already exists");
+		});
+		Campus campus = new Campus(request.name().trim(), request.code());
 		campus.setAddressLine1(request.addressLine1());
 		campus.setAddressLine2(request.addressLine2());
 		campus.setCity(request.city());

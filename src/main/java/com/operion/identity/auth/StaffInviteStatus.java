@@ -5,5 +5,7 @@ package com.operion.identity.auth;
  * PortalInviteService gives for duplicating GUARDIAN_ROLE_NAME rather than importing it. */
 public enum StaffInviteStatus {
 	PENDING,
-	CLAIMED
+	CLAIMED,
+	/** Superseded by a resend - the token it was issued with no longer works. */
+	REVOKED
 }

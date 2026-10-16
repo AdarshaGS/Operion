@@ -36,6 +36,7 @@ import VisibilityIcon from "@mui/icons-material/Visibility";
 import { Can } from "../../auth/Can";
 import { AddMemberFields, EMPTY_ADD_MEMBER_FORM, submitAddMember, type AddMemberFormState } from "../../components/AddMemberForm";
 import { MemberStatusChip } from "../../components/MemberStatusChip";
+import { DialogErrorAlert } from "../../components/DialogErrorAlert";
 import { StaffInviteDialog } from "../../components/StaffInviteDialog";
 import { ApiError } from "../../api/client";
 import { listCampuses, type CampusResponse } from "../../api/campuses";
@@ -112,6 +113,8 @@ export function UsersPanel({ autoOpenInvite = false }: UsersPanelProps = {}) {
 	const [campuses, setCampuses] = useState<CampusResponse[]>([]);
 	const [departments, setDepartments] = useState<DepartmentResponse[]>([]);
 	const [error, setError] = useState<string | null>(null);
+	// Shown inside the Add member dialog - the page-level alert sits behind its backdrop.
+	const [dialogError, setDialogError] = useState<string | null>(null);
 	const [dialogOpen, setDialogOpen] = useState(autoOpenInvite);
 	const [submitting, setSubmitting] = useState(false);
 
@@ -178,6 +181,7 @@ export function UsersPanel({ autoOpenInvite = false }: UsersPanelProps = {}) {
 	async function handleSubmit(event: FormEvent) {
 		event.preventDefault();
 		setSubmitting(true);
+		setDialogError(null);
 		try {
 			const { invite: issuedInvite } = await submitAddMember(form);
 			setForm(EMPTY_ADD_MEMBER_FORM);
@@ -185,7 +189,7 @@ export function UsersPanel({ autoOpenInvite = false }: UsersPanelProps = {}) {
 			setInvite(issuedInvite);
 			refresh();
 		} catch (err) {
-			setError(err instanceof ApiError ? err.message : "Failed to add member");
+			setDialogError(err instanceof ApiError ? err.message : "Failed to add member");
 		} finally {
 			setSubmitting(false);
 		}
@@ -289,7 +293,7 @@ export function UsersPanel({ autoOpenInvite = false }: UsersPanelProps = {}) {
 						</TextField>
 						<Box sx={{ flexGrow: 1 }} />
 						<Can anyOf={["MEMBERSHIP_MANAGE"]}>
-							<Button variant="contained" startIcon={<AddIcon />} onClick={() => setDialogOpen(true)}>
+							<Button variant="contained" startIcon={<AddIcon />} onClick={() => { setDialogError(null); setDialogOpen(true); }}>
 								Add member
 							</Button>
 						</Can>
@@ -436,6 +440,7 @@ export function UsersPanel({ autoOpenInvite = false }: UsersPanelProps = {}) {
 				<DialogTitle>Add member</DialogTitle>
 				<DialogContent>
 					<Stack spacing={2} sx={{ mt: 1 }}>
+						{dialogError && <DialogErrorAlert>{dialogError}</DialogErrorAlert>}
 						<AddMemberFields value={form} onChange={setForm} campuses={campuses} departments={departments} roles={roles} />
 					</Stack>
 				</DialogContent>

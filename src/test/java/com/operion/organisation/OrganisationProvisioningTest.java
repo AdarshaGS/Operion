@@ -92,12 +92,8 @@ class OrganisationProvisioningTest {
 	}
 
 	@Test
-	void secondOrgReusesExistingUserByEmailInsteadOfFailing() {
+	void sameAdminEmailAtTwoSchoolsCreatesTwoIndependentAccounts() {
 		OrganisationService organisationService = organisationService();
-		// A unique-per-run email, since @DataJpaTest here shares one H2 instance across
-		// the whole suite (see OrganisationTenantIsolationTest) rather than getting a
-		// fresh DB per class - User is deliberately global/non-tenant-scoped, so a fixed
-		// literal could collide with another test's leftover row.
 		String adminEmail = "shared-admin-" + System.nanoTime() + "@example.com";
 		NewAdminAccount admin = new NewAdminAccount(adminEmail, "Password123!", "Adarsha", "GS");
 
@@ -108,15 +104,18 @@ class OrganisationProvisioningTest {
 
 		assertThat(orgA.getId()).isNotEqualTo(orgB.getId());
 
-		User user = userRepository.findByEmail(adminEmail).orElseThrow();
-
 		TenantContext.set(orgA.getId(), null);
+		User userA = userRepository.findByEmail(adminEmail).orElseThrow();
 		assertThat(membershipRepository.findAll()).hasSize(1);
-		assertThat(membershipRepository.findAll().get(0).getUser().getId()).isEqualTo(user.getId());
+		assertThat(membershipRepository.findAll().get(0).getUser().getId()).isEqualTo(userA.getId());
 		assertThat(brandingRepository.findById(orgA.getId())).isPresent();
 
 		TenantContext.set(orgB.getId(), null);
+		User userB = userRepository.findByEmail(adminEmail).orElseThrow();
 		assertThat(membershipRepository.findAll()).hasSize(1);
-		assertThat(membershipRepository.findAll().get(0).getUser().getId()).isEqualTo(user.getId());
+		assertThat(membershipRepository.findAll().get(0).getUser().getId()).isEqualTo(userB.getId());
+
+		// Identities are per school: same email, two separate accounts.
+		assertThat(userA.getId()).isNotEqualTo(userB.getId());
 	}
 }

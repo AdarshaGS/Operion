@@ -25,7 +25,9 @@ import {
 	listAcademicYears,
 	markAcademicYearCurrent,
 	type AcademicYearResponse,
+	type RolloverReport,
 } from "../../api/academicYears";
+import { RolloverDialog } from "./RolloverDialog";
 
 export function AcademicYearsPanel() {
 	const [years, setYears] = useState<AcademicYearResponse[]>([]);
@@ -35,6 +37,8 @@ export function AcademicYearsPanel() {
 	const [startDate, setStartDate] = useState("");
 	const [endDate, setEndDate] = useState("");
 	const [submitting, setSubmitting] = useState(false);
+	const [rolloverTarget, setRolloverTarget] = useState<AcademicYearResponse | null>(null);
+	const [rolloverResult, setRolloverResult] = useState<RolloverReport | null>(null);
 
 	function refresh() {
 		listAcademicYears()
@@ -90,6 +94,15 @@ export function AcademicYearsPanel() {
 				</Box>
 
 				{error && <Alert severity="error">{error}</Alert>}
+				{rolloverResult && (
+					<Alert severity="success" onClose={() => setRolloverResult(null)}>
+						Copied {rolloverResult.sourceYear} into {rolloverResult.targetYear}:{" "}
+						{rolloverResult.steps
+							.map((step) => `${step.label} (${step.items.reduce((sum, item) => sum + item.copied, 0)})`)
+							.join(", ")}
+						.
+					</Alert>
+				)}
 
 				<TableContainer>
 					<Table size="small">
@@ -114,6 +127,11 @@ export function AcademicYearsPanel() {
 										<Chip label={year.status} size="small" />
 									</TableCell>
 									<TableCell>
+										{year.status !== "CLOSED" && years.length > 1 && (
+											<Button size="small" onClick={() => setRolloverTarget(year)}>
+												Copy forward
+											</Button>
+										)}
 										{year.status !== "CLOSED" && !year.current && (
 											<Button size="small" onClick={() => handleMarkCurrent(year.id)}>
 												Mark current
@@ -131,6 +149,16 @@ export function AcademicYearsPanel() {
 					</Table>
 				</TableContainer>
 			</Stack>
+
+			<RolloverDialog
+				target={rolloverTarget}
+				years={years}
+				onClose={() => setRolloverTarget(null)}
+				onApplied={(report) => {
+					setRolloverTarget(null);
+					setRolloverResult(report);
+				}}
+			/>
 
 			<Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} component="form" onSubmit={handleSubmit} fullWidth maxWidth="xs">
 				<DialogTitle>Add academic year</DialogTitle>

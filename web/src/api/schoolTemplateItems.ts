@@ -7,6 +7,12 @@ export type SchoolTemplateItemCategory =
 	| "ROLE"
 	| "FEE_CATEGORY"
 	| "ITEM_CATEGORY"
+	| "ITEM"
+	| "ASSET_TYPE"
+	| "CLASS"
+	| "LEAVE_TYPE"
+	| "SECTION"
+	| "SUBJECT"
 	| "GRADING_BAND";
 
 export interface SchoolTemplateItemResponse {
@@ -21,6 +27,10 @@ export interface SchoolTemplateItemResponse {
 	minPercentage: number | null;
 	remark: string | null;
 	permissionCodes: string[];
+	unit: string | null;
+	itemCategoryCode: string | null;
+	/** False = marked "not required": kept in the catalog but ignored by preview and apply. */
+	included: boolean;
 }
 
 /** Every field applies to some categories and not others - see SchoolTemplateItem's
@@ -36,6 +46,8 @@ export interface SaveSchoolTemplateItemRequest {
 	minPercentage?: number | null;
 	remark?: string | null;
 	permissionCodes?: string[];
+	unit?: string | null;
+	itemCategoryCode?: string | null;
 }
 
 export function listSchoolTemplateItems(category: SchoolTemplateItemCategory): Promise<SchoolTemplateItemResponse[]> {
@@ -55,4 +67,19 @@ export function updateSchoolTemplateItem(id: number, request: SaveSchoolTemplate
 
 export function deleteSchoolTemplateItem(id: number): Promise<void> {
 	return api.delete<void>(`/api/v1/organisations/settings/school-template/items/${id}`);
+}
+
+export function setSchoolTemplateItemIncluded(id: number, included: boolean): Promise<SchoolTemplateItemResponse> {
+	return api.put<SchoolTemplateItemResponse>(`/api/v1/organisations/settings/school-template/items/${id}/included`, { included });
+}
+
+/** Select all / none for one category. */
+export function setSchoolTemplateCategoryIncluded(
+	category: SchoolTemplateItemCategory,
+	included: boolean,
+): Promise<SchoolTemplateItemResponse[]> {
+	return api.put<SchoolTemplateItemResponse[]>(
+		`/api/v1/organisations/settings/school-template/items/category/${category}/included`,
+		{ included },
+	);
 }

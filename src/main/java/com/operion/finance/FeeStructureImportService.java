@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Map;
 
 import com.operion.common.imports.ImportFileParser;
+import com.operion.common.imports.ImportRowErrors;
 import com.operion.common.imports.ImportRowResult;
 import com.operion.common.imports.ImportRowStatus;
 import com.operion.common.imports.ImportRunService;
@@ -30,7 +31,7 @@ public class FeeStructureImportService {
 			try {
 				results.add(rowImportService.importRow(rowNumber, rows.get(i), validateOnly));
 			} catch (Exception e) {
-				results.add(new ImportRowResult(rowNumber, ImportRowStatus.ERROR, e.getMessage(), null));
+				results.add(new ImportRowResult(rowNumber, ImportRowStatus.ERROR, ImportRowErrors.message(e), null));
 			}
 		}
 		if (!validateOnly) {

@@ -25,6 +25,7 @@ import AddIcon from "@mui/icons-material/Add";
 import { Can } from "../../auth/Can";
 import { useAuth } from "../../auth/AuthContext";
 import { recordAdjustment } from "../../api/adjustments";
+import { DialogErrorAlert } from "../../components/DialogErrorAlert";
 import { ApiError } from "../../api/client";
 import { uploadAsset } from "../../api/assets";
 import { assignFee, listFeeAssignments, type StudentFeeAssignmentResponse } from "../../api/feeAssignments";
@@ -90,6 +91,8 @@ export function StudentFeesPanel({ studentEnrollmentId, academicYearId, schoolCl
 	const [categories, setCategories] = useState<FeeCategoryResponse[]>([]);
 	const [feeApprovers, setFeeApprovers] = useState<FeeApproverResponse[]>([]);
 	const [error, setError] = useState<string | null>(null);
+	// Errors from an action taken inside a dialog belong inside that dialog - the page-level alert sits behind its backdrop.
+	const [dialogError, setDialogError] = useState<string | null>(null);
 
 	const [assignDialogOpen, setAssignDialogOpen] = useState(false);
 	const [feeStructureId, setFeeStructureId] = useState("");
@@ -160,6 +163,10 @@ export function StudentFeesPanel({ studentEnrollmentId, academicYearId, schoolCl
 		listFeeApprovers().then(setFeeApprovers).catch(() => {});
 	}, [academicYearId, schoolClassId]);
 
+	useEffect(() => {
+		setDialogError(null);
+	}, [assignDialogOpen, invoiceDialogAssignment, paymentDialogOpen, refundDialogPayment, adjustmentDialogInvoice, waiverDialogInvoice]);
+
 	function structureFor(id: number): FeeStructureResponse | undefined {
 		return feeStructures.find((s) => s.id === id);
 	}
@@ -175,7 +182,7 @@ export function StudentFeesPanel({ studentEnrollmentId, academicYearId, schoolCl
 			setReference(uploaded.reference);
 			setName(file.name);
 		} catch (err) {
-			setError(err instanceof ApiError ? err.message : "Failed to upload proof");
+			setDialogError(err instanceof ApiError ? err.message : "Failed to upload proof");
 		}
 	}
 
@@ -221,7 +228,7 @@ export function StudentFeesPanel({ studentEnrollmentId, academicYearId, schoolCl
 			setAssignDialogOpen(false);
 			refresh();
 		} catch (err) {
-			setError(err instanceof ApiError ? err.message : "Failed to assign fee");
+			setDialogError(err instanceof ApiError ? err.message : "Failed to assign fee");
 		} finally {
 			setSubmitting(false);
 		}
@@ -237,7 +244,7 @@ export function StudentFeesPanel({ studentEnrollmentId, academicYearId, schoolCl
 			setInstallmentId("");
 			refresh();
 		} catch (err) {
-			setError(err instanceof ApiError ? err.message : "Failed to generate invoice");
+			setDialogError(err instanceof ApiError ? err.message : "Failed to generate invoice");
 		} finally {
 			setSubmitting(false);
 		}
@@ -297,7 +304,7 @@ export function StudentFeesPanel({ studentEnrollmentId, academicYearId, schoolCl
 			setReceiptDialogPayment(payment);
 			refresh();
 		} catch (err) {
-			setError(err instanceof ApiError ? err.message : "Failed to record payment");
+			setDialogError(err instanceof ApiError ? err.message : "Failed to record payment");
 		} finally {
 			setSubmitting(false);
 		}
@@ -343,7 +350,7 @@ export function StudentFeesPanel({ studentEnrollmentId, academicYearId, schoolCl
 			setRefundDialogPayment(null);
 			refresh();
 		} catch (err) {
-			setError(err instanceof ApiError ? err.message : "Failed to record refund");
+			setDialogError(err instanceof ApiError ? err.message : "Failed to record refund");
 		} finally {
 			setSubmitting(false);
 		}
@@ -375,7 +382,7 @@ export function StudentFeesPanel({ studentEnrollmentId, academicYearId, schoolCl
 			setAdjustmentDialogInvoice(null);
 			refresh();
 		} catch (err) {
-			setError(err instanceof ApiError ? err.message : "Failed to record adjustment");
+			setDialogError(err instanceof ApiError ? err.message : "Failed to record adjustment");
 		} finally {
 			setSubmitting(false);
 		}
@@ -407,7 +414,7 @@ export function StudentFeesPanel({ studentEnrollmentId, academicYearId, schoolCl
 			setWaiverDialogInvoice(null);
 			refresh();
 		} catch (err) {
-			setError(err instanceof ApiError ? err.message : "Failed to record waiver");
+			setDialogError(err instanceof ApiError ? err.message : "Failed to record waiver");
 		} finally {
 			setSubmitting(false);
 		}
@@ -426,9 +433,11 @@ export function StudentFeesPanel({ studentEnrollmentId, academicYearId, schoolCl
 				<Stack spacing={2}>
 					<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
 						<Typography variant="h6">Fee assignments</Typography>
-						<Button size="small" startIcon={<AddIcon />} onClick={() => setAssignDialogOpen(true)} disabled={feeStructures.length === 0}>
+						<Can anyOf={["FEE_ASSIGNMENT_MANAGE"]}>
+<Button size="small" startIcon={<AddIcon />} onClick={() => setAssignDialogOpen(true)} disabled={feeStructures.length === 0}>
 							Assign fee
 						</Button>
+</Can>
 					</Box>
 
 					{feeStructures.length === 0 && (
@@ -478,9 +487,11 @@ export function StudentFeesPanel({ studentEnrollmentId, academicYearId, schoolCl
 												/>
 											</TableCell>
 											<TableCell>
-												<Button size="small" onClick={() => setInvoiceDialogAssignment(assignment)}>
+												<Can anyOf={["FEE_INVOICE_MANAGE"]}>
+<Button size="small" onClick={() => setInvoiceDialogAssignment(assignment)}>
 													Generate invoice
 												</Button>
+</Can>
 											</TableCell>
 										</TableRow>
 									))}
@@ -495,9 +506,11 @@ export function StudentFeesPanel({ studentEnrollmentId, academicYearId, schoolCl
 				<Stack spacing={2}>
 					<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
 						<Typography variant="h6">Invoices</Typography>
-						<Button size="small" startIcon={<AddIcon />} onClick={openPaymentDialog} disabled={outstandingInvoices.length === 0}>
+						<Can anyOf={["FEE_COLLECT"]}>
+<Button size="small" startIcon={<AddIcon />} onClick={openPaymentDialog} disabled={outstandingInvoices.length === 0}>
 							Record payment
 						</Button>
+</Can>
 					</Box>
 
 					{invoices.length === 0 && <Alert severity="info">No invoices generated yet.</Alert>}
@@ -648,6 +661,7 @@ export function StudentFeesPanel({ studentEnrollmentId, academicYearId, schoolCl
 			<Dialog open={assignDialogOpen} onClose={() => setAssignDialogOpen(false)} component="form" onSubmit={handleAssign} fullWidth maxWidth="xs">
 				<DialogTitle>Assign fee</DialogTitle>
 				<DialogContent>
+					{dialogError && <DialogErrorAlert>{dialogError}</DialogErrorAlert>}
 					<Stack spacing={2} sx={{ mt: 1 }}>
 						<TextField select label="Fee structure" value={feeStructureId} onChange={(e) => setFeeStructureId(e.target.value)} required fullWidth>
 							{feeStructures.map((structure) => (
@@ -721,6 +735,7 @@ export function StudentFeesPanel({ studentEnrollmentId, academicYearId, schoolCl
 			<Dialog open={invoiceDialogAssignment !== null} onClose={() => setInvoiceDialogAssignment(null)} component="form" onSubmit={handleGenerateInvoice} fullWidth maxWidth="xs">
 				<DialogTitle>Generate invoice</DialogTitle>
 				<DialogContent>
+					{dialogError && <DialogErrorAlert>{dialogError}</DialogErrorAlert>}
 					<TextField
 						select
 						label="Installment"
@@ -748,6 +763,7 @@ export function StudentFeesPanel({ studentEnrollmentId, academicYearId, schoolCl
 			<Dialog open={paymentDialogOpen} onClose={() => setPaymentDialogOpen(false)} component="form" onSubmit={handleRecordPayment} fullWidth maxWidth="sm">
 				<DialogTitle>Record payment</DialogTitle>
 				<DialogContent>
+					{dialogError && <DialogErrorAlert>{dialogError}</DialogErrorAlert>}
 					<Stack spacing={2} sx={{ mt: 1 }}>
 						<Box sx={{ display: "flex", gap: 2 }}>
 							<TextField label="Amount" type="number" value={paymentAmount} onChange={(e) => setPaymentAmount(e.target.value)} required fullWidth />
@@ -844,6 +860,7 @@ export function StudentFeesPanel({ studentEnrollmentId, academicYearId, schoolCl
 			<Dialog open={refundDialogPayment !== null} onClose={() => setRefundDialogPayment(null)} component="form" onSubmit={handleRefund} fullWidth maxWidth="xs">
 				<DialogTitle>Refund payment {refundDialogPayment?.receiptNumber}</DialogTitle>
 				<DialogContent>
+					{dialogError && <DialogErrorAlert>{dialogError}</DialogErrorAlert>}
 					<Stack spacing={2} sx={{ mt: 1 }}>
 						<TextField select label="Invoice" value={refundInvoiceId} onChange={(e) => setRefundInvoiceId(e.target.value)} required fullWidth>
 							{invoices.map((invoice) => (
@@ -882,6 +899,7 @@ export function StudentFeesPanel({ studentEnrollmentId, academicYearId, schoolCl
 			<Dialog open={adjustmentDialogInvoice !== null} onClose={() => setAdjustmentDialogInvoice(null)} component="form" onSubmit={handleAdjustment} fullWidth maxWidth="xs">
 				<DialogTitle>Adjust invoice {adjustmentDialogInvoice?.invoiceNumber}</DialogTitle>
 				<DialogContent>
+					{dialogError && <DialogErrorAlert>{dialogError}</DialogErrorAlert>}
 					<Stack spacing={2} sx={{ mt: 1 }}>
 						<Typography variant="caption" color="text.secondary">
 							Positive increases what's owed, negative decreases it (e.g. a billing error).
@@ -918,6 +936,7 @@ export function StudentFeesPanel({ studentEnrollmentId, academicYearId, schoolCl
 			<Dialog open={waiverDialogInvoice !== null} onClose={() => setWaiverDialogInvoice(null)} component="form" onSubmit={handleWaiver} fullWidth maxWidth="xs">
 				<DialogTitle>Waive invoice {waiverDialogInvoice?.invoiceNumber}</DialogTitle>
 				<DialogContent>
+					{dialogError && <DialogErrorAlert>{dialogError}</DialogErrorAlert>}
 					<Stack spacing={2} sx={{ mt: 1 }}>
 						<Typography variant="caption" color="text.secondary">
 							Forgives up to the outstanding balance ({waiverDialogInvoice && currency(waiverDialogInvoice.outstanding)}).

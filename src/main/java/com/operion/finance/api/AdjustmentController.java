@@ -35,6 +35,7 @@ public class AdjustmentController {
 	@PostMapping
 	@RequirePermission("FEE_ADJUSTMENT_MANAGE")
 	public AdjustmentResponse record(@RequestBody RecordAdjustmentRequest request) {
+		RequestChecks.required(request.invoiceId(), "invoiceId");
 		Invoice invoice = invoiceRepository.findById(request.invoiceId())
 				.orElseThrow(() -> new IllegalArgumentException("No invoice with id " + request.invoiceId()));
 

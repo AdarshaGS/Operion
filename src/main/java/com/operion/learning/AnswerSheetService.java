@@ -1,5 +1,6 @@
 package com.operion.learning;
 
+import com.operion.common.InvalidRequestException;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -100,10 +101,10 @@ public class AnswerSheetService {
 		actor.requireWrite(enrollment.getSection().getId(), schedule.getSubject().getId());
 		List<String> refs = pageRefs == null ? List.of() : pageRefs.stream().filter(r -> r != null && !r.isBlank()).map(String::trim).toList();
 		if (refs.isEmpty()) {
-			throw new IllegalArgumentException("Attach at least one scanned page");
+			throw new InvalidRequestException("Attach at least one scanned page");
 		}
 		if (refs.size() > MAX_PAGES) {
-			throw new IllegalArgumentException("An answer sheet can have at most " + MAX_PAGES + " pages");
+			throw new InvalidRequestException("An answer sheet can have at most " + MAX_PAGES + " pages");
 		}
 		AnswerSheet sheet = sheetRepository.findByExamScheduleIdAndStudentEnrollmentId(scheduleId, enrollmentId).orElse(null);
 		if (sheet == null) {
@@ -145,24 +146,24 @@ public class AnswerSheetService {
 		double summed = 0;
 		for (AnnotationInput a : inputs) {
 			if (a.kind() == null || !byNumber.containsKey(a.pageNumber())) {
-				throw new IllegalArgumentException("Annotation refers to an unknown page or kind");
+				throw new InvalidRequestException("Annotation refers to an unknown page or kind");
 			}
 			if (a.x() < 0 || a.x() > 1 || a.y() < 0 || a.y() > 1) {
-				throw new IllegalArgumentException("Annotation position must be within the page");
+				throw new InvalidRequestException("Annotation position must be within the page");
 			}
 			if (a.label() != null && a.label().length() > 500) {
-				throw new IllegalArgumentException("Annotation text is too long");
+				throw new InvalidRequestException("Annotation text is too long");
 			}
 			if (a.kind() == AnnotationKind.MARKS) {
 				if (a.marks() == null || a.marks() < 0) {
-					throw new IllegalArgumentException("A marks annotation needs marks of zero or more");
+					throw new InvalidRequestException("A marks annotation needs marks of zero or more");
 				}
 				summed += a.marks();
 			}
 		}
 		double total = totalMarks != null ? totalMarks : summed;
 		if (total < 0 || total > schedule.getMaxMarks()) {
-			throw new IllegalArgumentException("Total marks must be between 0 and " + schedule.getMaxMarks());
+			throw new InvalidRequestException("Total marks must be between 0 and " + schedule.getMaxMarks());
 		}
 		annotationRepository.deleteByPageSheetId(sheetId);
 		annotationRepository.flush();
@@ -208,7 +209,7 @@ public class AnswerSheetService {
 		boolean sameClass = section.getSchoolClass().getId().equals(schedule.getSchoolClass().getId());
 		boolean sameSection = schedule.getSection() == null || schedule.getSection().getId().equals(section.getId());
 		if (!sameClass || !sameSection || !enrollment.isCurrent()) {
-			throw new IllegalArgumentException("This student is not in the class/section this exam schedule covers");
+			throw new InvalidRequestException("This student is not in the class/section this exam schedule covers");
 		}
 	}
 

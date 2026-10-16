@@ -12,6 +12,7 @@ export interface StudentEnrollmentResponse {
 	studentId: number;
 	academicYearId: number;
 	sectionId: number;
+	schoolClassId: number;
 	rollNumber: number | null;
 	enrollmentStatus: string;
 	current: boolean;

@@ -38,7 +38,7 @@ export function ImportHistoryDialog({ open, onClose }: { open: boolean; onClose:
 				<Stack spacing={2} sx={{ pt: 1 }}>
 					{error && <Alert severity="error">{error}</Alert>}
 					{!runs && !error && (
-						<Stack alignItems="center" sx={{ py: 4 }}>
+						<Stack sx={{ alignItems: "center", py: 4 }}>
 							<CircularProgress />
 						</Stack>
 					)}

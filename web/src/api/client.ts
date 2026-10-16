@@ -65,7 +65,9 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 	if (response.status === 204) {
 		return undefined as T;
 	}
-	return response.json() as Promise<T>;
+	// A void controller method answers 200 with no body rather than 204.
+	const text = await response.text();
+	return (text ? JSON.parse(text) : undefined) as T;
 }
 
 export const api = {

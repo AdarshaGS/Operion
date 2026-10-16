@@ -23,6 +23,8 @@ import Typography from "@mui/material/Typography";
 import AddIcon from "@mui/icons-material/Add";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { listCampuses, type CampusResponse } from "../../api/campuses";
+import { Can } from "../../auth/Can";
+import { DialogErrorAlert } from "../../components/DialogErrorAlert";
 import { ApiError } from "../../api/client";
 import {
 	getItemBalance,
@@ -42,7 +44,6 @@ import { listDepartments, type DepartmentResponse } from "../../api/departments"
 import { listPersons, type PersonResponse } from "../../api/persons";
 import { listStaffProfiles, type StaffProfileResponse } from "../../api/staffProfiles";
 import { StudentPicker } from "../../components/StudentPicker";
-import type { StudentListRowResponse } from "../../api/students";
 
 type RecipientType = "NONE" | "DEPARTMENT" | "STAFF" | "STUDENT";
 
@@ -69,6 +70,8 @@ export function ItemDetailPage() {
 	const [error, setError] = useState<string | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [submitting, setSubmitting] = useState(false);
+	// A rejected save is explained inside its dialog - the page-level alert sits behind the backdrop.
+	const [dialogError, setDialogError] = useState<string | null>(null);
 	const [reorderLevelInput, setReorderLevelInput] = useState("");
 	const [reorderLevelSubmitting, setReorderLevelSubmitting] = useState(false);
 	const [storageLocationInput, setStorageLocationInput] = useState("");
@@ -192,6 +195,7 @@ export function ItemDetailPage() {
 		event.preventDefault();
 		if (!itemId || !campusId) return;
 		setSubmitting(true);
+		setDialogError(null);
 		try {
 			await recordStockEntry({
 				itemId: Number(itemId),
@@ -209,7 +213,7 @@ export function ItemDetailPage() {
 			setEntryDialogOpen(false);
 			refreshAll();
 		} catch (err) {
-			setError(err instanceof ApiError ? err.message : "Failed to record stock entry");
+			setDialogError(err instanceof ApiError ? err.message : "Failed to record stock entry");
 		} finally {
 			setSubmitting(false);
 		}
@@ -219,6 +223,7 @@ export function ItemDetailPage() {
 		event.preventDefault();
 		if (!itemId || !campusId) return;
 		setSubmitting(true);
+		setDialogError(null);
 		try {
 			await recordStockIssue({
 				itemId: Number(itemId),
@@ -243,7 +248,7 @@ export function ItemDetailPage() {
 			setIssueDialogOpen(false);
 			refreshAll();
 		} catch (err) {
-			setError(err instanceof ApiError ? err.message : "Failed to record stock issue");
+			setDialogError(err instanceof ApiError ? err.message : "Failed to record stock issue");
 		} finally {
 			setSubmitting(false);
 		}
@@ -253,6 +258,7 @@ export function ItemDetailPage() {
 		event.preventDefault();
 		if (!itemId || !campusId) return;
 		setSubmitting(true);
+		setDialogError(null);
 		try {
 			await recordStockAdjustment({
 				itemId: Number(itemId),
@@ -265,7 +271,7 @@ export function ItemDetailPage() {
 			setAdjustmentDialogOpen(false);
 			refreshAll();
 		} catch (err) {
-			setError(err instanceof ApiError ? err.message : "Failed to record stock adjustment");
+			setDialogError(err instanceof ApiError ? err.message : "Failed to record stock adjustment");
 		} finally {
 			setSubmitting(false);
 		}
@@ -275,6 +281,7 @@ export function ItemDetailPage() {
 		event.preventDefault();
 		if (!itemId || !campusId || !transferToCampusId) return;
 		setSubmitting(true);
+		setDialogError(null);
 		try {
 			await recordStockTransfer({
 				itemId: Number(itemId),
@@ -290,7 +297,7 @@ export function ItemDetailPage() {
 			setTransferDialogOpen(false);
 			refreshAll();
 		} catch (err) {
-			setError(err instanceof ApiError ? err.message : "Failed to record stock transfer");
+			setDialogError(err instanceof ApiError ? err.message : "Failed to record stock transfer");
 		} finally {
 			setSubmitting(false);
 		}
@@ -388,14 +395,16 @@ export function ItemDetailPage() {
 							size="small"
 							sx={{ maxWidth: 220 }}
 						/>
-						<Button
-							size="small"
-							variant="outlined"
-							onClick={handleUpdateReorderLevel}
-							disabled={reorderLevelSubmitting || (item?.reorderLevel ?? null) === (reorderLevelInput ? Number(reorderLevelInput) : null)}
-						>
-							Update
-						</Button>
+						<Can anyOf={["INVENTORY_CATALOG_MANAGE"]}>
+							<Button
+								size="small"
+								variant="outlined"
+								onClick={handleUpdateReorderLevel}
+								disabled={reorderLevelSubmitting || (item?.reorderLevel ?? null) === (reorderLevelInput ? Number(reorderLevelInput) : null)}
+							>
+								Update
+							</Button>
+						</Can>
 					</Box>
 
 					<Box sx={{ display: "flex", gap: 2, alignItems: "center", flexWrap: "wrap" }}>
@@ -406,14 +415,16 @@ export function ItemDetailPage() {
 							size="small"
 							sx={{ minWidth: 220 }}
 						/>
-						<Button
-							size="small"
-							variant="outlined"
-							onClick={handleUpdateStorageLocation}
-							disabled={storageLocationSubmitting || (item?.storageLocation ?? "") === storageLocationInput}
-						>
-							Update
-						</Button>
+						<Can anyOf={["INVENTORY_CATALOG_MANAGE"]}>
+							<Button
+								size="small"
+								variant="outlined"
+								onClick={handleUpdateStorageLocation}
+								disabled={storageLocationSubmitting || (item?.storageLocation ?? "") === storageLocationInput}
+							>
+								Update
+							</Button>
+						</Can>
 					</Box>
 
 					<Box sx={{ display: "flex", gap: 2, alignItems: "center", flexWrap: "wrap" }}>
@@ -434,17 +445,19 @@ export function ItemDetailPage() {
 									</MenuItem>
 								))}
 						</TextField>
-						<Button
-							size="small"
-							variant="outlined"
-							onClick={handleUpdateDefaultSupplier}
-							disabled={
-								defaultSupplierSubmitting ||
-								(item?.defaultSupplierId != null ? String(item.defaultSupplierId) : "") === defaultSupplierInput
-							}
-						>
-							Update
-						</Button>
+						<Can anyOf={["INVENTORY_CATALOG_MANAGE"]}>
+							<Button
+								size="small"
+								variant="outlined"
+								onClick={handleUpdateDefaultSupplier}
+								disabled={
+									defaultSupplierSubmitting ||
+									(item?.defaultSupplierId != null ? String(item.defaultSupplierId) : "") === defaultSupplierInput
+								}
+							>
+								Update
+							</Button>
+						</Can>
 					</Box>
 				</Stack>
 			</Paper>
@@ -455,18 +468,24 @@ export function ItemDetailPage() {
 						<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 1 }}>
 							<Typography variant="h6">Stock ledger</Typography>
 							<Stack direction="row" spacing={1}>
-								<Button size="small" startIcon={<AddIcon />} onClick={() => setEntryDialogOpen(true)}>
-									Record entry
-								</Button>
-								<Button size="small" startIcon={<AddIcon />} onClick={() => setIssueDialogOpen(true)}>
-									Record issue
-								</Button>
-								<Button size="small" startIcon={<AddIcon />} onClick={() => setAdjustmentDialogOpen(true)}>
-									Record adjustment
-								</Button>
-								<Button size="small" startIcon={<AddIcon />} onClick={() => setTransferDialogOpen(true)}>
-									Transfer to another campus
-								</Button>
+								<Can anyOf={["INVENTORY_STOCK_MANAGE"]}>
+									<Button size="small" startIcon={<AddIcon />} onClick={() => { setDialogError(null); setEntryDialogOpen(true); }}>
+										Record entry
+									</Button>
+									<Button size="small" startIcon={<AddIcon />} onClick={() => { setDialogError(null); setIssueDialogOpen(true); }}>
+										Record issue
+									</Button>
+								</Can>
+								<Can anyOf={["INVENTORY_ADJUSTMENT_MANAGE"]}>
+									<Button size="small" startIcon={<AddIcon />} onClick={() => { setDialogError(null); setAdjustmentDialogOpen(true); }}>
+										Record adjustment
+									</Button>
+								</Can>
+								<Can anyOf={["INVENTORY_STOCK_MANAGE"]}>
+									<Button size="small" startIcon={<AddIcon />} onClick={() => { setDialogError(null); setTransferDialogOpen(true); }}>
+										Transfer to another campus
+									</Button>
+								</Can>
 							</Stack>
 						</Box>
 
@@ -506,6 +525,7 @@ export function ItemDetailPage() {
 				<DialogTitle>Record stock entry</DialogTitle>
 				<DialogContent>
 					<Stack spacing={2} sx={{ mt: 1 }}>
+						{dialogError && <DialogErrorAlert>{dialogError}</DialogErrorAlert>}
 						<TextField
 							label="Quantity"
 							type="number"
@@ -556,6 +576,7 @@ export function ItemDetailPage() {
 				<DialogTitle>Record stock issue</DialogTitle>
 				<DialogContent>
 					<Stack spacing={2} sx={{ mt: 1 }}>
+						{dialogError && <DialogErrorAlert>{dialogError}</DialogErrorAlert>}
 						<TextField
 							label="Quantity"
 							type="number"
@@ -650,6 +671,7 @@ export function ItemDetailPage() {
 				<DialogTitle>Record stock adjustment</DialogTitle>
 				<DialogContent>
 					<Stack spacing={2} sx={{ mt: 1 }}>
+						{dialogError && <DialogErrorAlert>{dialogError}</DialogErrorAlert>}
 						<TextField
 							label="Quantity delta"
 							type="number"
@@ -697,6 +719,7 @@ export function ItemDetailPage() {
 				<DialogTitle>Transfer to another campus</DialogTitle>
 				<DialogContent>
 					<Stack spacing={2} sx={{ mt: 1 }}>
+						{dialogError && <DialogErrorAlert>{dialogError}</DialogErrorAlert>}
 						<TextField select label="To campus" value={transferToCampusId} onChange={(e) => setTransferToCampusId(e.target.value)} required autoFocus fullWidth>
 							{campuses
 								.filter((campus) => String(campus.id) !== campusId)
