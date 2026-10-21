@@ -56,4 +56,57 @@ class SqlGuardTest {
 	void rejectsABlockComment() {
 		assertThatThrownBy(() -> SqlGuard.assertSingleSelect("SELECT 1 /* comment */")).isInstanceOf(IllegalArgumentException.class);
 	}
+
+	// SEC-H3: the views scope rows by @reporting_org_id, so a query that reassigns it reads another school's data.
+	@Test
+	void rejectsReassigningTheOrganisationVariableInline() {
+		assertThatThrownBy(() -> SqlGuard.assertSingleSelect(
+				"SELECT s.* FROM (SELECT @reporting_org_id := 7) x, reporting_students s"))
+				.isInstanceOf(IllegalArgumentException.class);
+	}
+
+	@Test
+	void rejectsSelectIntoAVariable() {
+		assertThatThrownBy(() -> SqlGuard.assertSingleSelect("SELECT 7 INTO @reporting_org_id"))
+				.isInstanceOf(IllegalArgumentException.class);
+	}
+
+	@Test
+	void rejectsAHashComment() {
+		assertThatThrownBy(() -> SqlGuard.assertSingleSelect("SELECT 1 # hidden")).isInstanceOf(IllegalArgumentException.class);
+	}
+
+	@Test
+	void rejectsWritingToAFile() {
+		assertThatThrownBy(() -> SqlGuard.assertSingleSelect("SELECT student_name FROM reporting_students INTO OUTFILE '/tmp/x'"))
+				.isInstanceOf(IllegalArgumentException.class);
+	}
+
+	@Test
+	void aBackslashCannotHideAnAssignmentInsideWhatLooksLikeAString() {
+		assertThatThrownBy(() -> SqlGuard.assertSingleSelect("SELECT 'x\\', @reporting_org_id := 7, '' FROM reporting_students"))
+				.isInstanceOf(IllegalArgumentException.class);
+	}
+
+	@Test
+	void harmlessWordsInValuesAliasesAndTheReplaceFunctionAreAllowed() {
+		assertThatCode(() -> {
+			SqlGuard.assertSingleSelect("SELECT student_name FROM reporting_students WHERE student_name = 'Update me'");
+			SqlGuard.assertSingleSelect("SELECT REPLACE(student_name, 'a', 'b') AS name FROM reporting_students LIMIT 1");
+			SqlGuard.assertSingleSelect("SELECT class_name AS `set` FROM reporting_students LIMIT 1");
+		}).doesNotThrowAnyException();
+	}
+
+	@Test
+	void forUpdateIsStillRejected() {
+		assertThatThrownBy(() -> SqlGuard.assertSingleSelect("SELECT student_id FROM reporting_students FOR UPDATE"))
+				.isInstanceOf(IllegalArgumentException.class);
+	}
+
+	@Test
+	void stillAllowsAtSignsAndColonsInsideQuotedValues() {
+		assertThatCode(() -> SqlGuard.assertSingleSelect(
+				"SELECT * FROM reporting_staff WHERE email = 'head@school.org' AND note <> 'a := b' AND `into` = :yearId"))
+				.doesNotThrowAnyException();
+	}
 }
