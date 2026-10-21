@@ -12,6 +12,11 @@ import com.operion.identity.Person;
 import com.operion.identity.PersonRepository;
 import com.operion.timetable.Period;
 import com.operion.timetable.PeriodRepository;
+import com.operion.timetable.PeriodTemplate;
+import com.operion.timetable.PeriodTemplateRepository;
+import com.operion.timetable.Room;
+import com.operion.timetable.RoomRepository;
+import com.operion.timetable.SlotType;
 import com.operion.timetable.TimetableEntry;
 import com.operion.timetable.TimetableEntryRepository;
 import com.operion.timetable.TimetableService;
@@ -35,35 +40,49 @@ public class TimetableController {
 	private final SectionRepository sectionRepository;
 	private final SubjectRepository subjectRepository;
 	private final PersonRepository personRepository;
+	private final RoomRepository roomRepository;
+	private final PeriodTemplateRepository templateRepository;
 
 	public TimetableController(TimetableService timetableService, PeriodRepository periodRepository,
 			TimetableEntryRepository entryRepository, SectionRepository sectionRepository,
-			SubjectRepository subjectRepository, PersonRepository personRepository) {
+			SubjectRepository subjectRepository, PersonRepository personRepository,
+			RoomRepository roomRepository, PeriodTemplateRepository templateRepository) {
 		this.timetableService = timetableService;
 		this.periodRepository = periodRepository;
 		this.entryRepository = entryRepository;
 		this.sectionRepository = sectionRepository;
 		this.subjectRepository = subjectRepository;
 		this.personRepository = personRepository;
+		this.roomRepository = roomRepository;
+		this.templateRepository = templateRepository;
 	}
 
+	/** The default school day, or the day of the template when {@code templateId} is given. */
 	@GetMapping("/api/v1/timetable/periods")
-	public List<PeriodResponse> listPeriods() {
-		return timetableService.listPeriods().stream().map(PeriodResponse::from).toList();
+	public List<PeriodResponse> listPeriods(@RequestParam(required = false) Long templateId) {
+		return timetableService.listPeriods(templateId == null ? null : findTemplate(templateId)).stream().map(PeriodResponse::from).toList();
+	}
+
+	/** The periods of the school day the section's class follows - what its grid is drawn from. */
+	@GetMapping("/api/v1/sections/{sectionId}/timetable/periods")
+	public List<PeriodResponse> sectionPeriods(@PathVariable Long sectionId) {
+		Section section = sectionRepository.findById(sectionId)
+				.orElseThrow(() -> new IllegalArgumentException("No section with id " + sectionId));
+		return timetableService.periodsFor(section).stream().map(PeriodResponse::from).toList();
 	}
 
 	@PostMapping("/api/v1/timetable/periods")
 	@RequirePermission("TIMETABLE_MANAGE")
 	public PeriodResponse createPeriod(@Valid @RequestBody CreatePeriodRequest request) {
-		return PeriodResponse.from(timetableService.createPeriod(request.ordinal(), request.label(),
-				request.startTime(), request.endTime(), Boolean.TRUE.equals(request.breakSlot())));
+		return PeriodResponse.from(timetableService.createPeriod(request.templateId() == null ? null : findTemplate(request.templateId()),
+				request.ordinal(), request.label(), request.startTime(), request.endTime(), slotType(request.slotType(), request.breakSlot())));
 	}
 
 	@PutMapping("/api/v1/timetable/periods/{id}")
 	@RequirePermission("TIMETABLE_MANAGE")
 	public PeriodResponse updatePeriod(@PathVariable Long id, @Valid @RequestBody PeriodRequest request) {
 		return PeriodResponse.from(timetableService.updatePeriod(findPeriod(id), request.label(), request.startTime(),
-				request.endTime(), Boolean.TRUE.equals(request.breakSlot())));
+				request.endTime(), slotType(request.slotType(), request.breakSlot())));
 	}
 
 	@DeleteMapping("/api/v1/timetable/periods/{id}")
@@ -78,6 +97,14 @@ public class TimetableController {
 			throw new IllegalArgumentException("No section with id " + sectionId);
 		}
 		return entryRepository.findBySectionId(sectionId).stream().map(TimetableEntryResponse::from).toList();
+	}
+
+	@GetMapping("/api/v1/sections/{sectionId}/timetable/summary")
+	public SectionTimetableSummaryResponse summary(@PathVariable Long sectionId) {
+		Section section = sectionRepository.findById(sectionId)
+				.orElseThrow(() -> new IllegalArgumentException("No section with id " + sectionId));
+		return SectionTimetableSummaryResponse.of(sectionId, timetableService.coverage(section),
+				timetableService.publication(sectionId).map(p -> p.getCreatedAt()).orElse(null));
 	}
 
 	/** Optional academicYearId narrows to one year; without it every year's slots come back. */
@@ -100,7 +127,34 @@ public class TimetableController {
 		Person teacher = personRepository.findById(request.teacherPersonId())
 				.orElseThrow(() -> new IllegalArgumentException("No person with id " + request.teacherPersonId()));
 		DayOfWeek day = DayOfWeek.valueOf(request.dayOfWeek());
-		return TimetableEntryResponse.from(timetableService.setEntry(section, subject, teacher, day, findPeriod(request.periodId())));
+		Room room = request.roomId() == null ? null : roomRepository.findById(request.roomId())
+				.orElseThrow(() -> new IllegalArgumentException("No room with id " + request.roomId()));
+		return TimetableEntryResponse.from(timetableService.setEntry(section, subject, teacher, day, findPeriod(request.periodId()), room));
+	}
+
+	@PostMapping("/api/v1/sections/{sectionId}/timetable/publish")
+	@RequirePermission("TIMETABLE_MANAGE")
+	public SectionTimetableSummaryResponse publish(@PathVariable Long sectionId) {
+		Section section = sectionRepository.findById(sectionId)
+				.orElseThrow(() -> new IllegalArgumentException("No section with id " + sectionId));
+		timetableService.publish(section);
+		return summary(sectionId);
+	}
+
+	@PostMapping("/api/v1/sections/{sectionId}/timetable/unpublish")
+	@RequirePermission("TIMETABLE_MANAGE")
+	public SectionTimetableSummaryResponse unpublish(@PathVariable Long sectionId) {
+		Section section = sectionRepository.findById(sectionId)
+				.orElseThrow(() -> new IllegalArgumentException("No section with id " + sectionId));
+		timetableService.unpublish(section);
+		return summary(sectionId);
+	}
+
+	/** Publishes every section of the year that has timetable slots and isn't published yet. */
+	@PostMapping("/api/v1/academic-years/{academicYearId}/timetable/publish")
+	@RequirePermission("TIMETABLE_MANAGE")
+	public java.util.Map<String, Integer> publishYear(@PathVariable Long academicYearId) {
+		return java.util.Map.of("published", timetableService.publishYear(academicYearId));
 	}
 
 	@DeleteMapping("/api/v1/timetable-entries/{id}")
@@ -109,6 +163,17 @@ public class TimetableController {
 		TimetableEntry entry = entryRepository.findById(id)
 				.orElseThrow(() -> new IllegalArgumentException("No timetable entry with id " + id));
 		timetableService.removeEntry(entry);
+	}
+
+	private static SlotType slotType(String slotType, Boolean breakSlot) {
+		if (slotType != null) {
+			return SlotType.valueOf(slotType);
+		}
+		return Boolean.TRUE.equals(breakSlot) ? SlotType.BREAK : SlotType.TEACHING;
+	}
+
+	private PeriodTemplate findTemplate(Long id) {
+		return templateRepository.findById(id).orElseThrow(() -> new IllegalArgumentException("No period template with id " + id));
 	}
 
 	private Period findPeriod(Long id) {

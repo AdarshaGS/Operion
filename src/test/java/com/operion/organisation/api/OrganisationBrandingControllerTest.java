@@ -45,6 +45,11 @@ class OrganisationBrandingControllerTest {
 		public boolean exists(String reference) {
 			return true;
 		}
+
+		@Override
+		public java.util.Optional<byte[]> read(String reference) {
+			return java.util.Optional.empty();
+		}
 	};
 
 	@AfterEach

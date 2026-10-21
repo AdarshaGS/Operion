@@ -1,6 +1,6 @@
 import { api } from "./client";
 
-export type DocumentType = "QUESTION_PAPER_HEADER" | "REPORT_CARD";
+export type DocumentType = "QUESTION_PAPER_HEADER" | "REPORT_CARD" | "RECEIPT";
 export type TemplateStyle = "CLASSIC" | "MODERN" | "MINIMAL" | "ELEGANT";
 
 export interface DocumentTemplateResponse {

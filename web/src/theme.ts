@@ -1,9 +1,9 @@
 import { createTheme, type Theme } from "@mui/material/styles";
 
 /**
- * Design language: clean SaaS card UI - light neutral background, white surfaces,
- * navy-ink text, a single crimson accent used for primary actions and active state.
- * One sans face throughout; no monospace ledger styling.
+ * Design language: soft SaaS card UI - lavender-tinted background, white (light) or deep navy
+ * (dark) surfaces, a single indigo/violet accent for primary actions and the active nav item,
+ * generously rounded cards with soft shadows. One sans face throughout.
  *
  * Tokens are duplicated per mode below, then exposed as CSS custom properties
  * (see `themeCssVars`) rather than as literal strings. `colors.*` therefore holds
@@ -30,48 +30,87 @@ export type ColorTokens = {
 	warnBg: string;
 	bad: string;
 	badBg: string;
+	info: string;
+	infoBg: string;
+	/** Soft tinted backgrounds for icon tiles / stat cards, one per hue. */
+	tintViolet: string;
+	tintGreen: string;
+	tintOrange: string;
+	tintPink: string;
+	tintBlue: string;
+	/** Full CSS `background` values (gradients) - used for the hero banner and the active sidebar item. */
+	heroBg: string;
+	navActiveBg: string;
+	navActiveInk: string;
+	/** Surface the sidebar and top bar sit on. */
+	chrome: string;
+	shadowCard: string;
 };
 
 const lightTokens: ColorTokens = {
-	paper: "#F4F5F8",
+	paper: "#F5F6FC",
 	paperRaised: "#FFFFFF",
-	paperSunken: "#EEF0F4",
-	ink: "#16233A",
-	inkSoft: "#4B5A6E",
-	inkFaint: "#8B97A0",
-	rule: "#E3E6EC",
-	ruleStrong: "#5C7A99",
-	accent: "#A32638",
-	accentStrong: "#7E1E2B",
-	accentSoft: "rgba(163,38,56,0.08)",
+	paperSunken: "#EEF0FA",
+	ink: "#1A1D3B",
+	inkSoft: "#555B7A",
+	inkFaint: "#8B90AD",
+	rule: "#E6E8F4",
+	ruleStrong: "#8A91C8",
+	accent: "#5B50E6",
+	accentStrong: "#4337C8",
+	accentSoft: "rgba(91,80,230,0.10)",
 	accentInk: "#FFFFFF",
-	ok: "#2F7A4F",
-	okBg: "rgba(47,122,79,0.12)",
-	warn: "#97661B",
-	warnBg: "rgba(151,102,27,0.14)",
-	bad: "#A32638",
-	badBg: "rgba(163,38,56,0.10)",
+	ok: "#1E9F62",
+	okBg: "rgba(30,159,98,0.12)",
+	warn: "#D9730D",
+	warnBg: "rgba(217,115,13,0.13)",
+	bad: "#E0394A",
+	badBg: "rgba(224,57,74,0.10)",
+	info: "#2F7BE0",
+	infoBg: "rgba(47,123,224,0.11)",
+	tintViolet: "#EDEBFF",
+	tintGreen: "#E3F6EC",
+	tintOrange: "#FFEEDC",
+	tintPink: "#FFE6EB",
+	tintBlue: "#E3EEFF",
+	heroBg: "linear-gradient(120deg, #E4E0FF 0%, #E9EEFF 55%, #DDEBFF 100%)",
+	navActiveBg: "rgba(91,80,230,0.12)",
+	navActiveInk: "#4337C8",
+	chrome: "#FFFFFF",
+	shadowCard: "0 1px 2px rgba(40,44,100,0.04), 0 6px 20px rgba(40,44,100,0.06)",
 };
 
 const darkTokens: ColorTokens = {
-	paper: "#12161F",
-	paperRaised: "#1A2030",
-	paperSunken: "#0D1017",
-	ink: "#E8ECF2",
-	inkSoft: "#A9B4C2",
-	inkFaint: "#6B7686",
-	rule: "#2A3142",
-	ruleStrong: "#7C97B3",
-	accent: "#E0495C",
-	accentStrong: "#C23347",
-	accentSoft: "rgba(224,73,92,0.16)",
+	paper: "#0B0E1C",
+	paperRaised: "#131733",
+	paperSunken: "#0A0C19",
+	ink: "#EEF0FB",
+	inkSoft: "#A8AECB",
+	inkFaint: "#6E7596",
+	rule: "#242A4D",
+	ruleStrong: "#8E97D8",
+	accent: "#8174FF",
+	accentStrong: "#6355F0",
+	accentSoft: "rgba(129,116,255,0.18)",
 	accentInk: "#FFFFFF",
-	ok: "#4CAF6C",
-	okBg: "rgba(76,175,108,0.16)",
-	warn: "#D9A441",
-	warnBg: "rgba(217,164,65,0.16)",
-	bad: "#E0495C",
-	badBg: "rgba(224,73,92,0.14)",
+	ok: "#34D58A",
+	okBg: "rgba(52,213,138,0.15)",
+	warn: "#F5A524",
+	warnBg: "rgba(245,165,36,0.15)",
+	bad: "#FF6B78",
+	badBg: "rgba(255,107,120,0.15)",
+	info: "#5AA2FF",
+	infoBg: "rgba(90,162,255,0.16)",
+	tintViolet: "rgba(129,116,255,0.20)",
+	tintGreen: "rgba(52,213,138,0.16)",
+	tintOrange: "rgba(245,165,36,0.16)",
+	tintPink: "rgba(255,107,120,0.16)",
+	tintBlue: "rgba(90,162,255,0.17)",
+	heroBg: "linear-gradient(120deg, #151A45 0%, #1B1F5E 50%, #172A66 100%)",
+	navActiveBg: "linear-gradient(90deg, #6D3FE8 0%, #4F6BF0 100%)",
+	navActiveInk: "#FFFFFF",
+	chrome: "#0F1330",
+	shadowCard: "0 1px 2px rgba(0,0,0,0.30), 0 8px 24px rgba(0,0,0,0.28)",
 };
 
 function cssVarName(key: string): string {
@@ -95,7 +134,7 @@ export const themeCssVars = {
 	":root[data-theme='dark']": toCssVarDeclarations(darkTokens),
 };
 
-export const fontBody = '-apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
+export const fontBody = '"Inter", -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif';
 export const fontDisplay = fontBody;
 
 export type ThemeMode = "light" | "dark";
@@ -110,11 +149,12 @@ export function buildTheme(mode: ThemeMode): Theme {
 			success: { main: t.ok },
 			warning: { main: t.warn },
 			error: { main: t.bad },
+			info: { main: t.info },
 			background: { default: t.paper, paper: t.paperRaised },
 			text: { primary: t.ink, secondary: t.inkSoft, disabled: t.inkFaint },
 			divider: t.rule,
 		},
-		shape: { borderRadius: 10 },
+		shape: { borderRadius: 12 },
 		typography: {
 			fontFamily: fontBody,
 			h1: { fontWeight: 700, letterSpacing: "-0.01em" },
@@ -157,10 +197,8 @@ export function buildTheme(mode: ThemeMode): Theme {
 			MuiListItemButton: {
 				styleOverrides: {
 					root: {
-						borderLeft: "3px solid transparent",
-						borderRadius: 8,
+						borderRadius: 10,
 						"&.Mui-selected": {
-							borderLeftColor: colors.accent,
 							backgroundColor: colors.accentSoft,
 							"&:hover": { backgroundColor: colors.accentSoft },
 						},
@@ -169,21 +207,34 @@ export function buildTheme(mode: ThemeMode): Theme {
 			},
 			MuiPaper: {
 				styleOverrides: {
-					root: { backgroundImage: "none" },
-					elevation1: { boxShadow: "0 1px 2px rgba(16,24,40,0.04), 0 1px 3px rgba(16,24,40,0.06)" },
-					outlined: { borderColor: colors.rule },
+					root: { backgroundImage: "none", borderRadius: 16 },
+					elevation1: { boxShadow: colors.shadowCard },
+					outlined: { borderColor: colors.rule, boxShadow: colors.shadowCard },
 				},
+			},
+			// Alert is built on Paper, so it inherited the 16px card radius and read as a pill when one line tall.
+			MuiAlert: {
+				styleOverrides: { root: { borderRadius: 12 } },
+			},
+			MuiMenu: {
+				styleOverrides: { paper: { borderRadius: 12, border: `1px solid ${colors.rule}` } },
 			},
 			MuiButton: {
 				defaultProps: { disableElevation: true },
 				styleOverrides: {
-					root: { borderRadius: 8 },
-					outlined: { borderColor: colors.ruleStrong },
+					root: { borderRadius: 10 },
+					outlined: { borderColor: colors.rule, "&:hover": { borderColor: colors.accent, backgroundColor: colors.accentSoft } },
 				},
+				variants: [
+					{
+						props: { variant: "contained", color: "primary" },
+						style: { background: `linear-gradient(135deg, ${colors.accent} 0%, ${colors.accentStrong} 100%)`, "&.Mui-disabled": { background: colors.paperSunken, color: colors.inkFaint } },
+					},
+				],
 			},
 			MuiChip: {
 				styleOverrides: {
-					root: { fontWeight: 600 },
+					root: { fontWeight: 600, borderRadius: 8 },
 				},
 			},
 			MuiTableCell: {

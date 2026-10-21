@@ -1,5 +1,7 @@
 package com.operion.examination;
 
+import com.operion.examination.api.ExamOverviewController;
+import com.operion.examination.api.ExamOverviewResponse;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.within;
@@ -246,6 +248,48 @@ class ReportCardTest {
 
 		ReportCard supersededOriginal = reportCardRepository.findById(firstPublish.getId()).orElseThrow();
 		assertThat(supersededOriginal.getStatus()).isEqualTo(ReportCardStatus.SUPERSEDED);
+	}
+
+	@Test
+	void examOverviewRollsUpExamStatusMarksProgressAndPublishedResults() {
+		Fixture fixture = setUpFixture("exam-overview-school", "ADM-506");
+		examinationService.enterMarks(fixture.mathsSchedule(), List.of(new MarkInput(fixture.enrollment(), 90.0, false, null)));
+		examinationService.enterMarks(fixture.scienceSchedule(), List.of(new MarkInput(fixture.enrollment(), 85.0, false, null)));
+		approveRegister(fixture.mathsSchedule());
+		approveRegister(fixture.scienceSchedule());
+		examinationService.publishReportCard(fixture.exam(), fixture.enrollment(), fixture.gradingScale());
+
+		// A second exam whose paper date has passed but nobody has submitted marks for it.
+		Exam unitTest = examinationService.createExam(fixture.exam().getAcademicYear(), "Unit Test", ExamType.UNIT_TEST);
+		examinationService.addSchedule(unitTest, fixture.mathsSchedule().getSchoolClass(), fixture.mathsSchedule().getSubject(), LocalDate.of(2025, 7, 1), 50.0, 20.0);
+		// And one with no schedule yet.
+		examinationService.createExam(fixture.exam().getAcademicYear(), "Final", ExamType.FINAL);
+
+		ExamOverviewResponse overview = new ExamOverviewController(examRepository, examScheduleRepository, marksEntryRegisterRepository, reportCardRepository)
+				.overview(fixture.exam().getAcademicYear().getId());
+
+		assertThat(overview.totalExams()).isEqualTo(3);
+		assertThat(overview.upcomingExams()).isZero();
+		assertThat(overview.nextExam()).isNull();
+		assertThat(overview.marksPendingSubjects()).isEqualTo(1);
+		assertThat(overview.marksPendingClasses()).isEqualTo(1);
+		assertThat(overview.resultsPublishedExams()).isEqualTo(1);
+		assertThat(overview.lastPublished().name()).isEqualTo("Half Yearly");
+
+		ExamOverviewResponse.ExamRow halfYearly = overview.exams().stream().filter(row -> row.name().equals("Half Yearly")).findFirst().orElseThrow();
+		assertThat(halfYearly.resultStatus()).isEqualTo("PUBLISHED");
+		assertThat(halfYearly.marksEntryPercent()).isEqualTo(100);
+		assertThat(halfYearly.classes()).isEqualTo("Grade 5");
+		assertThat(halfYearly.startDate()).isEqualTo(LocalDate.of(2025, 9, 1));
+		assertThat(halfYearly.endDate()).isEqualTo(LocalDate.of(2025, 9, 3));
+		assertThat(overview.exams().stream().filter(row -> row.name().equals("Unit Test")).findFirst().orElseThrow().resultStatus()).isEqualTo("NOT_STARTED");
+		assertThat(overview.exams().stream().filter(row -> row.name().equals("Final")).findFirst().orElseThrow().resultStatus()).isEqualTo("DRAFT");
+
+		// 3 of 3 schedules in Grade 5 exist; 2 submitted+approved, 1 (Unit Test) not entered.
+		assertThat(overview.marksByClass()).hasSize(1);
+		assertThat(overview.marksByClass().get(0).percent()).isEqualTo(67);
+		assertThat(overview.resultSummary().passRate()).isEqualTo(100);
+		assertThat(overview.resultSummary().grades()).extracting(ExamOverviewResponse.GradeCount::grade).containsExactly("A");
 	}
 
 	private void approveRegister(ExamSchedule schedule) {

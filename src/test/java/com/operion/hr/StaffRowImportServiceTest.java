@@ -1,5 +1,8 @@
 package com.operion.hr;
 
+import com.operion.academic.WorkingCalendarEntryRepository;
+import com.operion.calendar.WorkingDayService;
+import com.operion.organisation.OrganisationConfigurationRepository;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.nio.charset.StandardCharsets;
@@ -51,6 +54,12 @@ import tools.jackson.databind.ObjectMapper;
 @Import({ MultiTenancyConfig.class, JpaConfig.class })
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class StaffRowImportServiceTest {
+
+	@Autowired
+	private WorkingCalendarEntryRepository workingCalendarEntryRepository;
+
+	@Autowired
+	private OrganisationConfigurationRepository organisationConfigurationRepository;
 
 	@Autowired
 	private OrganisationRepository organisationRepository;
@@ -122,6 +131,7 @@ class StaffRowImportServiceTest {
 		HrService hrService = new HrService(staffProfileRepository, leaveTypeRepository, leaveBalanceRepository, leaveRequestRepository,
 				staffDocumentRepository, jobApplicationRepository, organisationRepository, staffAssignmentRepository,
 				staffExitRepository, staffBankDetailRepository, staffAttendanceRepository,
+				new WorkingDayService(workingCalendarEntryRepository, organisationConfigurationRepository),
 				new AuditLogService(auditLogRepository, new ObjectMapper()));
 		StaffRowImportService staffRowImportService = new StaffRowImportService(
 				personRepository, staffProfileRepository, departmentRepository, designationRepository, campusRepository, hrService);

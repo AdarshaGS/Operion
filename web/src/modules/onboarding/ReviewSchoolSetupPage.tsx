@@ -35,6 +35,12 @@ function rowsFrom(preview: SchoolTemplatePreviewResponse): ReviewRow[] {
 		{ label: "Asset types", done: anyPresent(preview.assetTypes), path: "/inventory", ctaLabel: "Manage assets" },
 		{ label: "Leave types", done: anyPresent(preview.leaveTypes), path: "/hr", ctaLabel: "Manage leave types" },
 		{ label: "Grading scale", done: preview.gradingScaleExists, path: "/examinations", ctaLabel: "Manage grading scales" },
+		{
+			label: "Certificate types",
+			done: anyPresent(preview.certificateTypes ?? []),
+			path: "/settings/certificate-types",
+			ctaLabel: "Manage certificate types",
+		},
 	];
 }
 

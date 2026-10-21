@@ -89,7 +89,19 @@ public class CommunicationService {
 	@Transactional
 	public Announcement createAnnouncement(Campus campus, String title, String body, AudienceType audienceType, Long audienceRefId,
 			List<Person> selectedGroupPersons, Instant scheduledAt) {
-		Announcement announcement = announcementRepository.save(new Announcement(campus, title, body, audienceType, audienceRefId, scheduledAt));
+		return createAnnouncement(campus, title, body, audienceType, audienceRefId, selectedGroupPersons, scheduledAt, false);
+	}
+
+	/** sendOnNonWorkingDays: let a scheduled announcement go out even when its day is a holiday
+	 * or weekly off - see Announcement.sendOnNonWorkingDays. */
+	@Transactional
+	public Announcement createAnnouncement(Campus campus, String title, String body, AudienceType audienceType, Long audienceRefId,
+			List<Person> selectedGroupPersons, Instant scheduledAt, boolean sendOnNonWorkingDays) {
+		Announcement draft = new Announcement(campus, title, body, audienceType, audienceRefId, scheduledAt);
+		if (sendOnNonWorkingDays) {
+			draft.allowOnNonWorkingDays();
+		}
+		Announcement announcement = announcementRepository.save(draft);
 		for (Person person : selectedGroupPersons) {
 			announcementAudienceMemberRepository.save(new AnnouncementAudienceMember(announcement, person));
 		}

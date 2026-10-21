@@ -25,7 +25,23 @@ import { changeSectionStatus, createSection, listSections, updateSection, type S
 /** Sections for one class offering - a standalone panel (#246) so it can be reused both
  * in the Academics tabbed configuration area and on SchoolClassSectionsPage's own
  * per-class route, from a single source of truth. */
-export function SectionsPanel({ classId, onSectionClick }: { classId: number; onSectionClick?: (section: SectionResponse) => void }) {
+export interface SectionDetail {
+	students: number | null;
+	classTeacher: string | null;
+}
+
+export function SectionsPanel({
+	classId,
+	onSectionClick,
+	title = "Sections",
+	details,
+}: {
+	classId: number;
+	onSectionClick?: (section: SectionResponse) => void;
+	title?: string;
+	/** When given, adds Class teacher and Students columns; a missing entry renders "—". */
+	details?: Map<number, SectionDetail>;
+}) {
 	const [sections, setSections] = useState<SectionResponse[] | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	const [dialogOpen, setDialogOpen] = useState(false);
@@ -107,7 +123,7 @@ export function SectionsPanel({ classId, onSectionClick }: { classId: number; on
 		<Paper sx={{ p: 3 }}>
 			<Stack spacing={2}>
 				<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-					<Typography variant="h6">Sections</Typography>
+					<Typography variant="h6">{title}</Typography>
 					<Button size="small" startIcon={<AddIcon />} onClick={() => setDialogOpen(true)}>
 						Add section
 					</Button>
@@ -121,7 +137,7 @@ export function SectionsPanel({ classId, onSectionClick }: { classId: number; on
 					</Box>
 				)}
 
-				{sections && sections.length === 0 && <Alert severity="info">No sections yet.</Alert>}
+				{sections && sections.length === 0 && <Alert severity="info">No sections yet. Use "Add section" to create the first one.</Alert>}
 
 				{sections && sections.length > 0 && (
 					<TableContainer>
@@ -129,6 +145,8 @@ export function SectionsPanel({ classId, onSectionClick }: { classId: number; on
 							<TableHead>
 								<TableRow>
 									<TableCell>Name</TableCell>
+									{details && <TableCell>Class teacher</TableCell>}
+									{details && <TableCell>Students</TableCell>}
 									<TableCell>Capacity</TableCell>
 									<TableCell>Room</TableCell>
 									<TableCell>Status</TableCell>
@@ -144,6 +162,8 @@ export function SectionsPanel({ classId, onSectionClick }: { classId: number; on
 										onClick={() => onSectionClick?.(section)}
 									>
 										<TableCell>{section.name}</TableCell>
+										{details && <TableCell>{details.get(section.id)?.classTeacher ?? "—"}</TableCell>}
+										{details && <TableCell>{details.get(section.id)?.students ?? "—"}</TableCell>}
 										<TableCell>{section.capacity ?? "—"}</TableCell>
 										<TableCell>{section.room ?? "—"}</TableCell>
 										<TableCell>

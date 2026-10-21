@@ -25,6 +25,16 @@ export function setSession(session: StoredSession): void {
 	localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
 }
 
+const clearListeners = new Set<() => void>();
+
+/** Called whenever the stored session is cleared - including by the API client on a rejected token,
+ * which has no access to React state - so the auth layer can drop the user back to sign-in. */
+export function onSessionCleared(listener: () => void): () => void {
+	clearListeners.add(listener);
+	return () => clearListeners.delete(listener);
+}
+
 export function clearSession(): void {
 	localStorage.removeItem(STORAGE_KEY);
+	clearListeners.forEach((listener) => listener());
 }

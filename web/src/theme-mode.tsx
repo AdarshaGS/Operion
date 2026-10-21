@@ -19,11 +19,12 @@ function systemPrefersDark(): boolean {
 function readStoredPreference(): ThemePreference {
 	try {
 		const stored = localStorage.getItem(STORAGE_KEY);
-		if (stored === "light" || stored === "dark") return stored;
+		if (stored === "light" || stored === "dark" || stored === "system") return stored;
 	} catch {
-		// per-viewer convenience only - fine to fall back to system default
+		// per-viewer convenience only - fine to fall back to the default
 	}
-	return "system";
+	// Light is the default; "system" stays available as an explicit choice in the account menu.
+	return "light";
 }
 
 function resolveMode(preference: ThemePreference): ThemeMode {
@@ -64,8 +65,7 @@ export function ThemeModeProvider({ children }: { children: ReactNode }) {
 	function setPreference(next: ThemePreference) {
 		setPreferenceState(next);
 		try {
-			if (next === "system") localStorage.removeItem(STORAGE_KEY);
-			else localStorage.setItem(STORAGE_KEY, next);
+			localStorage.setItem(STORAGE_KEY, next);
 		} catch {
 			// per-viewer convenience only - the choice just won't survive a reload
 		}

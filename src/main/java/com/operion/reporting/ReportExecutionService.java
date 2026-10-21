@@ -91,11 +91,26 @@ public class ReportExecutionService {
 		while (resultSet.next()) {
 			Map<String, Object> row = new LinkedHashMap<>();
 			for (int i = 1; i <= columnCount; i++) {
-				row.put(metadata.getColumnLabel(i), resultSet.getObject(i));
+				row.put(metadata.getColumnLabel(i), readValue(resultSet, i));
 			}
 			rows.add(row);
 		}
 		return new ExecutionResult(columns, rows);
+	}
+
+	/**
+	 * java.sql.Date/Timestamp are serialized as instants, which shifts a DATE column by the server's zone
+	 * offset (12 Apr became "11 Apr 18:30Z" on an IST server). Local types serialize as the calendar value.
+	 */
+	private static Object readValue(ResultSet resultSet, int column) throws SQLException {
+		Object value = resultSet.getObject(column);
+		if (value instanceof java.sql.Date date) {
+			return date.toLocalDate();
+		}
+		if (value instanceof java.sql.Timestamp timestamp) {
+			return timestamp.toLocalDateTime();
+		}
+		return value;
 	}
 
 	private void validateParameterNames(SavedReport report, Map<String, Object> parameterValues) {

@@ -3,6 +3,8 @@ import { api } from "./client";
 export interface AssignSubjectRequest {
 	subjectId: number;
 	mandatory: boolean;
+	/** Periods per week the timetable should hold; omitted or null means no quota. */
+	weeklyPeriods?: number | null;
 }
 
 export interface ClassSubjectResponse {
@@ -10,6 +12,7 @@ export interface ClassSubjectResponse {
 	schoolClassId: number;
 	subjectId: number;
 	mandatory: boolean;
+	weeklyPeriods: number | null;
 	status: string;
 }
 
@@ -25,6 +28,7 @@ export function changeClassSubjectStatus(classId: number, id: number, status: st
 	return api.post<ClassSubjectResponse>(`/api/v1/school-classes/${classId}/subjects/${id}/status`, { status });
 }
 
-export function updateClassSubject(classId: number, id: number, mandatory: boolean): Promise<ClassSubjectResponse> {
-	return api.patch<ClassSubjectResponse>(`/api/v1/school-classes/${classId}/subjects/${id}`, { mandatory });
+/** weeklyPeriods: omitted leaves the quota as it is, 0 clears it, a positive number sets it. */
+export function updateClassSubject(classId: number, id: number, mandatory: boolean, weeklyPeriods?: number): Promise<ClassSubjectResponse> {
+	return api.patch<ClassSubjectResponse>(`/api/v1/school-classes/${classId}/subjects/${id}`, { mandatory, weeklyPeriods });
 }

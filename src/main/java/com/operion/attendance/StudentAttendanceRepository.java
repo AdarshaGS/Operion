@@ -27,4 +27,9 @@ public interface StudentAttendanceRepository extends JpaRepository<StudentAttend
 	List<Object[]> countByDateAndStatusBetween(@Param("fromDate") LocalDate fromDate, @Param("toDate") LocalDate toDate);
 
 	long countByAttendanceDateAndAttendanceStatus(LocalDate attendanceDate, AttendanceStatus attendanceStatus);
+
+	/** Attendance overview - one row per (section, status) for a day: (section id, status, count, latest mark time). */
+	@Query("SELECT a.section.id, a.attendanceStatus, COUNT(a), MAX(a.createdAt) FROM StudentAttendance a "
+			+ "WHERE a.attendanceDate = :date GROUP BY a.section.id, a.attendanceStatus")
+	List<Object[]> countBySectionAndStatusOn(@Param("date") LocalDate date);
 }

@@ -1,27 +1,7 @@
-import { useEffect, useState } from "react";
-import { Outlet, useLocation, useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
 import Alert from "@mui/material/Alert";
-import AppBar from "@mui/material/AppBar";
-import Box from "@mui/material/Box";
-import ButtonBase from "@mui/material/ButtonBase";
-import Collapse from "@mui/material/Collapse";
-import Divider from "@mui/material/Divider";
-import Drawer from "@mui/material/Drawer";
-import IconButton from "@mui/material/IconButton";
-import List from "@mui/material/List";
-import ListItemButton from "@mui/material/ListItemButton";
-import ListItemIcon from "@mui/material/ListItemIcon";
-import ListItemText from "@mui/material/ListItemText";
-import ListSubheader from "@mui/material/ListSubheader";
 import Stack from "@mui/material/Stack";
-import Toolbar from "@mui/material/Toolbar";
-import useMediaQuery from "@mui/material/useMediaQuery";
-import type { Theme } from "@mui/material/styles";
-import Tooltip from "@mui/material/Tooltip";
-import { Wordmark } from "../branding/Wordmark";
-import ChevronLeftIcon from "@mui/icons-material/ChevronLeft";
-import ChevronRightIcon from "@mui/icons-material/ChevronRight";
-import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import DashboardIcon from "@mui/icons-material/Dashboard";
 import SchoolIcon from "@mui/icons-material/School";
 import HowToRegIcon from "@mui/icons-material/HowToReg";
@@ -40,44 +20,20 @@ import PointOfSaleIcon from "@mui/icons-material/PointOfSale";
 import BadgeIcon from "@mui/icons-material/Badge";
 import RequestQuoteIcon from "@mui/icons-material/RequestQuote";
 import AssessmentIcon from "@mui/icons-material/Assessment";
+import TrendingUpIcon from "@mui/icons-material/TrendingUp";
 import GroupIcon from "@mui/icons-material/Group";
 import SettingsIcon from "@mui/icons-material/Settings";
 import { useAuth } from "../auth/AuthContext";
 import { getDashboardSummary, type SetupChecklist } from "../api/dashboard";
+import { searchStudents } from "../api/students";
+import { AppShell, type ShellNavGroup, type ShellNavItem } from "./AppShell";
 import { ContextSelectors } from "./ContextSelectors";
 import { NotificationBell } from "./NotificationBell";
 import { ProfileMenu } from "./ProfileMenu";
-import { colors } from "../theme";
+import { GlobalSearch, type SearchOption } from "./TopbarParts";
 
-const DRAWER_WIDTH = 240;
-const DRAWER_WIDTH_COLLAPSED = 72;
 const SIDEBAR_COLLAPSED_KEY = "operion.sidebarCollapsed";
 const NAV_GROUPS_COLLAPSED_KEY = "operion.navGroupsCollapsed";
-
-function readStoredCollapsed(): boolean {
-	try {
-		return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "1";
-	} catch {
-		return false;
-	}
-}
-
-function readStoredGroupsCollapsed(): Record<string, boolean> {
-	try {
-		const raw = localStorage.getItem(NAV_GROUPS_COLLAPSED_KEY);
-		return raw ? (JSON.parse(raw) as Record<string, boolean>) : {};
-	} catch {
-		return {};
-	}
-}
-
-function writeStoredGroupsCollapsed(value: Record<string, boolean>) {
-	try {
-		localStorage.setItem(NAV_GROUPS_COLLAPSED_KEY, JSON.stringify(value));
-	} catch {
-		// per-viewer convenience only - fine to no-op when storage is unavailable
-	}
-}
 
 interface NavItem {
 	label: string;
@@ -159,6 +115,7 @@ const NAV_GROUPS: NavGroup[] = [
 		items: [
 			{ label: "HR", path: "/hr", icon: <BadgeIcon />, built: true, requiredPermissions: ["HR_VIEW"] },
 			{ label: "Payroll", path: "/payroll", icon: <RequestQuoteIcon />, built: true, requiredPermissions: ["PAYROLL_VIEW"] },
+			{ label: "Performance", path: "/performance", icon: <TrendingUpIcon />, built: true, requiredPermissions: ["KPI_VIEW"] },
 			{ label: "Members", path: "/members", icon: <GroupIcon />, built: true, requiredPermissions: ["MEMBERSHIP_VIEW"] },
 			/** Foundation-owned config (Campus/AcademicYear), not a domain module - kept here rather than mixed into
 			 * a module group. Campus/AcademicYear mutation endpoints reuse ORGANISATION_MANAGE but their listing
@@ -169,14 +126,8 @@ const NAV_GROUPS: NavGroup[] = [
 ];
 
 export function AppLayout() {
-	const navigate = useNavigate();
 	const location = useLocation();
-	const { hasAnyPermission, permissionsLoaded, profile, isPathEnabled } = useAuth();
-	const [storedCollapsed, setCollapsed] = useState(readStoredCollapsed);
-	// Phone width always gets the icon rail - a full 240px drawer would leave the page ~150px.
-	const isNarrow = useMediaQuery((theme: Theme) => theme.breakpoints.down("sm"));
-	const collapsed = storedCollapsed || isNarrow;
-	const [collapsedGroups, setCollapsedGroups] = useState(readStoredGroupsCollapsed);
+	const { hasAnyPermission, hasPermission, permissionsLoaded, profile, isPathEnabled } = useAuth();
 	const [checklist, setChecklist] = useState<SetupChecklist | null>(null);
 
 	// The summary endpoint is ORGANISATION_MANAGE-gated backend-side - only fetch it for
@@ -196,27 +147,7 @@ export function AppLayout() {
 	const isPermitted = (item: NavItem) => item.requiredPermissions.length === 0 || !permissionsLoaded || hasAnyPermission(item.requiredPermissions);
 	const setupBlocked = (item: NavItem) => item.setupGate !== undefined && checklist !== null && !checklist[item.setupGate.field];
 
-	function toggleCollapsed() {
-		setCollapsed((prev) => {
-			const next = !prev;
-			try {
-				localStorage.setItem(SIDEBAR_COLLAPSED_KEY, next ? "1" : "0");
-			} catch {
-				// per-viewer convenience only - fine to no-op when storage is unavailable
-			}
-			return next;
-		});
-	}
-
-	function toggleGroup(label: string) {
-		setCollapsedGroups((prev) => {
-			const next = { ...prev, [label]: !prev[label] };
-			writeStoredGroupsCollapsed(next);
-			return next;
-		});
-	}
-
-	function renderNavItem(item: NavItem) {
+	function toShellItem(item: NavItem): ShellNavItem {
 		const permitted = isPermitted(item);
 		const blocked = permitted && setupBlocked(item);
 		const enabled = item.built && permitted && !blocked;
@@ -226,133 +157,59 @@ export function AppLayout() {
 				? "You don't have permission to view this"
 				: blocked
 					? (item.setupGate as NonNullable<NavItem["setupGate"]>).message
-					: "";
-		const tooltip = collapsed ? (reason ? `${item.label} — ${reason}` : item.label) : reason;
-		return (
-			<Tooltip key={item.path} title={tooltip} placement="right">
-				<span>
-					<ListItemButton
-						selected={location.pathname.startsWith(item.path)}
-						disabled={!enabled}
-						onClick={() => navigate(item.path)}
-						sx={{ justifyContent: collapsed ? "center" : "flex-start", px: collapsed ? 1.5 : 2, mx: 1, width: "auto" }}
-					>
-						<ListItemIcon sx={{ minWidth: collapsed ? 0 : 40, justifyContent: "center" }}>{item.icon}</ListItemIcon>
-						{!collapsed && <ListItemText primary={item.label} />}
-					</ListItemButton>
-				</span>
-			</Tooltip>
-		);
+					: undefined;
+		return { label: item.label, path: item.path, icon: item.icon, disabled: !enabled, reason };
 	}
 
 	// A module the platform owner switched off, or one the caller has no permission for,
 	// disappears entirely (not just greyed out) so people only see what is theirs to use.
 	// Backend enforces both on every call, this only stops the UI offering dead ends.
-	const visibleGroups = NAV_GROUPS.map((group) => ({
-		...group,
-		items: group.items.filter((item) => isPathEnabled(item.path) && isPermitted(item)),
-	})).filter(
-		(group) => group.items.length > 0,
-	);
+	const groups: ShellNavGroup[] = [
+		...(isPathEnabled(DASHBOARD_ITEM.path) ? [{ label: null, items: [toShellItem(DASHBOARD_ITEM)] }] : []),
+		...NAV_GROUPS.map((group) => ({
+			label: group.label,
+			items: group.items.filter((item) => isPathEnabled(item.path) && isPermitted(item)).map(toShellItem),
+		})).filter((group) => group.items.length > 0),
+	];
 	const currentModuleOff = !isPathEnabled(location.pathname);
 
-	const drawerWidth = collapsed ? DRAWER_WIDTH_COLLAPSED : DRAWER_WIDTH;
+	const searchPages = groups.flatMap((group) => group.items).filter((item) => !item.disabled).map((item) => ({ label: item.label, path: item.path }));
+	const canSearchStudents = isPathEnabled("/students") && (!permissionsLoaded || hasPermission("STUDENT_VIEW"));
+	const lookupStudents = useCallback(
+		async (query: string): Promise<SearchOption[]> => {
+			if (!canSearchStudents) return [];
+			const page = await searchStudents({ search: query, size: 5 });
+			return page.content.map((student) => ({
+				label: [student.firstName, student.lastName].filter(Boolean).join(" "),
+				sublabel: [student.studentId, student.schoolClassDisplayName].filter(Boolean).join(" · "),
+				path: `/students/${student.id}`,
+				group: "Students",
+			}));
+		},
+		[canSearchStudents],
+	);
 
 	return (
-		<Box sx={{ display: "flex" }}>
-			<AppBar position="fixed" sx={{ zIndex: (theme) => theme.zIndex.drawer + 1 }}>
-				<Toolbar sx={{ gap: { xs: 1, sm: 2 } }}>
-					<ButtonBase onClick={() => navigate("/")} disableRipple sx={{ borderRadius: 1, minWidth: 0, overflow: "hidden" }} aria-label="Go to home">
-						<Wordmark size="small" text={profile?.organisationName ?? "OPERION"} />
-					</ButtonBase>
-					<Box sx={{ flexGrow: 1 }} />
-					<ContextSelectors />
-					<Stack direction="row" spacing={0.5} sx={{ alignItems: "center" }}>
+		<AppShell
+			subtitle={profile?.organisationName ?? "School ERP"}
+			groups={groups}
+			collapsedKey={SIDEBAR_COLLAPSED_KEY}
+			groupsKey={NAV_GROUPS_COLLAPSED_KEY}
+			homePath="/"
+			override={
+				currentModuleOff ? (
+					<Alert severity="info">This feature is not enabled for your organisation. Contact your administrator if you need it.</Alert>
+				) : undefined
+			}
+			topbar={
+				<>
+					<ContextSelectors search={<GlobalSearch pages={searchPages} lookup={canSearchStudents ? lookupStudents : undefined} />} />
+					<Stack direction="row" spacing={1} sx={{ alignItems: "center", flexShrink: 0 }}>
 						<NotificationBell />
 						<ProfileMenu />
 					</Stack>
-				</Toolbar>
-			</AppBar>
-			<Drawer
-				variant="permanent"
-				sx={{
-					width: drawerWidth,
-					flexShrink: 0,
-					transition: (theme) => theme.transitions.create("width", { duration: theme.transitions.duration.shortest }),
-					[`& .MuiDrawer-paper`]: {
-						width: drawerWidth,
-						boxSizing: "border-box",
-						overflowX: "hidden",
-						transition: (theme) => theme.transitions.create("width", { duration: theme.transitions.duration.shortest }),
-					},
-				}}
-			>
-				<Toolbar />
-				<Box sx={{ display: isNarrow ? "none" : "flex", justifyContent: collapsed ? "center" : "flex-end", px: 1, py: 0.5 }}>
-					<Tooltip title={collapsed ? "Expand sidebar" : "Collapse sidebar"} placement="right">
-						<IconButton size="small" onClick={toggleCollapsed} aria-label="Toggle sidebar">
-							{collapsed ? <ChevronRightIcon fontSize="small" /> : <ChevronLeftIcon fontSize="small" />}
-						</IconButton>
-					</Tooltip>
-				</Box>
-				<Box sx={{ overflowY: "auto" }}>
-					{isPathEnabled(DASHBOARD_ITEM.path) && (
-						<>
-							<List>{renderNavItem(DASHBOARD_ITEM)}</List>
-							<Divider sx={{ my: 0.5 }} />
-						</>
-					)}
-					{visibleGroups.map((group, groupIndex) => {
-						const groupOpen = collapsed || !collapsedGroups[group.label];
-						return (
-						<Box key={group.label}>
-							{groupIndex > 0 && <Divider sx={{ my: 0.5 }} />}
-							{!collapsed && (
-								<ListSubheader
-									component="div"
-									disableSticky
-									onClick={() => toggleGroup(group.label)}
-									sx={{
-										display: "flex",
-										alignItems: "center",
-										justifyContent: "space-between",
-										cursor: "pointer",
-										lineHeight: "2rem",
-										fontSize: "0.68rem",
-										fontWeight: 700,
-										letterSpacing: "0.08em",
-										color: colors.inkFaint,
-										backgroundColor: "transparent",
-									}}
-								>
-									{group.label.toUpperCase()}
-									<ExpandMoreIcon
-										fontSize="small"
-										sx={{
-											transition: (theme) => theme.transitions.create("transform", { duration: theme.transitions.duration.shortest }),
-											transform: groupOpen ? "rotate(0deg)" : "rotate(-90deg)",
-										}}
-									/>
-								</ListSubheader>
-							)}
-							<Collapse in={groupOpen} timeout="auto">
-							<List>{group.items.map((item) => renderNavItem(item))}</List>
-							</Collapse>
-						</Box>
-						);
-					})}
-				</Box>
-			</Drawer>
-			<Box component="main" sx={{ flexGrow: 1, minWidth: 0, p: { xs: 2, md: 4 } }}>
-				<Toolbar />
-				<Box sx={{ maxWidth: 1280, mx: "auto" }}>
-					{currentModuleOff ? (
-						<Alert severity="info">This feature is not enabled for your organisation. Contact your administrator if you need it.</Alert>
-					) : (
-						<Outlet />
-					)}
-				</Box>
-			</Box>
-		</Box>
+				</>
+			}
+		/>
 	);
 }

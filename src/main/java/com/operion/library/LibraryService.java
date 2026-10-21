@@ -2,6 +2,7 @@ package com.operion.library;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 
 import com.operion.common.InvalidRequestException;
 import com.operion.common.TenantContext;
@@ -123,11 +124,24 @@ public class LibraryService {
 		}
 		borrowRecord.markReturned(returnedDate);
 		borrowRecordRepository.save(borrowRecord);
+		BigDecimal overdueFine = overdueFine(borrowRecord, returnedDate != null ? returnedDate : LocalDate.now());
+		if (overdueFine.signum() > 0) {
+			fineRepository.save(new Fine(borrowRecord, overdueFine, FineReason.OVERDUE));
+		}
 
 		BookCopy bookCopy = borrowRecord.getBookCopy();
 		bookCopy.changeStatus(damaged ? BookCopyStatus.DAMAGED : BookCopyStatus.AVAILABLE);
 		bookCopyRepository.save(bookCopy);
 		return borrowRecord;
+	}
+
+	/** What keeping this book until {@code asOf} costs under the organisation's per-day rate - zero when no rate is set or it is not late. */
+	public BigDecimal overdueFine(BorrowRecord borrowRecord, LocalDate asOf) {
+		if (borrowRecord.getDueDate() == null || !asOf.isAfter(borrowRecord.getDueDate())) {
+			return BigDecimal.ZERO;
+		}
+		long daysLate = ChronoUnit.DAYS.between(borrowRecord.getDueDate(), asOf);
+		return currentSettings().getFineRatePerDay().multiply(BigDecimal.valueOf(daysLate));
 	}
 
 	@Transactional

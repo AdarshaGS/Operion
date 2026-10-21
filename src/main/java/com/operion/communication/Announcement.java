@@ -63,6 +63,12 @@ public class Announcement extends TenantScopedEntity {
 	@Column(name = "scheduled_at")
 	private Instant scheduledAt;
 
+	/** Only meaningful with scheduledAt: false (the default) means ScheduledAnnouncementPublisher
+	 * holds the announcement back until a working day; true sends it on the scheduled day even if
+	 * that is a holiday or weekly off. A manual publish() is never held back either way. */
+	@Column(name = "send_on_non_working_days", nullable = false)
+	private boolean sendOnNonWorkingDays;
+
 	public Announcement(Campus campus, String title, String body, AudienceType audienceType, Long audienceRefId) {
 		this(campus, title, body, audienceType, audienceRefId, null);
 	}
@@ -75,6 +81,10 @@ public class Announcement extends TenantScopedEntity {
 		this.audienceRefId = audienceRefId;
 		this.scheduledAt = scheduledAt;
 		this.status = AnnouncementStatus.DRAFT;
+	}
+
+	public void allowOnNonWorkingDays() {
+		this.sendOnNonWorkingDays = true;
 	}
 
 	/** Publishing is a one-way trip for v1 - see class doc; not re-publishable after cancel either. */

@@ -92,23 +92,21 @@ public class UserController {
 
 	@GetMapping("/{id}")
 	public UserResponse get(@PathVariable Long id) {
-		boolean belongsToCurrentOrg = membershipRepository.findAll().stream()
-				.anyMatch(membership -> membership.getUser().getId().equals(id));
-		if (!belongsToCurrentOrg) {
-			throw new IllegalArgumentException("No user with id " + id);
-		}
+		requireInCurrentOrg(id);
 		return UserResponse.from(userRepository.findById(id)
 				.orElseThrow(() -> new IllegalArgumentException("No user with id " + id)));
 	}
 
 	@PutMapping("/{id}")
 	public UserResponse update(@PathVariable Long id, @Valid @RequestBody UpdateUserRequest request) {
+		requireInCurrentOrg(id);
 		return UserResponse.from(userService.update(id, request.email(), request.phone()));
 	}
 
 	/** Also the deactivate path (status=DISABLED) - see UserService.changeStatus. */
 	@PostMapping("/{id}/status")
 	public UserResponse changeStatus(@PathVariable Long id, @RequestBody ChangeUserStatusRequest request) {
+		requireInCurrentOrg(id);
 		return UserResponse.from(userService.changeStatus(id, EnumParam.parse(UserStatus.class, request.status())));
 	}
 
@@ -116,7 +114,17 @@ public class UserController {
 	 * StaffInviteService.reissue(). */
 	@PostMapping("/{id}/resend-invite")
 	public StaffInviteResponse resendInvite(@PathVariable Long id) {
+		requireInCurrentOrg(id);
 		StaffInviteService.IssuedInvite invite = staffInviteService.reissue(id);
 		return new StaffInviteResponse(invite.userId(), invite.inviteId(), invite.rawToken(), invite.expiresAt(), invite.emailSent());
+	}
+
+	/** User is global, so every by-id write must first prove the target has a membership in
+	 * the caller's org (membership lookups are @TenantId-scoped) - otherwise one org's admin
+	 * could edit, disable or re-invite (and receive the claim token for) another org's login. */
+	private void requireInCurrentOrg(Long userId) {
+		if (membershipRepository.findByUserId(userId).isEmpty()) {
+			throw new IllegalArgumentException("No user with id " + userId);
+		}
 	}
 }

@@ -18,6 +18,8 @@ import com.operion.common.JpaConfig;
 import com.operion.common.MultiTenancyConfig;
 import com.operion.common.TenantContext;
 import com.operion.finance.FeeService.AllocationInput;
+import com.operion.finance.api.FeeOverviewController;
+import com.operion.finance.api.FeeOverviewResponse;
 import com.operion.finance.FeeService.InstallmentInput;
 import com.operion.identity.Person;
 import com.operion.identity.PersonRepository;
@@ -165,6 +167,32 @@ class InvoiceAndPaymentTest {
 		return new Fixture(academicYear, assignment, installments);
 	}
 
+	@Autowired
+	private StudentFeeAssignmentRepository studentFeeAssignmentRepository;
+
+	@Test
+	void bulkGenerationInvoicesOnlyDueInstallmentsAndIsSafeToRerun() {
+		Fixture fixture = setUpFixture("fee-bulk-school", "ADM-310");
+		BulkInvoiceService bulk = new BulkInvoiceService(studentFeeAssignmentRepository, feeStructureInstallmentRepository,
+				invoiceRepository, feeService, org.mockito.Mockito.mock(FeeReminderService.class));
+		Long yearId = fixture.academicYear().getId();
+		LocalDate afterFirstDue = LocalDate.of(2025, 7, 1);
+
+		BulkInvoiceService.Result preview = bulk.generateDue(yearId, null, afterFirstDue, true);
+		assertThat(preview.toGenerate()).isEqualTo(1);
+		assertThat(preview.generated()).isZero();
+		assertThat(invoiceRepository.findByStudentFeeAssignmentId(fixture.assignment().getId())).isEmpty();
+
+		BulkInvoiceService.Result first = bulk.generateDue(yearId, null, afterFirstDue, false);
+		assertThat(first.generated()).isEqualTo(1);
+		assertThat(first.failures()).isEmpty();
+
+		BulkInvoiceService.Result rerun = bulk.generateDue(yearId, null, LocalDate.of(2026, 4, 30), false);
+		assertThat(rerun.alreadyInvoiced()).isEqualTo(1);
+		assertThat(rerun.generated()).isEqualTo(1);
+		assertThat(invoiceRepository.findByStudentFeeAssignmentId(fixture.assignment().getId())).hasSize(2);
+	}
+
 	@Test
 	void generatesProportionallyDiscountedInvoicesAndRejectsDuplicateGeneration() {
 		Fixture fixture = setUpFixture("fee-invoice-school", "ADM-300");
@@ -251,5 +279,42 @@ class InvoiceAndPaymentTest {
 		Invoice reloadedInvoice = invoiceRepository.findById(invoice.getId()).orElseThrow();
 		assertThat(reloadedInvoice.getAmountPaid()).isEqualByComparingTo("3000.00");
 		assertThat(reloadedInvoice.getStatus()).isEqualTo(InvoiceStatus.PARTIALLY_PAID);
+	}
+
+	@Test
+	void feeOverviewRollsUpTotalsLedgerAndBreakdownsFromInvoices() {
+		Fixture fixture = setUpFixture("fee-overview-school", "ADM-305");
+		Invoice invoice1 = feeService.generateInvoice(fixture.assignment(), fixture.installments().get(0));
+		feeService.generateInvoice(fixture.assignment(), fixture.installments().get(1));
+		feeService.recordPayment(fixture.academicYear(), new BigDecimal("4500.00"), PaymentMethod.CASH, LocalDate.of(2025, 6, 20), null,
+				List.of(new AllocationInput(invoice1.getId(), new BigDecimal("4500.00"))));
+
+		FeeOverviewController controller = new FeeOverviewController(invoiceRepository);
+		FeeOverviewResponse overview = controller.overview(fixture.academicYear().getId());
+
+		assertThat(overview.totalFees()).isEqualByComparingTo("9000.00");
+		assertThat(overview.collected()).isEqualByComparingTo("4500.00");
+		assertThat(overview.outstanding()).isEqualByComparingTo("4500.00");
+		// Both due dates are in 2025, so the unpaid second installment is overdue today.
+		assertThat(overview.overdue()).isEqualByComparingTo("4500.00");
+
+		assertThat(overview.ledger()).hasSize(1);
+		FeeOverviewResponse.LedgerRow row = overview.ledger().get(0);
+		assertThat(row.studentName()).isEqualTo("Meera Nair");
+		assertThat(row.admissionNumber()).isEqualTo("ADM-305");
+		assertThat(row.classLabel()).isEqualTo("Grade 5 - A");
+		assertThat(row.paid()).isEqualByComparingTo("4500.00");
+		assertThat(row.nextDueDate()).isEqualTo(LocalDate.of(2025, 10, 15));
+		assertThat(row.status()).isEqualTo("OVERDUE");
+
+		assertThat(overview.byClass()).hasSize(1);
+		assertThat(overview.byClass().get(0).classLabel()).isEqualTo("Grade 5");
+		assertThat(overview.byClass().get(0).percent()).isEqualTo(50);
+		assertThat(overview.byType()).hasSize(1);
+		assertThat(overview.byType().get(0).name()).isEqualTo("Tuition Fee");
+		assertThat(overview.byType().get(0).amount()).isEqualByComparingTo("9000.00");
+		assertThat(overview.trend()).hasSize(6);
+
+		assertThat(controller.overview(fixture.academicYear().getId() + 999).ledger()).isEmpty();
 	}
 }

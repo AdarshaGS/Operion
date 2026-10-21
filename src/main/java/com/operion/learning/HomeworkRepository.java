@@ -12,4 +12,6 @@ public interface HomeworkRepository extends JpaRepository<Homework, Long> {
 	List<Homework> findBySectionIdInOrderByDueDateDescIdDesc(Collection<Long> sectionIds);
 
 	List<Homework> findAllByOrderByDueDateDescIdDesc();
+
+	List<Homework> findByStatusAndCreatedAtBetween(HomeworkStatus status, java.time.Instant from, java.time.Instant to);
 }

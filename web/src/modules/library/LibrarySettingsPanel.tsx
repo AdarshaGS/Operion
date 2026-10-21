@@ -106,6 +106,18 @@ export function LibrarySettingsPanel() {
 							onChange={(e) => update("borrowingPeriodDaysStaff", Number(e.target.value))}
 						/>
 					</Grid>
+					<Grid size={{ xs: 12, sm: 6 }}>
+						<TextField
+							label="Overdue fine per day"
+							type="number"
+							fullWidth
+							disabled={!canEdit}
+							value={settings.fineRatePerDay}
+							onChange={(e) => update("fineRatePerDay", Number(e.target.value))}
+							helperText="Charged for each day a book is kept past its due date. 0 means no automatic fine."
+							slotProps={{ htmlInput: { min: 0, step: "any" } }}
+						/>
+					</Grid>
 				</Grid>
 
 				<FormControlLabel

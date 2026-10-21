@@ -20,6 +20,7 @@ import com.operion.customfield.CustomFieldDefinitionRepository;
 import com.operion.customfield.CustomFieldService;
 import com.operion.common.JpaConfig;
 import com.operion.common.MultiTenancyConfig;
+import com.operion.common.InvalidRequestException;
 import com.operion.common.TenantContext;
 import com.operion.examination.ExaminationService.MarkInput;
 import com.operion.identity.Person;
@@ -184,6 +185,22 @@ class ExamScheduleAndMarksTest {
 		assertThat(entered.get(0).getMarksObtained()).isEqualTo(78.0);
 
 		assertThatThrownBy(() -> examinationService.enterMarks(fixture.schedule(), marks)).isInstanceOf(IllegalStateException.class);
+	}
+
+	@Test
+	void rejectsMarksOutsideZeroToMaxOnEntryAndCorrection() {
+		Fixture fixture = setUpFixture("marks-bounds-school", "ADM-402");
+
+		assertThatThrownBy(() -> examinationService.enterMarks(fixture.schedule(), List.of(new MarkInput(fixture.enrollment(), 105.0, false, null))))
+				.isInstanceOf(InvalidRequestException.class);
+		assertThatThrownBy(() -> examinationService.enterMarks(fixture.schedule(), List.of(new MarkInput(fixture.enrollment(), -1.0, false, null))))
+				.isInstanceOf(InvalidRequestException.class);
+		assertThatThrownBy(() -> examinationService.enterMarks(fixture.schedule(), List.of(new MarkInput(fixture.enrollment(), null, false, null))))
+				.isInstanceOf(InvalidRequestException.class);
+
+		MarksEntry entry = examinationService.enterMarks(fixture.schedule(), List.of(new MarkInput(fixture.enrollment(), 100.0, false, null))).get(0);
+		assertThatThrownBy(() -> examinationService.correctMarks(entry, 101.0, false, "Typo"))
+				.isInstanceOf(InvalidRequestException.class);
 	}
 
 	@Test

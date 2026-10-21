@@ -6,7 +6,6 @@ import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
 import IconButton from "@mui/material/IconButton";
-import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
@@ -15,12 +14,13 @@ import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
-import Typography from "@mui/material/Typography";
 import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
 import { createContact, deleteContact, listContacts, updateContact, type ContactInput, type ContactResponse, type CrmOwner } from "../api/crm";
 import { PlatformApiError } from "../api/platformClient";
+import ContactsIcon from "@mui/icons-material/Contacts";
+import { SectionCard } from "../../components/DashboardKit";
 
 const EMPTY_FORM: ContactInput = { name: "", role: "", email: "", phone: "" };
 
@@ -100,15 +100,17 @@ export function ContactsSection({ owner, onChange }: ContactsSectionProps) {
 	}
 
 	return (
-		<Paper sx={{ p: 3 }}>
+		<SectionCard
+			title="Contacts"
+			icon={<ContactsIcon fontSize="small" />}
+			tint="violet"
+			headerExtra={
+				<Button size="small" variant="outlined" startIcon={<AddIcon />} onClick={openCreate}>
+					Add contact
+				</Button>
+			}
+		>
 			<Stack spacing={2}>
-				<Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center" }}>
-					<Typography variant="h6">Contacts</Typography>
-					<Button size="small" startIcon={<AddIcon />} onClick={openCreate}>
-						Add contact
-					</Button>
-				</Stack>
-
 				{error && <Alert severity="error">{error}</Alert>}
 				{contacts && contacts.length === 0 && <Alert severity="info">No contacts yet.</Alert>}
 
@@ -164,6 +166,6 @@ export function ContactsSection({ owner, onChange }: ContactsSectionProps) {
 					</Button>
 				</DialogActions>
 			</Dialog>
-		</Paper>
+		</SectionCard>
 	);
 }

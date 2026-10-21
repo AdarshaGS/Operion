@@ -24,6 +24,7 @@ import {
 	publishAnnouncement,
 	type AnnouncementResponse,
 } from "../../api/announcements";
+import { getCalendarDays, type CalendarNonWorkingDay } from "../../api/calendar";
 import { type CampusResponse, listCampuses } from "../../api/campuses";
 import { ApiError } from "../../api/client";
 import { listSchoolClasses, type SchoolClassResponse } from "../../api/schoolClasses";
@@ -31,6 +32,8 @@ import { listSections, type SectionResponse } from "../../api/sections";
 import { listStaffProfiles, type StaffProfileResponse } from "../../api/staffProfiles";
 import { listStudents, type StudentResponse } from "../../api/students";
 import { type PersonResponse, listPersons } from "../../api/persons";
+import { formatCalendarDate } from "../../components/LeaveDaysHint";
+import { useSchoolClassLabel } from "../../utils/useSchoolClassLabel";
 
 const AUDIENCE_TYPES = ["ORG", "CAMPUS", "CLASS", "SECTION", "INDIVIDUAL", "STAFF", "STAFF_MEMBER", "SELECTED_GROUP"];
 
@@ -51,9 +54,12 @@ export function AnnouncementsPanel() {
 	const [selectedPersonIds, setSelectedPersonIds] = useState<number[]>([]);
 	const [scheduleForLater, setScheduleForLater] = useState(false);
 	const [scheduledAt, setScheduledAt] = useState("");
+	const [sendOnNonWorkingDays, setSendOnNonWorkingDays] = useState(false);
+	const [scheduledDayOff, setScheduledDayOff] = useState<CalendarNonWorkingDay | null>(null);
 
 	const [campuses, setCampuses] = useState<CampusResponse[]>([]);
 	const [classes, setClasses] = useState<SchoolClassResponse[]>([]);
+	const classLabel = useSchoolClassLabel();
 	const [sections, setSections] = useState<SectionResponse[]>([]);
 	const [students, setStudents] = useState<StudentResponse[]>([]);
 	const [persons, setPersons] = useState<PersonResponse[]>([]);
@@ -72,6 +78,27 @@ export function AnnouncementsPanel() {
 	}
 
 	useEffect(refresh, []);
+
+	// A scheduled announcement on a holiday / weekly off is held until the next working day
+	// (server-side) - tell the author when their chosen day is one, and offer the override.
+	useEffect(() => {
+		const day = scheduleForLater && scheduledAt ? scheduledAt.slice(0, 10) : "";
+		if (!day) {
+			setScheduledDayOff(null);
+			return;
+		}
+		let cancelled = false;
+		getCalendarDays(day, day, audienceType === "CAMPUS" && campusId ? Number(campusId) : null)
+			.then((response) => {
+				if (!cancelled) setScheduledDayOff(response.nonWorkingDays[0] ?? null);
+			})
+			.catch(() => {
+				if (!cancelled) setScheduledDayOff(null);
+			});
+		return () => {
+			cancelled = true;
+		};
+	}, [scheduleForLater, scheduledAt, audienceType, campusId]);
 
 	useEffect(() => {
 		listCampuses().then(setCampuses).catch(() => {});
@@ -127,6 +154,7 @@ export function AnnouncementsPanel() {
 		setAudiencePreview(null);
 		setScheduleForLater(false);
 		setScheduledAt("");
+		setSendOnNonWorkingDays(false);
 	}
 
 	function audienceRefId(): number | null {
@@ -167,6 +195,7 @@ export function AnnouncementsPanel() {
 				audienceRefId: audienceRefId(),
 				audienceMemberPersonIds: audienceType === "SELECTED_GROUP" ? selectedPersonIds : null,
 				scheduledAt: scheduleForLater && scheduledAt ? new Date(scheduledAt).toISOString() : null,
+				sendOnNonWorkingDays: scheduleForLater && sendOnNonWorkingDays,
 			});
 			resetForm();
 			refresh();
@@ -225,7 +254,7 @@ export function AnnouncementsPanel() {
 						<TextField select label="Class" value={classId} onChange={(e) => setClassId(e.target.value)} required sx={{ maxWidth: 300 }}>
 							{classes.map((schoolClass) => (
 								<MenuItem key={schoolClass.id} value={schoolClass.id}>
-									{schoolClass.displayName ?? `Class #${schoolClass.id}`}
+									{classLabel(schoolClass)}
 								</MenuItem>
 							))}
 						</TextField>
@@ -311,6 +340,17 @@ export function AnnouncementsPanel() {
 								sx={{ maxWidth: 260, display: "block" }}
 							/>
 						)}
+						{scheduleForLater && scheduledDayOff && (
+							<Alert severity="info" sx={{ mt: 1 }}>
+								{formatCalendarDate(scheduledDayOff.date)} is {scheduledDayOff.kind === "HOLIDAY" ? `a holiday (${scheduledDayOff.label})` : "a weekly off"}.
+								Unless you tick the box below, this will be held until the next working day.
+								<FormControlLabel
+									sx={{ display: "block" }}
+									control={<Checkbox checked={sendOnNonWorkingDays} onChange={(e) => setSendOnNonWorkingDays(e.target.checked)} />}
+									label="Send on that day anyway"
+								/>
+							</Alert>
+						)}
 					</Box>
 
 					<Box>
@@ -359,6 +399,9 @@ export function AnnouncementsPanel() {
 											<TableCell>{announcement.audienceType}</TableCell>
 											<TableCell>
 												{announcement.scheduledAt ? new Date(announcement.scheduledAt).toLocaleString() : "—"}
+												{announcement.scheduledAt && announcement.sendOnNonWorkingDays && (
+													<Chip size="small" variant="outlined" label="Sends even on a day off" sx={{ ml: 1 }} />
+												)}
 											</TableCell>
 											<TableCell>
 												<Button size="small" onClick={() => handlePublish(announcement.id)}>

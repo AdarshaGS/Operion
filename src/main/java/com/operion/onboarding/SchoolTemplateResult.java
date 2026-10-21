@@ -41,6 +41,9 @@ public class SchoolTemplateResult {
 	private final List<String> subjectsCreated = new ArrayList<>();
 	private final List<String> subjectsSkipped = new ArrayList<>();
 
+	private final List<String> certificateTypesCreated = new ArrayList<>();
+	private final List<String> certificateTypesSkipped = new ArrayList<>();
+
 	/** Why no classes could be created at all (no current academic year, no active campus); null when there was nothing in the way. */
 	@Setter
 	private String classesNote;

@@ -1,5 +1,8 @@
 package com.operion.portal;
 
+import com.operion.academic.WorkingCalendarEntryRepository;
+import com.operion.calendar.WorkingDayService;
+import com.operion.organisation.OrganisationConfigurationRepository;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -73,6 +76,12 @@ class TeacherPortalServiceTest {
 
 	private TeacherPortalService teacherPortalService;
 	private HrService hrService;
+
+	@Autowired
+	private WorkingCalendarEntryRepository workingCalendarEntryRepository;
+
+	@Autowired
+	private OrganisationConfigurationRepository organisationConfigurationRepository;
 
 	@Autowired
 	private OrganisationRepository organisationRepository;
@@ -151,6 +160,7 @@ class TeacherPortalServiceTest {
 		hrService = new HrService(staffProfileRepository, leaveTypeRepository, leaveBalanceRepository, leaveRequestRepository,
 				staffDocumentRepository, jobApplicationRepository, organisationRepository, staffAssignmentRepository,
 				staffExitRepository, staffBankDetailRepository, staffAttendanceRepository,
+				new WorkingDayService(workingCalendarEntryRepository, organisationConfigurationRepository),
 				new AuditLogService(auditLogRepository, new ObjectMapper()));
 		teacherPortalService = new TeacherPortalService(membershipRepository, teacherAssignmentRepository, staffProfileRepository,
 				hrService, leaveRequestRepository, leaveBalanceRepository, leaveTypeRepository, academicYearRepository);

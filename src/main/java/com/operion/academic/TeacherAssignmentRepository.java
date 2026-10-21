@@ -22,4 +22,6 @@ public interface TeacherAssignmentRepository extends JpaRepository<TeacherAssign
 			Long sectionId, Long subjectId, Long teacherPersonId, TeacherAssignmentStatus status);
 
 	List<TeacherAssignment> findByAcademicYearIdAndStatus(Long academicYearId, TeacherAssignmentStatus status);
+
+	List<TeacherAssignment> findByStatus(TeacherAssignmentStatus status);
 }

@@ -22,6 +22,8 @@ import { listOverdueInvoices, sendReminders, type OverdueInvoiceResponse } from 
 import { type PersonResponse, listPersons } from "../../api/persons";
 import { listSchoolClasses, type SchoolClassResponse } from "../../api/schoolClasses";
 import { listStudents, type StudentResponse } from "../../api/students";
+import { BulkInvoicePanel } from "./BulkInvoicePanel";
+import { useSchoolClassLabel } from "../../utils/useSchoolClassLabel";
 
 function currency(amount: number): string {
 	return `₹${amount.toLocaleString("en-IN")}`;
@@ -31,6 +33,7 @@ function currency(amount: number): string {
  * with a bulk "Send reminders" action through the existing notification pipeline. */
 export function FeeDemandPage() {
 	const [classes, setClasses] = useState<SchoolClassResponse[]>([]);
+	const schoolClassLabel = useSchoolClassLabel();
 	const [students, setStudents] = useState<StudentResponse[]>([]);
 	const [persons, setPersons] = useState<PersonResponse[]>([]);
 	const [schoolClassId, setSchoolClassId] = useState("");
@@ -60,7 +63,7 @@ export function FeeDemandPage() {
 
 	function classLabel(id: number): string {
 		const schoolClass = classes.find((c) => c.id === id);
-		return schoolClass?.displayName ?? `Class #${id}`;
+		return schoolClass ? schoolClassLabel(schoolClass) : `Class #${id}`;
 	}
 
 	function studentLabel(studentId: number): string {
@@ -101,6 +104,9 @@ export function FeeDemandPage() {
 
 	return (
 		<Stack spacing={3}>
+			<Can anyOf={["FEE_INVOICE_MANAGE"]}>
+				<BulkInvoicePanel classes={classes} onGenerated={refresh} />
+			</Can>
 			<Paper sx={{ p: 3 }}>
 				<Stack spacing={2}>
 					<Typography variant="h6">Overdue invoices</Typography>
@@ -109,7 +115,7 @@ export function FeeDemandPage() {
 						<MenuItem value="">All classes</MenuItem>
 						{classes.map((schoolClass) => (
 							<MenuItem key={schoolClass.id} value={schoolClass.id}>
-								{schoolClass.displayName ?? `Class #${schoolClass.id}`}
+								{schoolClassLabel(schoolClass)}
 							</MenuItem>
 						))}
 					</TextField>

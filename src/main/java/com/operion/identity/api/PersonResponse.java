@@ -11,4 +11,9 @@ public record PersonResponse(Long id, String firstName, String lastName, LocalDa
 		return new PersonResponse(person.getId(), person.getFirstName(), person.getLastName(), person.getDateOfBirth(),
 				person.getGender(), person.getPhone(), person.getEmail(), person.getPhotoUrl(), person.getAddress(), person.getStatus().name());
 	}
+
+	static PersonResponse nameOnly(Person person) {
+		return new PersonResponse(person.getId(), person.getFirstName(), person.getLastName(), null, null, null, null,
+				person.getPhotoUrl(), null, person.getStatus().name());
+	}
 }

@@ -19,6 +19,7 @@ import { approveLeaveRequest, listLeaveRequests, rejectLeaveRequest, type LeaveR
 import { listLeaveTypes, type LeaveTypeResponse } from "../../api/leaveTypes";
 import { listPersons, type PersonResponse } from "../../api/persons";
 import { listStaffProfiles, type StaffProfileResponse } from "../../api/staffProfiles";
+import { UpcomingDaysOff } from "../../components/UpcomingDaysOff";
 
 /** Org-wide "pending approvals" inbox - the natural core-flow entry point for HR, backed by
  * the new staffProfileId-less GET /api/v1/hr/leave-requests?status=PENDING added for this. */
@@ -80,6 +81,8 @@ export function LeaveRequestsInboxPanel() {
 				<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
 					<Typography variant="h6">Pending leave requests</Typography>
 				</Box>
+
+				<UpcomingDaysOff />
 
 				{error && <Alert severity="error">{error}</Alert>}
 

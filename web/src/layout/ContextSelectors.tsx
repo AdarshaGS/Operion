@@ -1,16 +1,13 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import ButtonBase from "@mui/material/ButtonBase";
+import Box from "@mui/material/Box";
 import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
-import Stack from "@mui/material/Stack";
-import Typography from "@mui/material/Typography";
 import ApartmentIcon from "@mui/icons-material/Apartment";
 import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
-import KeyboardArrowDownIcon from "@mui/icons-material/KeyboardArrowDown";
 import TodayIcon from "@mui/icons-material/Today";
 import { listAcademicYears, type AcademicYearResponse } from "../api/academicYears";
 import { listCampuses, type CampusResponse } from "../api/campuses";
-import { colors } from "../theme";
+import { TopbarPill } from "./TopbarParts";
 import { CAMPUS_KEY, setSelectedCampusId } from "./selectedCampus";
 
 const ACADEMIC_YEAR_KEY = "operion.selectedAcademicYearId";
@@ -52,26 +49,7 @@ function PillSelect({ icon, label, options, selectedId, onSelect }: PillSelectPr
 
 	return (
 		<>
-			<ButtonBase
-				onClick={(event) => setAnchorEl(event.currentTarget)}
-				aria-label={label}
-				sx={{
-					display: "flex",
-					alignItems: "center",
-					gap: 1,
-					px: { xs: 1, sm: 1.5 },
-					py: 0.75,
-					borderRadius: 2,
-					border: `1px solid ${colors.rule}`,
-				}}
-			>
-				<Stack sx={{ color: colors.inkFaint, display: "flex" }}>{icon}</Stack>
-				{/* Phone width: icon only (the aria-label still names the picker) so the top bar fits. */}
-				<Typography variant="body2" sx={{ color: colors.ink, fontWeight: 600, display: { xs: "none", sm: "block" } }}>
-					{selected?.label ?? label}
-				</Typography>
-				<KeyboardArrowDownIcon fontSize="small" sx={{ color: colors.inkFaint, display: { xs: "none", sm: "block" } }} />
-			</ButtonBase>
+			<TopbarPill icon={icon} label={selected?.label ?? label} ariaLabel={label} onClick={(event) => setAnchorEl(event.currentTarget)} />
 			<Menu anchorEl={anchorEl} open={anchorEl !== null} onClose={() => setAnchorEl(null)}>
 				{options.map((option) => (
 					<MenuItem
@@ -93,7 +71,7 @@ function PillSelect({ icon, label, options, selectedId, onSelect }: PillSelectPr
 /** Campus and Academic Year context pickers in the top bar. The campus choice is shared via
  * selectedCampus.ts (class lists filter by it); the year choice is still display-only.
  * Selection persists per-browser only. */
-export function ContextSelectors() {
+export function ContextSelectors({ search }: { search?: ReactNode }) {
 	const [campuses, setCampuses] = useState<CampusResponse[]>([]);
 	const [academicYears, setAcademicYears] = useState<AcademicYearResponse[]>([]);
 	const [campusId, setCampusId] = useState<number | null>(null);
@@ -123,10 +101,11 @@ export function ContextSelectors() {
 	const campusOptions = useMemo(() => campuses.map((c) => ({ id: c.id, label: c.name })), [campuses]);
 	const academicYearOptions = useMemo(() => academicYears.map((y) => ({ id: y.id, label: y.name })), [academicYears]);
 
+	// Order mirrors the target layout: campus, then the (stretching) search, then year and today's date.
 	return (
-		<Stack direction="row" spacing={{ xs: 0.75, sm: 1.5 }} sx={{ alignItems: "center", flexShrink: 0 }}>
+		<>
 			<PillSelect
-				icon={<ApartmentIcon fontSize="small" />}
+				icon={<ApartmentIcon />}
 				label="Campus"
 				options={campusOptions}
 				selectedId={campusId}
@@ -136,8 +115,9 @@ export function ContextSelectors() {
 					writeStored(CAMPUS_KEY, id);
 				}}
 			/>
+			{search ?? <Box sx={{ flexGrow: 1 }} />}
 			<PillSelect
-				icon={<CalendarMonthIcon fontSize="small" />}
+				icon={<CalendarMonthIcon />}
 				label="Academic year"
 				options={academicYearOptions}
 				selectedId={academicYearId}
@@ -146,12 +126,9 @@ export function ContextSelectors() {
 					writeStored(ACADEMIC_YEAR_KEY, id);
 				}}
 			/>
-			<Stack direction="row" spacing={0.75} sx={{ alignItems: "center", color: colors.inkFaint, px: 0.5, display: { xs: "none", md: "flex" } }}>
-				<TodayIcon fontSize="small" />
-				<Typography variant="body2" sx={{ fontWeight: 600 }}>
-					{TODAY_FORMATTER.format(new Date())}
-				</Typography>
-			</Stack>
-		</Stack>
+			<Box sx={{ display: { xs: "none", lg: "block" } }}>
+				<TopbarPill icon={<TodayIcon />} label={TODAY_FORMATTER.format(new Date())} hideLabelOnPhone={false} />
+			</Box>
+		</>
 	);
 }

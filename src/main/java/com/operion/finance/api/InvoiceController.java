@@ -4,6 +4,7 @@ import java.time.LocalDate;
 import java.util.List;
 
 import com.operion.authorization.RequirePermission;
+import com.operion.finance.BulkInvoiceService;
 import com.operion.finance.FeeReminderService;
 import com.operion.finance.Invoice;
 import com.operion.finance.InvoiceRepository;
@@ -22,10 +23,22 @@ public class InvoiceController {
 
 	private final InvoiceRepository invoiceRepository;
 	private final FeeReminderService feeReminderService;
+	private final BulkInvoiceService bulkInvoiceService;
 
-	public InvoiceController(InvoiceRepository invoiceRepository, FeeReminderService feeReminderService) {
+	public InvoiceController(InvoiceRepository invoiceRepository, FeeReminderService feeReminderService,
+			BulkInvoiceService bulkInvoiceService) {
 		this.invoiceRepository = invoiceRepository;
 		this.feeReminderService = feeReminderService;
+		this.bulkInvoiceService = bulkInvoiceService;
+	}
+
+	/** Every installment due on or before the date, for every ACTIVE assignment in the year
+	 * (optionally one class). {@code dryRun=true} only counts - the "preview" step. */
+	@PostMapping("/bulk-generate")
+	@RequirePermission("FEE_INVOICE_MANAGE")
+	public BulkInvoiceService.Result bulkGenerate(@RequestBody BulkGenerateInvoicesRequest request) {
+		return bulkInvoiceService.generateDue(request.academicYearId(), request.schoolClassId(), request.dueOnOrBefore(),
+				Boolean.TRUE.equals(request.dryRun()));
 	}
 
 	@GetMapping("/{invoiceId}")

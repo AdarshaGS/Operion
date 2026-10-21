@@ -13,5 +13,6 @@ public enum SchoolTemplateItemCategory {
 	LEAVE_TYPE,
 	SECTION,
 	SUBJECT,
-	GRADING_BAND
+	GRADING_BAND,
+	CERTIFICATE_TYPE
 }

@@ -39,24 +39,30 @@ test("platform owner switches a feature off: hidden in the UI, blocked in the AP
 	});
 	const owner = await login(slug, `owner@${slug}.test`, password);
 
-	// Baseline: everything on by default, Owner can reach the library API.
-	expect((await api.get<MeResponse>("/api/v1/auth/me", owner.token)).disabledModules).toEqual([]);
-	expect(await statusOf(api.get("/api/v1/library/books", owner.token))).toBe(200);
+	// Baseline: only the core staff modules are on; Library is optional and starts off.
+	const defaultOff = (await api.get<MeResponse>("/api/v1/auth/me", owner.token)).disabledModules;
+	expect(defaultOff).toEqual(expect.arrayContaining(["LIBRARY", "REPORTS", "PAYROLL"]));
+	expect(defaultOff).not.toContain("ATTENDANCE");
+	expect(await statusOf(api.get("/api/v1/library/books", owner.token))).toBe(403);
 
 	// An organisation Owner has no way to flip it: the platform plane rejects a tenant token.
 	expect(
-		await statusOf(api.put(`/api/v1/platform/organisations/${organisation.id}/modules/LIBRARY`, { enabled: false }, owner.token)),
+		await statusOf(api.put(`/api/v1/platform/organisations/${organisation.id}/modules/LIBRARY`, { enabled: true }, owner.token)),
 	).toBeGreaterThanOrEqual(401);
 
-	// Switch Library off through the real platform-admin UI.
+	// Switch Library on, then off again, through the real platform-admin UI.
 	await page.goto(`/platform/organisations/${organisation.id}`);
 	const libraryToggle = page.getByRole("switch", { name: "Library enabled" });
-	await expect(libraryToggle).toBeChecked();
+	await expect(libraryToggle).not.toBeChecked();
 	await libraryToggle.click(); // controlled: flips only once the API call returns
+	await expect(libraryToggle).toBeChecked();
+	await expect.poll(async () => (await api.get<MeResponse>("/api/v1/auth/me", owner.token)).disabledModules).not.toContain("LIBRARY");
+	expect(await statusOf(api.get("/api/v1/library/books", owner.token))).toBe(200);
+	await libraryToggle.click();
 	await expect(libraryToggle).not.toBeChecked();
 
 	// Backend now refuses it - for the Owner - while other modules keep working.
-	await expect.poll(async () => (await api.get<MeResponse>("/api/v1/auth/me", owner.token)).disabledModules).toEqual(["LIBRARY"]);
+	await expect.poll(async () => (await api.get<MeResponse>("/api/v1/auth/me", owner.token)).disabledModules).toEqual(defaultOff);
 	expect(await statusOf(api.get("/api/v1/library/books", owner.token))).toBe(403);
 	expect(await statusOf(api.get("/api/v1/students", owner.token))).toBe(200);
 
@@ -93,7 +99,7 @@ test("platform owner switches a feature off: hidden in the UI, blocked in the AP
 	// Switching it back on restores everything, nothing was deleted.
 	await libraryToggle.click();
 	await expect(libraryToggle).toBeChecked();
-	await expect.poll(async () => (await api.get<MeResponse>("/api/v1/auth/me", owner.token)).disabledModules).toEqual([]);
+	await expect.poll(async () => (await api.get<MeResponse>("/api/v1/auth/me", owner.token)).disabledModules).not.toContain("LIBRARY");
 	expect(await statusOf(api.get("/api/v1/library/books", owner.token))).toBe(200);
 	await tenantPage.goto("/students");
 	await expect(tenantPage.getByRole("button", { name: "Library", exact: true })).toBeVisible();

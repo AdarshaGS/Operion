@@ -1,5 +1,11 @@
 package com.operion.hr;
 
+import com.operion.academic.WorkingCalendarEntry;
+import com.operion.academic.WorkingCalendarEntryRepository;
+import com.operion.academic.WorkingCalendarEntryType;
+import com.operion.common.InvalidRequestException;
+import com.operion.calendar.WorkingDayService;
+import com.operion.organisation.OrganisationConfigurationRepository;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -49,6 +55,12 @@ import tools.jackson.databind.ObjectMapper;
 class LeaveBalanceApprovalTest {
 
 	private HrService hrService;
+
+	@Autowired
+	private WorkingCalendarEntryRepository workingCalendarEntryRepository;
+
+	@Autowired
+	private OrganisationConfigurationRepository organisationConfigurationRepository;
 
 	@Autowired
 	private OrganisationRepository organisationRepository;
@@ -106,6 +118,7 @@ class LeaveBalanceApprovalTest {
 		hrService = new HrService(staffProfileRepository, leaveTypeRepository, leaveBalanceRepository, leaveRequestRepository,
 				staffDocumentRepository, jobApplicationRepository, organisationRepository, staffAssignmentRepository,
 				staffExitRepository, staffBankDetailRepository, staffAttendanceRepository,
+				new WorkingDayService(workingCalendarEntryRepository, organisationConfigurationRepository),
 				new AuditLogService(auditLogRepository, new ObjectMapper()));
 	}
 
@@ -218,5 +231,58 @@ class LeaveBalanceApprovalTest {
 
 		assertThat(request.getStatus()).isEqualTo(LeaveRequestStatus.REJECTED);
 		assertThat(request.getApprovedBy()).isEqualTo(42L);
+	}
+
+	private void holiday(Fixture fixture, LocalDate date) {
+		workingCalendarEntryRepository.save(
+				new WorkingCalendarEntry(fixture.academicYear(), null, date, "Test holiday", WorkingCalendarEntryType.HOLIDAY));
+	}
+
+	@Test
+	void holidayInsideTheRangeIsNotLeaveAndGetsNoLeaveAttendance() {
+		Fixture fixture = setUpFixture("hr-leave-holiday-attendance");
+		hrService.allocateBalance(fixture.staffProfile(), fixture.leaveType(), fixture.academicYear(), 12.0);
+		holiday(fixture, LocalDate.of(2026, 1, 6));
+		LeaveRequest request = hrService.raiseLeaveRequest(
+				fixture.staffProfile(), fixture.leaveType(), fixture.academicYear(), LocalDate.of(2026, 1, 5), LocalDate.of(2026, 1, 7), 2.0, null);
+
+		hrService.approve(request, 99L);
+
+		Long personId = fixture.staffProfile().getPerson().getId();
+		assertThat(staffAttendanceRepository.findByPersonIdAndAttendanceDate(personId, LocalDate.of(2026, 1, 5))).isPresent();
+		assertThat(staffAttendanceRepository.findByPersonIdAndAttendanceDate(personId, LocalDate.of(2026, 1, 6))).isEmpty();
+		assertThat(staffAttendanceRepository.findByPersonIdAndAttendanceDate(personId, LocalDate.of(2026, 1, 7))).isPresent();
+	}
+
+	@Test
+	void askingForMoreDaysThanTheRangeHasWorkingDaysIsRejected() {
+		Fixture fixture = setUpFixture("hr-leave-holiday-too-many");
+		holiday(fixture, LocalDate.of(2026, 1, 6));
+
+		assertThatThrownBy(() -> hrService.raiseLeaveRequest(fixture.staffProfile(), fixture.leaveType(), fixture.academicYear(),
+				LocalDate.of(2026, 1, 5), LocalDate.of(2026, 1, 7), 3.0, null))
+				.isInstanceOf(InvalidRequestException.class).hasMessageContaining("2 working day");
+	}
+
+	@Test
+	void aWeekendInsideTheRangeIsNotCounted() {
+		Fixture fixture = setUpFixture("hr-leave-weekend");
+		// Fri 9 and Sat 10 are working under the default Mon-Sat pattern, Sun 11 is the weekly off, Mon 12 works.
+		assertThatThrownBy(() -> hrService.raiseLeaveRequest(fixture.staffProfile(), fixture.leaveType(), fixture.academicYear(),
+				LocalDate.of(2026, 1, 9), LocalDate.of(2026, 1, 12), 4.0, null))
+				.isInstanceOf(InvalidRequestException.class);
+
+		LeaveRequest ok = hrService.raiseLeaveRequest(fixture.staffProfile(), fixture.leaveType(), fixture.academicYear(),
+				LocalDate.of(2026, 1, 9), LocalDate.of(2026, 1, 12), 3.0, null);
+		assertThat(ok.getNumberOfDays()).isEqualTo(3.0);
+	}
+
+	@Test
+	void aRangeThatIsEntirelyDaysOffIsRejected() {
+		Fixture fixture = setUpFixture("hr-leave-all-off");
+
+		assertThatThrownBy(() -> hrService.raiseLeaveRequest(fixture.staffProfile(), fixture.leaveType(), fixture.academicYear(),
+				LocalDate.of(2026, 1, 11), LocalDate.of(2026, 1, 11), 1.0, null)) // a Sunday
+				.isInstanceOf(InvalidRequestException.class).hasMessageContaining("holiday or weekly off");
 	}
 }

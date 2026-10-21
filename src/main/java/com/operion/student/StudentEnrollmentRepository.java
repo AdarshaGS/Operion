@@ -35,4 +35,11 @@ public interface StudentEnrollmentRepository extends JpaRepository<StudentEnroll
 			+ "WHERE e.current = true AND e.enrollmentStatus = com.operion.student.StudentEnrollmentStatus.ENROLLED "
 			+ "GROUP BY sc.id, sc.displayName, g.name, g.sequenceOrder ORDER BY g.sequenceOrder, sc.displayName")
 	List<Object[]> countCurrentEnrolledBySchoolClass();
+
+	/** Attendance overview - enrolled head-count per section: (section id, section name, class id, class label, grade order, count). */
+	@Query("SELECT s.id, s.name, sc.id, COALESCE(sc.displayName, g.name), g.sequenceOrder, COUNT(e) FROM StudentEnrollment e "
+			+ "JOIN e.section s JOIN s.schoolClass sc JOIN sc.gradeLevel g "
+			+ "WHERE e.current = true AND e.enrollmentStatus = com.operion.student.StudentEnrollmentStatus.ENROLLED "
+			+ "GROUP BY s.id, s.name, sc.id, sc.displayName, g.name, g.sequenceOrder")
+	List<Object[]> countCurrentEnrolledBySection();
 }

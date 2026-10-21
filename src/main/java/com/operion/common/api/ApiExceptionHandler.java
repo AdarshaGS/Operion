@@ -2,6 +2,7 @@ package com.operion.common.api;
 
 import java.util.Map;
 
+import com.operion.backup.BackupFailedException;
 import com.operion.authorization.AuthorizationDeniedException;
 import com.operion.finance.PaymentGatewayException;
 import com.operion.common.InvalidRequestException;
@@ -148,6 +149,12 @@ class ApiExceptionHandler {
 	@ExceptionHandler(ReportExecutionException.class)
 	ResponseEntity<Map<String, String>> reportExecutionFailed(ReportExecutionException ex) {
 		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", ex.getMessage()));
+	}
+
+	/** The backup itself failed (mysqldump missing or refused, disk full) - the server's problem, not the caller's. */
+	@ExceptionHandler(BackupFailedException.class)
+	ResponseEntity<Map<String, String>> backupFailed(BackupFailedException ex) {
+		return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", ex.getMessage()));
 	}
 
 	@ExceptionHandler(AssetStorageException.class)

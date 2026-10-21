@@ -26,6 +26,7 @@ import {
 import { assignTeacher, claimStaffInvite, createRole, grantMembership, inviteUser } from "./api/roles";
 import { claimParentInvite, createGuardian, grantPortalAccess, linkGuardianToStudent } from "./api/parentPortal";
 import { platformLogin } from "./api/platformAuth";
+import { api } from "./api/client";
 import { PLATFORM_ADMIN_CREDENTIALS, ROLE_FIXTURES } from "./fixtures/roles";
 import { AUTH_DIR, FRONTEND_BASE_URL } from "./env";
 
@@ -101,6 +102,19 @@ export interface SeedData {
 	teacherPersonId: number;
 }
 
+const OPTIONAL_MODULES_UNDER_TEST = [
+	"LIBRARY",
+	"LEARNING",
+	"TRANSPORT",
+	"MESSAGING",
+	"INVENTORY",
+	"PURCHASE",
+	"SALES",
+	"REPORTS",
+	"PAYROLL",
+	"COMPLIANCE",
+];
+
 export default async function globalSetup(_config: FullConfig): Promise<void> {
 	mkdirSync(AUTH_DIR, { recursive: true });
 
@@ -120,6 +134,13 @@ export default async function globalSetup(_config: FullConfig): Promise<void> {
 	const ownerSession = await login(organisationSlug, `owner@${organisationSlug}.test`, FIXED_PASSWORD);
 	const ownerToken = ownerSession.token;
 	writeFileSync(join(AUTH_DIR, "owner.json"), JSON.stringify(tenantStorageState(ownerSession)));
+
+	// Only the core staff modules start on; switch on the optional ones the specs exercise.
+	// Performance stays off - its spec covers the opt-in itself.
+	const moduleSession = await platformLogin(PLATFORM_ADMIN_CREDENTIALS.email, PLATFORM_ADMIN_CREDENTIALS.password);
+	for (const module of OPTIONAL_MODULES_UNDER_TEST) {
+		await api.put(`/api/v1/platform/organisations/${ownerSession.organisationId}/modules/${module}`, { enabled: true }, moduleSession.token);
+	}
 
 	const campuses = await listCampuses(ownerToken);
 	const campusId = campuses[0].id;
@@ -163,6 +184,12 @@ export default async function globalSetup(_config: FullConfig): Promise<void> {
 		subjectId: subject.id,
 		teacherPersonId: teacherPersonId!,
 		assignmentType: "SUBJECT",
+		startDate: "2026-06-01",
+	});
+	// Daily attendance is class-teacher scoped: ATTENDANCE_MARK only covers HOMEROOM sections.
+	await assignTeacher(ownerToken, section.id, {
+		teacherPersonId: teacherPersonId!,
+		assignmentType: "HOMEROOM",
 		startDate: "2026-06-01",
 	});
 

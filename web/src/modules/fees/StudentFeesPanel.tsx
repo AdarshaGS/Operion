@@ -34,7 +34,7 @@ import { listFeeCategories, type FeeCategoryResponse } from "../../api/feeCatego
 import { listFeeStructureGroups } from "../../api/feeStructureGroups";
 import { listFeeStructures, type FeeStructureResponse } from "../../api/feeStructures";
 import { generateInvoice, listInvoices, type InvoiceResponse } from "../../api/invoices";
-import { bouncePayment, listPayments, recordPayment, type AllocationEntry, type PaymentResponse } from "../../api/payments";
+import { bouncePayment, downloadReceipt, listPayments, recordPayment, type AllocationEntry, type PaymentResponse } from "../../api/payments";
 import { recordRefund } from "../../api/refunds";
 import { recordWaiver } from "../../api/waivers";
 import { colors } from "../../theme";
@@ -310,6 +310,14 @@ export function StudentFeesPanel({ studentEnrollmentId, academicYearId, schoolCl
 		}
 	}
 
+	async function handleDownloadReceipt(payment: PaymentResponse) {
+		try {
+			await downloadReceipt(payment.id, payment.receiptNumber);
+		} catch (err) {
+			setError(err instanceof ApiError ? err.message : "Failed to download the receipt");
+		}
+	}
+
 	async function handleBounce(payment: PaymentResponse) {
 		setSubmitting(true);
 		try {
@@ -420,8 +428,6 @@ export function StudentFeesPanel({ studentEnrollmentId, academicYearId, schoolCl
 		}
 	}
 
-	const canRefund = hasAnyPermission(["FEE_REFUND_APPROVE"]);
-	const canBounce = hasAnyPermission(["FEE_COLLECT"]);
 	const canAdjust = hasAnyPermission(["FEE_ADJUSTMENT_MANAGE"]);
 	const canWaive = hasAnyPermission(["FEE_WAIVER_APPROVE"]);
 
@@ -615,7 +621,7 @@ export function StudentFeesPanel({ studentEnrollmentId, academicYearId, schoolCl
 										<TableCell>Reference</TableCell>
 										<TableCell>Amount</TableCell>
 										<TableCell>Status</TableCell>
-										{(canRefund || canBounce) && <TableCell />}
+										<TableCell />
 									</TableRow>
 								</TableHead>
 								<TableBody>
@@ -633,9 +639,11 @@ export function StudentFeesPanel({ studentEnrollmentId, academicYearId, schoolCl
 													size="small"
 												/>
 											</TableCell>
-											{(canRefund || canBounce) && (
-												<TableCell>
-													<Stack direction="row" spacing={1}>
+											<TableCell>
+												<Stack direction="row" spacing={1}>
+														<Button size="small" onClick={() => handleDownloadReceipt(payment)}>
+															Receipt
+														</Button>
 														<Can anyOf={["FEE_REFUND_APPROVE"]}>
 															<Button size="small" onClick={() => openRefundDialog(payment)} disabled={payment.status === "BOUNCED"}>
 																Refund
@@ -646,9 +654,8 @@ export function StudentFeesPanel({ studentEnrollmentId, academicYearId, schoolCl
 																Mark bounced
 															</Button>
 														</Can>
-													</Stack>
-												</TableCell>
-											)}
+												</Stack>
+											</TableCell>
 										</TableRow>
 									))}
 								</TableBody>
@@ -851,6 +858,7 @@ export function StudentFeesPanel({ studentEnrollmentId, academicYearId, schoolCl
 					</Stack>
 				</DialogContent>
 				<DialogActions>
+					<Button onClick={() => receiptDialogPayment && handleDownloadReceipt(receiptDialogPayment)}>Download receipt</Button>
 					<Button variant="contained" onClick={() => setReceiptDialogPayment(null)}>
 						Done
 					</Button>

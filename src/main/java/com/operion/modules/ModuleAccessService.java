@@ -12,8 +12,8 @@ import com.operion.common.persistence.PlatformTransactional;
 /**
  * Current module state per organisation, folded from the insert-only
  * organisation_module_settings history: the latest row per module wins and a module with
- * no row falls back to {@link AppModule#defaultEnabled()} (on, except Transport,
- * Communication and Messaging, which stay off until switched on). Read on every request that reaches a module-owned handler (one small
+ * no row falls back to {@link AppModule#defaultEnabled()} (on for the core
+ * staff modules, off for the optional ones). Read on every request that reaches a module-owned handler (one small
  * indexed query, same cost class as the permission lookup beside it), so a platform-owner
  * toggle takes effect on the very next request with no cache to invalidate.
  */

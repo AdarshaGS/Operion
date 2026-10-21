@@ -12,12 +12,14 @@ import DialogTitle from "@mui/material/DialogTitle";
 import MenuItem from "@mui/material/MenuItem";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
+import Tab from "@mui/material/Tab";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
 import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
+import Tabs from "@mui/material/Tabs";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import AddIcon from "@mui/icons-material/Add";
@@ -31,12 +33,15 @@ import {
   type ExamScheduleResponse,
 } from "../../api/exams";
 import { listStudentEnrollments } from "../../api/enrollments";
+import { getRegister, type MarksEntryRegisterResponse } from "../../api/marks";
 import {
   listGradingScales,
   type GradingScaleResponse,
 } from "../../api/gradingScales";
 import { type PersonResponse, listPersons } from "../../api/persons";
 import {
+  downloadReportCardPdf,
+  downloadSectionReportCardsPdf,
   publishReportCard,
   type ReportCardResponse,
 } from "../../api/reportCards";
@@ -48,6 +53,24 @@ import { listSections, type SectionResponse } from "../../api/sections";
 import { listStudents, type StudentResponse } from "../../api/students";
 import { listSubjects, type SubjectResponse } from "../../api/subjects";
 import { useAuth } from "../../auth/AuthContext";
+import { useSchoolClassLabel } from "../../utils/useSchoolClassLabel";
+
+const TABS = ["overview", "schedule", "marks", "results", "reportCards"] as const;
+type TabKey = (typeof TABS)[number];
+const TAB_LABELS: Record<TabKey, string> = {
+  overview: "Overview",
+  schedule: "Schedule",
+  marks: "Marks entry",
+  results: "Results",
+  reportCards: "Report cards",
+};
+
+/** Register state per schedule: a missing register row (id null) means nobody has started entering marks. */
+function registerLabel(register: MarksEntryRegisterResponse | undefined): string {
+  if (!register) return "Loading…";
+  if (register.id == null) return "Not started";
+  return { DRAFT: "In progress", SUBMITTED: "Awaiting approval", APPROVED: "Approved" }[register.registerStatus];
+}
 
 export function ExamDetailPage() {
   const { examId } = useParams<{ examId: string }>();
@@ -59,11 +82,14 @@ export function ExamDetailPage() {
   const [exam, setExam] = useState<ExamResponse | null>(null);
   const [schedules, setSchedules] = useState<ExamScheduleResponse[]>([]);
   const [classes, setClasses] = useState<SchoolClassResponse[]>([]);
+  const classLabel = useSchoolClassLabel();
   const [subjects, setSubjects] = useState<SubjectResponse[]>([]);
   const [sectionsByClass, setSectionsByClass] = useState<
     Record<number, SectionResponse[]>
   >({});
   const [error, setError] = useState<string | null>(null);
+  const [tab, setTab] = useState<TabKey>("overview");
+  const [registers, setRegisters] = useState<Record<number, MarksEntryRegisterResponse>>({});
 
   const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
   const [scheduleError, setScheduleError] = useState<string | null>(null);
@@ -82,6 +108,22 @@ export function ExamDetailPage() {
   );
   const [reportDialogOpen, setReportDialogOpen] = useState(false);
   const [reportError, setReportError] = useState<string | null>(null);
+  const [pdfSectionId, setPdfSectionId] = useState("");
+  const [pdfError, setPdfError] = useState<string | null>(null);
+  const [pdfBusy, setPdfBusy] = useState(false);
+
+  async function handleSectionPdf() {
+    if (!examId || !pdfSectionId) return;
+    setPdfError(null);
+    setPdfBusy(true);
+    try {
+      await downloadSectionReportCardsPdf(Number(examId), Number(pdfSectionId));
+    } catch (err) {
+      setPdfError(err instanceof ApiError ? err.message : "Failed to download the report cards");
+    } finally {
+      setPdfBusy(false);
+    }
+  }
   const [reportStudentId, setReportStudentId] = useState("");
   const [gradingScaleId, setGradingScaleId] = useState("");
   const [publishedReport, setPublishedReport] =
@@ -119,6 +161,11 @@ export function ExamDetailPage() {
     listSchedules(Number(examId))
       .then((result) => {
         setSchedules(result);
+        result.forEach((schedule) =>
+          getRegister(schedule.id)
+            .then((register) => setRegisters((prev) => ({ ...prev, [schedule.id]: register })))
+            .catch(() => {}),
+        );
         const classIds = [...new Set(result.map((s) => s.schoolClassId))];
         classIds.forEach((classId) => {
           if (sectionsByClass[classId]) return;
@@ -137,7 +184,8 @@ export function ExamDetailPage() {
   }
 
   function className(id: number): string {
-    return classes.find((c) => c.id === id)?.displayName ?? `Class #${id}`;
+    const schoolClass = classes.find((c) => c.id === id);
+    return schoolClass ? classLabel(schoolClass) : `Class #${id}`;
   }
 
   function subjectName(id: number): string {
@@ -229,6 +277,11 @@ export function ExamDetailPage() {
     }
   }
 
+  const approvedCount = schedules.filter((s) => registers[s.id]?.registerStatus === "APPROVED" && registers[s.id]?.id != null).length;
+  const startedCount = schedules.filter((s) => registers[s.id]?.id != null).length;
+  const dates = schedules.map((s) => s.examDate).sort();
+  const classCount = new Set(schedules.map((s) => s.schoolClassId)).size;
+
   if (!exam) {
     return (
       <Box sx={{ display: "flex", justifyContent: "center", p: 4 }}>
@@ -254,6 +307,34 @@ export function ExamDetailPage() {
 
       {error && <Alert severity="error">{error}</Alert>}
 
+      <Tabs value={tab} onChange={(_, value) => setTab(value)}>
+        {TABS.map((t) => (
+          <Tab key={t} label={TAB_LABELS[t]} value={t} />
+        ))}
+      </Tabs>
+
+      {tab === "overview" && (
+        <Paper sx={{ p: 3 }}>
+          <Stack spacing={1.5}>
+            <Typography variant="h6">Overview</Typography>
+            <Typography variant="body2">
+              {exam.examType} · {exam.status === "ACTIVE" ? "Active" : exam.status}
+            </Typography>
+            <Typography variant="body2">
+              {schedules.length === 0
+                ? "No schedules yet — add them under the Schedule tab."
+                : `${schedules.length} schedule${schedules.length === 1 ? "" : "s"} across ${classCount} class${classCount === 1 ? "" : "es"}, ${dates[0]}${dates[0] !== dates[dates.length - 1] ? ` to ${dates[dates.length - 1]}` : ""}.`}
+            </Typography>
+            {schedules.length > 0 && (
+              <Typography variant="body2">
+                Marks entry: {startedCount} of {schedules.length} started, {approvedCount} approved.
+              </Typography>
+            )}
+          </Stack>
+        </Paper>
+      )}
+
+      {tab === "schedule" && (
       <Paper sx={{ p: 3 }}>
         <Stack spacing={2}>
           <Box
@@ -326,7 +407,81 @@ export function ExamDetailPage() {
           )}
         </Stack>
       </Paper>
+      )}
 
+      {tab === "marks" && (
+        <Paper sx={{ p: 3 }}>
+          <Stack spacing={2}>
+            <Typography variant="h6">Marks entry</Typography>
+            {schedules.length === 0 && <Alert severity="info">No schedules yet — add them under the Schedule tab before entering marks.</Alert>}
+            {schedules.length > 0 && (
+              <TableContainer>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Class</TableCell>
+                      <TableCell>Section</TableCell>
+                      <TableCell>Subject</TableCell>
+                      <TableCell>Date</TableCell>
+                      <TableCell>Status</TableCell>
+                      <TableCell />
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {schedules.map((schedule) => (
+                      <TableRow key={schedule.id} hover>
+                        <TableCell>{className(schedule.schoolClassId)}</TableCell>
+                        <TableCell>{sectionName(schedule.schoolClassId, schedule.sectionId)}</TableCell>
+                        <TableCell>{subjectName(schedule.subjectId)}</TableCell>
+                        <TableCell>{schedule.examDate}</TableCell>
+                        <TableCell>
+                          <Chip
+                            size="small"
+                            label={registerLabel(registers[schedule.id])}
+                            color={registers[schedule.id]?.registerStatus === "APPROVED" && registers[schedule.id]?.id != null ? "success" : "default"}
+                          />
+                        </TableCell>
+                        <TableCell align="right">
+                          <Button size="small" onClick={() => navigate(`/examinations/exams/${examId}/schedules/${schedule.id}`)}>
+                            Open
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
+          </Stack>
+        </Paper>
+      )}
+
+      {tab === "results" && (
+        <Paper sx={{ p: 3 }}>
+          <Stack spacing={1.5}>
+            <Typography variant="h6">Results</Typography>
+            {schedules.length === 0 ? (
+              <Alert severity="info">Results need at least one schedule with approved marks.</Alert>
+            ) : approvedCount === schedules.length ? (
+              <Alert severity="success">All {schedules.length} marks registers are approved — report cards can be published.</Alert>
+            ) : (
+              <Alert severity="warning">
+                {schedules.length - approvedCount} of {schedules.length} marks registers still need approval before results are final.
+              </Alert>
+            )}
+            <Box>
+              <Button size="small" onClick={() => setTab("marks")}>
+                Review marks entry
+              </Button>
+              <Button size="small" onClick={() => setTab("reportCards")}>
+                Go to report cards
+              </Button>
+            </Box>
+          </Stack>
+        </Paper>
+      )}
+
+      {tab === "reportCards" && (
       <Paper sx={{ p: 3 }}>
         <Stack spacing={2}>
           <Box
@@ -383,11 +538,47 @@ export function ExamDetailPage() {
                 >
                   View / print
                 </Button>
+                <Button
+                  size="small"
+                  onClick={() =>
+                    downloadReportCardPdf(publishedReport.id).catch((err) =>
+                      setPdfError(err instanceof ApiError ? err.message : "Failed to download the PDF"),
+                    )
+                  }
+                >
+                  Download PDF
+                </Button>
               </Box>
             </Stack>
           )}
+          {!publishedReport && <Alert severity="info">Publish a report card for a student to see the result here.</Alert>}
+
+          <Typography variant="subtitle1">Print a whole section</Typography>
+          <Box sx={{ display: "flex", gap: 2, alignItems: "center", flexWrap: "wrap" }}>
+            <TextField
+              select
+              size="small"
+              label="Section"
+              value={pdfSectionId}
+              onChange={(e) => setPdfSectionId(e.target.value)}
+              sx={{ minWidth: 240 }}
+            >
+              {Object.entries(sectionsByClass).flatMap(([classId, sections]) =>
+                sections.map((section) => (
+                  <MenuItem key={section.id} value={section.id}>
+                    {className(Number(classId))} - {section.name}
+                  </MenuItem>
+                )),
+              )}
+            </TextField>
+            <Button variant="outlined" disabled={!pdfSectionId || pdfBusy} onClick={handleSectionPdf}>
+              {pdfBusy ? "Preparing…" : "Download section report cards (PDF)"}
+            </Button>
+          </Box>
+          {pdfError && <Alert severity="error">{pdfError}</Alert>}
         </Stack>
       </Paper>
+      )}
 
       <Dialog
         open={scheduleDialogOpen}
@@ -411,7 +602,7 @@ export function ExamDetailPage() {
             >
               {classes.map((schoolClass) => (
                 <MenuItem key={schoolClass.id} value={schoolClass.id}>
-                  {schoolClass.displayName ?? `Class #${schoolClass.id}`}
+                  {classLabel(schoolClass)}
                 </MenuItem>
               ))}
             </TextField>

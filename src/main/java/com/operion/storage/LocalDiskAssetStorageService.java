@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -65,6 +66,18 @@ public class LocalDiskAssetStorageService implements AssetStorageService {
 	@Override
 	public boolean exists(String reference) {
 		return reference != null && REFERENCE_PATTERN.matcher(reference).matches() && Files.isRegularFile(baseDir.resolve(reference));
+	}
+
+	@Override
+	public Optional<byte[]> read(String reference) {
+		if (!exists(reference)) {
+			return Optional.empty();
+		}
+		try {
+			return Optional.of(Files.readAllBytes(baseDir.resolve(reference)));
+		} catch (IOException e) {
+			throw new AssetStorageException("Failed to read stored file " + reference, e);
+		}
 	}
 
 	/** The declared content type is client-supplied, so the leading bytes must agree with it. */

@@ -153,17 +153,19 @@ class SchoolStarterPackServiceTest {
 	@Test
 	void applyingWithoutAnswersTouchesNoModuleSetting() {
 		when(templateService.apply(anySet())).thenReturn(new SchoolTemplateResult());
-		moduleAccessService.setEnabled(organisation.getId(), AppModule.LIBRARY, false, "platform");
+		moduleAccessService.setEnabled(organisation.getId(), AppModule.HR, false, "platform");
 
 		service.apply(null);
 
-		verify(templateService).apply(EnumSet.of(AppModule.LIBRARY, AppModule.TRANSPORT, AppModule.COMMUNICATION, AppModule.MESSAGING));
+		verify(templateService).apply(EnumSet.of(AppModule.HR, AppModule.LIBRARY, AppModule.LEARNING, AppModule.TRANSPORT, AppModule.MESSAGING,
+				AppModule.INVENTORY, AppModule.PURCHASE, AppModule.SALES, AppModule.REPORTS, AppModule.PAYROLL, AppModule.COMPLIANCE,
+				AppModule.PERFORMANCE));
 		assertThat(moduleAccessService.history(organisation.getId())).hasSize(1);
 	}
 
 	@Test
 	void anOrganisationWithExistingSettingsCannotChooseModules() {
-		moduleAccessService.setEnabled(organisation.getId(), AppModule.LIBRARY, false, "platform");
+		moduleAccessService.setEnabled(organisation.getId(), AppModule.HR, false, "platform");
 
 		assertThat(service.needs().canSelectModules()).isFalse();
 		assertThatThrownBy(() -> service.apply(Map.of())).isInstanceOf(IllegalStateException.class);

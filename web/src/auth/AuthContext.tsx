@@ -8,7 +8,7 @@ import {
 } from "../api/auth";
 import { getPortalIdentity, type PortalIdentity } from "../api/portal";
 import { moduleForPath } from "./modules";
-import { clearSession, getSession, setSession, type StoredSession } from "../api/tokenStore";
+import { clearSession, getSession, onSessionCleared, setSession, type StoredSession } from "../api/tokenStore";
 
 export interface Profile {
 	personId: number | null;
@@ -49,6 +49,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 	const [permissionsLoaded, setPermissionsLoaded] = useState(false);
 	const [profile, setProfile] = useState<Profile | null>(null);
 	const [portalIdentity, setPortalIdentity] = useState<PortalIdentity | null>(null);
+
+	useEffect(() => onSessionCleared(() => setSessionState(null)), []);
 
 	useEffect(() => {
 		if (!session) {

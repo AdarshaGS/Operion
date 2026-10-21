@@ -46,6 +46,10 @@ public class PlatformAdmin extends BaseEntity {
 		this.status = PlatformAdminStatus.ACTIVE;
 	}
 
+	public void changePassword(String passwordHash) {
+		this.passwordHash = passwordHash;
+	}
+
 	public void changeStatus(PlatformAdminStatus target) {
 		this.status = target;
 	}

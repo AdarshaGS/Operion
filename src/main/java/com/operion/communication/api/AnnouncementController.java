@@ -70,7 +70,8 @@ public class AnnouncementController {
 		}
 
 		Announcement announcement = communicationService.createAnnouncement(campus, request.title(), request.body(), audienceType,
-				request.audienceRefId(), selectedGroupPersons, request.scheduledAt());
+				request.audienceRefId(), selectedGroupPersons, request.scheduledAt(),
+				Boolean.TRUE.equals(request.sendOnNonWorkingDays()));
 		return AnnouncementResponse.from(announcement);
 	}
 

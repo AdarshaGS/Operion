@@ -79,7 +79,7 @@ public class BorrowRecordController {
 	@GetMapping("/overdue")
 	public List<OverdueBorrowResponse> overdue() {
 		return borrowRecordRepository.findByStatusAndDueDateBeforeOrderByDueDateAsc(BorrowStatus.BORROWED, LocalDate.now()).stream()
-				.map(record -> OverdueBorrowResponse.from(record, pendingFineTotal(record.getId())))
+				.map(record -> OverdueBorrowResponse.from(record, pendingFineTotal(record.getId()).add(libraryService.overdueFine(record, LocalDate.now()))))
 				.toList();
 	}
 

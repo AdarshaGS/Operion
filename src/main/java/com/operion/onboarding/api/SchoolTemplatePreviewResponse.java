@@ -18,11 +18,13 @@ public record SchoolTemplatePreviewResponse(
 		List<SchoolTemplateCategoryStatus> classes,
 		List<SchoolTemplateCategoryStatus> sections,
 		List<SchoolTemplateCategoryStatus> subjects,
+		List<SchoolTemplateCategoryStatus> certificateTypes,
 		boolean gradingScaleExists) {
 
 	public static SchoolTemplatePreviewResponse from(SchoolTemplateStatus status) {
 		return new SchoolTemplatePreviewResponse(status.grades(), status.departments(), status.designations(), status.roles(),
 				status.feeCategories(), status.itemCategories(), status.items(),
-				status.assetTypes(), status.leaveTypes(), status.classes(), status.sections(), status.subjects(), status.gradingScaleExists());
+				status.assetTypes(), status.leaveTypes(), status.classes(), status.sections(), status.subjects(), status.certificateTypes(),
+				status.gradingScaleExists());
 	}
 }

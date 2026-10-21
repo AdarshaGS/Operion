@@ -5,6 +5,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.util.List;
 
 import com.operion.academic.AcademicService;
+import com.operion.certificate.CertificateTypePresetRepository;
+import com.operion.certificate.CertificateTypeRepository;
+import com.operion.certificate.CertificateTypeService;
 import com.operion.academic.ClassSubjectRepository;
 import com.operion.academic.GradeLevel;
 import com.operion.academic.GradeLevelRepository;
@@ -76,6 +79,10 @@ class SchoolTemplateServiceTest {
 
 	@Autowired
 	private OrganisationRepository organisationRepository;
+	@Autowired
+	private CertificateTypeRepository certificateTypeRepository;
+	@Autowired
+	private CertificateTypePresetRepository certificateTypePresetRepository;
 	@Autowired
 	private GradeLevelRepository gradeLevelRepository;
 	@Autowired
@@ -195,7 +202,8 @@ class SchoolTemplateServiceTest {
 		schoolTemplateService = new SchoolTemplateService(schoolTemplateItemService, academicService, gradeLevelRepository,
 				departmentRepository, designationRepository, roleRepository, roleService, permissionRepository, feeService,
 				feeCategoryRepository, inventoryService, itemCategoryRepository, itemRepository, leaveTypeRepository, examinationService, gradingScaleRepository,
-				academicYearRepository, campusRepository, schoolClassRepository, sectionRepository, subjectRepository);
+				academicYearRepository, campusRepository, schoolClassRepository, sectionRepository, subjectRepository,
+				new CertificateTypeService(certificateTypeRepository, certificateTypePresetRepository), certificateTypeRepository);
 
 		Organisation organisation = organisationRepository.save(
 				new Organisation("Test School", "Test School Trust", "school-template-test-" + System.nanoTime()));
@@ -281,6 +289,13 @@ class SchoolTemplateServiceTest {
 			schoolTemplateMasterItemRepository.save(new SchoolTemplateMasterItem(SchoolTemplateItemCategory.GRADING_BAND, (String) band[0],
 					null, null, (Integer) band[1], null, null, (Double) band[2], null, null));
 		}
+		// Stand-in for V28's certificate presets and template rows: one with a preset, one custom without.
+		certificateTypePresetRepository.save(new com.operion.certificate.CertificateTypePreset("TC", "Transfer Certificate", "TRANSFER CERTIFICATE",
+				"Certified for {{student.name}}.", null, null, "TC-{YYYY}-{SEQ:4}", true, true, true, true, false));
+		schoolTemplateMasterItemRepository.save(new SchoolTemplateMasterItem(
+				SchoolTemplateItemCategory.CERTIFICATE_TYPE, "Transfer Certificate", "TC", null, null, null, null, null, null, null).forModule("STUDENTS"));
+		schoolTemplateMasterItemRepository.save(new SchoolTemplateMasterItem(
+				SchoolTemplateItemCategory.CERTIFICATE_TYPE, "Sports Participation", "SPORTS", null, null, null, null, null, null, null).forModule("STUDENTS"));
 		// Stand-in for V132's module tagging.
 		java.util.Map<String, String> tags = java.util.Map.of("DEPARTMENT:Transport", "TRANSPORT", "DESIGNATION:Driver", "TRANSPORT",
 				"DESIGNATION:Transport Manager", "TRANSPORT", "ROLE:Transport Manager", "TRANSPORT", "FEE_CATEGORY:Transport Fee",
@@ -288,6 +303,34 @@ class SchoolTemplateServiceTest {
 		schoolTemplateMasterItemRepository.saveAll(schoolTemplateMasterItemRepository.findAll().stream()
 				.filter(item -> tags.containsKey(item.getCategory() + ":" + item.getName()))
 				.map(item -> item.forModule(tags.get(item.getCategory() + ":" + item.getName()))).toList());
+	}
+
+	@Test
+	void certificateTypesAreCopiedFromTheirPresetOrGetGenericWordingAndAreNotDuplicatedOnReapply() {
+		SchoolTemplateResult result = schoolTemplateService.apply();
+
+		assertThat(result.getCertificateTypesCreated()).containsExactlyInAnyOrder("Transfer Certificate", "Sports Participation");
+		com.operion.certificate.CertificateType tc = certificateTypeRepository.findByCode("TC").orElseThrow();
+		assertThat(tc.isApprovalRequired()).isTrue();
+		assertThat(tc.isRequiresExit()).isTrue();
+		assertThat(tc.getBodyTemplate()).isEqualTo("Certified for {{student.name}}.");
+		com.operion.certificate.CertificateType sports = certificateTypeRepository.findByCode("SPORTS").orElseThrow();
+		assertThat(sports.isApprovalRequired()).isFalse();
+		assertThat(sports.getBodyTemplate()).contains("{{student.name}}");
+		assertThat(sports.getNumberFormat()).isEqualTo("SPORTS-{YYYY}-{SEQ:4}");
+		assertThat(schoolTemplateService.preview().certificateTypes()).allMatch(SchoolTemplateCategoryStatus::alreadyExists);
+
+		SchoolTemplateResult again = schoolTemplateService.apply();
+		assertThat(again.getCertificateTypesCreated()).isEmpty();
+		assertThat(again.getCertificateTypesSkipped()).hasSize(2);
+	}
+
+	@Test
+	void certificateTypesFollowTheStudentsModule() {
+		SchoolTemplateResult result = schoolTemplateService.apply(java.util.Set.of(AppModule.STUDENTS));
+
+		assertThat(result.getCertificateTypesCreated()).isEmpty();
+		assertThat(certificateTypeRepository.findAll()).isEmpty();
 	}
 
 	@Test

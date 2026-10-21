@@ -110,6 +110,23 @@ public class AcademicService {
 		return classSubjectRepository.save(new ClassSubject(schoolClass, subject, mandatory));
 	}
 
+	public ClassSubject assignSubjectToClass(SchoolClass schoolClass, Subject subject, boolean mandatory, Integer weeklyPeriods) {
+		ClassSubject classSubject = assignSubjectToClass(schoolClass, subject, mandatory);
+		if (weeklyPeriods != null) {
+			classSubject.updateWeeklyPeriods(weeklyPeriods);
+			return classSubjectRepository.save(classSubject);
+		}
+		return classSubject;
+	}
+
+	public ClassSubject updateClassSubject(ClassSubject classSubject, boolean mandatory, Integer weeklyPeriods) {
+		classSubject.updateMandatory(mandatory);
+		if (weeklyPeriods != null) {
+			classSubject.updateWeeklyPeriods(weeklyPeriods);
+		}
+		return classSubjectRepository.save(classSubject);
+	}
+
 	public ClassSubject changeClassSubjectStatus(ClassSubject classSubject, ClassSubjectStatus status) {
 		classSubject.changeStatus(status);
 		return classSubjectRepository.save(classSubject);

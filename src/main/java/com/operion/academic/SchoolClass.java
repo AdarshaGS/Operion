@@ -62,4 +62,9 @@ public class SchoolClass extends TenantScopedEntity {
 	public void updateDisplayName(String displayName) {
 		this.displayName = displayName;
 	}
+
+	/** What to show for this class - its display name, else its grade level's name. */
+	public String label() {
+		return displayName != null && !displayName.isBlank() ? displayName : gradeLevel.getName();
+	}
 }

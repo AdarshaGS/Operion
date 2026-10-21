@@ -10,6 +10,7 @@ import com.operion.academic.SchoolClass;
 import com.operion.academic.Section;
 import com.operion.academic.Subject;
 import com.operion.audit.AuditLogService;
+import com.operion.common.InvalidRequestException;
 import com.operion.common.TenantContext;
 import com.operion.organisation.AcademicYear;
 import com.operion.student.StudentEnrollment;
@@ -104,6 +105,8 @@ public class ExaminationService {
 					"Marks entry register for schedule " + examSchedule.getId() + " is " + register.getRegisterStatus() + ", cannot enter marks");
 		}
 		List<MarksEntry> entered = marks.stream().map(mark -> {
+			requireEnrollmentCoveredBy(examSchedule, mark.enrollment());
+			requireMarksInRange(examSchedule, mark.marksObtained(), mark.absent());
 			marksEntryRepository.findByExamScheduleIdAndStudentEnrollmentId(examSchedule.getId(), mark.enrollment().getId())
 					.ifPresent(existing -> {
 						throw new IllegalStateException("Student enrollment " + mark.enrollment().getId()
@@ -135,6 +138,30 @@ public class ExaminationService {
 		MarksEntryRegister saved = marksEntryRegisterRepository.save(register);
 		auditLogService.record("MarksEntryRegister", saved.getId(), "APPROVED", MarksEntryRegisterStatus.SUBMITTED, MarksEntryRegisterStatus.APPROVED);
 		return saved;
+	}
+
+	/** EXM-02: a mark outside 0..maxMarks would otherwise flow straight into a published grade. */
+	private static void requireMarksInRange(ExamSchedule schedule, Double marksObtained, boolean absent) {
+		if (absent) {
+			return;
+		}
+		if (marksObtained == null) {
+			throw new InvalidRequestException("Marks are required unless the student is marked absent");
+		}
+		if (marksObtained < 0 || (schedule.getMaxMarks() != null && marksObtained > schedule.getMaxMarks())) {
+			throw new InvalidRequestException("Marks " + marksObtained + " must be between 0 and " + schedule.getMaxMarks());
+		}
+	}
+
+	/** EXM-02: the enrollment must sit in the schedule's class (and section, for a per-section schedule). */
+	private static void requireEnrollmentCoveredBy(ExamSchedule schedule, StudentEnrollment enrollment) {
+		Section section = enrollment.getSection();
+		boolean sameClass = section.getSchoolClass().getId().equals(schedule.getSchoolClass().getId());
+		boolean sameSection = schedule.getSection() == null || schedule.getSection().getId().equals(section.getId());
+		if (!sameClass || !sameSection) {
+			throw new InvalidRequestException(
+					"Student enrollment " + enrollment.getId() + " is not in the class/section of exam schedule " + schedule.getId());
+		}
 	}
 
 	private MarksEntryRegister registerFor(ExamSchedule examSchedule) {
@@ -176,6 +203,7 @@ public class ExaminationService {
 	}
 
 	private MarksEntry applyCorrection(MarksEntry marksEntry, Double marksObtained, boolean absent, String remarks, String action) {
+		requireMarksInRange(marksEntry.getExamSchedule(), marksObtained, absent);
 		Double previousMarks = marksEntry.getMarksObtained();
 		marksEntry.correctMarks(marksObtained, absent, remarks);
 		MarksEntry saved = marksEntryRepository.save(marksEntry);

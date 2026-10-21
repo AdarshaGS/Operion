@@ -14,4 +14,6 @@ public interface AnswerSheetRepository extends JpaRepository<AnswerSheet, Long> 
 	java.util.Optional<AnswerSheet> findByExamScheduleIdAndStudentEnrollmentId(Long examScheduleId, Long enrollmentId);
 
 	List<AnswerSheet> findByStudentEnrollmentStudentIdAndStatusOrderByReleasedAtDesc(Long studentId, AnswerSheetStatus status);
+
+	List<AnswerSheet> findByStatusAndReleasedAtBetween(AnswerSheetStatus status, java.time.Instant from, java.time.Instant to);
 }

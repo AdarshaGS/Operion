@@ -41,9 +41,11 @@ export function ClassSubjectsPanel({ classId }: { classId: number }) {
 	const [assignDialogOpen, setAssignDialogOpen] = useState(false);
 	const [subjectId, setSubjectId] = useState("");
 	const [mandatory, setMandatory] = useState(true);
+	const [weeklyPeriods, setWeeklyPeriods] = useState("");
 
 	const [editTarget, setEditTarget] = useState<ClassSubjectResponse | null>(null);
 	const [editMandatory, setEditMandatory] = useState(true);
+	const [editWeeklyPeriods, setEditWeeklyPeriods] = useState("");
 
 	function refresh() {
 		listClassSubjects(classId)
@@ -67,9 +69,10 @@ export function ClassSubjectsPanel({ classId }: { classId: number }) {
 		event.preventDefault();
 		setSubmitting(true);
 		try {
-			await assignSubjectToClass(classId, { subjectId: Number(subjectId), mandatory });
+			await assignSubjectToClass(classId, { subjectId: Number(subjectId), mandatory, weeklyPeriods: weeklyPeriods ? Number(weeklyPeriods) : null });
 			setSubjectId("");
 			setMandatory(true);
+			setWeeklyPeriods("");
 			setAssignDialogOpen(false);
 			refresh();
 		} catch (err) {
@@ -91,6 +94,7 @@ export function ClassSubjectsPanel({ classId }: { classId: number }) {
 	function openEdit(classSubject: ClassSubjectResponse) {
 		setEditTarget(classSubject);
 		setEditMandatory(classSubject.mandatory);
+		setEditWeeklyPeriods(classSubject.weeklyPeriods === null ? "" : String(classSubject.weeklyPeriods));
 	}
 
 	async function handleEditSave(event: FormEvent) {
@@ -98,7 +102,9 @@ export function ClassSubjectsPanel({ classId }: { classId: number }) {
 		if (!editTarget) return;
 		setSubmitting(true);
 		try {
-			await updateClassSubject(classId, editTarget.id, editMandatory);
+			// Blank clears an existing quota (0); with none set there is nothing to send.
+			const quota = editWeeklyPeriods ? Number(editWeeklyPeriods) : editTarget.weeklyPeriods === null ? undefined : 0;
+			await updateClassSubject(classId, editTarget.id, editMandatory, quota);
 			setEditTarget(null);
 			refresh();
 		} catch (err) {
@@ -129,6 +135,7 @@ export function ClassSubjectsPanel({ classId }: { classId: number }) {
 								<TableRow>
 									<TableCell>Subject</TableCell>
 									<TableCell>Mandatory</TableCell>
+									<TableCell>Periods / week</TableCell>
 									<TableCell>Status</TableCell>
 									<TableCell />
 								</TableRow>
@@ -138,6 +145,7 @@ export function ClassSubjectsPanel({ classId }: { classId: number }) {
 									<TableRow key={classSubject.id}>
 										<TableCell>{subjects.find((s) => s.id === classSubject.subjectId)?.name ?? `Subject #${classSubject.subjectId}`}</TableCell>
 										<TableCell>{classSubject.mandatory ? "Yes" : "No"}</TableCell>
+										<TableCell>{classSubject.weeklyPeriods ?? "—"}</TableCell>
 										<TableCell>
 											<Chip label={classSubject.status} size="small" />
 										</TableCell>
@@ -172,6 +180,15 @@ export function ClassSubjectsPanel({ classId }: { classId: number }) {
 							<MenuItem value="yes">Yes</MenuItem>
 							<MenuItem value="no">No (elective)</MenuItem>
 						</TextField>
+						<TextField
+							label="Periods per week"
+							type="number"
+							value={weeklyPeriods}
+							onChange={(e) => setWeeklyPeriods(e.target.value)}
+							helperText="How many timetable slots this subject should get in a week; blank for no quota"
+							slotProps={{ htmlInput: { min: 1 } }}
+							fullWidth
+						/>
 					</Stack>
 				</DialogContent>
 				<DialogActions>
@@ -196,6 +213,15 @@ export function ClassSubjectsPanel({ classId }: { classId: number }) {
 							<MenuItem value="yes">Yes</MenuItem>
 							<MenuItem value="no">No (elective)</MenuItem>
 						</TextField>
+						<TextField
+							label="Periods per week"
+							type="number"
+							value={editWeeklyPeriods}
+							onChange={(e) => setEditWeeklyPeriods(e.target.value)}
+							helperText="How many timetable slots this subject should get in a week; blank for no quota"
+							slotProps={{ htmlInput: { min: 1 } }}
+							fullWidth
+						/>
 					</Stack>
 				</DialogContent>
 				<DialogActions>

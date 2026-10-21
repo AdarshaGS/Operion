@@ -3,6 +3,7 @@ import { Navigate, useNavigate } from "react-router-dom";
 import Accordion from "@mui/material/Accordion";
 import AccordionDetails from "@mui/material/AccordionDetails";
 import AccordionSummary from "@mui/material/AccordionSummary";
+import Grid from "@mui/material/Grid";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -13,21 +14,24 @@ import Typography from "@mui/material/Typography";
 import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
 import EventAvailableIcon from "@mui/icons-material/EventAvailable";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import BadgeIcon from "@mui/icons-material/Badge";
 import GroupsIcon from "@mui/icons-material/Groups";
 import PaymentsIcon from "@mui/icons-material/Payments";
 import {
 	dismissQuickActions,
 	dismissSetupProgress,
+	getDashboardCharts,
 	getDashboardSummary,
+	type DashboardChartsResponse,
 	type DashboardSummaryResponse,
 } from "../../api/dashboard";
 import { ApiError } from "../../api/client";
 import { useAuth } from "../../auth/AuthContext";
 import { colors } from "../../theme";
+import { HeroBanner, StatCard, StatGrid } from "../../components/DashboardKit";
 import { DashboardCharts } from "./DashboardCharts";
-import { HeroStatCard } from "./HeroStatCard";
+import { AnnouncementsCard, AttendanceOverview, UpcomingEventsCard } from "./DashboardWidgets";
 import { QuickActions } from "./QuickActions";
-import { RecentActivity } from "./RecentActivity";
 import { isSetupComplete, SetupProgress } from "./SetupProgress";
 import { StatTile } from "./StatTile";
 
@@ -170,6 +174,7 @@ export function DashboardPage() {
 	const isPathEnabled = (path: string) => isModuleOn(path) && (!PATH_PERMISSIONS[path] || hasAnyPermission(PATH_PERMISSIONS[path]));
 	const navigate = useNavigate();
 	const [summary, setSummary] = useState<DashboardSummaryResponse | null>(null);
+	const [charts, setCharts] = useState<DashboardChartsResponse | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	const [loading, setLoading] = useState(true);
 
@@ -179,6 +184,10 @@ export function DashboardPage() {
 			.then(setSummary)
 			.catch((err) => setError(err instanceof ApiError ? err.message : "Failed to load dashboard"))
 			.finally(() => setLoading(false));
+		// Charts are an enhancement - if the request fails the rest of the dashboard still stands.
+		getDashboardCharts()
+			.then(setCharts)
+			.catch(() => setCharts({ attendanceTrend: [], feeCollections: [], studentsByClass: [] }));
 	}, [canViewDashboard]);
 
 	/** Optimistic + permanent (#97 dismiss) - flips the flag immediately so the card
@@ -206,32 +215,40 @@ export function DashboardPage() {
 		// Quick actions are part of the onboarding aid: once every setup step is done they go too.
 		const setupComplete = isSetupComplete(summaryData.setupChecklist, isModuleOn);
 		const showSetupProgress = !summaryData.preferences.setupProgressDismissed && !setupComplete;
-		const showQuickActions = !summaryData.preferences.quickActionsDismissed && !setupComplete;
+		const showQuickActions = !summaryData.preferences.quickActionsDismissed;
+		const att = summaryData.attendanceToday;
 
-		const heroRow = (
-			<Stack direction="row" spacing={3} sx={{ flexWrap: "wrap" }}>
-				{isPathEnabled("/students") && <HeroStatCard
-					icon={<GroupsIcon />}
-					label="Active students"
-					value={summaryData.enrollment.activeStudents}
-					linkLabel="View all students"
-					linkPath="/students"
-				/>}
-				{isPathEnabled("/attendance") && summaryData.attendanceToday && <HeroStatCard
-					icon={<EventAvailableIcon />}
-					label="Today's attendance"
-					value={summaryData.attendanceToday.marked === 0 ? "Not started" : `${summaryData.attendanceToday.attendanceRatePercent}%`}
-					linkLabel="Take attendance"
-					linkPath="/attendance"
-				/>}
-				{isPathEnabled("/fees") && summaryData.fees && <HeroStatCard
-					icon={<PaymentsIcon />}
-					label="Fees due"
-					value={currency(summaryData.fees.outstanding)}
-					linkLabel="View fee dashboard"
-					linkPath="/fees"
-				/>}
-			</Stack>
+		const statRow = (
+			<StatGrid>
+				{isPathEnabled("/students") && (
+					<StatCard icon={<GroupsIcon />} tint="violet" label="Active students" value={summaryData.enrollment.activeStudents} linkLabel="View all students" linkPath="/students" />
+				)}
+				{isPathEnabled("/hr") && summaryData.staff && (
+					<StatCard icon={<BadgeIcon />} tint="green" label="Active staff" value={summaryData.staff.activeStaff} linkLabel="View staff" linkPath="/hr" />
+				)}
+				{isPathEnabled("/attendance") && att && (
+					<StatCard
+						icon={<EventAvailableIcon />}
+						tint="orange"
+						label="Today's attendance"
+						value={att.marked === 0 ? "Not started" : `${att.attendanceRatePercent}%`}
+						linkLabel="Take attendance"
+						linkPath="/attendance"
+					/>
+				)}
+				{isPathEnabled("/fees") && summaryData.fees && (
+					<StatCard
+						icon={<PaymentsIcon />}
+						tint="pink"
+						label="Fees due"
+						value={currency(summaryData.fees.outstanding)}
+						chip={summaryData.fees.overdueInvoices > 0 ? `${summaryData.fees.overdueInvoices} overdue` : undefined}
+						chipTone="bad"
+						linkLabel="View fee dashboard"
+						linkPath="/fees"
+					/>
+				)}
+			</StatGrid>
 		);
 
 		const sections = buildSections(summaryData).filter((section) => isPathEnabled(section.path)).map((section) => (
@@ -275,23 +292,6 @@ export function DashboardPage() {
 					</Paper>
 				)}
 
-				{(showSetupProgress || showQuickActions) && (
-					<Stack direction={{ xs: "column", md: "row" }} spacing={3} sx={{ alignItems: "stretch" }}>
-						{showSetupProgress && (
-							<Box sx={{ flex: "3 1 0" }}>
-								<SetupProgress checklist={summaryData.setupChecklist} onDismiss={handleDismissSetupProgress} />
-							</Box>
-						)}
-						{showQuickActions && (
-							<Box sx={{ flex: "2 1 0" }}>
-								<QuickActions onDismiss={handleDismissQuickActions} />
-							</Box>
-						)}
-					</Stack>
-				)}
-
-				<RecentActivity />
-
 				{noStudents ? (
 					<Accordion disableGutters sx={{ "&:before": { display: "none" }, boxShadow: "none", border: `1px solid ${colors.rule}` }}>
 						<AccordionSummary expandIcon={<ExpandMoreIcon />}>
@@ -301,15 +301,39 @@ export function DashboardPage() {
 						</AccordionSummary>
 						<AccordionDetails>
 							<Stack spacing={3}>
-								{heroRow}
+								{statRow}
 								{sections}
 							</Stack>
 						</AccordionDetails>
 					</Accordion>
 				) : (
+					statRow
+				)}
+
+				{showSetupProgress && <SetupProgress checklist={summaryData.setupChecklist} onDismiss={handleDismissSetupProgress} />}
+
+				<Grid container spacing={2.5}>
+					{isPathEnabled("/attendance") && att && (
+						<Grid size={{ xs: 12, lg: showQuickActions ? 8 : 12 }}>
+							<AttendanceOverview charts={charts} />
+						</Grid>
+					)}
+					{showQuickActions && (
+						<Grid size={{ xs: 12, lg: isPathEnabled("/attendance") && att ? 4 : 12 }}>
+							<QuickActions onDismiss={handleDismissQuickActions} />
+						</Grid>
+					)}
+					<Grid size={{ xs: 12, md: 6 }}>
+						<AnnouncementsCard />
+					</Grid>
+					<Grid size={{ xs: 12, md: 6 }}>
+						<UpcomingEventsCard />
+					</Grid>
+				</Grid>
+
+				{!noStudents && (
 					<>
-						{heroRow}
-						<DashboardCharts summary={summaryData} />
+						<DashboardCharts summary={summaryData} charts={charts} />
 						{sections}
 					</>
 				)}
@@ -323,14 +347,15 @@ export function DashboardPage() {
 
 	return (
 		<Stack spacing={3}>
-			<Box>
-				<Typography variant="h4" sx={{ color: colors.ink }}>
-					{greeting()}, {firstName(profile?.personName ?? null)}
-				</Typography>
-				<Typography variant="body1" sx={{ color: colors.inkSoft, mt: 0.5 }}>
-					Here's what's happening at your school today.
-				</Typography>
-			</Box>
+			<HeroBanner
+				title={
+					<>
+						{greeting()}, {firstName(profile?.personName ?? null)} 👋
+					</>
+				}
+				subtitle="Here's what's happening at your school today."
+				quote="Education is the most powerful tool to change the future."
+			/>
 
 			{error && <Alert severity="error">{error}</Alert>}
 

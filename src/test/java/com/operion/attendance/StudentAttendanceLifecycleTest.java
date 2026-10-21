@@ -1,5 +1,8 @@
 package com.operion.attendance;
 
+import com.operion.academic.TeacherAssignmentRepository;
+import com.operion.attendance.api.AttendanceOverviewController;
+import com.operion.attendance.api.AttendanceOverviewResponse;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -114,6 +117,9 @@ class StudentAttendanceLifecycleTest {
 	private StaffAttendanceRepository staffAttendanceRepository;
 
 	@Autowired
+	private TeacherAssignmentRepository teacherAssignmentRepository;
+
+	@Autowired
 	private AuditLogRepository auditLogRepository;
 
 	@Autowired
@@ -209,5 +215,36 @@ class StudentAttendanceLifecycleTest {
 		StudentAttendance reloaded = studentAttendanceRepository.findById(attendance.getId()).orElseThrow();
 		assertThatThrownBy(() -> attendanceService.correct(reloaded, AttendanceStatus.ABSENT, "Too late"))
 				.isInstanceOf(IllegalStateException.class);
+	}
+
+	@Test
+	void overviewRollsUpEnrolmentMarkedCountsAndPendingSections() {
+		Fixture fixture = setUpFixture("attendance-overview-school", "ADM-110");
+		LocalDate date = LocalDate.of(2025, 7, 3);
+		Section sectionB = sectionRepository.save(new Section(fixture.section().getSchoolClass(), "B", 40, null));
+		Student second = studentService.admit(personRepository.save(new Person("Arjun", "Rao")), "ADM-111", LocalDate.of(2025, 5, 1), null, null, null,
+				null, null, null, "Indian", null, null, null, null);
+		studentService.enroll(second, fixture.academicYear(), sectionB, 5, LocalDate.of(2025, 6, 1));
+		attendanceService.markDailyAttendance(fixture.academicYear(), fixture.section(), date,
+				List.of(new StudentAttendanceMark(fixture.enrollment(), AttendanceStatus.ABSENT, false, null)));
+
+		AttendanceOverviewResponse overview = new AttendanceOverviewController(studentEnrollmentRepository, studentAttendanceRepository,
+				classAttendanceRegisterRepository, staffAttendanceRepository, teacherAssignmentRepository).overview(date);
+
+		assertThat(overview.studentsEnrolled()).isEqualTo(2);
+		assertThat(overview.absent()).isEqualTo(1);
+		assertThat(overview.present()).isZero();
+		assertThat(overview.classesTotal()).isEqualTo(2);
+		assertThat(overview.classesNotRecorded()).isEqualTo(1);
+		assertThat(overview.classes()).extracting(AttendanceOverviewResponse.ClassRow::classLabel).containsExactly("Grade 5 - A", "Grade 5 - B");
+		AttendanceOverviewResponse.ClassRow recorded = overview.classes().get(0);
+		assertThat(recorded.status()).isEqualTo("RECORDED");
+		assertThat(recorded.registerStatus()).isEqualTo("DRAFT");
+		assertThat(recorded.teacher()).isNull();
+		assertThat(recorded.marked()).isEqualTo(1);
+		assertThat(recorded.ratePercent()).isZero();
+		assertThat(overview.classes().get(1).status()).isEqualTo("PENDING");
+		assertThat(overview.activity()).extracting(AttendanceOverviewResponse.Activity::kind).containsExactly("RECORDED", "PENDING");
+		assertThat(overview.activity().get(0).detail()).isEqualTo("0 present, 1 absent");
 	}
 }

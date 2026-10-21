@@ -54,6 +54,17 @@ public class TimetableEntry extends TenantScopedEntity {
 	@JoinColumn(name = "period_id")
 	private Period period;
 
+	/** Optional - null when the school doesn't track rooms for this slot. */
+	@ManyToOne
+	@JoinColumn(name = "room_id")
+	private Room room;
+
+	public TimetableEntry(AcademicYear academicYear, Section section, Subject subject, Person teacherPerson,
+			DayOfWeek dayOfWeek, Period period, Room room) {
+		this(academicYear, section, subject, teacherPerson, dayOfWeek, period);
+		this.room = room;
+	}
+
 	public TimetableEntry(AcademicYear academicYear, Section section, Subject subject, Person teacherPerson,
 			DayOfWeek dayOfWeek, Period period) {
 		this.academicYear = academicYear;
@@ -67,5 +78,10 @@ public class TimetableEntry extends TenantScopedEntity {
 	public void reassign(Subject subject, Person teacherPerson) {
 		this.subject = subject;
 		this.teacherPerson = teacherPerson;
+	}
+
+	public void reassign(Subject subject, Person teacherPerson, Room room) {
+		reassign(subject, teacherPerson);
+		this.room = room;
 	}
 }

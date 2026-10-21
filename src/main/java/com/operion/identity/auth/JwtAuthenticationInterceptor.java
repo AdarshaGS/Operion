@@ -1,11 +1,15 @@
 package com.operion.identity.auth;
 
+import com.operion.authorization.MembershipStatus;
+import com.operion.authorization.OrganisationMembershipRepository;
 import com.operion.common.TenantContext;
 import com.operion.identity.UserRepository;
 import com.operion.identity.UserStatus;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
+import com.operion.organisation.Organisation;
+import com.operion.organisation.OrganisationRepository;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpMethod;
 import org.springframework.stereotype.Component;
@@ -24,10 +28,15 @@ public class JwtAuthenticationInterceptor implements HandlerInterceptor {
 
 	private final JwtService jwtService;
 	private final UserRepository userRepository;
+	private final OrganisationRepository organisationRepository;
+	private final OrganisationMembershipRepository membershipRepository;
 
-	public JwtAuthenticationInterceptor(JwtService jwtService, UserRepository userRepository) {
+	public JwtAuthenticationInterceptor(JwtService jwtService, UserRepository userRepository,
+			OrganisationRepository organisationRepository, OrganisationMembershipRepository membershipRepository) {
 		this.jwtService = jwtService;
 		this.userRepository = userRepository;
+		this.organisationRepository = organisationRepository;
+		this.membershipRepository = membershipRepository;
 	}
 
 	@Override
@@ -56,11 +65,21 @@ public class JwtAuthenticationInterceptor implements HandlerInterceptor {
 					.map(user -> user.getStatus() == UserStatus.ACTIVE)
 					.orElse(false);
 			if (!active) {
-				log.warn("Rejected request from a user who is no longer active: userId={} {} {}", principal.userId(),
-						request.getMethod(), request.getRequestURI());
-				TenantContext.clear();
-				response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-				return false;
+				return reject(response, "a user who is no longer active", principal, request);
+			}
+			// Same gates login() and refresh() apply, re-checked per request: suspending or
+			// archiving the org, or revoking the caller's last membership, must cut off access
+			// tokens already issued, not wait out their expiry.
+			boolean orgOpen = organisationRepository.findById(principal.organisationId())
+					.map(Organisation::isOpenForSignIn)
+					.orElse(false);
+			if (!orgOpen) {
+				return reject(response, "a suspended or archived organisation", principal, request);
+			}
+			boolean hasActiveMembership = membershipRepository.findByUserId(principal.userId()).stream()
+					.anyMatch(membership -> membership.getStatus() == MembershipStatus.ACTIVE);
+			if (!hasActiveMembership) {
+				return reject(response, "a user with no active membership", principal, request);
 			}
 			return true;
 		} catch (InvalidTokenException ex) {
@@ -68,6 +87,15 @@ public class JwtAuthenticationInterceptor implements HandlerInterceptor {
 			response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
 			return false;
 		}
+	}
+
+	private static boolean reject(HttpServletResponse response, String reason, JwtService.TokenPrincipal principal,
+			HttpServletRequest request) {
+		log.warn("Rejected request from {}: userId={} orgId={} {} {}", reason, principal.userId(), principal.organisationId(),
+				request.getMethod(), request.getRequestURI());
+		TenantContext.clear();
+		response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+		return false;
 	}
 
 	@Override
@@ -115,6 +143,10 @@ public class JwtAuthenticationInterceptor implements HandlerInterceptor {
 		}
 		// Public admission inquiry form (#218/#219): org resolved by slug in the path, no login.
 		if (path.matches("/api/v1/public/orgs/[^/]+/admission-inquiries(/form-options)?")) {
+			return true;
+		}
+		// Certificate verification (target of the QR on a certificate): org by slug, unguessable token, minimal fields.
+		if (path.matches("/api/v1/public/orgs/[^/]+/certificates/[^/]+") && "GET".equalsIgnoreCase(request.getMethod())) {
 			return true;
 		}
 		if (path.equals("/api/v1/organisations") && "POST".equalsIgnoreCase(request.getMethod())) {

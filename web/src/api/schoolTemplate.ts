@@ -18,6 +18,7 @@ export interface SchoolTemplatePreviewResponse {
 	classes: SchoolTemplateCategoryStatus[];
 	sections: SchoolTemplateCategoryStatus[];
 	subjects: SchoolTemplateCategoryStatus[];
+	certificateTypes: SchoolTemplateCategoryStatus[];
 	gradingScaleExists: boolean;
 }
 
@@ -46,6 +47,8 @@ export interface SchoolTemplateApplyResponse {
 	sectionsSkipped: string[];
 	subjectsCreated: string[];
 	subjectsSkipped: string[];
+	certificateTypesCreated: string[];
+	certificateTypesSkipped: string[];
 	/** Why no classes could be created (no current academic year / no active campus); null otherwise. */
 	classesNote: string | null;
 	gradingScaleCreated: boolean;

@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
@@ -27,6 +27,7 @@ import { useAuth } from "../../auth/AuthContext";
 import { MemberStatusChip } from "../../components/MemberStatusChip";
 import { StaffInviteDialog } from "../../components/StaffInviteDialog";
 import { TeacherTimetablePanel } from "../academics/TeacherTimetablePanel";
+import { TeacherUnavailabilityPanel } from "../academics/TeacherUnavailabilityPanel";
 import { SalaryStructurePanel } from "../payroll/SalaryStructurePanel";
 import { BorrowerLoanHistoryPanel } from "../library/BorrowerLoanHistoryPanel";
 import { listAcademicYears, type AcademicYearResponse } from "../../api/academicYears";
@@ -45,6 +46,7 @@ import {
 	type LeaveRequestResponse,
 } from "../../api/leaveRequests";
 import { listLeaveTypes, type LeaveTypeResponse } from "../../api/leaveTypes";
+import { LeaveDaysHint } from "../../components/LeaveDaysHint";
 import { grantMembership, listMemberships, type MembershipResponse } from "../../api/memberships";
 import { getPerson, type PersonResponse } from "../../api/persons";
 import { listRoles, type RoleResponse } from "../../api/roles";
@@ -160,6 +162,8 @@ export function StaffDetailPage() {
 	const [startDate, setStartDate] = useState(todayIso());
 	const [endDate, setEndDate] = useState(todayIso());
 	const [numberOfDays, setNumberOfDays] = useState("");
+	// The working-day count only pre-fills the field until the person types their own number.
+	const numberTyped = useRef(false);
 	const [reason, setReason] = useState("");
 
 	useEffect(() => {
@@ -354,6 +358,7 @@ export function StaffDetailPage() {
 				reason: reason || null,
 			});
 			setNumberOfDays("");
+			numberTyped.current = false;
 			setReason("");
 			setRequestDialogOpen(false);
 			refreshLeaveRequests();
@@ -793,6 +798,7 @@ export function StaffDetailPage() {
 			{person && (
 				<Can anyOf={["TIMETABLE_VIEW"]}>
 					<TeacherTimetablePanel personId={person.id} />
+					<TeacherUnavailabilityPanel personId={person.id} />
 				</Can>
 			)}
 
@@ -894,7 +900,10 @@ export function StaffDetailPage() {
 								label="Start date"
 								type="date"
 								value={startDate}
-								onChange={(e) => setStartDate(e.target.value)}
+								onChange={(e) => {
+									numberTyped.current = false;
+									setStartDate(e.target.value);
+								}}
 								required
 								slotProps={{ inputLabel: { shrink: true } }}
 								fullWidth
@@ -903,17 +912,31 @@ export function StaffDetailPage() {
 								label="End date"
 								type="date"
 								value={endDate}
-								onChange={(e) => setEndDate(e.target.value)}
+								onChange={(e) => {
+									numberTyped.current = false;
+									setEndDate(e.target.value);
+								}}
 								required
 								slotProps={{ inputLabel: { shrink: true } }}
 								fullWidth
 							/>
 						</Box>
+						<LeaveDaysHint
+							startDate={startDate}
+							endDate={endDate}
+							campusId={profile?.campusId}
+							onWorkingDays={(count) => {
+								if (!numberTyped.current) setNumberOfDays(String(count));
+							}}
+						/>
 						<TextField
 							label="Number of days"
 							type="number"
 							value={numberOfDays}
-							onChange={(e) => setNumberOfDays(e.target.value)}
+							onChange={(e) => {
+								numberTyped.current = true;
+								setNumberOfDays(e.target.value);
+							}}
 							required
 							fullWidth
 						/>

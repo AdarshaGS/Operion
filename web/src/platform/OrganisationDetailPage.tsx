@@ -1,5 +1,5 @@
-import { useEffect, useState, type FormEvent } from "react";
-import { useParams } from "react-router-dom";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -21,6 +21,12 @@ import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import AddIcon from "@mui/icons-material/Add";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import BusinessIcon from "@mui/icons-material/Business";
+import CardMembershipIcon from "@mui/icons-material/CardMembership";
+import ExtensionIcon from "@mui/icons-material/Extension";
+import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
+import TuneIcon from "@mui/icons-material/Tune";
 import {
 	listOrganisationExternalServices,
 	setOrganisationExternalServiceEnabled,
@@ -33,6 +39,7 @@ import { generateInvoice, listInvoices, markInvoicePaid, type PlatformInvoiceRes
 import { PlatformApiError } from "./api/platformClient";
 import { createSubscription, listSubscriptions, type SubscriptionResponse } from "./api/subscriptions";
 import { colors } from "../theme";
+import { IconTile, SectionCard } from "../components/DashboardKit";
 import { ActivityTimeline } from "./crm/ActivityTimeline";
 import { ContactsSection } from "./crm/ContactsSection";
 import { TasksSection } from "./crm/TasksSection";
@@ -56,9 +63,39 @@ function todayIso(): string {
 	return new Date().toISOString().slice(0, 10);
 }
 
+/** Responsive grid of on/off tiles - keeps each label next to its switch instead of a full-width table. */
+function ToggleGrid({ children }: { children: ReactNode }) {
+	return <Box sx={{ display: "grid", gap: 1.5, gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))" }}>{children}</Box>;
+}
+
+function ToggleTile({ label, checked, children }: { label: string; checked: boolean; children: ReactNode }) {
+	return (
+		<Box
+			sx={{
+				display: "flex",
+				alignItems: "center",
+				justifyContent: "space-between",
+				gap: 1,
+				pl: 2,
+				pr: 1,
+				py: 0.5,
+				borderRadius: "12px",
+				border: `1px solid ${checked ? colors.accent : colors.rule}`,
+				backgroundColor: checked ? colors.accentSoft : colors.paper,
+			}}
+		>
+			<Typography variant="body2" sx={{ fontWeight: 600, color: colors.ink, minWidth: 0 }} noWrap>
+				{label}
+			</Typography>
+			{children}
+		</Box>
+	);
+}
+
 export function OrganisationDetailPage() {
 	const { organisationId } = useParams<{ organisationId: string }>();
 	const orgId = Number(organisationId);
+	const navigate = useNavigate();
 
 	const [organisation, setOrganisation] = useState<OrganisationResponse | null>(null);
 	const [plans, setPlans] = useState<PlanResponse[]>([]);
@@ -187,42 +224,53 @@ export function OrganisationDetailPage() {
 
 	return (
 		<Stack spacing={3}>
-			<Stack spacing={0.5}>
-				<Typography variant="overline" color="text.secondary">
-					Organisation
-				</Typography>
-				<Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-					<Typography variant="h4" component="h1">
-						{organisation?.name ?? "—"}
-					</Typography>
-					{organisation && <Chip label={organisation.status} size="small" color={ORG_STATUS_COLOR[organisation.status] ?? "default"} />}
-					{availableTransitions.length > 0 && (
-						<Button size="small" onClick={() => setStatusDialogOpen(true)}>
-							Change status
-						</Button>
-					)}
-				</Box>
-				<Typography variant="body2" color="text.secondary">
-					{organisation?.legalName} · slug: {organisation?.slug}
-				</Typography>
-			</Stack>
+			<Box>
+				<Button size="small" startIcon={<ArrowBackIcon />} onClick={() => navigate("/platform/organisations")} sx={{ color: colors.inkSoft, mb: 1, ml: -1 }}>
+					Organisations
+				</Button>
+				<Paper sx={{ p: { xs: 2.5, md: 3 }, background: colors.heroBg, border: `1px solid ${colors.rule}` }}>
+					<Stack direction={{ xs: "column", sm: "row" }} sx={{ alignItems: { sm: "center" }, justifyContent: "space-between", gap: 2 }}>
+						<Stack direction="row" sx={{ alignItems: "center", gap: 2, minWidth: 0 }}>
+							<IconTile icon={<BusinessIcon />} tint="violet" size={56} />
+							<Box sx={{ minWidth: 0 }}>
+								<Stack direction="row" sx={{ alignItems: "center", gap: 1.5, flexWrap: "wrap" }}>
+									<Typography component="h1" sx={{ fontSize: { xs: "1.5rem", md: "1.9rem" }, fontWeight: 800, letterSpacing: "-0.02em", color: colors.ink, lineHeight: 1.2 }}>
+										{organisation?.name ?? "—"}
+									</Typography>
+									{organisation && <Chip label={organisation.status} size="small" color={ORG_STATUS_COLOR[organisation.status] ?? "default"} />}
+								</Stack>
+								<Typography variant="body2" sx={{ color: colors.inkSoft, mt: 0.25 }}>
+									{organisation?.legalName} · slug: {organisation?.slug}
+								</Typography>
+							</Box>
+						</Stack>
+						{availableTransitions.length > 0 && (
+							<Button variant="outlined" onClick={() => setStatusDialogOpen(true)} sx={{ flexShrink: 0, backgroundColor: colors.paperRaised }}>
+								Change status
+							</Button>
+						)}
+					</Stack>
+				</Paper>
+			</Box>
 
 			{error && <Alert severity="error">{error}</Alert>}
 
-			<Paper sx={{ p: 3 }}>
+			<SectionCard
+				title="Subscription"
+				icon={<CardMembershipIcon fontSize="small" />}
+				tint="violet"
+				headerExtra={
+					<Button size="small" variant="outlined" startIcon={<AddIcon />} onClick={() => setSubDialogOpen(true)} disabled={plans.length === 0}>
+						Start subscription
+					</Button>
+				}
+			>
 				<Stack spacing={2}>
-					<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-						<Typography variant="h6">Subscription</Typography>
-						<Button size="small" startIcon={<AddIcon />} onClick={() => setSubDialogOpen(true)} disabled={plans.length === 0}>
-							Start subscription
-						</Button>
-					</Box>
-
 					{plans.length === 0 && <Alert severity="info">No plans exist yet — add one under Plans first.</Alert>}
 
 					{activeSubscription && (
-						<Box sx={{ border: `1px solid ${colors.rule}`, borderRadius: 1, p: 1.5, bgcolor: colors.paperRaised }}>
-							<Typography variant="overline" sx={{ color: colors.inkFaint, fontSize: "0.65rem" }}>
+						<Box sx={{ borderRadius: "12px", p: 2, backgroundColor: colors.tintViolet }}>
+							<Typography variant="overline" sx={{ color: colors.accent, fontSize: "0.65rem", fontWeight: 700 }}>
 								Current plan
 							</Typography>
 							<Typography variant="h6">
@@ -263,17 +311,19 @@ export function OrganisationDetailPage() {
 						</TableContainer>
 					)}
 				</Stack>
-			</Paper>
+			</SectionCard>
 
-			<Paper sx={{ p: 3 }}>
+			<SectionCard
+				title="Invoices"
+				icon={<ReceiptLongIcon fontSize="small" />}
+				tint="orange"
+				headerExtra={
+					<Button size="small" variant="outlined" startIcon={<AddIcon />} onClick={() => setInvoiceDialogOpen(true)} disabled={!activeSubscription}>
+						Generate invoice
+					</Button>
+				}
+			>
 				<Stack spacing={2}>
-					<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-						<Typography variant="h6">Invoices</Typography>
-						<Button size="small" startIcon={<AddIcon />} onClick={() => setInvoiceDialogOpen(true)} disabled={!activeSubscription}>
-							Generate invoice
-						</Button>
-					</Box>
-
 					{!activeSubscription && <Alert severity="info">Start a subscription before generating an invoice.</Alert>}
 					{invoices.length === 0 && <Alert severity="info">No invoices generated yet.</Alert>}
 
@@ -316,49 +366,33 @@ export function OrganisationDetailPage() {
 						</TableContainer>
 					)}
 				</Stack>
-			</Paper>
+			</SectionCard>
 
-			<Paper sx={{ p: 3 }}>
+			<SectionCard title="Features" icon={<TuneIcon fontSize="small" />} tint="green">
 				<Stack spacing={2}>
-					<Typography variant="h6">Features</Typography>
 					<Typography variant="body2" color="text.secondary">
 						Switch a feature off to remove it from this organisation's menus, dashboard and mobile app, and to block its API.
 						Nothing is deleted - switching it back on restores access exactly as it was. Users still need the matching
 						permission to see a feature that is on.
 					</Typography>
-
 					{modules.length > 0 && (
-						<TableContainer>
-							<Table size="small">
-								<TableHead>
-									<TableRow>
-										<TableCell>Feature</TableCell>
-										<TableCell>Enabled</TableCell>
-									</TableRow>
-								</TableHead>
-								<TableBody>
-									{modules.map((module) => (
-										<TableRow key={module.code}>
-											<TableCell>{module.label}</TableCell>
-											<TableCell>
-												<Switch
-													checked={module.enabled}
-													onChange={(e) => handleToggleModule(module.code, e.target.checked)}
-													slotProps={{ input: { "aria-label": `${module.label} enabled` } }}
-												/>
-											</TableCell>
-										</TableRow>
-									))}
-								</TableBody>
-							</Table>
-						</TableContainer>
+						<ToggleGrid>
+							{modules.map((module) => (
+								<ToggleTile key={module.code} label={module.label} checked={module.enabled}>
+									<Switch
+										checked={module.enabled}
+										onChange={(e) => handleToggleModule(module.code, e.target.checked)}
+										slotProps={{ input: { "aria-label": `${module.label} enabled` } }}
+									/>
+								</ToggleTile>
+							))}
+						</ToggleGrid>
 					)}
 				</Stack>
-			</Paper>
+			</SectionCard>
 
-			<Paper sx={{ p: 3 }}>
+			<SectionCard title="Integrations" icon={<ExtensionIcon fontSize="small" />} tint="blue">
 				<Stack spacing={2}>
-					<Typography variant="h6">Integrations</Typography>
 					<Typography variant="body2" color="text.secondary">
 						Grants this organisation access to configure its own credentials from its own Settings — the platform never
 						sees the values it enters.
@@ -367,32 +401,20 @@ export function OrganisationDetailPage() {
 					{externalServices.length === 0 && <Alert severity="info">No integrations available yet.</Alert>}
 
 					{externalServices.length > 0 && (
-						<TableContainer>
-							<Table size="small">
-								<TableHead>
-									<TableRow>
-										<TableCell>Integration</TableCell>
-										<TableCell>Enabled</TableCell>
-									</TableRow>
-								</TableHead>
-								<TableBody>
-									{externalServices.map((service) => (
-										<TableRow key={service.serviceKey}>
-											<TableCell>{service.displayName}</TableCell>
-											<TableCell>
-												<Switch
-													checked={service.enabled}
-													onChange={(e) => handleToggleExternalService(service.serviceKey, e.target.checked)}
-												/>
-											</TableCell>
-										</TableRow>
-									))}
-								</TableBody>
-							</Table>
-						</TableContainer>
+						<ToggleGrid>
+							{externalServices.map((service) => (
+								<ToggleTile key={service.serviceKey} label={service.displayName} checked={service.enabled}>
+									<Switch
+										checked={service.enabled}
+										onChange={(e) => handleToggleExternalService(service.serviceKey, e.target.checked)}
+										slotProps={{ input: { "aria-label": `${service.displayName} enabled` } }}
+									/>
+								</ToggleTile>
+							))}
+						</ToggleGrid>
 					)}
 				</Stack>
-			</Paper>
+			</SectionCard>
 
 			<ContactsSection owner={{ organisationId: orgId }} />
 			<TasksSection owner={{ organisationId: orgId }} />

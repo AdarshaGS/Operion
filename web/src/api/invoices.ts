@@ -50,3 +50,29 @@ export interface ReminderResult {
 export function sendReminders(invoiceIds: number[]): Promise<ReminderResult[]> {
 	return api.post<ReminderResult[]>("/api/v1/fees/invoices/send-reminders", { invoiceIds });
 }
+
+export interface BulkInvoiceFailure {
+	assignmentId: number;
+	installmentId: number;
+	reason: string;
+}
+
+export interface BulkInvoiceResult {
+	dryRun: boolean;
+	toGenerate: number;
+	generated: number;
+	alreadyInvoiced: number;
+	invoiceIds: number[];
+	failures: BulkInvoiceFailure[];
+}
+
+/** Every installment due on or before the date, for every active assignment in the year
+ * (optionally one class). dryRun only counts. Safe to re-run - already-invoiced pairs are skipped. */
+export function bulkGenerateInvoices(request: {
+	academicYearId: number;
+	schoolClassId?: number;
+	dueOnOrBefore: string;
+	dryRun: boolean;
+}): Promise<BulkInvoiceResult> {
+	return api.post<BulkInvoiceResult>("/api/v1/fees/invoices/bulk-generate", request);
+}

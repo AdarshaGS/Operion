@@ -17,6 +17,7 @@ public record SchoolTemplateApplyResponse(
 		List<String> classesCreated, List<String> classesSkipped, String classesNote,
 		List<String> sectionsCreated, List<String> sectionsSkipped,
 		List<String> subjectsCreated, List<String> subjectsSkipped,
+		List<String> certificateTypesCreated, List<String> certificateTypesSkipped,
 		boolean gradingScaleCreated, boolean gradingScaleAlreadyExists) {
 
 	public static SchoolTemplateApplyResponse from(SchoolTemplateResult result) {
@@ -33,6 +34,7 @@ public record SchoolTemplateApplyResponse(
 				result.getClassesCreated(), result.getClassesSkipped(), result.getClassesNote(),
 				result.getSectionsCreated(), result.getSectionsSkipped(),
 				result.getSubjectsCreated(), result.getSubjectsSkipped(),
+				result.getCertificateTypesCreated(), result.getCertificateTypesSkipped(),
 				result.isGradingScaleCreated(), result.isGradingScaleAlreadyExists());
 	}
 }

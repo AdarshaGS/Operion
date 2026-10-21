@@ -8,6 +8,8 @@ export interface CreateAnnouncementRequest {
 	audienceRefId?: number | null;
 	audienceMemberPersonIds?: number[] | null;
 	scheduledAt?: string | null;
+	/** A scheduled announcement normally waits for the next working day if its day is a holiday or weekly off; true sends it on the scheduled day anyway. */
+	sendOnNonWorkingDays?: boolean;
 }
 
 export interface AnnouncementResponse {
@@ -20,6 +22,7 @@ export interface AnnouncementResponse {
 	status: string;
 	publishedAt: string | null;
 	scheduledAt: string | null;
+	sendOnNonWorkingDays: boolean;
 }
 
 export function createAnnouncement(request: CreateAnnouncementRequest): Promise<AnnouncementResponse> {

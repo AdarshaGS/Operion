@@ -16,4 +16,6 @@ public interface LessonPlanRepository extends JpaRepository<LessonPlan, Long> {
 			LocalDate from, LocalDate to);
 
 	List<LessonPlan> findByStatusAndPlanDateBetweenOrderByPlanDateAsc(LessonPlanStatus status, LocalDate from, LocalDate to);
+
+	List<LessonPlan> findByPlanDateBetween(LocalDate from, LocalDate to);
 }

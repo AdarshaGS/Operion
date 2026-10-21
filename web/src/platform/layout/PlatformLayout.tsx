@@ -1,36 +1,35 @@
-import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import AppBar from "@mui/material/AppBar";
+import { useCallback, useRef, useState, type MouseEvent } from "react";
 import Box from "@mui/material/Box";
-import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
 import Divider from "@mui/material/Divider";
-import Drawer from "@mui/material/Drawer";
-import List from "@mui/material/List";
-import ListItemButton from "@mui/material/ListItemButton";
 import ListItemIcon from "@mui/material/ListItemIcon";
-import ListItemText from "@mui/material/ListItemText";
-import ListSubheader from "@mui/material/ListSubheader";
-import Toolbar from "@mui/material/Toolbar";
-import Tooltip from "@mui/material/Tooltip";
+import Menu from "@mui/material/Menu";
+import MenuItem from "@mui/material/MenuItem";
+import ToggleButton from "@mui/material/ToggleButton";
+import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
 import Typography from "@mui/material/Typography";
 import ApartmentIcon from "@mui/icons-material/Apartment";
 import BarChartIcon from "@mui/icons-material/BarChart";
 import CardMembershipIcon from "@mui/icons-material/CardMembership";
+import DarkModeIcon from "@mui/icons-material/DarkMode";
 import DashboardIcon from "@mui/icons-material/Dashboard";
+import LightModeIcon from "@mui/icons-material/LightMode";
+import LogoutIcon from "@mui/icons-material/Logout";
 import MonitorHeartIcon from "@mui/icons-material/MonitorHeart";
 import PaymentsIcon from "@mui/icons-material/Payments";
 import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
 import SellIcon from "@mui/icons-material/Sell";
+import SettingsBrightnessIcon from "@mui/icons-material/SettingsBrightness";
 import SettingsIcon from "@mui/icons-material/Settings";
 import SupportAgentIcon from "@mui/icons-material/SupportAgent";
 import TimelineIcon from "@mui/icons-material/Timeline";
 import ViewKanbanIcon from "@mui/icons-material/ViewKanban";
-import LogoutIcon from "@mui/icons-material/Logout";
-import { Wordmark } from "../../branding/Wordmark";
+import { AppShell, type ShellNavGroup } from "../../layout/AppShell";
+import { AccountButton, GlobalSearch, type SearchOption } from "../../layout/TopbarParts";
 import { colors } from "../../theme";
+import { useThemeMode, type ThemePreference } from "../../theme-mode";
+import { listOrganisations, type OrganisationResponse } from "../api/organisations";
 import { usePlatformAuth } from "../auth/PlatformAuthContext";
-
-const DRAWER_WIDTH = 240;
 
 interface PlatformNavItem {
 	label: string;
@@ -85,85 +84,100 @@ const NAV_GROUPS: PlatformNavGroup[] = [
 	},
 ];
 
-/** Mirrors AppLayout's shape but is wired to the platform auth plane, not the school
+/** Same chrome as the school app (AppShell) but wired to the platform auth plane, not the school
  * org one - kept as a separate component tree rather than parameterizing AppLayout,
  * since the two auth contexts (usePlatformAuth vs useAuth) are deliberately unrelated. */
 export function PlatformLayout() {
-	const navigate = useNavigate();
-	const location = useLocation();
 	const { session, logout } = usePlatformAuth();
+	const { preference, setPreference } = useThemeMode();
+	const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
+	// Organisations are fetched once, on the first search, and filtered client-side.
+	const organisationsRef = useRef<Promise<OrganisationResponse[]> | null>(null);
+
+	const groups: ShellNavGroup[] = [
+		{ label: null, items: [{ label: "Dashboard", path: "/platform/dashboard", icon: <DashboardIcon /> }] },
+		...NAV_GROUPS.map((group) => ({
+			label: group.label,
+			items: group.items.map((item) => ({
+				label: item.label,
+				path: item.path,
+				icon: item.icon,
+				disabled: !item.built,
+				reason: item.built ? undefined : "Coming soon",
+			})),
+		})),
+	];
+	const searchPages = groups.flatMap((group) => group.items).filter((item) => !item.disabled).map((item) => ({ label: item.label, path: item.path }));
+
+	const lookupOrganisations = useCallback(async (query: string): Promise<SearchOption[]> => {
+		organisationsRef.current ??= listOrganisations();
+		const organisations = await organisationsRef.current;
+		const needle = query.toLowerCase();
+		return organisations
+			.filter((org) => org.name.toLowerCase().includes(needle) || org.slug.toLowerCase().includes(needle))
+			.slice(0, 5)
+			.map((org) => ({ label: org.name, sublabel: `${org.slug} · ${org.status}`, path: `/platform/organisations/${org.id}`, group: "Organisations" }));
+	}, []);
 
 	return (
-		<Box sx={{ display: "flex" }}>
-			<AppBar position="fixed" sx={{ zIndex: (theme) => theme.zIndex.drawer + 1 }}>
-				<Toolbar sx={{ gap: 2 }}>
-					<Wordmark size="small" />
-					<Chip label="PLATFORM" size="small" variant="outlined" sx={{ borderColor: colors.accent, color: colors.accent }} />
-					<Box sx={{ flexGrow: 1 }} />
-					<Typography variant="body2" sx={{ color: colors.inkSoft }}>
-						{session?.email}
+		<>
+			<AppShell
+				subtitle="Platform console"
+				groups={groups}
+				collapsedKey="operion.platformSidebarCollapsed"
+				groupsKey="operion.platformNavGroupsCollapsed"
+				homePath="/platform/dashboard"
+				topbar={
+					<>
+						<Chip label="PLATFORM" size="small" sx={{ fontWeight: 700, letterSpacing: "0.06em", color: colors.accent, backgroundColor: colors.accentSoft, flexShrink: 0 }} />
+						<GlobalSearch placeholder="Search organisations, pages, anything..." pages={searchPages} lookup={lookupOrganisations} />
+						<Box sx={{ ml: "auto", flexShrink: 0 }}>
+							<AccountButton name="Platform admin" subtitle="Platform owner" onClick={(event: MouseEvent<HTMLElement>) => setAnchorEl(event.currentTarget)} />
+						</Box>
+					</>
+				}
+			/>
+			<Menu anchorEl={anchorEl} open={anchorEl !== null} onClose={() => setAnchorEl(null)}>
+				<Box sx={{ px: 2, py: 1, minWidth: 220 }}>
+					<Typography variant="subtitle1">Platform owner</Typography>
+					<Typography variant="body2" color="text.secondary">
+						{session?.email ?? "—"}
 					</Typography>
-					<Button size="small" startIcon={<LogoutIcon fontSize="small" />} onClick={logout}>
-						Sign out
-					</Button>
-				</Toolbar>
-			</AppBar>
-			<Drawer
-				variant="permanent"
-				sx={{
-					width: DRAWER_WIDTH,
-					flexShrink: 0,
-					[`& .MuiDrawer-paper`]: { width: DRAWER_WIDTH, boxSizing: "border-box" },
-				}}
-			>
-				<Toolbar />
-				<Divider />
-				<List>
-					<ListItemButton
-						selected={location.pathname === "/platform/dashboard"}
-						onClick={() => navigate("/platform/dashboard")}
-					>
-						<ListItemIcon>
-							<DashboardIcon />
-						</ListItemIcon>
-						<ListItemText primary="Dashboard" />
-					</ListItemButton>
-				</List>
-				{NAV_GROUPS.map((group) => (
-					<Box key={group.label}>
-						<Divider sx={{ my: 0.5 }} />
-						<ListSubheader
-							component="div"
-							disableSticky
-							sx={{ fontSize: "0.68rem", fontWeight: 700, letterSpacing: "0.08em", color: colors.inkFaint, backgroundColor: "transparent" }}
-						>
-							{group.label.toUpperCase()}
-						</ListSubheader>
-						<List>
-							{group.items.map((item) => (
-								<Tooltip key={item.path} title={item.built ? "" : "Coming soon"} placement="right">
-									<span>
-										<ListItemButton
-											selected={location.pathname.startsWith(item.path)}
-											disabled={!item.built}
-											onClick={() => navigate(item.path)}
-										>
-											<ListItemIcon>{item.icon}</ListItemIcon>
-											<ListItemText primary={item.label} />
-										</ListItemButton>
-									</span>
-								</Tooltip>
-							))}
-						</List>
-					</Box>
-				))}
-			</Drawer>
-			<Box component="main" sx={{ flexGrow: 1, p: { xs: 2, md: 4 } }}>
-				<Toolbar />
-				<Box sx={{ maxWidth: 1280, mx: "auto" }}>
-					<Outlet />
 				</Box>
-			</Box>
-		</Box>
+				<Divider />
+				<Box sx={{ px: 2, py: 1 }}>
+					<Typography variant="caption" sx={{ display: "block", mb: 0.75, fontWeight: 700, letterSpacing: "0.06em", color: colors.inkFaint }}>
+						THEME
+					</Typography>
+					<ToggleButtonGroup
+						value={preference}
+						exclusive
+						size="small"
+						fullWidth
+						onChange={(_, next: ThemePreference | null) => {
+							if (next) setPreference(next);
+						}}
+						aria-label="Theme preference"
+					>
+						<ToggleButton value="light" aria-label="Light theme">
+							<LightModeIcon fontSize="small" />
+						</ToggleButton>
+						<ToggleButton value="system" aria-label="Match system theme">
+							<SettingsBrightnessIcon fontSize="small" />
+						</ToggleButton>
+						<ToggleButton value="dark" aria-label="Dark theme">
+							<DarkModeIcon fontSize="small" />
+						</ToggleButton>
+					</ToggleButtonGroup>
+				</Box>
+				<Divider />
+				<MenuItem onClick={logout}>
+					<ListItemIcon>
+						<LogoutIcon fontSize="small" />
+					</ListItemIcon>
+					Sign out
+				</MenuItem>
+			</Menu>
+		</>
 	);
 }

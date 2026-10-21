@@ -1,10 +1,8 @@
 import { useState, type MouseEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import Avatar from "@mui/material/Avatar";
 import Box from "@mui/material/Box";
 import Chip from "@mui/material/Chip";
 import Divider from "@mui/material/Divider";
-import IconButton from "@mui/material/IconButton";
 import ListItemIcon from "@mui/material/ListItemIcon";
 import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
@@ -21,19 +19,9 @@ import LogoutIcon from "@mui/icons-material/Logout";
 import SettingsBrightnessIcon from "@mui/icons-material/SettingsBrightness";
 import { useAuth } from "../auth/AuthContext";
 import { ChangePasswordDialog } from "./ChangePasswordDialog";
-import { colors, fontDisplay } from "../theme";
+import { colors } from "../theme";
+import { AccountButton } from "./TopbarParts";
 import { useThemeMode, type ThemePreference } from "../theme-mode";
-
-function initials(name: string | null): string {
-	if (!name) return "?";
-	return name
-		.split(" ")
-		.filter(Boolean)
-		.map((part) => part[0])
-		.join("")
-		.slice(0, 2)
-		.toUpperCase();
-}
 
 /** Shows who's logged in (name/email/role(s)/org) - previously nowhere in the UI, only
  * discoverable by finding your own row in Settings > People with access. */
@@ -56,20 +44,11 @@ export function ProfileMenu() {
 
 	return (
 		<>
-			<Tooltip title={profile?.personName ?? "Account"}>
-				<IconButton
-					onClick={(event: MouseEvent<HTMLElement>) => setAnchorEl(event.currentTarget)}
-					color="inherit"
-					aria-label="Account menu"
-					aria-haspopup="true"
-				>
-					<Avatar
-						sx={{ width: 32, height: 32, fontSize: 13, fontFamily: fontDisplay, bgcolor: colors.ruleStrong, color: colors.accentInk }}
-					>
-						{initials(profile?.personName ?? null)}
-					</Avatar>
-				</IconButton>
-			</Tooltip>
+			<AccountButton
+				name={profile?.personName ?? null}
+				subtitle={profile?.roleNames[0] ?? "Member"}
+				onClick={(event: MouseEvent<HTMLElement>) => setAnchorEl(event.currentTarget)}
+			/>
 			<Menu anchorEl={anchorEl} open={anchorEl !== null} onClose={() => setAnchorEl(null)}>
 				<Box sx={{ px: 2, py: 1, minWidth: 220 }}>
 					<Typography variant="subtitle1">{profile?.personName ?? "—"}</Typography>

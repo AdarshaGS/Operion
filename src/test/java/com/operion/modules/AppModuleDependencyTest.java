@@ -29,7 +29,7 @@ class AppModuleDependencyTest {
 	@Test
 	void dependentsAreTheInverseOfRequires() {
 		assertThat(AppModule.FEES.dependents()).contains(AppModule.TRANSPORT);
-		assertThat(AppModule.HR.dependents()).containsExactly(AppModule.PAYROLL);
+		assertThat(AppModule.HR.dependents()).containsExactlyInAnyOrder(AppModule.PAYROLL, AppModule.PERFORMANCE);
 		assertThat(AppModule.SALES.dependents()).isEmpty();
 	}
 

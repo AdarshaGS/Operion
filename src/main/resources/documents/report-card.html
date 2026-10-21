@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="http://www.thymeleaf.org">
+<head>
+<meta charset="UTF-8"/>
+<title th:text="'Report card ' + ${r.cards().get(0).snapshot().examName()}">Report card</title>
+<style th:inline="text">
+@page { size: [[${page.cssSize()}]]; margin: [[${page.margin()}]]; }
+body { font-family: 'Noto Sans', sans-serif; font-size: [[${r.fontSize()}]]px; color: #1f2933; }
+table { width: 100%; border-collapse: collapse; }
+.card { position: relative; page-break-after: always; }
+.card.last { page-break-after: auto; }
+.header td { vertical-align: middle; }
+.logo { max-height: 70px; max-width: 130px; }
+.school { font-size: 1.5em; font-weight: bold; }
+.muted { color: #52606d; font-size: 0.85em; }
+.title { margin: 12px 0 8px 0; font-size: 1.25em; font-weight: bold; letter-spacing: 1px; text-align: center; }
+.badge { border: 1px solid #b42318; color: #b42318; padding: 1px 6px; font-size: 0.7em; margin-left: 8px; }
+.meta td { padding: 3px 4px; }
+.meta .label { color: #52606d; width: 18%; }
+.marks { margin-top: 10px; }
+.marks th { text-align: left; border-bottom: 1px solid #9aa5b1; padding: 5px 4px; font-size: 0.85em; color: #52606d; }
+.marks td { padding: 5px 4px; border-bottom: 1px solid #e4e7eb; }
+.num, .marks th.num { text-align: right; }
+.fail { color: #b42318; }
+.total td { font-weight: bold; border-top: 1px solid #1f2933; border-bottom: none; }
+.summary { margin-top: 12px; }
+.summary td { padding: 6px; border: 1px solid #cbd2d9; text-align: center; width: 25%; }
+.summary .value { font-size: 1.3em; font-weight: bold; }
+.signatures { margin-top: 40px; }
+.signatures td { vertical-align: bottom; width: 33%; }
+.sig-line { border-top: 1px solid #52606d; padding-top: 3px; color: #52606d; font-size: 0.85em; }
+.sig-img { max-height: 45px; max-width: 140px; }
+.footer { margin-top: 16px; text-align: center; color: #52606d; font-size: 0.8em; }
+.watermark { position: absolute; top: 35%; left: 5%; width: 90%; text-align: center; font-size: 4em; font-weight: bold;
+  color: #b42318; opacity: 0.15; transform: rotate(-25deg); }
+.style-classic .header { border-bottom: 2px solid #1f2933; }
+.style-classic .header-text { text-align: center; }
+.style-modern .header { border-left: 6px solid #2563eb; }
+.style-modern .header td { padding-left: 8px; }
+.style-modern .title { color: #2563eb; }
+.style-minimal .marks th, .style-minimal .marks td { border-bottom: none; }
+.style-elegant .school { letter-spacing: 2px; text-transform: uppercase; }
+.style-elegant .header { border-bottom: 1px double #52606d; border-top: 1px double #52606d; }
+</style>
+</head>
+<body th:class="${styleClass}">
+<div th:each="card, it : ${r.cards()}" th:with="s=${card.snapshot()}" th:class="'card' + (${it.last} ? ' last' : '')">
+  <div class="watermark" th:if="${card.superseded()}">SUPERSEDED</div>
+  <div class="watermark" th:if="${card.provisional()}">PROVISIONAL</div>
+
+  <table class="header">
+    <tr>
+      <td style="width: 140px;" th:if="${logo != null}"><img class="logo" th:src="${logo}" alt=""/></td>
+      <td class="header-text">
+        <div class="school" th:text="${s.school().schoolName()}">School</div>
+        <div class="muted" th:if="${s.school().addressLine() != null}" th:text="${s.school().addressLine()}">Address</div>
+        <div class="muted" th:if="${s.school().affiliationText() != null}" th:text="${s.school().affiliationText()}">Affiliation</div>
+        <div class="muted" th:if="${r.headerSubtext() != null}" th:text="${r.headerSubtext()}">Subtext</div>
+      </td>
+    </tr>
+  </table>
+
+  <div class="title">REPORT CARD
+    <span class="badge" th:if="${card.superseded()}">SUPERSEDED - A CORRECTED CARD WAS ISSUED</span>
+    <span class="badge" th:if="${card.provisional()}">PROVISIONAL - MARKS UNDER CORRECTION</span>
+  </div>
+
+  <table class="meta">
+    <tr>
+      <td class="label">Student</td><td th:text="${s.studentName()}">name</td>
+      <td class="label">Admission no.</td><td th:text="${s.admissionNumber()}">adm</td>
+    </tr>
+    <tr>
+      <td class="label">Class</td><td th:text="${s.classSection()}">class</td>
+      <td class="label">Academic year</td><td th:text="${s.academicYear()}">year</td>
+    </tr>
+    <tr>
+      <td class="label">Examination</td><td th:text="${s.examName()} + ' (' + ${s.examType()} + ')'">exam</td>
+      <td class="label">Document no.</td><td th:text="${s.documentNumber()}">RC-1</td>
+    </tr>
+  </table>
+
+  <table class="marks">
+    <tr>
+      <th>Subject</th>
+      <th class="num">Max marks</th>
+      <th class="num">Pass marks</th>
+      <th class="num">Marks obtained</th>
+      <th>Result</th>
+    </tr>
+    <tr th:each="line : ${s.subjects()}">
+      <td th:text="${line.subjectName()}">Subject</td>
+      <td class="num" th:text="${#numbers.formatDecimal(line.maxMarks(), 1, 'DEFAULT', 1, 'DEFAULT')}">100</td>
+      <td class="num" th:text="${#numbers.formatDecimal(line.passMarks(), 1, 'DEFAULT', 1, 'DEFAULT')}">35</td>
+      <td class="num" th:text="${line.absent()} ? 'Absent' : (${line.marksObtained() == null} ? '-' : ${#numbers.formatDecimal(line.marksObtained(), 1, 'DEFAULT', 1, 'DEFAULT')})">0</td>
+      <td th:class="${line.passed()} ? '' : 'fail'" th:text="${line.passed()} ? 'Pass' : 'Fail'">Pass</td>
+    </tr>
+    <tr class="total">
+      <td>Total</td>
+      <td class="num" th:text="${#numbers.formatDecimal(s.totalMaxMarks(), 1, 'DEFAULT', 1, 'DEFAULT')}">0</td>
+      <td></td>
+      <td class="num" th:text="${#numbers.formatDecimal(s.totalMarksObtained(), 1, 'DEFAULT', 1, 'DEFAULT')}">0</td>
+      <td></td>
+    </tr>
+  </table>
+
+  <table class="summary">
+    <tr>
+      <td><div class="muted">Percentage</div><div class="value" th:text="${#numbers.formatDecimal(s.percentage(), 1, 'DEFAULT', 2, 'DEFAULT')} + '%'">0%</div></td>
+      <td><div class="muted">Grade</div><div class="value" th:text="${s.overallGrade()}">A</div></td>
+      <td><div class="muted">Result</div><div class="value" th:classappend="${s.passed()} ? '' : 'fail'" th:text="${s.passed()} ? 'PASS' : 'FAIL'">PASS</div></td>
+      <td><div class="muted">Class rank</div><div class="value" th:text="${s.classRank() == null} ? '-' : ${s.classRank()}">-</div></td>
+    </tr>
+  </table>
+
+  <table class="signatures">
+    <tr>
+      <td><div class="sig-line">Class teacher</div></td>
+      <td><div class="sig-line">Parent / guardian</div></td>
+      <td class="num">
+        <img class="sig-img" th:if="${stamp != null}" th:src="${stamp}" alt=""/>
+        <img class="sig-img" th:if="${signature != null}" th:src="${signature}" alt=""/>
+        <div class="sig-line">Principal</div>
+      </td>
+    </tr>
+  </table>
+
+  <div class="footer">
+    <div th:if="${s.school().footerText() != null}" th:text="${s.school().footerText()}">footer</div>
+    <div>This is a computer-generated report card.</div>
+  </div>
+</div>
+</body>
+</html>

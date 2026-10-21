@@ -1,4 +1,3 @@
-import { useEffect, useState } from "react";
 import Box from "@mui/material/Box";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
@@ -9,8 +8,6 @@ import {
 	CartesianGrid,
 	Cell,
 	Legend,
-	Line,
-	LineChart,
 	Pie,
 	PieChart,
 	ResponsiveContainer,
@@ -18,16 +15,12 @@ import {
 	XAxis,
 	YAxis,
 } from "recharts";
-import { getDashboardCharts, type DashboardChartsResponse, type DashboardSummaryResponse } from "../../api/dashboard";
+import type { DashboardChartsResponse, DashboardSummaryResponse } from "../../api/dashboard";
 import { useAuth } from "../../auth/AuthContext";
 import { colors } from "../../theme";
 
 function currency(amount: number): string {
 	return `₹${amount.toLocaleString("en-IN")}`;
-}
-
-function shortDate(isoDate: string): string {
-	return new Date(`${isoDate}T00:00:00`).toLocaleDateString("en-IN", { day: "numeric", month: "short" });
 }
 
 function shortMonth(yearMonth: string): string {
@@ -36,8 +29,8 @@ function shortMonth(yearMonth: string): string {
 
 function ChartCard({ title, caption, flex = 1, children }: { title: string; caption: string; flex?: number; children: React.ReactNode }) {
 	return (
-		<Paper variant="outlined" sx={{ p: 2.5, flex: `${flex} 1 0`, minWidth: 0 }}>
-			<Typography variant="h6">{title}</Typography>
+		<Paper sx={{ p: 2.5, flex: `${flex} 1 0`, minWidth: 0 }}>
+			<Typography variant="h6" sx={{ fontSize: "1rem" }}>{title}</Typography>
 			<Typography variant="caption" sx={{ color: colors.inkSoft, display: "block", mb: 1 }}>
 				{caption}
 			</Typography>
@@ -84,14 +77,8 @@ function Donut({ slices, emptyMessage }: { slices: Slice[]; emptyMessage: string
 /** Dashboard charts (#30 follow-up) - attendance trend, fee collections, enrolment by class, plus
  * today's attendance and fee-collection donuts. Fetched separately from the summary so the headline
  * tiles never wait on the heavier time-series queries; a chart is hidden when its module is off. */
-export function DashboardCharts({ summary }: { summary: DashboardSummaryResponse }) {
+export function DashboardCharts({ summary, charts }: { summary: DashboardSummaryResponse; charts: DashboardChartsResponse | null }) {
 	const { isPathEnabled } = useAuth();
-	const [charts, setCharts] = useState<DashboardChartsResponse | null>(null);
-
-	useEffect(() => {
-		// Charts are an enhancement - if the request fails the rest of the dashboard still stands.
-		getDashboardCharts().then(setCharts).catch(() => setCharts(null));
-	}, []);
 
 	const attendance = summary.attendanceToday;
 	const fees = summary.fees;
@@ -102,28 +89,8 @@ export function DashboardCharts({ summary }: { summary: DashboardSummaryResponse
 
 	return (
 		<Stack spacing={2}>
-			{(showAttendance || showFees) && (
+			{showFees && (
 				<Stack direction={{ xs: "column", md: "row" }} spacing={2}>
-					{showAttendance && (
-						<ChartCard title="Attendance trend" caption="Students present, % of those marked — last 30 days" flex={1}>
-							{charts && charts.attendanceTrend.length > 0 ? (
-								<ResponsiveContainer width="100%" height="100%">
-									<LineChart data={charts.attendanceTrend}>
-										<CartesianGrid strokeDasharray="3 3" vertical={false} stroke={colors.rule} />
-										<XAxis dataKey="date" tickFormatter={shortDate} tickLine={false} axisLine={false} minTickGap={24} />
-										<YAxis domain={[0, 100]} unit="%" tickLine={false} axisLine={false} width={48} />
-										<RechartsTooltip
-											labelFormatter={(label) => shortDate(String(label))}
-											formatter={(value, _name, item) => [`${value}% (${item.payload.present} of ${item.payload.marked})`, "Present"]}
-										/>
-										<Line type="monotone" dataKey="ratePercent" name="Present" stroke={colors.accent} strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />
-									</LineChart>
-								</ResponsiveContainer>
-							) : (
-								<EmptyChart message={charts ? "No attendance marked in the last 30 days." : "Loading…"} />
-							)}
-						</ChartCard>
-					)}
 					{showFees && (
 						<ChartCard title="Fee collections" caption="Cleared payments vs. invoices falling due, by month" flex={1}>
 							{charts && charts.feeCollections.some((point) => point.collected > 0 || point.invoiced > 0) ? (

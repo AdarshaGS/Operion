@@ -25,7 +25,7 @@ class ModuleCoverageTest {
 
 	/** Never switchable: turning these off would lock every user out or break the platform itself. */
 	private static final Set<String> CORE_PACKAGES = Set.of(
-			"com.operion.audit", "com.operion.authorization", "com.operion.billing", "com.operion.common",
+			"com.operion.audit", "com.operion.authorization", "com.operion.billing", "com.operion.calendar", "com.operion.common",
 			"com.operion.customfield", "com.operion.document", "com.operion.identity", "com.operion.integration",
 			"com.operion.modules", "com.operion.onboarding", "com.operion.organisation", "com.operion.platform",
 			"com.operion.storage", "com.operion.support");

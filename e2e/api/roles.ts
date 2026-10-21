@@ -59,7 +59,7 @@ export interface TeacherAssignmentResponse {
 export function assignTeacher(
 	token: string,
 	sectionId: number,
-	input: { subjectId: number; teacherPersonId: number; assignmentType: "HOMEROOM" | "SUBJECT" | "CO_TEACHER"; startDate: string },
+	input: { subjectId?: number | null; teacherPersonId: number; assignmentType: "HOMEROOM" | "SUBJECT" | "CO_TEACHER"; startDate: string },
 ) {
 	return api.post<TeacherAssignmentResponse>(`/api/v1/sections/${sectionId}/teacher-assignments`, input, token);
 }

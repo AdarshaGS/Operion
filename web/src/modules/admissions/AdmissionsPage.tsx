@@ -20,9 +20,12 @@ import TableHead from "@mui/material/TableHead";
 import TablePagination from "@mui/material/TablePagination";
 import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
+import MenuItem from "@mui/material/MenuItem";
 import Typography from "@mui/material/Typography";
+import AddIcon from "@mui/icons-material/Add";
 import { Can } from "../../auth/Can";
-import { convertApplicant } from "../../api/applicants";
+import { convertApplicant, inquireApplicant } from "../../api/applicants";
+import { createPerson, GENDER_OPTIONS } from "../../api/persons";
 import {
 	admissionApplicantName,
 	getAdmissionStatusCounts,
@@ -39,6 +42,8 @@ import { ApiError } from "../../api/client";
 import { DOC_TYPES, STATUS_FILTERS, allowedActions, docLabel, publicFormUrl, statusColor, statusLabel, type StatusFilter } from "./admissionStatus";
 
 const SLUG_KEY = "operion.admissions.orgSlug";
+const SEARCH_FETCH_SIZE = 200;
+const NEW_APPLICANT = { firstName: "", lastName: "", dateOfBirth: "", gender: "", phone: "", email: "", source: "", notes: "" };
 const CONVERT_FORM = { admissionNumber: "", admissionDate: "", admissionSource: "", previousSchool: "", tcNumber: "", entranceScore: "" };
 
 function errMsg(err: unknown, fallback: string) {
@@ -76,18 +81,66 @@ export function AdmissionsPage() {
 	});
 	const [copied, setCopied] = useState(false);
 	const [submitting, setSubmitting] = useState(false);
+	const [query, setQuery] = useState("");
+	const [addOpen, setAddOpen] = useState(false);
+	const [addForm, setAddForm] = useState(NEW_APPLICANT);
+	const [addError, setAddError] = useState<string | null>(null);
+
+	// The applicants endpoint has no text search, so while a query is typed the first SEARCH_FETCH_SIZE rows of the
+	// selected status are fetched and filtered here (pagination is hidden meanwhile).
+	const searching = query.trim() !== "";
 
 	const refresh = useCallback(() => {
 		getAdmissionStatusCounts().then(setCounts).catch(() => {});
-		listAdmissionApplicants(filter, page, size)
+		listAdmissionApplicants(filter, searching ? 0 : page, searching ? SEARCH_FETCH_SIZE : size)
 			.then((result) => {
 				setRows(result.content);
 				setTotal(result.totalElements);
 			})
 			.catch((err) => setError(errMsg(err, "Failed to load applicants")));
-	}, [filter, page, size]);
+	}, [filter, page, size, searching]);
 
 	useEffect(refresh, [refresh]);
+
+	async function handleAddApplicant(event: FormEvent) {
+		event.preventDefault();
+		setSubmitting(true);
+		setAddError(null);
+		try {
+			const person = await createPerson({
+				firstName: addForm.firstName,
+				lastName: addForm.lastName,
+				dateOfBirth: addForm.dateOfBirth || null,
+				gender: addForm.gender,
+				phone: addForm.phone || null,
+				email: addForm.email || null,
+			});
+			await inquireApplicant({
+				personId: person.id,
+				inquiryDate: new Date().toISOString().slice(0, 10),
+				source: addForm.source || null,
+				notes: addForm.notes || null,
+			});
+			setAddForm(NEW_APPLICANT);
+			setAddOpen(false);
+			refresh();
+		} catch (err) {
+			setAddError(errMsg(err, "Failed to add applicant"));
+		} finally {
+			setSubmitting(false);
+		}
+	}
+
+	function setAddField<K extends keyof typeof NEW_APPLICANT>(key: K) {
+		return (event: React.ChangeEvent<HTMLInputElement>) => setAddForm((prev) => ({ ...prev, [key]: event.target.value }));
+	}
+
+	const needle = query.trim().toLowerCase();
+	const visibleRows = needle
+		? rows.filter((a) =>
+				[admissionApplicantName(a), a.guardianName, a.guardianPhone, a.guardianEmail].some((v) => v?.toLowerCase().includes(needle)),
+			)
+		: rows;
 
 	async function handleStartReview(a: AdmissionApplicantResponse) {
 		setBusyId(a.id);
@@ -198,10 +251,26 @@ export function AdmissionsPage() {
 			<Stack spacing={2}>
 				<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 1 }}>
 					<Typography variant="h6">Admissions</Typography>
-					<Button size="small" variant="outlined" onClick={() => setLinkOpen(true)}>
-						Public form link
-					</Button>
+					<Stack direction="row" spacing={1}>
+						<Button size="small" variant="outlined" onClick={() => setLinkOpen(true)}>
+							Public form link
+						</Button>
+						<Can anyOf={["STUDENT_MANAGE"]}>
+							<Button size="small" variant="contained" startIcon={<AddIcon />} onClick={() => setAddOpen(true)}>
+								Add applicant
+							</Button>
+						</Can>
+					</Stack>
 				</Box>
+
+				<TextField
+					size="small"
+					label="Search applicants"
+					placeholder="Applicant or guardian name, phone, email"
+					value={query}
+					onChange={(e) => setQuery(e.target.value)}
+					sx={{ maxWidth: 420 }}
+				/>
 
 				<Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", rowGap: 1 }}>
 					{STATUS_FILTERS.map((s) => (
@@ -226,8 +295,12 @@ export function AdmissionsPage() {
 					</Alert>
 				)}
 
-				{rows.length === 0 ? (
-					<Alert severity="info">No applicants{filter === "ALL" ? " yet" : ` marked ${statusLabel(filter)}`}.</Alert>
+				{visibleRows.length === 0 ? (
+					<Alert severity="info">
+						{searching
+							? `No applicants${filter === "ALL" ? "" : ` marked ${statusLabel(filter)}`} match "${query.trim()}".`
+							: `No applicants${filter === "ALL" ? " yet - use Add applicant, or share the public form link, to start receiving enquiries" : ` marked ${statusLabel(filter)}`}.`}
+					</Alert>
 				) : (
 					<TableContainer>
 						<Table size="small">
@@ -243,7 +316,7 @@ export function AdmissionsPage() {
 								</TableRow>
 							</TableHead>
 							<TableBody>
-								{rows.map((a) => {
+								{visibleRows.map((a) => {
 									const can = allowedActions(a.status);
 									return (
 										<TableRow key={a.id}>
@@ -298,6 +371,13 @@ export function AdmissionsPage() {
 					</TableContainer>
 				)}
 
+				{searching && total > SEARCH_FETCH_SIZE && (
+					<Typography variant="caption" color="text.secondary">
+						Searching the first {SEARCH_FETCH_SIZE} of {total} applicants - narrow by status for older records.
+					</Typography>
+				)}
+
+				{!searching && (
 				<TablePagination
 					component="div"
 					count={total}
@@ -310,7 +390,43 @@ export function AdmissionsPage() {
 						setPage(0);
 					}}
 				/>
+				)}
 			</Stack>
+
+			<Dialog open={addOpen} onClose={() => setAddOpen(false)} component="form" onSubmit={handleAddApplicant} fullWidth maxWidth="sm">
+				<DialogTitle>Add applicant</DialogTitle>
+				<DialogContent>
+					<Stack spacing={2} sx={{ mt: 1 }}>
+						{addError && <Alert severity="error">{addError}</Alert>}
+						<Stack direction="row" spacing={2}>
+							<TextField label="First name" value={addForm.firstName} onChange={setAddField("firstName")} required autoFocus fullWidth />
+							<TextField label="Last name" value={addForm.lastName} onChange={setAddField("lastName")} required fullWidth />
+						</Stack>
+						<Stack direction="row" spacing={2}>
+							<TextField label="Date of birth" type="date" value={addForm.dateOfBirth} onChange={setAddField("dateOfBirth")} slotProps={{ inputLabel: { shrink: true } }} fullWidth />
+							<TextField select label="Gender" value={addForm.gender} onChange={setAddField("gender")} required fullWidth>
+								{GENDER_OPTIONS.map((g) => (
+									<MenuItem key={g} value={g}>
+										{g}
+									</MenuItem>
+								))}
+							</TextField>
+						</Stack>
+						<Stack direction="row" spacing={2}>
+							<TextField label="Phone" value={addForm.phone} onChange={setAddField("phone")} fullWidth />
+							<TextField label="Email" type="email" value={addForm.email} onChange={setAddField("email")} fullWidth />
+						</Stack>
+						<TextField label="Source (walk-in, referral...)" value={addForm.source} onChange={setAddField("source")} fullWidth />
+						<TextField label="Notes" value={addForm.notes} onChange={setAddField("notes")} multiline minRows={2} fullWidth />
+					</Stack>
+				</DialogContent>
+				<DialogActions>
+					<Button onClick={() => setAddOpen(false)}>Cancel</Button>
+					<Button type="submit" variant="contained" disabled={submitting}>
+						Add
+					</Button>
+				</DialogActions>
+			</Dialog>
 
 			<Dialog open={approveTarget !== null} onClose={closeApprove} component="form" onSubmit={handleApprove} fullWidth maxWidth="sm">
 				<DialogTitle>Approve {approveTarget ? admissionApplicantName(approveTarget) : ""}</DialogTitle>

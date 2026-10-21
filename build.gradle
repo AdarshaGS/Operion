@@ -36,6 +36,13 @@ dependencies {
 	// .xlsx parsing for student bulk import (#287) - CsvUtil deliberately stayed dependency-free
 	// for CSV, but there's no reasonable hand-rolled equivalent for the OOXML zip format.
 	implementation 'org.apache.poi:poi-ooxml:5.3.0'
+	// Server-side PDFs (receipts first, then certificates/report cards): Thymeleaf fills an
+	// HTML template, OpenHTMLtoPDF (maintained io.github fork, LGPL, used unmodified) lays
+	// it out. Plain thymeleaf, not the starter - no view resolver for a REST-only app.
+	implementation 'org.thymeleaf:thymeleaf'
+	implementation 'io.github.openhtmltopdf:openhtmltopdf-pdfbox:1.1.97'
+	// QR codes on certificates (verification link) - core only, Apache-2.0, no AWT/javase module needed.
+	implementation 'com.google.zxing:core:3.5.3'
 	implementation 'org.flywaydb:flyway-core'
 	implementation 'org.flywaydb:flyway-mysql'
 	implementation 'org.springframework.boot:spring-boot-flyway'

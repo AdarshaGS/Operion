@@ -39,6 +39,9 @@ public class LibrarySettingsController {
 		requireAtLeastOne("The staff loan limit", request.maxLoansStaff());
 		requireAtLeastOne("The student borrowing period", request.borrowingPeriodDaysStudent());
 		requireAtLeastOne("The staff borrowing period", request.borrowingPeriodDaysStaff());
+		if (request.fineRatePerDay() != null && request.fineRatePerDay().signum() < 0) {
+			throw new InvalidRequestException("The fine rate per day cannot be negative");
+		}
 		LibrarySettings settings = librarySettingsRepository.findByOrganisationId(TenantContext.getOrganisationId())
 				.orElseGet(LibrarySettings::new);
 		settings.setMaxLoansStudent(request.maxLoansStudent());
@@ -46,6 +49,9 @@ public class LibrarySettingsController {
 		settings.setBorrowingPeriodDaysStudent(request.borrowingPeriodDaysStudent());
 		settings.setBorrowingPeriodDaysStaff(request.borrowingPeriodDaysStaff());
 		settings.setBlockIssueOnOverdue(request.blockIssueOnOverdue());
+		if (request.fineRatePerDay() != null) {
+			settings.setFineRatePerDay(request.fineRatePerDay());
+		}
 		return LibrarySettingsResponse.from(librarySettingsRepository.save(settings));
 	}
 

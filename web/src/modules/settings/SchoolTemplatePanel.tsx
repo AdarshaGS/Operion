@@ -103,6 +103,13 @@ const CATEGORIES: CategoryConfig[] = [
 		fields: ["sequenceOrder", "minPercentage", "remark"],
 		extraColumn: (item) => (item.minPercentage != null ? `${item.minPercentage}%+` : "—"),
 	},
+	{
+		key: "CERTIFICATE_TYPE",
+		label: "Certificate types",
+		fields: ["code", "description"],
+		extraColumn: (item) => item.code ?? "—",
+		hint: "A row whose code matches a preset (TC, BONAFIDE, CHARACTER, LEAVING) starts with that preset's wording and rules; any other code starts with generic wording. Edit wording later under Settings > Certificate types.",
+	},
 ];
 
 const EMPTY_FORM = {
@@ -478,6 +485,7 @@ export function SchoolTemplatePanel() {
 			applyResult.classesCreated.length +
 			applyResult.sectionsCreated.length +
 			applyResult.subjectsCreated.length +
+			applyResult.certificateTypesCreated.length +
 			(applyResult.gradingScaleCreated ? 1 : 0)
 		: 0;
 

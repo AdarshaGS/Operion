@@ -11,4 +11,11 @@ public interface StaffAttendanceRepository extends JpaRepository<StaffAttendance
 	Optional<StaffAttendance> findByPersonIdAndAttendanceDate(Long personId, LocalDate attendanceDate);
 
 	List<StaffAttendance> findByCampusIdAndAttendanceDate(Long campusId, LocalDate attendanceDate);
+
+	List<StaffAttendance> findByAttendanceDateBetween(LocalDate from, LocalDate to);
+
+	/** Attendance overview - staff attendance rows for one day, by status. */
+	long countByAttendanceDateAndAttendanceStatus(LocalDate date, AttendanceStatus attendanceStatus);
+
+	long countByAttendanceDate(LocalDate date);
 }

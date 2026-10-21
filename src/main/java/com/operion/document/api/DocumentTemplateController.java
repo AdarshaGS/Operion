@@ -1,5 +1,7 @@
 package com.operion.document.api;
 
+import com.operion.common.InvalidRequestException;
+
 import com.operion.authorization.RequirePermission;
 import com.operion.document.DocumentTemplate;
 import com.operion.document.DocumentTemplateRepository;
@@ -23,6 +25,8 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/document-templates")
 public class DocumentTemplateController {
 
+	private static final String THERMAL_80MM = "THERMAL_80MM";
+
 	private final DocumentTemplateRepository documentTemplateRepository;
 
 	public DocumentTemplateController(DocumentTemplateRepository documentTemplateRepository) {
@@ -39,6 +43,9 @@ public class DocumentTemplateController {
 	@PutMapping("/{documentType}")
 	@RequirePermission("ORGANISATION_MANAGE")
 	public DocumentTemplateResponse update(@PathVariable DocumentType documentType, @Valid @RequestBody UpsertDocumentTemplateRequest request) {
+		if (THERMAL_80MM.equals(request.pageSize()) && documentType != DocumentType.RECEIPT) {
+			throw new InvalidRequestException("The 80 mm thermal page size is only available for receipts");
+		}
 		DocumentTemplate template = documentTemplateRepository.findByDocumentType(documentType)
 				.orElseGet(() -> new DocumentTemplate(documentType));
 		template.setTemplateStyle(request.templateStyle());

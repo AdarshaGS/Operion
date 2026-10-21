@@ -8,7 +8,6 @@ import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
 import MenuItem from "@mui/material/MenuItem";
-import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
@@ -16,6 +15,8 @@ import AddIcon from "@mui/icons-material/Add";
 import { completeTask, createTask, listCrmAdmins, listTasks, type CrmAdminResponse, type CrmOwner, type CrmTaskResponse } from "../api/crm";
 import { PlatformApiError } from "../api/platformClient";
 import { formatDateTime, isOverdue, tomorrowMorningInput } from "./crmFormat";
+import EventAvailableIcon from "@mui/icons-material/EventAvailable";
+import { SectionCard } from "../../components/DashboardKit";
 
 /** Follow-up reminders on a lead or organisation. Open tasks first (soonest due), completed
  * ones below, struck through. Tasks can't be un-completed - the backend has no such endpoint. */
@@ -76,15 +77,17 @@ export function TasksSection({ owner }: { owner: CrmOwner }) {
 	const done = tasks?.filter((t) => t.completedAt) ?? [];
 
 	return (
-		<Paper sx={{ p: 3 }}>
+		<SectionCard
+			title="Follow-ups"
+			icon={<EventAvailableIcon fontSize="small" />}
+			tint="orange"
+			headerExtra={
+				<Button size="small" variant="outlined" startIcon={<AddIcon />} onClick={openCreate}>
+					Add task
+				</Button>
+			}
+		>
 			<Stack spacing={2}>
-				<Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center" }}>
-					<Typography variant="h6">Follow-ups</Typography>
-					<Button size="small" startIcon={<AddIcon />} onClick={openCreate}>
-						Add task
-					</Button>
-				</Stack>
-
 				{error && <Alert severity="error">{error}</Alert>}
 				{tasks && tasks.length === 0 && <Alert severity="info">No follow-ups scheduled.</Alert>}
 
@@ -150,6 +153,6 @@ export function TasksSection({ owner }: { owner: CrmOwner }) {
 					</Button>
 				</DialogActions>
 			</Dialog>
-		</Paper>
+		</SectionCard>
 	);
 }

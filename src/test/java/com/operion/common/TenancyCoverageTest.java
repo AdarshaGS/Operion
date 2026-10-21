@@ -22,7 +22,7 @@ import org.springframework.core.type.filter.AnnotationTypeFilter;
 class TenancyCoverageTest {
 
 	/** Shared reference data seeded by migration, identical for every organisation. */
-	private static final Set<String> GLOBAL_CATALOGS = Set.of("Permission", "SchoolTemplateMasterItem", "SchoolStarterNeed");
+	private static final Set<String> GLOBAL_CATALOGS = Set.of("Permission", "SchoolTemplateMasterItem", "SchoolStarterNeed", "CertificateTypePreset");
 
 	/** Carry their own organisation_id but are read and written by explicit id, not auto-filtered:
 	 * audit and login rows exist before/outside a tenant context, and the rest are one-per-organisation settings. */

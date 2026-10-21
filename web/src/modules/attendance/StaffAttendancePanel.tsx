@@ -143,7 +143,7 @@ export function StaffAttendancePanel() {
 					<Box sx={{ display: "flex", gap: 2, alignItems: "flex-start" }}>
 						<TextField select label="Campus" value={campusId} onChange={(e) => setCampusId(e.target.value)} sx={{ minWidth: 200 }}>
 							{campuses.map((campus) => (
-								<MenuItem key={campus.id} value={campus.id}>
+								<MenuItem key={campus.id} value={String(campus.id)}>
 									{campus.name}
 								</MenuItem>
 							))}

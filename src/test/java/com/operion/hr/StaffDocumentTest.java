@@ -1,5 +1,8 @@
 package com.operion.hr;
 
+import com.operion.academic.WorkingCalendarEntryRepository;
+import com.operion.calendar.WorkingDayService;
+import com.operion.organisation.OrganisationConfigurationRepository;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.LocalDate;
@@ -43,6 +46,12 @@ import tools.jackson.databind.ObjectMapper;
 class StaffDocumentTest {
 
 	private HrService hrService;
+
+	@Autowired
+	private WorkingCalendarEntryRepository workingCalendarEntryRepository;
+
+	@Autowired
+	private OrganisationConfigurationRepository organisationConfigurationRepository;
 
 	@Autowired
 	private OrganisationRepository organisationRepository;
@@ -97,6 +106,7 @@ class StaffDocumentTest {
 		hrService = new HrService(staffProfileRepository, leaveTypeRepository, leaveBalanceRepository, leaveRequestRepository,
 				staffDocumentRepository, jobApplicationRepository, organisationRepository, staffAssignmentRepository,
 				staffExitRepository, staffBankDetailRepository, staffAttendanceRepository,
+				new WorkingDayService(workingCalendarEntryRepository, organisationConfigurationRepository),
 				new AuditLogService(auditLogRepository, new ObjectMapper()));
 	}
 

@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -23,6 +24,9 @@ import Tabs from "@mui/material/Tabs";
 import TextField from "@mui/material/TextField";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
+import BarChartIcon from "@mui/icons-material/BarChart";
+import GroupsIcon from "@mui/icons-material/Groups";
+import MenuBookIcon from "@mui/icons-material/MenuBook";
 import {
 	type AttendanceCorrectionResponse,
 	type AttendanceRegisterResponse,
@@ -40,9 +44,13 @@ import { type StudentEnrollmentResponse, listSectionEnrollments } from "../../ap
 import { type PersonResponse, listPersons } from "../../api/persons";
 import { listSchoolClasses, type SchoolClassResponse } from "../../api/schoolClasses";
 import { listSections, type SectionResponse } from "../../api/sections";
+import { useMarkableSections } from "./useMarkableSections";
 import { listStudents, type StudentResponse } from "../../api/students";
 import { useAuth } from "../../auth/AuthContext";
+import { colors } from "../../theme";
+import { AttendanceOverviewPanel, type RegisterTarget } from "./AttendanceOverviewPanel";
 import { StaffAttendancePanel } from "./StaffAttendancePanel";
+import { useSchoolClassLabel } from "../../utils/useSchoolClassLabel";
 
 const STATUS_OPTIONS = ["PRESENT", "ABSENT", "LATE", "HALF_DAY", "LEAVE"];
 
@@ -68,40 +76,59 @@ interface DraftRow {
 	remarks: string;
 }
 
-/** Class register and staff attendance, each shown only to callers who may view it. */
+/** Attendance landing page - an Overview of the day across every class, the class register itself, and staff attendance,
+ * each shown only to callers who may view it. Overview rows open the register for that section and date. */
 export function AttendancePage() {
+	const navigate = useNavigate();
 	const { hasPermission, permissionsLoaded } = useAuth();
-	// Until permissions load, show both tabs - the backend enforces access either way.
+	// Until permissions load, show every tab - the backend enforces access either way.
 	const showClass = !permissionsLoaded || hasPermission("ATTENDANCE_VIEW");
 	const showStaff = !permissionsLoaded || hasPermission("STAFF_ATTENDANCE_VIEW");
-	const [tab, setTab] = useState<"class" | "staff">("class");
-	const active = showClass ? tab : "staff";
+	const [tab, setTab] = useState<"overview" | "class" | "staff">("overview");
+	const [preset, setPreset] = useState<RegisterTarget | null>(null);
+	const active = !showClass && tab !== "staff" ? "staff" : !showStaff && tab === "staff" ? "overview" : tab;
+
+	function openRegister(target: RegisterTarget) {
+		setPreset(target);
+		setTab("class");
+	}
 
 	return (
-		<Stack spacing={2}>
-			{showClass && showStaff && (
-				<Tabs value={active} onChange={(_, value) => setTab(value)}>
-					<Tab value="class" label="Class register" />
-					<Tab value="staff" label="Staff attendance" />
-				</Tabs>
-			)}
-			{active === "class" ? <ClassRegisterPanel /> : <StaffAttendancePanel />}
+		<Stack spacing={3}>
+			<Box>
+				<Typography variant="h4" sx={{ fontWeight: 800, color: colors.ink }}>
+					Attendance
+				</Typography>
+				<Typography variant="body1" sx={{ color: colors.inkSoft }}>
+					Monitor daily attendance and review class registers.
+				</Typography>
+			</Box>
+			<Tabs value={active} onChange={(_, value) => setTab(value)} sx={{ borderBottom: `1px solid ${colors.rule}` }}>
+				{showClass && <Tab value="overview" label="Overview" icon={<BarChartIcon fontSize="small" />} iconPosition="start" />}
+				{showClass && <Tab value="class" label="Class Register" icon={<MenuBookIcon fontSize="small" />} iconPosition="start" />}
+				{showStaff && <Tab value="staff" label="Staff Attendance" icon={<GroupsIcon fontSize="small" />} iconPosition="start" />}
+			</Tabs>
+			{active === "overview" && <AttendanceOverviewPanel onOpenRegister={openRegister} onMarkAttendance={() => navigate("/attendance/mark")} />}
+			{active === "class" && <ClassRegisterPanel preset={preset} onShowOverview={() => setTab("overview")} />}
+			{active === "staff" && <StaffAttendancePanel />}
 		</Stack>
 	);
 }
 
-function ClassRegisterPanel() {
+function ClassRegisterPanel({ preset, onShowOverview }: { preset: RegisterTarget | null; onShowOverview: () => void }) {
 	const { hasPermission } = useAuth();
-	const canMark = hasPermission("ATTENDANCE_MARK");
+	const { markable, canMarkSection } = useMarkableSections();
 	const canCorrect = hasPermission("ATTENDANCE_CORRECT");
 	const canLock = hasPermission("ATTENDANCE_LOCK");
 	const canUnlock = hasPermission("ATTENDANCE_UNLOCK");
 
 	const [classes, setClasses] = useState<SchoolClassResponse[]>([]);
+	const classLabel = useSchoolClassLabel();
 	const [sections, setSections] = useState<SectionResponse[]>([]);
 	const [classId, setClassId] = useState("");
 	const [sectionId, setSectionId] = useState("");
 	const [date, setDate] = useState(todayIso());
+	const canMark = !!sectionId && canMarkSection(sectionId);
 
 	// Kept in state (not just local to handleLoad) so both the fresh-marking table and
 	// the existing-register table can resolve enrollmentId -> studentId -> person name.
@@ -125,12 +152,40 @@ function ClassRegisterPanel() {
 		listSchoolClasses().then(setClasses).catch(() => {});
 	}, []);
 
+	// A section picked on the overview: remembered here until its class's sections have loaded, then selected and loaded.
+	const pendingPreset = useRef<RegisterTarget | null>(null);
+
 	useEffect(() => {
-		setSectionId("");
+		if (!preset) return;
+		pendingPreset.current = preset;
+		setDate(preset.date);
+		if (String(preset.schoolClassId) === classId) {
+			setSectionId(String(preset.sectionId));
+		} else {
+			setClassId(String(preset.schoolClassId));
+		}
+	}, [preset]);
+
+	useEffect(() => {
+		const pending = pendingPreset.current;
+		if (!pending) setSectionId("");
 		setSections([]);
 		if (!classId) return;
-		listSections(Number(classId)).then(setSections).catch(() => {});
+		listSections(Number(classId))
+			.then((list) => {
+				setSections(list);
+				if (pending) setSectionId(String(pending.sectionId));
+			})
+			.catch(() => {});
 	}, [classId]);
+
+	useEffect(() => {
+		const pending = pendingPreset.current;
+		if (pending && sectionId === String(pending.sectionId)) {
+			pendingPreset.current = null;
+			handleLoad(pending.date);
+		}
+	}, [sectionId, preset]);
 
 	function enrollmentStudentName(enrollmentId: number): string {
 		const enrollment = enrollments.find((e) => e.id === enrollmentId);
@@ -278,7 +333,7 @@ function ClassRegisterPanel() {
 						<TextField select label="Class" value={classId} onChange={(e) => setClassId(e.target.value)} sx={{ minWidth: 200 }}>
 							{classes.map((schoolClass) => (
 								<MenuItem key={schoolClass.id} value={schoolClass.id}>
-									{schoolClass.displayName ?? `Class #${schoolClass.id}`}
+									{classLabel(schoolClass)}
 								</MenuItem>
 							))}
 						</TextField>
@@ -328,6 +383,19 @@ function ClassRegisterPanel() {
 
 			{error && <Alert severity="error">{error}</Alert>}
 
+			{!loaded && !loading && !error && (
+				<Alert
+					severity="info"
+					action={
+						<Button color="inherit" size="small" onClick={onShowOverview}>
+							Show pending classes
+						</Button>
+					}
+				>
+					Choose a class and section to open its register, or start from the Overview, which lists the classes still waiting for attendance.
+				</Alert>
+			)}
+
 			{loading && (
 				<Box sx={{ display: "flex", justifyContent: "center", p: 2 }}>
 					<CircularProgress />
@@ -339,6 +407,9 @@ function ClassRegisterPanel() {
 					<Stack spacing={2}>
 						<Typography variant="h6">Register — {date}</Typography>
 						<Alert severity="info">No attendance has been marked for this day.</Alert>
+						{markable?.scope === "OWN" && (
+							<Alert severity="warning">Only this section's class teacher can mark its attendance.</Alert>
+						)}
 					</Stack>
 				</Paper>
 			)}

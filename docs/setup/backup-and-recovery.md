@@ -1,8 +1,7 @@
 # Backup and recovery
 
-Operion's only durable state is the MySQL database (schema managed by Flyway). There is no
-file/object storage yet (see #196); when it lands, its bucket/volume must be added to this
-procedure. Redis is not used. Signing secrets (`JWT_SECRET`, `PLATFORM_JWT_SECRET`) and
+Operion's durable state is the two MySQL databases (schema managed by Flyway) and the uploads
+folder (`STORAGE_BASE_DIR`: logos, stamps, signatures, documents and proof files). Redis is not used. Signing secrets (`JWT_SECRET`, `PLATFORM_JWT_SECRET`) and
 gateway/email keys live in the deployment environment, not the database — keep them in a
 secrets manager, and note that losing them only forces re-login / key re-issue, not data loss.
 
@@ -10,19 +9,74 @@ secrets manager, and note that losing them only forces re-login / key re-issue, 
 
 | Item | How | Why |
 |---|---|---|
-| MySQL `operion` database | Logical dump + binary logs | The whole tenant dataset — every organisation shares one schema |
+| MySQL `operion_school` and `operion_platform` databases | Built-in local backup (below) + binary logs | The whole tenant dataset — every organisation shares these two schemas |
+| Uploads folder (`STORAGE_BASE_DIR`) | Built-in local backup (zipped with the dumps) | Logos, stamps, signatures and uploaded documents are not in the database |
 | Deployment secrets | Secrets manager (versioned) | Needed to restart the app; not recoverable from the DB |
+
+## Built-in local backups
+
+The application takes its own backups (`BackupService`), so a single-server school install is covered
+without extra tooling. Each backup is one folder, `BACKUP_DIR/operion-backup-<yyyyMMdd-HHmmss>/`:
+
+| File | Contents |
+|---|---|
+| `school.sql.gz` | `mysqldump --single-transaction --routines --triggers --no-tablespaces --set-gtid-purged=OFF` of the School database |
+| `platform.sql.gz` | The same for the Platform database |
+| `uploads.zip` | Everything under `STORAGE_BASE_DIR` |
+| `manifest.json` | When it was taken, the database names, and the size and SHA-256 of each file |
+
+- A backup is written to `<name>.partial` and renamed only after both dumps exited cleanly, end with
+  mysqldump's `-- Dump completed` line and read back as valid gzip. A folder without `.partial` is complete.
+  An abandoned `.partial` (crash mid-backup) is removed by the next run once it is 12 hours old.
+- The database password reaches mysqldump through a private (0600) option file, never the command line.
+- The two dumps run one after the other, minutes apart, not inside one transaction (see *Two databases*).
+- `mysqldump` (MySQL 8 client, matching the server) must be installed on the app server; set
+  `BACKUP_MYSQLDUMP` if it is not on the `PATH`. MariaDB's mysqldump does not accept `--set-gtid-purged`.
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `BACKUP_ENABLED` | `false` | Run the nightly backup. **Set to `true` on every real install.** |
+| `BACKUP_CRON` / `BACKUP_ZONE` | `0 30 2 * * *` / server's time zone | When it runs (Spring cron: sec min hour day month weekday); set `BACKUP_ZONE` (e.g. `Asia/Kolkata`) if the server's clock is UTC but the night should be the school's |
+| `BACKUP_DIR` | `./data/backups` | Where backups go — use a different disk from the database |
+| `BACKUP_KEEP` | `14` | How many backups to keep; older ones are deleted after each successful backup |
+
+**Monitoring.** Platform admin → System Health shows a **Backups** status: operational only when the
+newest backup is under 26 hours old and no attempt has failed since. The Backups panel below it lists the
+backups on disk, the last error, and has **Back up now** (`POST /api/v1/platform/backups`;
+`GET /api/v1/platform/backups` returns the same status as JSON).
+
+**Get copies off the machine.** A backup on the same server does not survive a dead disk or a stolen
+laptop. Copy `BACKUP_DIR` elsewhere every day (an external disk, another server with `rsync`, or a
+cloud bucket), encrypted — it holds personal data.
 
 ## Backup policy (production targets)
 
-- **Full logical backup nightly**: `mysqldump --single-transaction --routines --triggers --set-gtid-purged=OFF operion | gzip`. `--single-transaction` gives a consistent InnoDB snapshot without locking writes.
+- **Full logical backup nightly**: the built-in local backup above (`BACKUP_ENABLED=true`), copied off the server. `--single-transaction` gives a consistent InnoDB snapshot without locking writes.
 - **Binary logging on** (`log_bin`, `binlog_expire_logs_seconds` ≥ 7 days) for point-in-time recovery between nightlies. Target RPO: ≤ 15 minutes with binlog shipping; ≤ 24 hours without.
 - **Retention**: 7 daily, 4 weekly, 12 monthly. Store off the database host, in a different account/region, encrypted at rest.
 - **Managed MySQL** (RDS/Cloud SQL): enable automated snapshots + PITR instead of the above dump/binlog setup, and still take a weekly logical dump for portability.
 - Backups contain personal data of students, guardians and staff (incl. bank details): encrypt, restrict access, and delete expired ones.
 - Target RTO: ≤ 4 hours.
 
-## Restore procedure
+## Restoring a built-in backup
+
+Stop the application, then run, with the same database settings the app uses:
+
+```bash
+DB_HOST=localhost DB_PORT=3306 DB_USERNAME=root DB_PASSWORD=... \
+SCHOOL_DB=operion_school PLATFORM_DB=operion_platform STORAGE_BASE_DIR=/srv/operion/uploads \
+  scripts/restore-backup.sh /srv/operion/backups/operion-backup-20261020-023000
+```
+
+The script checks every file against `manifest.json` (and refuses a damaged or `.partial` backup), asks you
+to type `RESTORE` (or pass `--yes`), drops and recreates both databases from the dumps, and replaces the
+uploads folder (the old one is kept as `<folder>.before-restore-<time>`; `SKIP_UPLOADS=1` leaves it alone).
+To rehearse without touching live data, point `SCHOOL_DB` / `PLATFORM_DB` at scratch names and
+`STORAGE_BASE_DIR` at a scratch folder. Dumps do not contain MySQL users: on a new server, recreate the
+application login and `reporting_ro` (school/V1 migration) before starting the app. Then run the
+verification checklist below.
+
+## Restore procedure (manual / point-in-time)
 
 1. Stop the application (or scale to zero) so nothing writes during restore.
 2. Create an empty target database: `CREATE DATABASE operion_restore CHARACTER SET utf8mb4;`

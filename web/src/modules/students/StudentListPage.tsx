@@ -115,13 +115,23 @@ export function StudentListPage() {
 
 	return (
 		<Stack spacing={2}>
-			<Can anyOf={["STUDENT_MANAGE"]}>
-				<Box sx={{ display: "flex", justifyContent: "flex-end" }}>
+			<Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1 }}>
+				<Can anyOf={["CERTIFICATE_VIEW", "CERTIFICATE_REQUEST", "CERTIFICATE_APPROVE", "CERTIFICATE_ISSUE"]}>
+					<Button variant="outlined" onClick={() => navigate("/students/certificates")}>
+						Certificates
+					</Button>
+				</Can>
+				<Can anyOf={["STUDENT_ENROLLMENT_MANAGE"]}>
+					<Button variant="outlined" onClick={() => navigate("/students/promotion")}>
+						Year-end promotion
+					</Button>
+				</Can>
+				<Can anyOf={["STUDENT_MANAGE"]}>
 					<Button variant="contained" startIcon={<AddIcon />} onClick={() => navigate("/students/new")}>
 						Admit student
 					</Button>
-				</Box>
-			</Can>
+				</Can>
+			</Box>
 
 			{error && <Alert severity="error">{error}</Alert>}
 

@@ -1,4 +1,4 @@
-import { api } from "./client";
+import { api, downloadFile } from "./client";
 
 export interface AllocationEntry {
 	invoiceId: number;
@@ -39,4 +39,9 @@ export function listPayments(studentEnrollmentId: number): Promise<PaymentRespon
 
 export function bouncePayment(paymentId: number): Promise<PaymentResponse> {
 	return api.post<PaymentResponse>(`/api/v1/fees/payments/${paymentId}/bounce`);
+}
+
+/** The receipt PDF. The first office download is the original; later ones print as DUPLICATE. */
+export function downloadReceipt(paymentId: number, receiptNumber: string): Promise<void> {
+	return downloadFile(`/api/v1/fees/payments/${paymentId}/receipt.pdf`, `receipt-${receiptNumber}.pdf`);
 }

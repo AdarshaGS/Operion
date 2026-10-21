@@ -46,7 +46,9 @@ interface TimetableGridProps {
 export function TimetableGrid({ periods, entries, renderEntry, onCellClick, showSunday }: TimetableGridProps) {
 	const [mode, setMode] = useState<ViewMode>(loadViewMode);
 	const days = showSunday || entries.some((entry) => entry.dayOfWeek === "SUNDAY") ? [...BASE_DAYS, "SUNDAY"] : BASE_DAYS;
-	const ordered = [...periods].sort((a, b) => a.ordinal - b.ordinal);
+	// One school day reads in ordinal order; periods drawn from several school days (a teacher who teaches two class groups) read by the clock.
+	const mixedDays = new Set(periods.map((p) => p.templateId)).size > 1;
+	const ordered = [...periods].sort((a, b) => (mixedDays ? a.startTime.localeCompare(b.startTime) || a.ordinal - b.ordinal : a.ordinal - b.ordinal));
 	const viewProps = { periods: ordered, entries, days, renderEntry, onCellClick };
 
 	function handleModeChange(next: ViewMode | null) {

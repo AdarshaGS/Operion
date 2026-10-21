@@ -4,13 +4,14 @@ import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
 import MenuItem from "@mui/material/MenuItem";
-import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { ACTIVITY_TYPES, listActivities, logActivity, type ActivityResponse, type CrmOwner } from "../api/crm";
 import { PlatformApiError } from "../api/platformClient";
 import { formatDateTime, titleCase } from "./crmFormat";
+import HistoryIcon from "@mui/icons-material/History";
+import { SectionCard } from "../../components/DashboardKit";
 
 const TYPE_COLOR: Record<string, "default" | "info" | "secondary" | "warning"> = {
 	CALL: "info",
@@ -55,10 +56,8 @@ export function ActivityTimeline({ owner }: { owner: CrmOwner }) {
 	}
 
 	return (
-		<Paper sx={{ p: 3 }}>
+		<SectionCard title="Activity" icon={<HistoryIcon fontSize="small" />} tint="blue">
 			<Stack spacing={2}>
-				<Typography variant="h6">Activity</Typography>
-
 				<Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} component="form" onSubmit={handleSubmit} sx={{ alignItems: "flex-start" }}>
 					<TextField select label="Type" value={type} onChange={(e) => setType(e.target.value)} size="small" sx={{ minWidth: 130 }}>
 						{ACTIVITY_TYPES.map((t) => (
@@ -101,6 +100,6 @@ export function ActivityTimeline({ owner }: { owner: CrmOwner }) {
 					))}
 				</Stack>
 			</Stack>
-		</Paper>
+		</SectionCard>
 	);
 }

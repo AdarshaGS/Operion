@@ -1,6 +1,7 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Link as RouterLink } from "react-router-dom";
 import Alert from "@mui/material/Alert";
+import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
 import CircularProgress from "@mui/material/CircularProgress";
@@ -23,6 +24,8 @@ import AddIcon from "@mui/icons-material/Add";
 import { listAcademicYears, type AcademicYearResponse } from "../api/academicYears";
 import { ApiError } from "../api/client";
 import type { LeaveTypeResponse } from "../api/leaveTypes";
+import { LeaveDaysHint } from "../components/LeaveDaysHint";
+import { UpcomingDaysOff } from "../components/UpcomingDaysOff";
 import {
 	getPortalLeaveTypes,
 	getTeacherLeaveBalance,
@@ -63,6 +66,8 @@ export function TeacherDashboardPage() {
 	const [startDate, setStartDate] = useState("");
 	const [endDate, setEndDate] = useState("");
 	const [numberOfDays, setNumberOfDays] = useState("");
+	// The working-day count only pre-fills the field until the person types their own number.
+	const numberTyped = useRef(false);
 	const [reason, setReason] = useState("");
 	const [submitting, setSubmitting] = useState(false);
 
@@ -110,6 +115,7 @@ export function TeacherDashboardPage() {
 			setStartDate("");
 			setEndDate("");
 			setNumberOfDays("");
+			numberTyped.current = false;
 			setReason("");
 			refreshLeaveData(academicYear.id);
 		} catch (err) {
@@ -152,6 +158,15 @@ export function TeacherDashboardPage() {
 
 			<Paper sx={{ p: 2 }}>
 				<Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center" }}>
+					<Typography variant="subtitle1">My timetable</Typography>
+					<Button size="small" component={RouterLink} to="/portal/teacher/timetable">
+						View my week
+					</Button>
+				</Stack>
+			</Paper>
+
+			<Paper sx={{ p: 2 }}>
+				<Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center" }}>
 					<Typography variant="subtitle1">Homework, quizzes &amp; learning materials</Typography>
 					<Button size="small" component={RouterLink} to="/portal/teaching">
 						Open
@@ -175,6 +190,10 @@ export function TeacherDashboardPage() {
 						Request leave
 					</Button>
 				</Stack>
+
+				<Box sx={{ mb: 2 }}>
+					<UpcomingDaysOff />
+				</Box>
 
 				{!leaveBalance ? (
 					<CircularProgress size={20} />
@@ -254,7 +273,10 @@ export function TeacherDashboardPage() {
 							type="date"
 							label="Start date"
 							value={startDate}
-							onChange={(e) => setStartDate(e.target.value)}
+							onChange={(e) => {
+								numberTyped.current = false;
+								setStartDate(e.target.value);
+							}}
 							required
 							fullWidth
 							slotProps={{ inputLabel: { shrink: true } }}
@@ -263,16 +285,29 @@ export function TeacherDashboardPage() {
 							type="date"
 							label="End date"
 							value={endDate}
-							onChange={(e) => setEndDate(e.target.value)}
+							onChange={(e) => {
+								numberTyped.current = false;
+								setEndDate(e.target.value);
+							}}
 							required
 							fullWidth
 							slotProps={{ inputLabel: { shrink: true } }}
+						/>
+						<LeaveDaysHint
+							startDate={startDate}
+							endDate={endDate}
+							onWorkingDays={(count) => {
+								if (!numberTyped.current) setNumberOfDays(String(count));
+							}}
 						/>
 						<TextField
 							type="number"
 							label="Number of days"
 							value={numberOfDays}
-							onChange={(e) => setNumberOfDays(e.target.value)}
+							onChange={(e) => {
+								numberTyped.current = true;
+								setNumberOfDays(e.target.value);
+							}}
 							required
 							fullWidth
 							slotProps={{ htmlInput: { step: "0.5", min: "0.5" } }}

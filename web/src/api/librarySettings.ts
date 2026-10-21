@@ -6,6 +6,7 @@ export interface LibrarySettingsResponse {
 	borrowingPeriodDaysStudent: number;
 	borrowingPeriodDaysStaff: number;
 	blockIssueOnOverdue: boolean;
+	fineRatePerDay: number;
 }
 
 export type UpdateLibrarySettingsRequest = LibrarySettingsResponse;

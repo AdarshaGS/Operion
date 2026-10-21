@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="http://www.thymeleaf.org">
+<head>
+<meta charset="UTF-8"/>
+<title th:text="${s.typeName()} + ' ' + ${s.certificateNumber()}">Certificate</title>
+<style th:inline="text">
+@page { size: [[${page.cssSize()}]]; margin: [[${page.margin()}]]; }
+body { font-family: 'Noto Sans', sans-serif; font-size: 12px; color: #1f2933; }
+table { width: 100%; border-collapse: collapse; }
+.frame { border: 2px solid #1f2933; padding: 14px 18px; }
+.header { border-bottom: 1px solid #1f2933; }
+.header td { vertical-align: middle; padding-bottom: 8px; }
+.header-text { text-align: center; }
+.logo { max-height: 64px; max-width: 120px; }
+.school { font-size: 1.6em; font-weight: bold; }
+.muted { color: #52606d; font-size: 0.85em; }
+.refs { margin-top: 8px; }
+.refs td { font-size: 0.9em; }
+.refs .right { text-align: right; }
+.title { margin: 16px 0 14px 0; text-align: center; font-size: 1.35em; font-weight: bold; letter-spacing: 2px; }
+.badge { border: 1px solid #b42318; color: #b42318; padding: 1px 6px; font-size: 0.6em; margin-left: 8px; letter-spacing: 0; }
+.particulars td { padding: 5px 4px; border-bottom: 1px solid #e4e7eb; vertical-align: top; }
+.particulars .n { width: 26px; color: #52606d; }
+.particulars .label { width: 42%; color: #3e4c59; }
+.particulars .value { font-weight: bold; }
+p { line-height: 1.6; text-align: justify; margin: 10px 0; }
+.signatures { margin-top: 36px; }
+.signatures td { vertical-align: bottom; font-size: 0.9em; }
+.sig-img { max-height: 45px; max-width: 140px; }
+.stamp { max-height: 70px; max-width: 70px; }
+.verify { margin-top: 18px; border-top: 1px solid #e4e7eb; padding-top: 8px; }
+.verify td { vertical-align: middle; font-size: 0.8em; color: #52606d; }
+.qr { width: 72px; height: 72px; }
+.footer { margin-top: 6px; text-align: center; color: #52606d; font-size: 0.8em; }
+.cancelled { position: absolute; top: 35%; left: 10%; width: 80%; text-align: center; font-size: 4em; font-weight: bold;
+  color: #b42318; opacity: 0.18; transform: rotate(-25deg); }
+</style>
+</head>
+<body>
+<div class="cancelled" th:if="${c.cancelled()}">CANCELLED</div>
+<div class="frame">
+
+<table class="header">
+  <tr>
+    <td style="width: 130px;" th:if="${logo != null}"><img class="logo" th:src="${logo}" alt=""/></td>
+    <td class="header-text">
+      <div class="school" th:text="${s.school().schoolName()}">School</div>
+      <div class="muted" th:if="${s.school().addressLine() != null}" th:text="${s.school().addressLine()}">Address</div>
+      <div class="muted" th:if="${s.school().affiliationText() != null}" th:text="${s.school().affiliationText()}">Affiliation</div>
+    </td>
+    <td style="width: 130px;" th:if="${logo != null}"></td>
+  </tr>
+</table>
+
+<table class="refs">
+  <tr>
+    <td th:text="'No. ' + ${s.certificateNumber()}">No.</td>
+    <td class="right" th:text="'Date: ' + ${s.issueDateText()}">Date</td>
+  </tr>
+</table>
+
+<div class="title"><span th:text="${s.title()}">CERTIFICATE</span>
+  <span class="badge" th:if="${c.duplicate()}" th:text="'DUPLICATE COPY ' + ${c.printNumber()}">DUPLICATE</span>
+  <span class="badge" th:if="${c.cancelled()}">CANCELLED</span>
+</div>
+
+<table class="particulars" th:if="${!s.particulars().isEmpty()}">
+  <tr th:each="row, it : ${s.particulars()}">
+    <td class="n" th:text="${it.count} + '.'">1.</td>
+    <td class="label" th:text="${row.label()}">Label</td>
+    <td class="value" th:text="${row.value()}">Value</td>
+  </tr>
+</table>
+
+<p th:each="paragraph : ${s.paragraphs()}" th:text="${paragraph}">Body</p>
+
+<table class="signatures">
+  <tr>
+    <td style="width: 34%;" th:text="'Date: ' + ${s.issueDateText()}">Date</td>
+    <td style="width: 32%; text-align: center;"><img class="stamp" th:if="${stamp != null}" th:src="${stamp}" alt=""/></td>
+    <td style="width: 34%; text-align: right;">
+      <img class="sig-img" th:if="${signature != null}" th:src="${signature}" alt=""/>
+      <div>Authorised signatory</div>
+    </td>
+  </tr>
+</table>
+
+<table class="verify">
+  <tr>
+    <td style="width: 82px;"><img class="qr" th:src="${qr}" alt=""/></td>
+    <td>
+      <div>Scan to verify this certificate, or open:</div>
+      <div th:text="${c.verifyUrl()}">url</div>
+    </td>
+  </tr>
+</table>
+
+<div class="footer" th:if="${s.school().footerText() != null}" th:text="${s.school().footerText()}">Footer</div>
+</div>
+</body>
+</html>

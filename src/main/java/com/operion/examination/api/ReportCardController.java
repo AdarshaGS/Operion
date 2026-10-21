@@ -6,6 +6,7 @@ import com.operion.academic.SchoolClass;
 import com.operion.authorization.RequirePermission;
 import com.operion.common.TenantContext;
 import com.operion.document.DocumentTemplateRepository;
+import com.operion.document.pdf.PdfResponses;
 import com.operion.document.DocumentType;
 import com.operion.document.api.DocumentTemplateResponse;
 import com.operion.examination.Exam;
@@ -19,6 +20,7 @@ import com.operion.examination.GradingScaleRepository;
 import com.operion.examination.MarksEntry;
 import com.operion.examination.MarksEntryRepository;
 import com.operion.examination.ReportCard;
+import com.operion.examination.ReportCardPdfService;
 import com.operion.examination.ReportCardRepository;
 import com.operion.identity.Person;
 import com.operion.organisation.OrganisationBranding;
@@ -27,6 +29,7 @@ import com.operion.student.Student;
 import com.operion.student.StudentEnrollment;
 import com.operion.student.StudentEnrollmentRepository;
 import jakarta.validation.Valid;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -50,13 +53,14 @@ public class ReportCardController {
 	private final ReportCardRepository reportCardRepository;
 	private final OrganisationBrandingRepository organisationBrandingRepository;
 	private final DocumentTemplateRepository documentTemplateRepository;
+	private final ReportCardPdfService reportCardPdfService;
 
 	public ReportCardController(ExaminationService examinationService, ExaminationNotificationService examinationNotificationService,
 			ExamRepository examRepository,
 			ExamScheduleRepository examScheduleRepository, GradingScaleRepository gradingScaleRepository,
 			StudentEnrollmentRepository studentEnrollmentRepository, MarksEntryRepository marksEntryRepository,
 			ReportCardRepository reportCardRepository, OrganisationBrandingRepository organisationBrandingRepository,
-			DocumentTemplateRepository documentTemplateRepository) {
+			DocumentTemplateRepository documentTemplateRepository, ReportCardPdfService reportCardPdfService) {
 		this.examinationService = examinationService;
 		this.examinationNotificationService = examinationNotificationService;
 		this.examRepository = examRepository;
@@ -67,6 +71,21 @@ public class ReportCardController {
 		this.reportCardRepository = reportCardRepository;
 		this.organisationBrandingRepository = organisationBrandingRepository;
 		this.documentTemplateRepository = documentTemplateRepository;
+		this.reportCardPdfService = reportCardPdfService;
+	}
+
+	/** One student's report card as a PDF. The first print freezes it in the issued-document register. */
+	@GetMapping("/report-cards/{reportCardId}/report-card.pdf")
+	public ResponseEntity<byte[]> pdf(@PathVariable Long reportCardId) {
+		ReportCardPdfService.PreparedReportCards prepared = reportCardPdfService.prepare(reportCardId, true);
+		return PdfResponses.attachment(reportCardPdfService.renderPdf(prepared), prepared.fileName());
+	}
+
+	/** Every published report card of one section for an exam, one page per student - for printing a whole class. */
+	@GetMapping("/exams/{examId}/report-cards.pdf")
+	public ResponseEntity<byte[]> sectionPdf(@PathVariable Long examId, @RequestParam Long sectionId) {
+		ReportCardPdfService.PreparedReportCards prepared = reportCardPdfService.prepareSection(examId, sectionId);
+		return PdfResponses.attachment(reportCardPdfService.renderPdf(prepared), prepared.fileName());
 	}
 
 	/** Publishes a fresh report card, or - if the current one is stale (#138) - supersedes it and republishes. */

@@ -25,10 +25,21 @@ import { colors } from "../../theme";
 const DOCUMENT_TYPES: { value: DocumentType; label: string }[] = [
 	{ value: "QUESTION_PAPER_HEADER", label: "Question paper header" },
 	{ value: "REPORT_CARD", label: "Report card" },
+	{ value: "RECEIPT", label: "Fee receipt" },
 ];
 
 const TEMPLATE_STYLES: TemplateStyle[] = ["CLASSIC", "MODERN", "MINIMAL", "ELEGANT"];
-const PAGE_SIZES = ["A4", "Letter"];
+const PAGE_SIZES = ["A4", "A5", "Letter"];
+/** Counter receipt printers - receipts only (the server rejects it for other documents). */
+const THERMAL_PAGE_SIZE = "THERMAL_80MM";
+
+function pageSizesFor(documentType: DocumentType): string[] {
+	return documentType === "RECEIPT" ? [...PAGE_SIZES, THERMAL_PAGE_SIZE] : PAGE_SIZES;
+}
+
+function pageSizeLabel(size: string): string {
+	return size === THERMAL_PAGE_SIZE ? "80 mm thermal roll" : size;
+}
 
 /** Per-style preview treatment - a design-time approximation, not the real print CSS
  * (there's no PDF/rendering dependency in this project yet, see #31's scope note). */
@@ -142,9 +153,9 @@ export function LetterFormatsPanel() {
 								disabled={!canEdit}
 								fullWidth
 							>
-								{PAGE_SIZES.map((size) => (
+								{pageSizesFor(documentType).map((size) => (
 									<MenuItem key={size} value={size}>
-										{size}
+										{pageSizeLabel(size)}
 									</MenuItem>
 								))}
 							</TextField>

@@ -29,6 +29,8 @@ import { FeeDemandPage } from "./modules/fees/FeeDemandPage";
 import { FeesSetupPage } from "./modules/fees/FeesSetupPage";
 import { HrPage } from "./modules/hr/HrPage";
 import { PayrollPage } from "./modules/payroll/PayrollPage";
+import { PerformancePage } from "./modules/performance/PerformancePage";
+import { StaffAppraisalPage } from "./modules/performance/StaffAppraisalPage";
 import { PayrollRunDetailPage } from "./modules/payroll/PayrollRunDetailPage";
 import { PayslipPage } from "./modules/payroll/PayslipPage";
 import { StaffCreatePage } from "./modules/hr/StaffCreatePage";
@@ -63,6 +65,9 @@ import { VehicleDetailPage } from "./modules/transport/VehicleDetailPage";
 import { TransportPage } from "./modules/transport/TransportPage";
 import { StudentCreatePage } from "./modules/students/StudentCreatePage";
 import { StudentDetailPage } from "./modules/students/StudentDetailPage";
+import { StudentPromotionPage } from "./modules/students/StudentPromotionPage";
+import { CertificatesPage } from "./modules/certificates/CertificatesPage";
+import { CertificateVerifyPage } from "./modules/certificates/CertificateVerifyPage";
 import { StudentListPage } from "./modules/students/StudentListPage";
 import { ActivityPage } from "./platform/ActivityPage";
 import { LeadDetailPage } from "./platform/crm/LeadDetailPage";
@@ -88,6 +93,7 @@ import { PortalLayout } from "./portal/PortalLayout";
 import { PortalIndexRedirect } from "./portal/PortalIndexRedirect";
 import { GuardianDashboardPage } from "./portal/GuardianDashboardPage";
 import { TeacherDashboardPage } from "./portal/TeacherDashboardPage";
+import { ChildTimetablePage, MyTimetablePage } from "./portal/MyTimetablePage";
 import { MyPayslipPage, MyPayslipsPage } from "./portal/MyPayslipsPage";
 
 function App() {
@@ -100,6 +106,7 @@ function App() {
 					<Route path="/claim-invite" element={<ClaimInvitePage />} />
 					<Route path="/claim-staff-invite" element={<ClaimStaffInvitePage />} />
 					<Route path="/apply/:orgSlug" element={<PublicAdmissionPage />} />
+					<Route path="/verify/:orgSlug/:token" element={<CertificateVerifyPage />} />
 					<Route path="/careers" element={<JobApplicationPage />} />
 					<Route path="/forgot-password" element={<ForgotPasswordPage />} />
 					<Route path="/reset-password" element={<ResetPasswordPage />} />
@@ -110,6 +117,8 @@ function App() {
 								<Route path="/portal" element={<PortalIndexRedirect />} />
 								<Route path="/portal/guardian" element={<GuardianDashboardPage />} />
 								<Route path="/portal/teacher" element={<TeacherDashboardPage />} />
+								<Route path="/portal/teacher/timetable" element={<MyTimetablePage />} />
+								<Route path="/portal/guardian/children/:studentId/timetable" element={<ChildTimetablePage />} />
 								<Route path="/portal/teaching" element={<LearningPage />} />
 								<Route path="/portal/guardian/children/:studentId/learning" element={<ChildLearningPage />} />
 								<Route path="/portal/payslips" element={<MyPayslipsPage />} />
@@ -123,6 +132,8 @@ function App() {
 							<Route path="/dashboard" element={<DashboardPage />} />
 							<Route path="/students" element={<StudentListPage />} />
 							<Route path="/students/new" element={<StudentCreatePage />} />
+							<Route path="/students/promotion" element={<StudentPromotionPage />} />
+							<Route path="/students/certificates" element={<CertificatesPage />} />
 							<Route path="/students/:studentId" element={<StudentDetailPage />} />
 							<Route path="/admissions" element={<AdmissionsPage />} />
 							<Route path="/academics" element={<AcademicsPage />} />
@@ -160,6 +171,8 @@ function App() {
 							<Route path="/hr/staff/new" element={<StaffCreatePage />} />
 							<Route path="/hr/staff/:staffProfileId" element={<StaffDetailPage />} />
 							<Route path="/payroll" element={<PayrollPage />} />
+							<Route path="/performance" element={<PerformancePage />} />
+							<Route path="/performance/staff/:personId" element={<StaffAppraisalPage />} />
 							<Route path="/payroll/runs/:runId" element={<PayrollRunDetailPage />} />
 							<Route path="/payroll/payslips/:payslipId" element={<PayslipPage />} />
 							<Route path="/members" element={<MembersPage />} />

@@ -15,9 +15,11 @@ import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import PrintIcon from "@mui/icons-material/Print";
+import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
 import { resolveAssetUrl } from "../../api/assets";
 import { ApiError } from "../../api/client";
 import {
+  downloadReportCardPdf,
   renderReportCard,
   type ReportCardRenderResponse,
 } from "../../api/reportCards";
@@ -80,13 +82,26 @@ export function ReportCardPrintPage() {
         <Button startIcon={<ArrowBackIcon />} onClick={() => navigate(-1)}>
           Back
         </Button>
-        <Button
-          variant="contained"
-          startIcon={<PrintIcon />}
-          onClick={() => window.print()}
-        >
-          Print
-        </Button>
+        <Stack direction="row" spacing={1}>
+          <Button
+            variant="outlined"
+            startIcon={<PictureAsPdfIcon />}
+            onClick={() =>
+              downloadReportCardPdf(Number(reportCardId)).catch((err) =>
+                setError(err instanceof ApiError ? err.message : "Failed to download the PDF"),
+              )
+            }
+          >
+            Download PDF
+          </Button>
+          <Button
+            variant="contained"
+            startIcon={<PrintIcon />}
+            onClick={() => window.print()}
+          >
+            Print
+          </Button>
+        </Stack>
       </Box>
 
       <style>{`

@@ -9,6 +9,7 @@ import com.operion.attendance.AttendanceStatus;
 import com.operion.attendance.StaffAttendance;
 import com.operion.attendance.StaffAttendanceRepository;
 import com.operion.audit.AuditLogService;
+import com.operion.calendar.WorkingDayService;
 import com.operion.common.TenantContext;
 import com.operion.identity.Person;
 import com.operion.organisation.AcademicYear;
@@ -42,6 +43,7 @@ public class HrService {
 	private final StaffExitRepository staffExitRepository;
 	private final StaffBankDetailRepository staffBankDetailRepository;
 	private final StaffAttendanceRepository staffAttendanceRepository;
+	private final WorkingDayService workingDayService;
 	private final AuditLogService auditLogService;
 
 	public HrService(StaffProfileRepository staffProfileRepository, LeaveTypeRepository leaveTypeRepository,
@@ -49,7 +51,8 @@ public class HrService {
 			StaffDocumentRepository staffDocumentRepository, JobApplicationRepository jobApplicationRepository,
 			OrganisationRepository organisationRepository, StaffAssignmentRepository staffAssignmentRepository,
 			StaffExitRepository staffExitRepository, StaffBankDetailRepository staffBankDetailRepository,
-			StaffAttendanceRepository staffAttendanceRepository, AuditLogService auditLogService) {
+			StaffAttendanceRepository staffAttendanceRepository, WorkingDayService workingDayService,
+			AuditLogService auditLogService) {
 		this.staffProfileRepository = staffProfileRepository;
 		this.leaveTypeRepository = leaveTypeRepository;
 		this.leaveBalanceRepository = leaveBalanceRepository;
@@ -61,6 +64,7 @@ public class HrService {
 		this.staffExitRepository = staffExitRepository;
 		this.staffBankDetailRepository = staffBankDetailRepository;
 		this.staffAttendanceRepository = staffAttendanceRepository;
+		this.workingDayService = workingDayService;
 		this.auditLogService = auditLogService;
 	}
 
@@ -200,9 +204,17 @@ public class HrService {
 		if (endDate.isBefore(startDate)) {
 			throw new InvalidRequestException("Leave request endDate cannot be before startDate");
 		}
-		long daysCovered = java.time.temporal.ChronoUnit.DAYS.between(startDate, endDate) + 1;
-		if (numberOfDays > daysCovered) {
-			throw new InvalidRequestException("Leave request covers " + daysCovered + " day(s) but asks for " + numberOfDays);
+		// Holidays and weekly-off days are not leave days - only working days can be asked for.
+		Long campusId = staffProfile.getCampus() != null ? staffProfile.getCampus().getId() : null;
+		long calendarDays = java.time.temporal.ChronoUnit.DAYS.between(startDate, endDate) + 1;
+		int workingDays = workingDayService.countWorkingDays(startDate, endDate, campusId);
+		if (workingDays == 0) {
+			throw new InvalidRequestException("Every day from " + startDate + " to " + endDate
+					+ " is a holiday or weekly off - no leave is needed");
+		}
+		if (numberOfDays > workingDays) {
+			throw new InvalidRequestException("Leave request covers " + workingDays + " working day(s) ("
+					+ calendarDays + " calendar day(s), minus holidays and weekly offs) but asks for " + numberOfDays);
 		}
 		boolean overlaps = leaveRequestRepository.findByStaffProfileId(staffProfile.getId()).stream()
 				.filter(r -> r.getStatus() == LeaveRequestStatus.PENDING || r.getStatus() == LeaveRequestStatus.APPROVED)
@@ -213,7 +225,7 @@ public class HrService {
 		return leaveRequestRepository.save(new LeaveRequest(staffProfile, leaveType, academicYear, startDate, endDate, numberOfDays, reason));
 	}
 
-	/** Also upserts a LEAVE StaffAttendance row for every covered date - see
+	/** Also upserts a LEAVE StaffAttendance row for every covered working day - see
 	 * ai-context/erp-system-plan.md §3.3's leave/attendance seam. Skipped for org-wide staff
 	 * (no campus to attach a StaffAttendance row to); StaffLeaveStatusScheduler separately
 	 * derives StaffProfileStatus.ON_LEAVE day-by-day, independent of this write. */
@@ -228,7 +240,9 @@ public class HrService {
 		LeaveRequest saved = leaveRequestRepository.save(leaveRequest);
 
 		if (staffProfile.getCampus() != null) {
-			for (LocalDate date = leaveRequest.getStartDate(); !date.isAfter(leaveRequest.getEndDate()); date = date.plusDays(1)) {
+			// Holidays and weekly offs inside the range are not leave, so they get no LEAVE row.
+			for (LocalDate date : workingDayService.workingDays(leaveRequest.getStartDate(), leaveRequest.getEndDate(),
+					staffProfile.getCampus().getId())) {
 				markAttendanceOnLeave(staffProfile, date);
 			}
 		}

@@ -3,6 +3,7 @@ package com.operion.finance;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 
@@ -260,9 +261,10 @@ public class FeeService {
 		Payment payment = paymentRepository.save(
 				new Payment(academicYear, receiptNumber, amount, paymentMethod, paymentDate, remarks, paymentReference, paymentBankName));
 
-		for (AllocationInput input : allocations) {
-			Invoice invoice = invoiceRepository.findById(input.invoiceId())
-					.orElseThrow(() -> new IllegalArgumentException("No invoice with id " + input.invoiceId()));
+		// Lock in a stable (id) order so two payments touching the same pair of invoices can't deadlock.
+		List<AllocationInput> ordered = allocations.stream().sorted(Comparator.comparing(AllocationInput::invoiceId)).toList();
+		for (AllocationInput input : ordered) {
+			Invoice invoice = lockInvoice(input.invoiceId());
 			paymentAllocationRepository.save(new PaymentAllocation(payment, invoice, input.amount()));
 			invoice.applyPayment(input.amount());
 			invoiceRepository.save(invoice);
@@ -275,8 +277,11 @@ public class FeeService {
 	@Transactional
 	public Payment bouncePayment(Payment payment) {
 		payment.markBounced();
-		for (PaymentAllocation allocation : paymentAllocationRepository.findByPaymentId(payment.getId())) {
-			Invoice invoice = allocation.getInvoice();
+		List<PaymentAllocation> allocations = paymentAllocationRepository.findByPaymentId(payment.getId()).stream()
+				.sorted(Comparator.comparing((PaymentAllocation a) -> a.getInvoice().getId()))
+				.toList();
+		for (PaymentAllocation allocation : allocations) {
+			Invoice invoice = lockInvoice(allocation.getInvoice().getId());
 			BigDecimal alreadyRefunded = refundRepository.findByPaymentId(payment.getId()).stream()
 					.filter(r -> r.getInvoice().getId().equals(invoice.getId()))
 					.map(Refund::getAmount)
@@ -314,9 +319,10 @@ public class FeeService {
 			throw new InvalidRequestException("Refund " + amount + " exceeds what this payment still holds for the invoice ("
 					+ paidToInvoice.subtract(alreadyRefunded) + ")");
 		}
-		invoice.reversePayment(amount);
-		invoiceRepository.save(invoice);
-		Refund refund = refundRepository.save(new Refund(payment, invoice, amount, reason, approvedBy, refundDate, proofFileReference, proofFileName));
+		Invoice locked = lockInvoice(invoice.getId());
+		locked.reversePayment(amount);
+		invoiceRepository.save(locked);
+		Refund refund = refundRepository.save(new Refund(payment, locked, amount, reason, approvedBy, refundDate, proofFileReference, proofFileName));
 		audit("Refund", refund.getId(), "PAYMENT_REFUNDED", null, amount);
 		return refund;
 	}
@@ -329,10 +335,11 @@ public class FeeService {
 		if (amount == null || amount.signum() == 0) {
 			throw new InvalidRequestException("An adjustment amount cannot be zero");
 		}
-		invoice.applyAdjustment(amount);
-		invoiceRepository.save(invoice);
+		Invoice locked = lockInvoice(invoice.getId());
+		locked.applyAdjustment(amount);
+		invoiceRepository.save(locked);
 		Adjustment adjustment = adjustmentRepository.save(
-				new Adjustment(invoice, amount, reason, approvedBy, adjustmentDate, proofFileReference, proofFileName));
+				new Adjustment(locked, amount, reason, approvedBy, adjustmentDate, proofFileReference, proofFileName));
 		audit("Adjustment", adjustment.getId(), "INVOICE_ADJUSTED", null, amount);
 		return adjustment;
 	}
@@ -345,11 +352,17 @@ public class FeeService {
 		if (amount == null || amount.signum() <= 0) {
 			throw new InvalidRequestException("A waiver amount must be greater than zero");
 		}
-		invoice.applyWaiver(amount);
-		invoiceRepository.save(invoice);
-		Waiver waiver = waiverRepository.save(new Waiver(invoice, amount, reason, approvedBy, waiverDate, proofFileReference, proofFileName));
+		Invoice locked = lockInvoice(invoice.getId());
+		locked.applyWaiver(amount);
+		invoiceRepository.save(locked);
+		Waiver waiver = waiverRepository.save(new Waiver(locked, amount, reason, approvedBy, waiverDate, proofFileReference, proofFileName));
 		audit("Waiver", waiver.getId(), "INVOICE_WAIVED", null, amount);
 		return waiver;
+	}
+
+	private Invoice lockInvoice(Long invoiceId) {
+		return invoiceRepository.findByIdForUpdate(invoiceId)
+				.orElseThrow(() -> new IllegalArgumentException("No invoice with id " + invoiceId));
 	}
 
 	/** Atomic per-(organisation, academicYear, documentType) sequence - never SELECT MAX()+1.

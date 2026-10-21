@@ -52,7 +52,7 @@ export function SectionDetailPage() {
 			</Typography>
 
 			<TeacherAssignmentsPanel sectionId={Number(sectionId)} />
-			<SectionTimetablePanel sectionId={Number(sectionId)} />
+			<SectionTimetablePanel sectionId={Number(sectionId)} classId={Number(classId)} />
 		</Stack>
 	);
 }

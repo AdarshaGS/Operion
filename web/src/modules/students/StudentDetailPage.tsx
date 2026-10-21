@@ -38,6 +38,7 @@ import { StudentAttendanceSummaryPanel } from "./StudentAttendanceSummaryPanel";
 import { StudentDocumentsPanel } from "./StudentDocumentsPanel";
 import { StudentGuardiansPanel } from "./StudentGuardiansPanel";
 import { StudentTransferPanel } from "./StudentTransferPanel";
+import { StudentCertificatesPanel } from "../certificates/StudentCertificatesPanel";
 
 function Field({ label, value }: { label: string; value: string | number | null | undefined }) {
 	return (
@@ -562,6 +563,8 @@ export function StudentDetailPage() {
 			<StudentDocumentsPanel studentId={student.id} />
 
 			<StudentTransferPanel studentId={student.id} />
+
+			<StudentCertificatesPanel studentId={student.id} />
 
 			<BorrowerLoanHistoryPanel personId={student.personId} />
 		</Stack>

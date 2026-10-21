@@ -19,9 +19,12 @@ public class TimetableRollover implements RolloverContributor {
 
 	private final TimetableEntryRepository entryRepository;
 	private final YearStructureLookup lookup;
+	private final ClassPeriodTemplateRepository classTemplateRepository;
 
-	TimetableRollover(TimetableEntryRepository entryRepository, YearStructureLookup lookup) {
+	TimetableRollover(TimetableEntryRepository entryRepository, YearStructureLookup lookup,
+			ClassPeriodTemplateRepository classTemplateRepository) {
 		this.entryRepository = entryRepository;
+		this.classTemplateRepository = classTemplateRepository;
 		this.lookup = lookup;
 	}
 
@@ -47,6 +50,19 @@ public class TimetableRollover implements RolloverContributor {
 
 	@Override
 	public RolloverStep run(AcademicYear source, AcademicYear target, RolloverOptions options) {
+		Tally days = new Tally("Class school days");
+		for (ClassPeriodTemplate link : classTemplateRepository.findBySchoolClassAcademicYearId(source.getId())) {
+			var targetClass = lookup.classIn(target, link.getSchoolClass()).orElse(null);
+			if (targetClass == null) {
+				continue;
+			}
+			if (classTemplateRepository.findBySchoolClassId(targetClass.getId()).isPresent()) {
+				days.alreadyThere();
+				continue;
+			}
+			classTemplateRepository.save(new ClassPeriodTemplate(targetClass, link.getTemplate()));
+			days.copied();
+		}
 		Tally slots = new Tally("Timetable slots");
 		int noSection = 0;
 		int clashes = 0;
@@ -65,7 +81,8 @@ public class TimetableRollover implements RolloverContributor {
 				clashes++;
 				continue;
 			}
-			entryRepository.save(new TimetableEntry(target, section, entry.getSubject(), entry.getTeacherPerson(), entry.getDayOfWeek(), entry.getPeriod()));
+			entryRepository.save(new TimetableEntry(target, section, entry.getSubject(), entry.getTeacherPerson(), entry.getDayOfWeek(), entry.getPeriod(),
+					roomFor(entry, target)));
 			slots.copied();
 		}
 		List<String> notes = new ArrayList<>();
@@ -75,6 +92,17 @@ public class TimetableRollover implements RolloverContributor {
 		if (clashes > 0) {
 			notes.add(clashes + " slot(s) left out: the teacher is already teaching another section at that time");
 		}
-		return RolloverStep.of(this, List.of(slots), notes);
+		return RolloverStep.of(this, List.of(days, slots), notes);
+	}
+
+	/** The slot keeps its room when that room is still active and nothing in the new year has taken it at that time; otherwise the slot is copied without one. */
+	private Room roomFor(TimetableEntry entry, AcademicYear target) {
+		Room room = entry.getRoom();
+		if (room == null || !room.isActive()) {
+			return null;
+		}
+		boolean taken = entryRepository.findByAcademicYearIdAndRoomId(target.getId(), room.getId()).stream()
+				.anyMatch(other -> other.getDayOfWeek() == entry.getDayOfWeek() && other.getPeriod().getId().equals(entry.getPeriod().getId()));
+		return taken ? null : room;
 	}
 }

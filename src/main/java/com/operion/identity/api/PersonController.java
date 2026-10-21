@@ -2,8 +2,11 @@ package com.operion.identity.api;
 
 import java.util.List;
 
+import com.operion.authorization.AuthorizationDeniedException;
+import com.operion.authorization.PortalSessionPolicy;
 import com.operion.authorization.RequirePermission;
 import com.operion.common.InvalidRequestException;
+import com.operion.common.TenantContext;
 import com.operion.identity.Genders;
 import com.operion.identity.Person;
 import com.operion.identity.PersonRepository;
@@ -26,9 +29,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class PersonController {
 
 	private final PersonRepository personRepository;
+	private final PortalSessionPolicy portalSessionPolicy;
 
-	public PersonController(PersonRepository personRepository) {
+	public PersonController(PersonRepository personRepository, PortalSessionPolicy portalSessionPolicy) {
 		this.personRepository = personRepository;
+		this.portalSessionPolicy = portalSessionPolicy;
 	}
 
 	/** Persons are created from several modules (students, guardians, staff, members), so any of those manage permissions suffices. */
@@ -45,19 +50,31 @@ public class PersonController {
 		return PersonResponse.from(personRepository.save(person));
 	}
 
+	/** Reads stay open to staff (teacher pickers, attendance and marks screens all list
+	 * persons), but a portal-only session (guardian) never gets the org-wide directory. */
 	@GetMapping
 	public List<PersonResponse> list() {
+		if (portalSessionPolicy.isPortalOnly(TenantContext.getActorId())) {
+			throw new AuthorizationDeniedException("The person directory is not available to portal users");
+		}
 		return personRepository.findAll().stream().map(PersonResponse::from).toList();
 	}
 
+	/** A portal session still needs names (message threads, teacher on a child's
+	 * timetable), so it gets the name/photo only - never phone, email, address or DOB. */
 	@GetMapping("/{id}")
 	public PersonResponse get(@PathVariable Long id) {
-		return PersonResponse.from(findOrThrow(id));
+		Person person = findOrThrow(id);
+		if (portalSessionPolicy.isPortalOnly(TenantContext.getActorId())) {
+			return PersonResponse.nameOnly(person);
+		}
+		return PersonResponse.from(person);
 	}
 
 	/** Narrow single-field update (#115) rather than the general edit endpoint below -
 	 * upload needs a real file, which the general endpoint's JSON body can't carry. */
 	@PatchMapping("/{id}/photo")
+	@RequirePermission(anyOf = { "STUDENT_MANAGE", "GUARDIAN_MANAGE", "HR_STAFF_MANAGE", "MEMBERSHIP_MANAGE" })
 	public PersonResponse updatePhoto(@PathVariable Long id, @RequestBody UpdatePersonPhotoRequest request) {
 		Person person = findOrThrow(id);
 		person.setPhotoUrl(request.photoUrl());
@@ -65,6 +82,7 @@ public class PersonController {
 	}
 
 	@PatchMapping("/{id}")
+	@RequirePermission(anyOf = { "STUDENT_MANAGE", "GUARDIAN_MANAGE", "HR_STAFF_MANAGE", "MEMBERSHIP_MANAGE" })
 	public PersonResponse update(@PathVariable Long id, @Valid @RequestBody UpdatePersonRequest request) {
 		Person person = findOrThrow(id);
 		if (request.firstName() != null) {

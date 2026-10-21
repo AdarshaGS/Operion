@@ -10,6 +10,7 @@ import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { ApiError } from "../api/client";
 import { Wordmark } from "../branding/Wordmark";
+import { PasswordField } from "../components/PasswordField";
 import { colors } from "../theme";
 import { useAuth } from "./AuthContext";
 
@@ -88,9 +89,8 @@ export function LoginPage() {
 						autoCorrect="off"
 						spellCheck={false}
 					/>
-					<TextField
+					<PasswordField
 						label="Password"
-						type="password"
 						value={password}
 						onChange={(e) => setPassword(e.target.value)}
 						required

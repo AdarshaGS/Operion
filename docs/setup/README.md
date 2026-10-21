@@ -108,6 +108,28 @@ Then log in with that organisation slug/email/password, either via `POST
 See also: [docs/development](../development) for day-to-day workflow, [docs/testing](../testing)
 for running the test suites, [docs/architecture](../architecture) for how the system fits together.
 
+## Production secrets
+
+Every secret below ships with a development value that is published in this repository. With
+`SPRING_PROFILES_ACTIVE=prod` the backend **refuses to start** while any of them is still a built-in
+default, empty, or too short, and the error lists the variables to set (never their values). Outside
+production the same findings are logged as warnings, and the platform console shows them under
+**System health > Secrets**.
+
+| Variable | Requirement |
+|---|---|
+| `JWT_SECRET` | at least 32 bytes, random |
+| `PLATFORM_JWT_SECRET` | at least 32 bytes, random, different from `JWT_SECRET` |
+| `INTEGRATION_SECRET_KEY` | at least 32 bytes, random (encrypts stored integration credentials - keep it stable) |
+| `DB_PASSWORD` / `PLATFORM_DB_PASSWORD` | not empty or a well-known default (`root`, `mysql`, `operion`, ...) |
+| `REPORTING_DB_USERNAME` | `reporting_ro`, never `root` - saved-report SQL runs as this user |
+| `REPORTING_DB_PASSWORD` | not `mysql` or `changeme-reporting-ro`; rotate the user first: `ALTER USER 'reporting_ro'@'%' IDENTIFIED BY '...'` |
+| `PLATFORM_ADMIN_PASSWORD` | needed while a platform admin still has the seeded password `ChangeMe123!`; at least 12 characters. At startup it replaces the seeded password only - a password that was already changed is never touched. |
+
+Generate a key with `openssl rand -base64 48`. `SECRETS_GUARD=enforce` turns the check on outside the
+`prod` profile (e.g. a staging server); `SECRETS_GUARD=warn` turns it off in production - avoid that.
+A warning (not a failure) is also logged while scheduled backups are off (`BACKUP_ENABLED`).
+
 ## Backup and recovery
 
 See [backup-and-recovery.md](backup-and-recovery.md) for the production backup policy, restore steps, and the recovery-drill schedule.

@@ -1,6 +1,9 @@
 package com.operion.finance;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -14,6 +17,7 @@ import com.operion.academic.SchoolClass;
 import com.operion.academic.SchoolClassRepository;
 import com.operion.audit.AuditLogRepository;
 import com.operion.audit.AuditLogService;
+import com.operion.calendar.WorkingDayService;
 import com.operion.common.JpaConfig;
 import com.operion.common.MultiTenancyConfig;
 import com.operion.common.SchedulerHeartbeat;
@@ -131,13 +135,18 @@ class OverdueInvoiceReminderSchedulerTest {
 	@Autowired
 	private CustomFieldDefinitionRepository customFieldDefinitionRepository;
 
+	private WorkingDayService workingDayService;
+
 	@BeforeEach
 	void setUp() {
 		studentService = new StudentService(studentRepository, studentEnrollmentRepository, studentDocumentRepository,
 				studentExitRepository, null, null, studentIdGenerator, new AuditLogService(auditLogRepository, new ObjectMapper()),
 				new CustomFieldService(customFieldDefinitionRepository, new ObjectMapper()));
+		// A real calendar would make this test depend on the weekday it runs on; pin it instead.
+		workingDayService = mock(WorkingDayService.class);
+		when(workingDayService.isWorkingDay(any(), any())).thenReturn(true);
 		scheduler = new OverdueInvoiceReminderScheduler(organisationRepository, invoiceRepository, feeReminderService,
-				new SchedulerHeartbeat());
+				new SchedulerHeartbeat(), workingDayService);
 	}
 
 	@AfterEach
@@ -199,6 +208,24 @@ class OverdueInvoiceReminderSchedulerTest {
 		assertThat(notificationRecipientRepository.findByPersonIdOrderByCreatedAtDesc(fixture.guardianPerson().getId())).hasSize(1);
 		TenantContext.clear();
 
+		scheduler.sendOverdueReminders();
+		TenantContext.set(fixture.organisation().getId(), null);
+		assertThat(notificationRecipientRepository.findByPersonIdOrderByCreatedAtDesc(fixture.guardianPerson().getId())).hasSize(1);
+	}
+
+	@Test
+	void sendsNothingOnAHolidayAndCatchesUpOnTheNextWorkingDay() {
+		Fixture fixture = setUpFixture("overdue-reminder-holiday-school", "ADM-381");
+		TenantContext.clear();
+		when(workingDayService.isWorkingDay(any(), any())).thenReturn(false);
+
+		scheduler.sendOverdueReminders();
+		TenantContext.set(fixture.organisation().getId(), null);
+		assertThat(invoiceRepository.findById(fixture.overdueInvoice().getId()).orElseThrow().getOverdueReminderSentAt()).isNull();
+		assertThat(notificationRecipientRepository.findByPersonIdOrderByCreatedAtDesc(fixture.guardianPerson().getId())).isEmpty();
+		TenantContext.clear();
+
+		when(workingDayService.isWorkingDay(any(), any())).thenReturn(true);
 		scheduler.sendOverdueReminders();
 		TenantContext.set(fixture.organisation().getId(), null);
 		assertThat(notificationRecipientRepository.findByPersonIdOrderByCreatedAtDesc(fixture.guardianPerson().getId())).hasSize(1);

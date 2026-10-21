@@ -18,4 +18,8 @@ public interface ExamScheduleRepository extends JpaRepository<ExamSchedule, Long
 	List<ExamSchedule> findApplicableToSection(@Param("examId") Long examId, @Param("schoolClassId") Long schoolClassId, @Param("sectionId") Long sectionId);
 
 	List<ExamSchedule> findByExamIdAndSchoolClassIdAndSubjectId(Long examId, Long schoolClassId, Long subjectId);
+
+	/** Examinations overview - every schedule in one academic year, with what the rollup reads fetched up front. */
+	@Query("SELECT s FROM ExamSchedule s JOIN FETCH s.exam e JOIN FETCH s.schoolClass c JOIN FETCH c.gradeLevel JOIN FETCH s.subject WHERE e.academicYear.id = :academicYearId")
+	List<ExamSchedule> findForOverview(@Param("academicYearId") Long academicYearId);
 }

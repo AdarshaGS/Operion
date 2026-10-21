@@ -21,8 +21,10 @@ import PrivacyTipIcon from "@mui/icons-material/PrivacyTip";
 import SyncAltIcon from "@mui/icons-material/SyncAlt";
 import AutoAwesomeIcon from "@mui/icons-material/AutoAwesome";
 import WorkIcon from "@mui/icons-material/Work";
+import WorkspacePremiumIcon from "@mui/icons-material/WorkspacePremium";
 import { AcademicYearsPanel } from "./AcademicYearsPanel";
 import { AuditLogsPanel } from "./AuditLogsPanel";
+import { CertificateTypesPanel } from "./CertificateTypesPanel";
 import { BusinessSettingsPanel } from "./BusinessSettingsPanel";
 import { CampusesPanel } from "./CampusesPanel";
 import { CustomFieldsPanel } from "./CustomFieldsPanel";
@@ -177,6 +179,13 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
 				description: "Branded header/footer template for question papers and report cards",
 				icon: <DescriptionIcon />,
 				panel: <LetterFormatsPanel />,
+			},
+			{
+				key: "certificate-types",
+				label: "Certificate types",
+				description: "Transfer, bonafide and other certificates: wording, numbering and approval rules",
+				icon: <WorkspacePremiumIcon />,
+				panel: <CertificateTypesPanel />,
 			},
 			{
 				key: "id-card-studio",

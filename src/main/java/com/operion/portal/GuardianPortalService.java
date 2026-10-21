@@ -3,6 +3,8 @@ package com.operion.portal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import com.operion.attendance.AttendanceService;
 import com.operion.attendance.StudentAttendance;
@@ -15,6 +17,7 @@ import com.operion.communication.Announcement;
 import com.operion.communication.AnnouncementRepository;
 import com.operion.communication.AnnouncementStatus;
 import com.operion.communication.AudienceType;
+import com.operion.examination.ReportCard;
 import com.operion.examination.ReportCardRepository;
 import com.operion.examination.ReportCardStatus;
 import com.operion.finance.InvoiceRepository;
@@ -109,17 +112,39 @@ public class GuardianPortalService {
 	}
 
 	private StudentEnrollment currentEnrollmentForOwnChild(Long userId, Long studentId) {
+		requireOwnChild(userId, studentId);
+		return studentEnrollmentRepository.findByStudentIdAndCurrentTrue(studentId)
+				.orElseThrow(() -> new IllegalArgumentException("No current enrollment for student " + studentId));
+	}
+
+	/** Throws unless the report card is one the guardian can already see: their own child's, PUBLISHED and not stale. */
+	public void requireReportCardAccess(Long userId, Long studentId, Long reportCardId) {
+		requireOwnChild(userId, studentId);
+		ReportCard reportCard = reportCardRepository.findById(reportCardId)
+				.orElseThrow(() -> new IllegalArgumentException("No report card with id " + reportCardId));
+		if (!reportCard.getStudentEnrollment().getStudent().getId().equals(studentId)
+				|| reportCard.getStatus() != ReportCardStatus.PUBLISHED || reportCard.isStale()) {
+			throw new AuthorizationDeniedException("Report card " + reportCardId + " is not available for student " + studentId);
+		}
+	}
+
+	/** Throws unless {@code studentId} is one of the caller's actively linked children. */
+	public void requireOwnChild(Long userId, Long studentId) {
+		if (!linkedStudentIds(userId).contains(studentId)) {
+			throw new AuthorizationDeniedException("Caller is not linked to student " + studentId);
+		}
+	}
+
+	/** The students the caller is an active guardian of, via an active StudentGuardian link. */
+	public Set<Long> linkedStudentIds(Long userId) {
 		Long personId = requireActivePersonId(userId);
 		Guardian guardian = guardianRepository.findByPersonId(personId)
 				.filter(g -> g.getStatus() == GuardianStatus.ACTIVE)
 				.orElseThrow(() -> new AuthorizationDeniedException("Caller is not an active guardian"));
-		boolean linked = studentGuardianRepository.findByGuardianId(guardian.getId()).stream()
-				.anyMatch(sg -> sg.getStatus() == StudentGuardianStatus.ACTIVE && sg.getStudent().getId().equals(studentId));
-		if (!linked) {
-			throw new AuthorizationDeniedException("Caller is not linked to student " + studentId);
-		}
-		return studentEnrollmentRepository.findByStudentIdAndCurrentTrue(studentId)
-				.orElseThrow(() -> new IllegalArgumentException("No current enrollment for student " + studentId));
+		return studentGuardianRepository.findByGuardianId(guardian.getId()).stream()
+				.filter(sg -> sg.getStatus() == StudentGuardianStatus.ACTIVE)
+				.map(sg -> sg.getStudent().getId())
+				.collect(Collectors.toSet());
 	}
 
 	private Long requireActivePersonId(Long userId) {

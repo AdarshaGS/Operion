@@ -14,6 +14,9 @@ import com.operion.finance.PaymentAllocation;
 import com.operion.finance.PaymentAllocationRepository;
 import com.operion.finance.PaymentMethod;
 import com.operion.finance.PaymentRepository;
+import com.operion.finance.ReceiptService;
+import com.operion.document.pdf.PdfResponses;
+import org.springframework.http.ResponseEntity;
 import com.operion.organisation.AcademicYear;
 import com.operion.organisation.AcademicYearRepository;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -33,9 +36,12 @@ public class PaymentController {
 	private final PaymentRepository paymentRepository;
 	private final PaymentAllocationRepository paymentAllocationRepository;
 	private final AcademicYearRepository academicYearRepository;
+	private final ReceiptService receiptService;
 
 	public PaymentController(FeeService feeService, PaymentRepository paymentRepository,
-			PaymentAllocationRepository paymentAllocationRepository, AcademicYearRepository academicYearRepository) {
+			PaymentAllocationRepository paymentAllocationRepository, AcademicYearRepository academicYearRepository,
+			ReceiptService receiptService) {
+		this.receiptService = receiptService;
 		this.feeService = feeService;
 		this.paymentRepository = paymentRepository;
 		this.paymentAllocationRepository = paymentAllocationRepository;
@@ -72,6 +78,13 @@ public class PaymentController {
 	@GetMapping("/{paymentId}")
 	public PaymentResponse get(@PathVariable Long paymentId) {
 		return PaymentResponse.from(findPayment(paymentId));
+	}
+
+	/** The receipt as a PDF. The first office print is the original; later ones are marked DUPLICATE. */
+	@GetMapping("/{paymentId}/receipt.pdf")
+	public ResponseEntity<byte[]> receipt(@PathVariable Long paymentId) {
+		ReceiptService.PreparedReceipt receipt = receiptService.prepare(paymentId, true);
+		return PdfResponses.attachment(receiptService.renderPdf(receipt), "receipt-" + receipt.snapshot().receiptNumber());
 	}
 
 	/** A student's payment/receipt history (#133) - deduplicated across allocations, since

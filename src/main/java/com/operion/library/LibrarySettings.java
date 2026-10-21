@@ -1,5 +1,7 @@
 package com.operion.library;
 
+import java.math.BigDecimal;
+
 import com.operion.common.TenantScopedEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -26,6 +28,7 @@ public class LibrarySettings extends TenantScopedEntity {
 	public static final int DEFAULT_BORROWING_PERIOD_DAYS_STUDENT = 14;
 	public static final int DEFAULT_BORROWING_PERIOD_DAYS_STAFF = 30;
 	public static final boolean DEFAULT_BLOCK_ISSUE_ON_OVERDUE = false;
+	public static final BigDecimal DEFAULT_FINE_RATE_PER_DAY = BigDecimal.ZERO;
 
 	@Column(name = "max_loans_student", nullable = false)
 	private int maxLoansStudent;
@@ -42,12 +45,17 @@ public class LibrarySettings extends TenantScopedEntity {
 	@Column(name = "block_issue_on_overdue", nullable = false)
 	private boolean blockIssueOnOverdue;
 
+	/** Charged per day a book is kept past its due date; zero means no automatic overdue fine. */
+	@Column(name = "fine_rate_per_day", nullable = false)
+	private BigDecimal fineRatePerDay;
+
 	public LibrarySettings() {
 		this.maxLoansStudent = DEFAULT_MAX_LOANS_STUDENT;
 		this.maxLoansStaff = DEFAULT_MAX_LOANS_STAFF;
 		this.borrowingPeriodDaysStudent = DEFAULT_BORROWING_PERIOD_DAYS_STUDENT;
 		this.borrowingPeriodDaysStaff = DEFAULT_BORROWING_PERIOD_DAYS_STAFF;
 		this.blockIssueOnOverdue = DEFAULT_BLOCK_ISSUE_ON_OVERDUE;
+		this.fineRatePerDay = DEFAULT_FINE_RATE_PER_DAY;
 	}
 
 	public int maxLoansFor(boolean staff) {

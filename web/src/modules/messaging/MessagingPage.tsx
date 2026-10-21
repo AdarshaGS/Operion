@@ -30,6 +30,7 @@ import { subscribeToThread } from "../../api/messagingSocket";
 import { type PersonResponse, listPersons } from "../../api/persons";
 import { listSchoolClasses, type SchoolClassResponse } from "../../api/schoolClasses";
 import { listSections, type SectionResponse } from "../../api/sections";
+import { useSchoolClassLabel } from "../../utils/useSchoolClassLabel";
 
 function threadTitle(thread: MessageThreadResponse): string {
 	if (thread.type === "CLASS_GROUP") return thread.sectionLabel ?? `Class group #${thread.id}`;
@@ -248,6 +249,7 @@ function OpenClassGroupDialog({
 	onError: (message: string) => void;
 }) {
 	const [classes, setClasses] = useState<SchoolClassResponse[]>([]);
+	const classLabel = useSchoolClassLabel();
 	const [sections, setSections] = useState<SectionResponse[]>([]);
 	const [classId, setClassId] = useState("");
 	const [sectionId, setSectionId] = useState("");
@@ -284,7 +286,7 @@ function OpenClassGroupDialog({
 					<TextField select label="Class" value={classId} onChange={(e) => setClassId(e.target.value)}>
 						{classes.map((schoolClass) => (
 							<MenuItem key={schoolClass.id} value={schoolClass.id}>
-								{schoolClass.displayName ?? `Class #${schoolClass.id}`}
+								{classLabel(schoolClass)}
 							</MenuItem>
 						))}
 					</TextField>

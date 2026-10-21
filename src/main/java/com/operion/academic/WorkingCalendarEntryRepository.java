@@ -9,6 +9,8 @@ public interface WorkingCalendarEntryRepository extends JpaRepository<WorkingCal
 
 	List<WorkingCalendarEntry> findByAcademicYearIdOrderByDateAsc(Long academicYearId);
 
+	List<WorkingCalendarEntry> findByDateBetween(LocalDate from, LocalDate to);
+
 	boolean existsByAcademicYearIdAndDateAndCampusId(Long academicYearId, LocalDate date, Long campusId);
 
 	boolean existsByAcademicYearIdAndDateAndCampusIsNull(Long academicYearId, LocalDate date);

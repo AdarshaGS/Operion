@@ -7,6 +7,7 @@ import com.operion.academic.Section;
 import com.operion.academic.SectionRepository;
 import com.operion.academic.WorkingCalendarEntryRepository;
 import com.operion.academic.WorkingCalendarEntryType;
+import com.operion.attendance.AttendanceAccessService;
 import com.operion.attendance.AttendanceAlertService;
 import com.operion.attendance.AttendanceCorrectionRepository;
 import com.operion.attendance.AttendanceService;
@@ -18,6 +19,7 @@ import com.operion.attendance.StudentAttendance;
 import com.operion.attendance.StudentAttendanceRepository;
 import com.operion.authorization.RequirePermission;
 import com.operion.common.EnumParam;
+import com.operion.common.TenantContext;
 import com.operion.common.InvalidRequestException;
 import com.operion.organisation.AcademicYear;
 import com.operion.student.StudentEnrollment;
@@ -45,6 +47,7 @@ public class StudentAttendanceController {
 	private final StudentAttendanceRepository studentAttendanceRepository;
 	private final AttendanceCorrectionRepository attendanceCorrectionRepository;
 	private final WorkingCalendarEntryRepository workingCalendarEntryRepository;
+	private final AttendanceAccessService attendanceAccessService;
 
 	public StudentAttendanceController(AttendanceService attendanceService, AttendanceAlertService attendanceAlertService,
 			SectionRepository sectionRepository,
@@ -52,7 +55,8 @@ public class StudentAttendanceController {
 			ClassAttendanceRegisterRepository classAttendanceRegisterRepository,
 			StudentAttendanceRepository studentAttendanceRepository,
 			AttendanceCorrectionRepository attendanceCorrectionRepository,
-			WorkingCalendarEntryRepository workingCalendarEntryRepository) {
+			WorkingCalendarEntryRepository workingCalendarEntryRepository,
+			AttendanceAccessService attendanceAccessService) {
 		this.attendanceService = attendanceService;
 		this.attendanceAlertService = attendanceAlertService;
 		this.sectionRepository = sectionRepository;
@@ -61,12 +65,20 @@ public class StudentAttendanceController {
 		this.studentAttendanceRepository = studentAttendanceRepository;
 		this.attendanceCorrectionRepository = attendanceCorrectionRepository;
 		this.workingCalendarEntryRepository = workingCalendarEntryRepository;
+		this.attendanceAccessService = attendanceAccessService;
+	}
+
+	/** Sections the caller may mark: ALL (any section), OWN (homeroom sections listed) or NONE. */
+	@GetMapping("/markable-sections")
+	public AttendanceAccessService.MarkableSections markableSections() {
+		return attendanceAccessService.markableSections(TenantContext.getActorId());
 	}
 
 	@PostMapping("/sections/{sectionId}/register")
-	@RequirePermission("ATTENDANCE_MARK")
+	@RequirePermission(anyOf = { "ATTENDANCE_MARK", "ATTENDANCE_MARK_ANY_SECTION" })
 	public AttendanceRegisterResponse mark(@PathVariable Long sectionId, @Valid @RequestBody MarkAttendanceRequest request) {
 		Section section = findSection(sectionId);
+		attendanceAccessService.requireCanMark(TenantContext.getActorId(), section);
 		requireMarkableDay(section, request.attendanceDate());
 		List<StudentAttendanceMark> marks = request.marks().stream()
 				.map(entry -> new StudentAttendanceMark(
@@ -85,9 +97,11 @@ public class StudentAttendanceController {
 	}
 
 	@PostMapping("/register/{registerId}/submit")
-	@RequirePermission("ATTENDANCE_MARK")
+	@RequirePermission(anyOf = { "ATTENDANCE_MARK", "ATTENDANCE_MARK_ANY_SECTION" })
 	public AttendanceRegisterResponse submit(@PathVariable Long registerId) {
-		return toRegisterResponse(attendanceService.submitRegister(findRegister(registerId)));
+		ClassAttendanceRegister register = findRegister(registerId);
+		attendanceAccessService.requireCanMark(TenantContext.getActorId(), register.getSection());
+		return toRegisterResponse(attendanceService.submitRegister(register));
 	}
 
 	@PostMapping("/register/{registerId}/lock")

@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="http://www.thymeleaf.org">
+<head>
+<meta charset="UTF-8"/>
+<title th:text="'Receipt ' + ${s.receiptNumber()}">Receipt</title>
+<style th:inline="text">
+@page { size: [[${page.cssSize()}]]; margin: [[${page.margin()}]]; }
+body { font-family: 'Noto Sans', sans-serif; font-size: [[${r.fontSize()}]]px; color: #1f2933; }
+table { width: 100%; border-collapse: collapse; }
+.header td { vertical-align: middle; }
+.logo { max-height: 60px; max-width: 120px; }
+.school { font-size: 1.45em; font-weight: bold; }
+.muted { color: #52606d; font-size: 0.85em; }
+.title { margin: 10px 0 6px 0; font-size: 1.2em; font-weight: bold; letter-spacing: 1px; }
+.badge { border: 1px solid #b42318; color: #b42318; padding: 1px 6px; font-size: 0.75em; margin-left: 8px; }
+.meta td { padding: 2px 4px; }
+.meta .label { color: #52606d; width: 22%; }
+.lines { margin-top: 8px; }
+.lines th { text-align: left; border-bottom: 1px solid #9aa5b1; padding: 4px; font-size: 0.85em; color: #52606d; }
+.lines td { padding: 4px; border-bottom: 1px solid #e4e7eb; }
+.num, .lines th.num { text-align: right; white-space: nowrap; }
+.total td { font-weight: bold; border-top: 1px solid #1f2933; border-bottom: none; }
+.words { margin-top: 6px; font-style: italic; }
+.signatures { margin-top: 24px; }
+.signatures td { vertical-align: bottom; }
+.sig-img { max-height: 45px; max-width: 140px; }
+.footer { margin-top: 14px; text-align: center; color: #52606d; font-size: 0.8em; }
+.cancelled { position: absolute; top: 35%; left: 10%; width: 80%; text-align: center; font-size: 4em; font-weight: bold;
+  color: #b42318; opacity: 0.18; transform: rotate(-25deg); }
+.style-classic .header { border-bottom: 2px solid #1f2933; }
+.style-classic .header-text { text-align: center; }
+.style-modern .header { border-left: 6px solid #2563eb; }
+.style-modern .header td { padding-left: 8px; }
+.style-modern .title { color: #2563eb; }
+.style-minimal .lines th, .style-minimal .lines td { border-bottom: none; }
+.style-elegant .school { letter-spacing: 2px; text-transform: uppercase; }
+.style-elegant .header { border-bottom: 1px double #52606d; border-top: 1px double #52606d; }
+.narrow .header-logo { display: none; }
+.narrow .header-text { text-align: center; }
+.narrow .meta .label { width: 40%; }
+</style>
+</head>
+<body th:class="${styleClass} + (${page.narrow()} ? ' narrow' : '')">
+<div class="cancelled" th:if="${r.cancelled()}">CANCELLED</div>
+
+<table class="header">
+  <tr>
+    <td class="header-logo" style="width: 130px;" th:if="${logo != null}"><img class="logo" th:src="${logo}" alt=""/></td>
+    <td class="header-text">
+      <div class="school" th:text="${s.school().schoolName()}">School</div>
+      <div class="muted" th:if="${s.school().addressLine() != null}" th:text="${s.school().addressLine()}">Address</div>
+      <div class="muted" th:if="${s.school().affiliationText() != null}" th:text="${s.school().affiliationText()}">Affiliation</div>
+      <div class="muted" th:if="${r.headerSubtext() != null}" th:text="${r.headerSubtext()}">Subtext</div>
+    </td>
+  </tr>
+</table>
+
+<div class="title">FEE RECEIPT
+  <span class="badge" th:if="${r.duplicate()}" th:text="'DUPLICATE COPY ' + ${r.printNumber()}">DUPLICATE</span>
+  <span class="badge" th:if="${r.cancelled()}">CANCELLED - PAYMENT BOUNCED</span>
+</div>
+
+<table class="meta">
+  <tr><td class="label">Receipt no.</td><td th:text="${s.receiptNumber()}">R-1</td></tr>
+  <tr><td class="label">Date</td><td th:text="${#temporals.format(s.paymentDate(), 'dd MMM yyyy')}">date</td></tr>
+  <tr><td class="label">Academic year</td><td th:text="${s.academicYear()}">year</td></tr>
+  <th:block th:if="${s.students().size() == 1}">
+    <tr><td class="label">Student</td><td th:text="${s.students().get(0).name()}">name</td></tr>
+    <tr><td class="label">Admission no.</td><td th:text="${s.students().get(0).admissionNumber()}">adm</td></tr>
+    <tr><td class="label">Class</td><td th:text="${s.students().get(0).classSection()}">class</td></tr>
+  </th:block>
+</table>
+
+<table class="lines">
+  <tr>
+    <th th:if="${s.students().size() > 1}">Student</th>
+    <th>Fee</th>
+    <th th:unless="${page.narrow()}">Invoice</th>
+    <th th:unless="${page.narrow()}">Due</th>
+    <th class="num">Amount</th>
+  </tr>
+  <tr th:each="line : ${s.lines()}">
+    <td th:if="${s.students().size() > 1}" th:text="${line.studentName()} + ' (' + ${line.admissionNumber()} + ')'">student</td>
+    <td th:text="${line.feeHead()}">fee</td>
+    <td th:unless="${page.narrow()}" th:text="${line.invoiceNumber()}">inv</td>
+    <td th:unless="${page.narrow()}" th:text="${#temporals.format(line.dueDate(), 'dd MMM yyyy')}">due</td>
+    <td class="num" th:text="${line.amountText()}">0</td>
+  </tr>
+  <tr class="total">
+    <td th:attr="colspan=${(s.students().size() > 1 ? 2 : 1) + (page.narrow() ? 0 : 2)}">Total received</td>
+    <td class="num" th:text="${s.amountText()}">0</td>
+  </tr>
+</table>
+
+<div class="words" th:text="${s.amountInWords()}">words</div>
+
+<table class="meta" style="margin-top: 8px;">
+  <tr><td class="label">Paid by</td><td th:text="${s.paymentMethod()}">CASH</td></tr>
+  <tr th:if="${s.paymentReference() != null}"><td class="label">Reference</td><td th:text="${s.paymentReference()}">ref</td></tr>
+  <tr th:if="${s.paymentBankName() != null}"><td class="label">Bank</td><td th:text="${s.paymentBankName()}">bank</td></tr>
+  <tr th:if="${s.remarks() != null}"><td class="label">Remarks</td><td th:text="${s.remarks()}">remarks</td></tr>
+  <tr><td class="label">Balance due</td>
+    <td th:text="${s.outstandingText()} + ' (as on ' + ${#temporals.format(s.outstandingAsOf(), 'dd MMM yyyy')} + ')'">0</td></tr>
+</table>
+
+<table class="signatures">
+  <tr>
+    <td><span class="muted" th:if="${s.collectedBy() != null}" th:text="'Received by: ' + ${s.collectedBy()}">by</span></td>
+    <td class="num">
+      <img class="sig-img" th:if="${stamp != null}" th:src="${stamp}" alt=""/>
+      <img class="sig-img" th:if="${signature != null}" th:src="${signature}" alt=""/>
+      <div class="muted">Authorised signatory</div>
+    </td>
+  </tr>
+</table>
+
+<div class="footer">
+  <div th:if="${s.school().footerText() != null}" th:text="${s.school().footerText()}">footer</div>
+  <div>This is a computer-generated receipt.</div>
+</div>
+</body>
+</html>

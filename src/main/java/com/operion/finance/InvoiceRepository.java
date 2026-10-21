@@ -5,11 +5,20 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
+
+	/** Row lock for every balance-changing write (payment, bounce, refund, adjustment, waiver) -
+	 * without it two counter clerks paying the same invoice both pass applyPayment's
+	 * outstanding-balance guard against the same stale amountPaid and one update is lost. */
+	@Lock(LockModeType.PESSIMISTIC_WRITE)
+	@Query("select i from Invoice i where i.id = :id")
+	Optional<Invoice> findByIdForUpdate(@Param("id") Long id);
 
 	Optional<Invoice> findByStudentFeeAssignmentIdAndFeeStructureInstallmentId(Long studentFeeAssignmentId, Long feeStructureInstallmentId);
 
@@ -47,4 +56,11 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
 	 * its one-time automatic reminder sent yet. */
 	@Query("SELECT i FROM Invoice i WHERE i.amountPaid < i.totalAmount AND i.dueDate < :asOf AND i.overdueReminderSentAt IS NULL")
 	List<Invoice> findOverdueWithoutReminder(@Param("asOf") LocalDate asOf);
+
+	/** The Fees page rollup - every invoice (optionally one academic year), with the graph the
+	 * overview walks fetched up front so aggregating thousands of rows doesn't fan out into lazy loads. */
+	@Query("SELECT i FROM Invoice i JOIN FETCH i.studentFeeAssignment a JOIN FETCH a.studentEnrollment e JOIN FETCH e.student s JOIN FETCH s.person "
+			+ "JOIN FETCH e.section sec JOIN FETCH sec.schoolClass JOIN FETCH a.feeStructure fs JOIN FETCH fs.feeCategory "
+			+ "WHERE (:academicYearId IS NULL OR i.academicYear.id = :academicYearId)")
+	List<Invoice> findForOverview(@Param("academicYearId") Long academicYearId);
 }

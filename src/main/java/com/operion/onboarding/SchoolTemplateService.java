@@ -10,6 +10,9 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import com.operion.certificate.CertificateType;
+import com.operion.certificate.CertificateTypeRepository;
+import com.operion.certificate.CertificateTypeService;
 import com.operion.academic.AcademicService;
 import com.operion.academic.GradeLevel;
 import com.operion.academic.GradeLevelRepository;
@@ -87,6 +90,8 @@ public class SchoolTemplateService {
 	private final SchoolClassRepository schoolClassRepository;
 	private final SectionRepository sectionRepository;
 	private final SubjectRepository subjectRepository;
+	private final CertificateTypeService certificateTypeService;
+	private final CertificateTypeRepository certificateTypeRepository;
 	private final ExaminationService examinationService;
 	private final GradingScaleRepository gradingScaleRepository;
 
@@ -96,7 +101,8 @@ public class SchoolTemplateService {
 			FeeService feeService, FeeCategoryRepository feeCategoryRepository, InventoryService inventoryService,
 			ItemCategoryRepository itemCategoryRepository, ItemRepository itemRepository, LeaveTypeRepository leaveTypeRepository, ExaminationService examinationService,
 			GradingScaleRepository gradingScaleRepository, AcademicYearRepository academicYearRepository, CampusRepository campusRepository,
-			SchoolClassRepository schoolClassRepository, SectionRepository sectionRepository, SubjectRepository subjectRepository) {
+			SchoolClassRepository schoolClassRepository, SectionRepository sectionRepository, SubjectRepository subjectRepository,
+			CertificateTypeService certificateTypeService, CertificateTypeRepository certificateTypeRepository) {
 		this.schoolTemplateItemService = schoolTemplateItemService;
 		this.academicService = academicService;
 		this.gradeLevelRepository = gradeLevelRepository;
@@ -116,6 +122,8 @@ public class SchoolTemplateService {
 		this.schoolClassRepository = schoolClassRepository;
 		this.sectionRepository = sectionRepository;
 		this.subjectRepository = subjectRepository;
+		this.certificateTypeService = certificateTypeService;
+		this.certificateTypeRepository = certificateTypeRepository;
 		this.examinationService = examinationService;
 		this.gradingScaleRepository = gradingScaleRepository;
 	}
@@ -152,6 +160,7 @@ public class SchoolTemplateService {
 				classStatuses(disabled),
 				sectionStatuses(disabled),
 				subjectStatuses(disabled),
+				certificateTypeStatuses(disabled),
 				!gradingScaleRepository.findAll().isEmpty());
 	}
 
@@ -175,6 +184,7 @@ public class SchoolTemplateService {
 		applyInventoryItems(SchoolTemplateItemCategory.ASSET_TYPE, result.getAssetTypesCreated(), result.getAssetTypesSkipped(), disabled);
 		applyLeaveTypes(result, disabled);
 		applyGradingScale(result, disabled);
+		applyCertificateTypes(result, disabled);
 		return result;
 	}
 
@@ -487,6 +497,24 @@ public class SchoolTemplateService {
 		result.setGradingScaleCreated(true);
 	}
 
+	/** Each row becomes one of the school's certificate types, with the preset wording matching its code (generic wording
+	 * when there is none). Skips on a code or name the school already has. */
+	private void applyCertificateTypes(SchoolTemplateResult result, Set<AppModule> disabled) {
+		for (SchoolTemplateItem item : items(SchoolTemplateItemCategory.CERTIFICATE_TYPE, disabled)) {
+			String code = item.getCode() != null && !item.getCode().isBlank() ? item.getCode() : item.getName().replaceAll("[^A-Za-z0-9]+", "_");
+			if (certificateTypeService.createFromTemplate(code, item.getName())) {
+				result.getCertificateTypesCreated().add(item.getName());
+			} else {
+				result.getCertificateTypesSkipped().add(item.getName());
+			}
+		}
+	}
+
+	private List<SchoolTemplateCategoryStatus> certificateTypeStatuses(Set<AppModule> disabled) {
+		Set<String> existing = normalizedNames(certificateTypeRepository.findAll().stream().map(CertificateType::getName));
+		return itemStatuses(SchoolTemplateItemCategory.CERTIFICATE_TYPE, existing, disabled);
+	}
+
 	private List<SchoolTemplateItem> items(SchoolTemplateItemCategory category, Set<AppModule> disabled) {
 		return schoolTemplateItemService.list(category).stream()
 				.filter(SchoolTemplateItem::isIncluded)
@@ -502,6 +530,7 @@ public class SchoolTemplateService {
 			case SECTION, CLASS, SUBJECT -> AppModule.ACADEMICS;
 			case ITEM_CATEGORY, ITEM, ASSET_TYPE -> AppModule.INVENTORY;
 			case GRADING_BAND -> AppModule.EXAMINATIONS;
+			case CERTIFICATE_TYPE -> AppModule.STUDENTS;
 			default -> null;
 		};
 		if (implied != null && disabled.contains(implied)) {

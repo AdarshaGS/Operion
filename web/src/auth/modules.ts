@@ -26,6 +26,7 @@ const PATH_MODULES: ReadonlyArray<readonly [string, string]> = [
 	["/reports", "REPORTS"],
 	["/hr", "HR"],
 	["/payroll", "PAYROLL"],
+	["/performance", "PERFORMANCE"],
 ];
 
 /** The module a route belongs to, or null for core areas (settings, members, profile, ...) that can't be switched off. */

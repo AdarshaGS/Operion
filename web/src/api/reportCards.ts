@@ -1,4 +1,4 @@
-import { api } from "./client";
+import { api, downloadFile } from "./client";
 
 export interface ReportCardResponse {
 	id: number;
@@ -69,4 +69,14 @@ export function listReportCards(studentEnrollmentId: number): Promise<ReportCard
 
 export function renderReportCard(reportCardId: number): Promise<ReportCardRenderResponse> {
 	return api.get<ReportCardRenderResponse>(`/api/v1/examinations/report-cards/${reportCardId}/render`);
+}
+
+/** One student's report card as a PDF; the first office download freezes it in the issued-document register. */
+export function downloadReportCardPdf(reportCardId: number): Promise<void> {
+	return downloadFile(`/api/v1/examinations/report-cards/${reportCardId}/report-card.pdf`, `report-card-${reportCardId}.pdf`);
+}
+
+/** Every published report card of a section for an exam, one page per student. */
+export function downloadSectionReportCardsPdf(examId: number, sectionId: number): Promise<void> {
+	return downloadFile(`/api/v1/examinations/exams/${examId}/report-cards.pdf?sectionId=${sectionId}`, `report-cards-${sectionId}.pdf`);
 }

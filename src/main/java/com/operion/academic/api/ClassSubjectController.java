@@ -46,7 +46,7 @@ public class ClassSubjectController {
 		Subject subject = subjectRepository.findById(request.subjectId())
 				.orElseThrow(() -> new IllegalArgumentException("No subject with id " + request.subjectId()));
 
-		return ClassSubjectResponse.from(academicService.assignSubjectToClass(schoolClass, subject, request.mandatory()));
+		return ClassSubjectResponse.from(academicService.assignSubjectToClass(schoolClass, subject, request.mandatory(), request.weeklyPeriods()));
 	}
 
 	@GetMapping
@@ -70,6 +70,6 @@ public class ClassSubjectController {
 			@PathVariable Long classId, @PathVariable Long id, @RequestBody UpdateClassSubjectRequest request) {
 		ClassSubject classSubject = classSubjectRepository.findById(id)
 				.orElseThrow(() -> new IllegalArgumentException("No class subject with id " + id));
-		return ClassSubjectResponse.from(academicService.updateClassSubjectMandatory(classSubject, request.mandatory()));
+		return ClassSubjectResponse.from(academicService.updateClassSubject(classSubject, request.mandatory(), request.weeklyPeriods()));
 	}
 }

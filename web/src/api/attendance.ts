@@ -60,6 +60,17 @@ export interface AttendanceRegisterResponse {
 	entries: StudentAttendanceResponse[];
 }
 
+/** Which sections the caller may mark: ALL, OWN (homeroom sections in sectionIds) or NONE. */
+export interface MarkableSectionsResponse {
+	scope: "ALL" | "OWN" | "NONE";
+	sectionIds: number[];
+	schoolClassIds: number[];
+}
+
+export function getMarkableSections(): Promise<MarkableSectionsResponse> {
+	return api.get<MarkableSectionsResponse>("/api/v1/attendance/markable-sections");
+}
+
 export function markAttendance(sectionId: number, request: MarkAttendanceRequest): Promise<AttendanceRegisterResponse> {
 	return api.post<AttendanceRegisterResponse>(`/api/v1/attendance/sections/${sectionId}/register`, request);
 }

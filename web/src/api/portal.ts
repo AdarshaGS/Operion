@@ -1,4 +1,4 @@
-import { api } from "./client";
+import { api, downloadFile } from "./client";
 import type { LeaveTypeResponse } from "./leaveTypes";
 
 export type PortalSessionType = "ADMIN" | "PORTAL";
@@ -79,6 +79,11 @@ export function getChildFees(studentId: number): Promise<GuardianInvoiceSummary[
 	return api.get<GuardianInvoiceSummary[]>(`/api/v1/me/children/${studentId}/fees`);
 }
 
+/** The guardian's own copy of a published report card as a PDF. */
+export function downloadChildReportCard(studentId: number, reportCardId: number): Promise<void> {
+	return downloadFile(`/api/v1/me/children/${studentId}/report-cards/${reportCardId}/report-card.pdf`, `report-card-${reportCardId}.pdf`);
+}
+
 export function getChildReportCards(studentId: number): Promise<GuardianReportCardSummary[]> {
 	return api.get<GuardianReportCardSummary[]>(`/api/v1/me/children/${studentId}/report-cards`);
 }
@@ -143,4 +148,48 @@ export function getTeacherLeaveRequests(): Promise<TeacherLeaveRequestSummary[]>
 
 export function raiseOwnLeaveRequest(request: RaiseOwnLeaveRequest): Promise<TeacherLeaveRequestSummary> {
 	return api.post<TeacherLeaveRequestSummary>("/api/v1/me/leave-requests", request);
+}
+
+export interface GuardianPaymentSummary {
+	paymentId: number;
+	receiptNumber: string;
+	paymentDate: string;
+	amount: number;
+	paymentMethod: string;
+	status: string;
+}
+
+export function getChildPayments(studentId: number): Promise<GuardianPaymentSummary[]> {
+	return api.get<GuardianPaymentSummary[]>(`/api/v1/me/children/${studentId}/payments`);
+}
+
+export function downloadChildReceipt(studentId: number, payment: GuardianPaymentSummary): Promise<void> {
+	return downloadFile(`/api/v1/me/children/${studentId}/payments/${payment.paymentId}/receipt.pdf`, `receipt-${payment.receiptNumber}.pdf`);
+}
+
+export interface GuardianCertificate {
+	id: number;
+	certificateName: string;
+	status: "PENDING_APPROVAL" | "APPROVED" | "REJECTED" | "ISSUED" | "CANCELLED";
+	purpose: string | null;
+	requestedAt: string;
+	certificateNumber: string | null;
+	issuedAt: string | null;
+	rejectionReason: string | null;
+}
+
+export function getRequestableCertificateTypes(): Promise<{ id: number; name: string }[]> {
+	return api.get<{ id: number; name: string }[]>("/api/v1/me/certificate-types");
+}
+
+export function getChildCertificates(studentId: number): Promise<GuardianCertificate[]> {
+	return api.get<GuardianCertificate[]>(`/api/v1/me/children/${studentId}/certificates`);
+}
+
+export function requestChildCertificate(studentId: number, certificateTypeId: number, purpose: string | null): Promise<GuardianCertificate> {
+	return api.post<GuardianCertificate>(`/api/v1/me/children/${studentId}/certificates`, { certificateTypeId, purpose });
+}
+
+export function downloadChildCertificate(studentId: number, requestId: number, certificateNumber: string | null): Promise<void> {
+	return downloadFile(`/api/v1/me/children/${studentId}/certificates/${requestId}/certificate.pdf`, `${certificateNumber ?? "certificate"}.pdf`);
 }

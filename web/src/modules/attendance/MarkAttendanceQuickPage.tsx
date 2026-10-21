@@ -24,6 +24,8 @@ import { type PersonResponse, listPersons } from "../../api/persons";
 import { listSchoolClasses, type SchoolClassResponse } from "../../api/schoolClasses";
 import { listSections, type SectionResponse } from "../../api/sections";
 import { listStudents, type StudentResponse } from "../../api/students";
+import { useSchoolClassLabel } from "../../utils/useSchoolClassLabel";
+import { useMarkableSections } from "./useMarkableSections";
 
 const STATUS_OPTIONS = ["PRESENT", "ABSENT", "LATE", "HALF_DAY", "LEAVE"];
 
@@ -47,9 +49,14 @@ export function MarkAttendanceQuickPage() {
 	const today = todayIso();
 
 	const [classes, setClasses] = useState<SchoolClassResponse[]>([]);
+	const classLabel = useSchoolClassLabel();
 	const [sections, setSections] = useState<SectionResponse[]>([]);
 	const [classId, setClassId] = useState("");
 	const [sectionId, setSectionId] = useState("");
+	const { markable } = useMarkableSections();
+	// A class teacher (scope OWN) only sees the classes/sections they're homeroom teacher of.
+	const visibleClasses = markable?.scope === "OWN" ? classes.filter((c) => markable.schoolClassIds.includes(c.id)) : classes;
+	const visibleSections = markable?.scope === "OWN" ? sections.filter((s) => markable.sectionIds.includes(s.id)) : sections;
 
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
@@ -152,11 +159,15 @@ export function MarkAttendanceQuickPage() {
 			<Paper sx={{ p: 3 }}>
 				<Stack spacing={2}>
 					<Typography variant="h6">Mark attendance — {today}</Typography>
+					{markable?.scope === "OWN" && markable.sectionIds.length === 0 && (
+						<Alert severity="info">You are not the class teacher of any section, so there is nothing for you to mark.</Alert>
+					)}
+					{markable?.scope === "NONE" && <Alert severity="warning">You don't have permission to mark attendance.</Alert>}
 					<Box sx={{ display: "flex", gap: 2 }}>
 						<TextField select label="Class" value={classId} onChange={(e) => setClassId(e.target.value)} sx={{ minWidth: 200 }}>
-							{classes.map((schoolClass) => (
+							{visibleClasses.map((schoolClass) => (
 								<MenuItem key={schoolClass.id} value={schoolClass.id}>
-									{schoolClass.displayName ?? `Class #${schoolClass.id}`}
+									{classLabel(schoolClass)}
 								</MenuItem>
 							))}
 						</TextField>
@@ -168,7 +179,7 @@ export function MarkAttendanceQuickPage() {
 							disabled={!classId}
 							sx={{ minWidth: 160 }}
 						>
-							{sections.map((section) => (
+							{visibleSections.map((section) => (
 								<MenuItem key={section.id} value={section.id}>
 									{section.name}
 								</MenuItem>

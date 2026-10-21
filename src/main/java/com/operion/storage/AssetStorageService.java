@@ -1,5 +1,7 @@
 package com.operion.storage;
 
+import java.util.Optional;
+
 import org.springframework.web.multipart.MultipartFile;
 
 /**
@@ -19,4 +21,7 @@ public interface AssetStorageService {
 
 	/** Whether {@code reference} is one this storage handed out and still holds - false for anything else, including a path. */
 	boolean exists(String reference);
+
+	/** The stored bytes for {@code reference}, for server-side rendering (PDFs embed images rather than fetch URLs); empty when the reference isn't one this storage holds. */
+	Optional<byte[]> read(String reference);
 }

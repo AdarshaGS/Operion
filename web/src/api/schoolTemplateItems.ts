@@ -13,7 +13,8 @@ export type SchoolTemplateItemCategory =
 	| "LEAVE_TYPE"
 	| "SECTION"
 	| "SUBJECT"
-	| "GRADING_BAND";
+	| "GRADING_BAND"
+	| "CERTIFICATE_TYPE";
 
 export interface SchoolTemplateItemResponse {
 	id: number;

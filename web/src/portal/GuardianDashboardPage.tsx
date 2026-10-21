@@ -19,7 +19,11 @@ import Typography from "@mui/material/Typography";
 import { ApiError } from "../api/client";
 import {
 	getChildAttendance,
+	downloadChildReceipt,
+	downloadChildReportCard,
 	getChildFees,
+	getChildPayments,
+	type GuardianPaymentSummary,
 	getChildReportCards,
 	getPortalAnnouncements,
 	type GuardianAttendanceSummary,
@@ -28,6 +32,7 @@ import {
 	type PortalAnnouncementSummary,
 } from "../api/portal";
 import { useAuth } from "../auth/AuthContext";
+import { GuardianCertificatesSection } from "./GuardianCertificatesSection";
 import { StatTile } from "../modules/dashboard/StatTile";
 import { colors } from "../theme";
 
@@ -50,7 +55,7 @@ function statusColor(status: string | null): "success" | "error" | "warning" | "
 }
 
 export function GuardianDashboardPage() {
-	const { portalIdentity } = useAuth();
+	const { portalIdentity, isModuleEnabled } = useAuth();
 	const context = portalIdentity?.portalContexts.find((c) => c.type === "GUARDIAN");
 	const children = useMemo(() => context?.children ?? [], [context]);
 
@@ -58,6 +63,7 @@ export function GuardianDashboardPage() {
 	const [attendance, setAttendance] = useState<GuardianAttendanceSummary | null>(null);
 	const [fees, setFees] = useState<GuardianInvoiceSummary[] | null>(null);
 	const [reportCards, setReportCards] = useState<GuardianReportCardSummary[] | null>(null);
+	const [payments, setPayments] = useState<GuardianPaymentSummary[]>([]);
 	const [announcements, setAnnouncements] = useState<PortalAnnouncementSummary[] | null>(null);
 	const [error, setError] = useState<string | null>(null);
 
@@ -79,7 +85,18 @@ export function GuardianDashboardPage() {
 				setReportCards(reportCardsRes);
 			})
 			.catch((err) => setError(err instanceof ApiError ? err.message : "Failed to load your child's data"));
+		setPayments([]);
+		getChildPayments(selectedStudentId)
+			.then(setPayments)
+			.catch((err) => setError(err instanceof ApiError ? err.message : "Failed to load payments"));
 	}, [selectedStudentId]);
+
+	function handleDownloadReceipt(payment: GuardianPaymentSummary) {
+		if (selectedStudentId === null) return;
+		downloadChildReceipt(selectedStudentId, payment).catch((err) =>
+			setError(err instanceof ApiError ? err.message : "Failed to download the receipt"),
+		);
+	}
 
 	if (children.length === 0) {
 		return (
@@ -97,9 +114,14 @@ export function GuardianDashboardPage() {
 			<Stack direction={{ xs: "column", sm: "row" }} spacing={2} sx={{ alignItems: { sm: "center" }, justifyContent: "space-between" }}>
 				<Typography variant="h5">Parent portal</Typography>
 				{selectedStudentId !== null && (
-					<Button variant="outlined" size="small" component={RouterLink} to={`/portal/guardian/children/${selectedStudentId}/learning`}>
-						Homework &amp; learning
-					</Button>
+					<Stack direction="row" spacing={1}>
+						<Button variant="outlined" size="small" component={RouterLink} to={`/portal/guardian/children/${selectedStudentId}/timetable`}>
+							Class timetable
+						</Button>
+						<Button variant="outlined" size="small" component={RouterLink} to={`/portal/guardian/children/${selectedStudentId}/learning`}>
+							Homework &amp; learning
+						</Button>
+					</Stack>
 				)}
 				{children.length > 1 && (
 					<ToggleButtonGroup
@@ -196,6 +218,48 @@ export function GuardianDashboardPage() {
 
 					<Paper sx={{ p: 2 }}>
 						<Typography variant="subtitle1" sx={{ mb: 1 }}>
+							Payments
+						</Typography>
+						{payments.length === 0 ? (
+							<Typography variant="body2" color="text.secondary">
+								No payments yet.
+							</Typography>
+						) : (
+							<Table size="small">
+								<TableHead>
+									<TableRow>
+										<TableCell>Receipt</TableCell>
+										<TableCell>Date</TableCell>
+										<TableCell>Method</TableCell>
+										<TableCell align="right">Amount</TableCell>
+										<TableCell>Status</TableCell>
+										<TableCell />
+									</TableRow>
+								</TableHead>
+								<TableBody>
+									{payments.map((payment) => (
+										<TableRow key={payment.paymentId}>
+											<TableCell>{payment.receiptNumber}</TableCell>
+											<TableCell>{payment.paymentDate}</TableCell>
+											<TableCell>{payment.paymentMethod}</TableCell>
+											<TableCell align="right">{currency(String(payment.amount))}</TableCell>
+											<TableCell>
+												<Chip label={payment.status} size="small" />
+											</TableCell>
+											<TableCell>
+												<Button size="small" onClick={() => handleDownloadReceipt(payment)}>
+													Download
+												</Button>
+											</TableCell>
+										</TableRow>
+									))}
+								</TableBody>
+							</Table>
+						)}
+					</Paper>
+
+					<Paper sx={{ p: 2 }}>
+						<Typography variant="subtitle1" sx={{ mb: 1 }}>
 							Exam results
 						</Typography>
 						{reportCards.length === 0 ? (
@@ -211,6 +275,7 @@ export function GuardianDashboardPage() {
 										<TableCell>Grade</TableCell>
 										<TableCell>Result</TableCell>
 										<TableCell align="right">Class rank</TableCell>
+										<TableCell />
 									</TableRow>
 								</TableHead>
 								<TableBody>
@@ -227,6 +292,18 @@ export function GuardianDashboardPage() {
 												/>
 											</TableCell>
 											<TableCell align="right">{reportCard.classRank ?? "—"}</TableCell>
+											<TableCell align="right">
+												<Button
+													size="small"
+													onClick={() =>
+														downloadChildReportCard(selectedStudentId!, reportCard.reportCardId).catch((err) =>
+															setError(err instanceof ApiError ? err.message : "Failed to download the report card"),
+														)
+													}
+												>
+													Download PDF
+												</Button>
+											</TableCell>
 										</TableRow>
 									))}
 								</TableBody>
@@ -235,6 +312,9 @@ export function GuardianDashboardPage() {
 					</Paper>
 				</>
 			)}
+
+			{/* Outside the loading gate: a child who has left (no current enrollment) still needs their certificates. */}
+			{isModuleEnabled("STUDENTS") && selectedStudentId !== null && <GuardianCertificatesSection studentId={selectedStudentId} />}
 
 			<Paper sx={{ p: 2 }}>
 				<Typography variant="subtitle1" sx={{ mb: 1 }}>

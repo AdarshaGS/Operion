@@ -12,4 +12,6 @@ public interface LearningMaterialRepository extends JpaRepository<LearningMateri
 	List<LearningMaterial> findBySchoolClassIdInOrderByIdDesc(Collection<Long> schoolClassIds);
 
 	List<LearningMaterial> findAllByOrderByIdDesc();
+
+	List<LearningMaterial> findByStatusAndCreatedAtBetween(MaterialStatus status, java.time.Instant from, java.time.Instant to);
 }

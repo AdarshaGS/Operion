@@ -24,7 +24,7 @@ import java.util.stream.Collectors;
 public enum AppModule {
 
 	DASHBOARD("Dashboard", "com.operion.dashboard"),
-	STUDENTS("Students & Admissions", "com.operion.student", "com.operion.parent"),
+	STUDENTS("Students & Admissions", "com.operion.student", "com.operion.parent", "com.operion.certificate"),
 	ACADEMICS("Academics", "com.operion.academic", "com.operion.timetable"),
 	ATTENDANCE("Attendance", "com.operion.attendance"),
 	EXAMINATIONS("Examinations", "com.operion.examination"),
@@ -40,7 +40,8 @@ public enum AppModule {
 	REPORTS("Reports", "com.operion.reporting"),
 	HR("HR", "com.operion.hr"),
 	PAYROLL("Payroll", "com.operion.payroll"),
-	COMPLIANCE("Regulatory & Privacy", "com.operion.regulatory", "com.operion.privacy");
+	COMPLIANCE("Regulatory & Privacy", "com.operion.regulatory", "com.operion.privacy"),
+	PERFORMANCE("Performance", "com.operion.performance");
 
 	private final String label;
 	private final String[] packages;
@@ -54,11 +55,15 @@ public enum AppModule {
 		return label;
 	}
 
-	/** Off until the platform owner (or the Starter Pack) switches it on - an organisation with no setting row for it gets it disabled. */
+	/**
+	 * The default set a school starts with when it has no setting row for a module: the daily
+	 * principal-and-staff loop. Everything else is optional and stays off until the platform
+	 * owner (or the Starter Pack) switches it on.
+	 */
 	public boolean defaultEnabled() {
 		return switch (this) {
-			case TRANSPORT, COMMUNICATION, MESSAGING -> false;
-			default -> true;
+			case DASHBOARD, STUDENTS, ACADEMICS, ATTENDANCE, EXAMINATIONS, FEES, COMMUNICATION, HR -> true;
+			default -> false;
 		};
 	}
 
@@ -68,7 +73,7 @@ public enum AppModule {
 			return Optional.empty();
 		}
 		return Optional.ofNullable(switch (group.toLowerCase()) {
-			case "student", "parent" -> STUDENTS;
+			case "student", "parent", "certificate" -> STUDENTS;
 			case "academic" -> ACADEMICS;
 			case "attendance" -> ATTENDANCE;
 			case "examination" -> EXAMINATIONS;
@@ -84,6 +89,7 @@ public enum AppModule {
 			case "reporting" -> REPORTS;
 			case "hr" -> HR;
 			case "payroll" -> PAYROLL;
+			case "performance" -> PERFORMANCE;
 			default -> null;
 		});
 	}
@@ -109,6 +115,7 @@ public enum AppModule {
 			case HR -> List.of("/hr");
 			case PAYROLL -> List.of("/payroll");
 			case COMPLIANCE -> List.of();
+			case PERFORMANCE -> List.of("/performance");
 		};
 	}
 
@@ -126,6 +133,7 @@ public enum AppModule {
 			case TRANSPORT -> EnumSet.of(STUDENTS, FEES);
 			case PURCHASE, SALES -> EnumSet.of(INVENTORY);
 			case PAYROLL -> EnumSet.of(HR);
+			case PERFORMANCE -> EnumSet.of(HR, ACADEMICS);
 			default -> EnumSet.noneOf(AppModule.class);
 		};
 	}

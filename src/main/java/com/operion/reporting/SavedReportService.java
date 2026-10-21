@@ -95,7 +95,93 @@ public class SavedReportService {
 							new ParameterInput("toDate", ReportParameterType.DATE, "To date", 1)),
 					List.of(new ColumnInput("supplier_name", "Supplier", 0), new ColumnInput("item_name", "Item", 1),
 							new ColumnInput("status", "Status", 2), new ColumnInput("total_quantity", "Quantity", 3),
-							new ColumnInput("total_spend", "Spend", 4))));
+							new ColumnInput("total_spend", "Spend", 4))),
+			// School go-live reports, on the views V27 extended. Bounced payments are left out of collections.
+			new StandardReportDefinition("Fee collection register",
+					"Every cleared fee receipt in a date range: student, class, fee heads, method, amount and who collected it.",
+					"SELECT payment_date, receipt_number, student_name, admission_number, class_name, section_name, "
+							+ "GROUP_CONCAT(DISTINCT fee_head ORDER BY fee_head SEPARATOR ', ') AS fee_heads, payment_method, "
+							+ "SUM(allocated_amount) AS amount, collected_by, payment_reference "
+							+ "FROM reporting_fee_payments WHERE status = 'CLEARED' AND payment_date BETWEEN :fromDate AND :toDate "
+							+ "GROUP BY payment_id, payment_date, receipt_number, student_id, student_name, admission_number, class_name, "
+							+ "section_name, payment_method, collected_by, payment_reference ORDER BY payment_date, receipt_number",
+					List.of(new ParameterInput("fromDate", ReportParameterType.DATE, "From date", 0),
+							new ParameterInput("toDate", ReportParameterType.DATE, "To date", 1)),
+					List.of(new ColumnInput("payment_date", "Date", 0), new ColumnInput("receipt_number", "Receipt", 1),
+							new ColumnInput("student_name", "Student", 2), new ColumnInput("admission_number", "Admission no.", 3),
+							new ColumnInput("class_name", "Class", 4), new ColumnInput("section_name", "Section", 5),
+							new ColumnInput("fee_heads", "Fee heads", 6), new ColumnInput("payment_method", "Method", 7),
+							new ColumnInput("amount", "Amount", 8), new ColumnInput("collected_by", "Collected by", 9),
+							new ColumnInput("payment_reference", "Reference", 10))),
+			new StandardReportDefinition("Fee collection summary",
+					"Cleared collections in a date range, totalled by payment method and fee head.",
+					"SELECT payment_method, fee_head, COUNT(DISTINCT payment_id) AS receipts, SUM(allocated_amount) AS amount "
+							+ "FROM reporting_fee_payments WHERE status = 'CLEARED' AND payment_date BETWEEN :fromDate AND :toDate "
+							+ "GROUP BY payment_method, fee_head ORDER BY payment_method, fee_head",
+					List.of(new ParameterInput("fromDate", ReportParameterType.DATE, "From date", 0),
+							new ParameterInput("toDate", ReportParameterType.DATE, "To date", 1)),
+					List.of(new ColumnInput("payment_method", "Method", 0), new ColumnInput("fee_head", "Fee head", 1),
+							new ColumnInput("receipts", "Receipts", 2), new ColumnInput("amount", "Amount", 3))),
+			new StandardReportDefinition("Fee defaulters",
+					"Students with unpaid invoices past their due date as on a given date, by class and section, largest dues first.",
+					"SELECT class_name, section_name, student_name, admission_number, COUNT(*) AS overdue_invoices, "
+							+ "SUM(outstanding_amount) AS overdue_amount, MIN(due_date) AS oldest_due_date, "
+							+ "DATEDIFF(:asOfDate, MIN(due_date)) AS days_overdue "
+							+ "FROM reporting_fee_invoices WHERE status <> 'PAID' AND outstanding_amount > 0 AND due_date < :asOfDate "
+							+ "GROUP BY student_enrollment_id, class_name, section_name, student_name, admission_number "
+							+ "ORDER BY class_name, section_name, overdue_amount DESC",
+					List.of(new ParameterInput("asOfDate", ReportParameterType.DATE, "As on date", 0)),
+					List.of(new ColumnInput("class_name", "Class", 0), new ColumnInput("section_name", "Section", 1),
+							new ColumnInput("student_name", "Student", 2), new ColumnInput("admission_number", "Admission no.", 3),
+							new ColumnInput("overdue_invoices", "Overdue invoices", 4), new ColumnInput("overdue_amount", "Overdue amount", 5),
+							new ColumnInput("oldest_due_date", "Oldest due date", 6), new ColumnInput("days_overdue", "Days overdue", 7))),
+			// Same formula as AttendanceService.monthlySummary: LEAVE is not a working day, LATE counts as present, HALF_DAY as half.
+			new StandardReportDefinition("Attendance percentage by student",
+					"Each student's attendance over a date range, lowest percentage first within each section.",
+					"SELECT class_name, section_name, roll_number, student_name, admission_number, COUNT(*) AS days_marked, "
+							+ "SUM(attendance_status = 'PRESENT') AS present_days, SUM(attendance_status = 'LATE') AS late_days, "
+							+ "SUM(attendance_status = 'HALF_DAY') AS half_days, SUM(attendance_status = 'ABSENT') AS absent_days, "
+							+ "SUM(attendance_status = 'LEAVE') AS leave_days, "
+							+ "ROUND(100 * (SUM(attendance_status IN ('PRESENT', 'LATE')) + 0.5 * SUM(attendance_status = 'HALF_DAY')) "
+							+ "/ NULLIF(COUNT(*) - SUM(attendance_status = 'LEAVE'), 0), 1) AS attendance_percentage "
+							+ "FROM reporting_attendance_daily WHERE attendance_date BETWEEN :fromDate AND :toDate "
+							+ "GROUP BY student_id, class_name, section_name, roll_number, student_name, admission_number "
+							+ "ORDER BY class_name, section_name, attendance_percentage, student_name",
+					List.of(new ParameterInput("fromDate", ReportParameterType.DATE, "From date", 0),
+							new ParameterInput("toDate", ReportParameterType.DATE, "To date", 1)),
+					List.of(new ColumnInput("class_name", "Class", 0), new ColumnInput("section_name", "Section", 1),
+							new ColumnInput("roll_number", "Roll no.", 2), new ColumnInput("student_name", "Student", 3),
+							new ColumnInput("admission_number", "Admission no.", 4), new ColumnInput("days_marked", "Days marked", 5),
+							new ColumnInput("present_days", "Present", 6), new ColumnInput("late_days", "Late", 7),
+							new ColumnInput("half_days", "Half days", 8), new ColumnInput("absent_days", "Absent", 9),
+							new ColumnInput("leave_days", "Leave", 10), new ColumnInput("attendance_percentage", "Attendance %", 11))),
+			new StandardReportDefinition("Exam results by section",
+					"Published results of one exam: totals, percentage, grade, pass/fail and class rank, by section.",
+					"SELECT academic_year_name, class_name, section_name, class_rank, student_name, admission_number, "
+							+ "total_marks_obtained, total_max_marks, percentage, overall_grade, "
+							+ "CASE WHEN passed THEN 'PASS' ELSE 'FAIL' END AS result "
+							+ "FROM reporting_exam_results WHERE status = 'PUBLISHED' AND exam_name = :examName "
+							+ "ORDER BY academic_year_name, class_name, section_name, class_rank IS NULL, class_rank, percentage DESC",
+					List.of(new ParameterInput("examName", ReportParameterType.STRING, "Exam name", 0)),
+					List.of(new ColumnInput("academic_year_name", "Academic year", 0), new ColumnInput("class_name", "Class", 1),
+							new ColumnInput("section_name", "Section", 2), new ColumnInput("class_rank", "Rank", 3),
+							new ColumnInput("student_name", "Student", 4), new ColumnInput("admission_number", "Admission no.", 5),
+							new ColumnInput("total_marks_obtained", "Marks", 6), new ColumnInput("total_max_marks", "Out of", 7),
+							new ColumnInput("percentage", "Percentage", 8), new ColumnInput("overall_grade", "Grade", 9),
+							new ColumnInput("result", "Result", 10))),
+			new StandardReportDefinition("Subject-wise marks",
+					"Every student's marks in each subject of one exam, with pass/fail and whether the marks are still a draft.",
+					"SELECT academic_year_name, class_name, section_name, roll_number, student_name, admission_number, subject_name, "
+							+ "marks_obtained, max_marks, pass_marks, result, register_status "
+							+ "FROM reporting_exam_marks WHERE exam_name = :examName "
+							+ "ORDER BY academic_year_name, class_name, section_name, student_name, subject_name",
+					List.of(new ParameterInput("examName", ReportParameterType.STRING, "Exam name", 0)),
+					List.of(new ColumnInput("academic_year_name", "Academic year", 0), new ColumnInput("class_name", "Class", 1),
+							new ColumnInput("section_name", "Section", 2), new ColumnInput("roll_number", "Roll no.", 3),
+							new ColumnInput("student_name", "Student", 4), new ColumnInput("admission_number", "Admission no.", 5),
+							new ColumnInput("subject_name", "Subject", 6), new ColumnInput("marks_obtained", "Marks", 7),
+							new ColumnInput("max_marks", "Max", 8), new ColumnInput("pass_marks", "Pass", 9),
+							new ColumnInput("result", "Result", 10), new ColumnInput("register_status", "Marks status", 11))));
 
 	/** Creates and publishes whichever STANDARD_REPORTS don't already exist by name for this org - safe to call repeatedly. */
 	@Transactional

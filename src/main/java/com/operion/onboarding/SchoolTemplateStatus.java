@@ -18,5 +18,6 @@ public record SchoolTemplateStatus(
 		List<SchoolTemplateCategoryStatus> classes,
 		List<SchoolTemplateCategoryStatus> sections,
 		List<SchoolTemplateCategoryStatus> subjects,
+		List<SchoolTemplateCategoryStatus> certificateTypes,
 		boolean gradingScaleExists) {
 }

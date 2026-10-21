@@ -1,7 +1,5 @@
 package com.operion.authorization;
 
-import java.util.Set;
-
 import com.operion.common.TenantContext;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -20,10 +18,10 @@ import org.springframework.web.servlet.HandlerInterceptor;
 @Component
 public class PermissionInterceptor implements HandlerInterceptor {
 
-	private final OrganisationMembershipRepository membershipRepository;
+	private final PermissionChecker permissionChecker;
 
 	public PermissionInterceptor(OrganisationMembershipRepository membershipRepository) {
-		this.membershipRepository = membershipRepository;
+		this.permissionChecker = new PermissionChecker(membershipRepository);
 	}
 
 	@Override
@@ -45,23 +43,8 @@ public class PermissionInterceptor implements HandlerInterceptor {
 			throw new AuthorizationDeniedException("No authenticated caller for a permission-gated endpoint");
 		}
 
-		// The Owner's membership is the org's "*" capability - bypassing the granular check
-		// entirely (rather than enumerating every catalog code onto their role) means a
-		// permission added to the catalog tomorrow automatically covers every existing
-		// Owner with no data backfill.
-		if (membershipRepository.existsByUserIdAndStatusAndOwner(actorId, MembershipStatus.ACTIVE, true)) {
-			return true;
-		}
-
-		// ALL_FUNCTIONS (GitHub #200) is the assignable-to-any-role equivalent of the Owner
-		// bypass above - lets an org grant a *custom* role blanket admin access via the
-		// normal Role -> Permission chain, without needing to be the fixed Owner membership.
-		Set<String> grantedCodes = membershipRepository.findActivePermissionCodesForUser(actorId);
-		if (grantedCodes.contains("ALL_FUNCTIONS")) {
-			return true;
-		}
 		java.util.List<String> acceptable = required.value().isEmpty() ? java.util.List.of(required.anyOf()) : java.util.List.of(required.value());
-		if (acceptable.stream().noneMatch(grantedCodes::contains)) {
+		if (!permissionChecker.holdsAny(actorId, acceptable)) {
 			throw new AuthorizationDeniedException("Missing required permission: " + String.join(" or ", acceptable));
 		}
 		return true;

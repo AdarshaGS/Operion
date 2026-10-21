@@ -30,7 +30,9 @@ import org.springframework.web.method.HandlerMethod;
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class ModuleAccessServiceTest {
 
-	private static final AppModule[] DEFAULT_OFF = { AppModule.TRANSPORT, AppModule.COMMUNICATION, AppModule.MESSAGING };
+	private static final AppModule[] DEFAULT_OFF = { AppModule.LIBRARY, AppModule.LEARNING, AppModule.TRANSPORT, AppModule.MESSAGING,
+			AppModule.INVENTORY, AppModule.PURCHASE, AppModule.SALES, AppModule.REPORTS, AppModule.PAYROLL, AppModule.COMPLIANCE,
+			AppModule.PERFORMANCE };
 
 	@Autowired
 	private OrganisationRepository organisationRepository;
@@ -59,7 +61,7 @@ class ModuleAccessServiceTest {
 	}
 
 	@Test
-	void everyModuleIsEnabledByDefaultExceptTransportCommunicationAndMessaging() {
+	void everyModuleIsEnabledByDefaultExceptTheOptInOnes() {
 		assertThat(service.disabledModules(orgA.getId())).containsExactlyInAnyOrder(DEFAULT_OFF);
 		assertThat(service.states(orgA.getId())).hasSize(AppModule.values().length)
 				.allMatch(state -> state.enabled() == state.module().defaultEnabled());
@@ -84,9 +86,9 @@ class ModuleAccessServiceTest {
 
 	@Test
 	void repeatingTheCurrentStateWritesNoHistoryRow() {
+		service.setEnabled(orgA.getId(), AppModule.LIBRARY, false, null);
 		service.setEnabled(orgA.getId(), AppModule.LIBRARY, true, null);
-		service.setEnabled(orgA.getId(), AppModule.LIBRARY, false, null);
-		service.setEnabled(orgA.getId(), AppModule.LIBRARY, false, null);
+		service.setEnabled(orgA.getId(), AppModule.LIBRARY, true, null);
 		assertThat(service.history(orgA.getId())).hasSize(1);
 	}
 
@@ -104,7 +106,8 @@ class ModuleAccessServiceTest {
 	@Test
 	void interceptorBlocksADisabledModuleForAnyCallerButNotOtherModulesOrCore() throws Exception {
 		ModuleAccessInterceptor interceptor = new ModuleAccessInterceptor(service);
-		service.setEnabled(orgA.getId(), AppModule.LIBRARY, false, null);
+		// Library is off by default; only orgB switches it on.
+		service.setEnabled(orgB.getId(), AppModule.LIBRARY, true, null);
 
 		TenantContext.set(orgA.getId(), 1L);
 		assertThatThrownBy(() -> interceptor.preHandle(new MockHttpServletRequest("GET", "/x"), new MockHttpServletResponse(),
@@ -115,7 +118,7 @@ class ModuleAccessServiceTest {
 		assertThat(interceptor.preHandle(new MockHttpServletRequest("OPTIONS", "/x"), new MockHttpServletResponse(), handler(LibraryProbe.class)))
 				.isTrue();
 
-		// Another organisation, same endpoint: unaffected.
+		// Another organisation that switched it on, same endpoint: allowed.
 		TenantContext.set(orgB.getId(), 2L);
 		assertThat(interceptor.preHandle(new MockHttpServletRequest("GET", "/x"), new MockHttpServletResponse(), handler(LibraryProbe.class)))
 				.isTrue();

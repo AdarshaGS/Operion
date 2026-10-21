@@ -9,6 +9,7 @@ import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { Wordmark } from "../../branding/Wordmark";
+import { PasswordField } from "../../components/PasswordField";
 import { colors } from "../../theme";
 import { PlatformApiError } from "../api/platformClient";
 import { usePlatformAuth } from "./PlatformAuthContext";
@@ -66,9 +67,8 @@ export function PlatformLoginPage() {
 						autoFocus
 						autoComplete="username"
 					/>
-					<TextField
+					<PasswordField
 						label="Password"
-						type="password"
 						value={password}
 						onChange={(e) => setPassword(e.target.value)}
 						required

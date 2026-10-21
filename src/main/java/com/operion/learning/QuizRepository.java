@@ -12,4 +12,6 @@ public interface QuizRepository extends JpaRepository<Quiz, Long> {
 	List<Quiz> findBySectionIdInOrderByOpensAtDescIdDesc(Collection<Long> sectionIds);
 
 	List<Quiz> findBySectionIdAndStatusOrderByOpensAtDescIdDesc(Long sectionId, QuizStatus status);
+
+	List<Quiz> findByStatusAndOpensAtBetween(QuizStatus status, java.time.Instant from, java.time.Instant to);
 }

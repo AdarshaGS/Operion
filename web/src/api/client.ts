@@ -70,6 +70,30 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 	return (text ? JSON.parse(text) : undefined) as T;
 }
 
+/** Fetches an authenticated file (PDF, CSV) and hands it to the browser as a download. */
+export async function downloadFile(path: string, fallbackName: string): Promise<void> {
+	const session = getSession();
+	const headers = new Headers({ "ngrok-skip-browser-warning": "true" });
+	if (session) headers.set("Authorization", `Bearer ${session.token}`);
+	const response = await fetch(`${API_BASE_URL}${path}`, { headers });
+	if (response.status === 401 && session) {
+		clearSession();
+		throw new ApiError(401, "Session expired - please log in again");
+	}
+	if (!response.ok) {
+		const body = await response.json().catch(() => null);
+		throw new ApiError(response.status, body?.error ?? `Download failed with status ${response.status}`);
+	}
+	const disposition = response.headers.get("Content-Disposition") ?? "";
+	const name = /filename="?([^";]+)"?/.exec(disposition)?.[1] ?? fallbackName;
+	const url = URL.createObjectURL(await response.blob());
+	const link = document.createElement("a");
+	link.href = url;
+	link.download = name;
+	link.click();
+	URL.revokeObjectURL(url);
+}
+
 export const api = {
 	get: <T>(path: string) => request<T>(path, { method: "GET" }),
 	post: <T>(path: string, body?: unknown) => request<T>(path, { method: "POST", body: body ? JSON.stringify(body) : undefined }),

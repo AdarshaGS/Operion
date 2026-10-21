@@ -29,6 +29,14 @@ import { PlatformApiError } from "./api/platformClient";
 import { getMrr, listAllSubscriptions, type SubscriptionResponse } from "./api/subscriptions";
 import { listUsage, type UsageResponse } from "./api/usage";
 import { describeActivity } from "./activityDescriptions";
+import ApartmentIcon from "@mui/icons-material/Apartment";
+import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import HourglassTopIcon from "@mui/icons-material/HourglassTop";
+import PaidIcon from "@mui/icons-material/Paid";
+import PercentIcon from "@mui/icons-material/Percent";
+import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
+import SellIcon from "@mui/icons-material/Sell";
+import { HeroBanner, StatCard, StatGrid, type Tint } from "../components/DashboardKit";
 import { colors } from "../theme";
 import { PipelineSection } from "./crm/PipelineSection";
 
@@ -96,24 +104,8 @@ function bucketRevenueByMonth(invoices: PlatformInvoiceResponse[], months: numbe
 	return buckets.map(({ month, amount }) => ({ month, amount }));
 }
 
-function StatTile({ label, value, hint, onClick }: { label: string; value: string; hint?: string; onClick?: () => void }) {
-	return (
-		<Paper sx={{ p: 2.5, flex: "1 1 180px", cursor: onClick ? "pointer" : "default" }} onClick={onClick} variant="outlined">
-			<Stack spacing={0.5}>
-				<Typography variant="overline" color="text.secondary">
-					{label}
-				</Typography>
-				<Typography variant="h4" component="div">
-					{value}
-				</Typography>
-				{hint && (
-					<Typography variant="caption" color="text.secondary">
-						{hint}
-					</Typography>
-				)}
-			</Stack>
-		</Paper>
-	);
+function StatTile({ label, value, hint, icon, tint, onClick }: { label: string; value: string; hint?: string; icon: React.ReactNode; tint: Tint; onClick?: () => void }) {
+	return <StatCard icon={icon} tint={tint} label={label} value={value} chip={hint} onClick={onClick} />;
 }
 
 /** Landing page for the platform-admin plane - aggregate counts pulled from the same
@@ -205,56 +197,61 @@ export function DashboardPage() {
 
 	return (
 		<Stack spacing={3}>
-			<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 2 }}>
-				<Stack spacing={0.5}>
-					<Typography variant="h4" component="h1">
-						{greeting()}
-					</Typography>
-					<Typography variant="body2" color="text.secondary">
-						Here&apos;s what&apos;s happening across Operion.
-					</Typography>
-				</Stack>
-			</Box>
+			<HeroBanner
+				title={<>{greeting()} 👋</>}
+				subtitle="Here's what's happening across Operion."
+				quote="Great schools are built one well-run day at a time."
+			/>
 
 			{error && <Alert severity="error">{error}</Alert>}
 
 			{!loading && (
 				<>
-					<Stack direction="row" spacing={2} sx={{ flexWrap: "wrap" }}>
+					<StatGrid columns={3}>
 						<StatTile
 							label="Total organisations"
+								icon={<ApartmentIcon />}
+								tint="violet"
 							value={String(organisations!.length)}
 							onClick={() => navigate("/platform/organisations")}
 						/>
 						<StatTile
 							label="Active organisations"
+								icon={<CheckCircleIcon />}
+								tint="green"
 							value={String(orgCountByStatus.ACTIVE)}
 							hint={organisations!.length ? `${Math.round((orgCountByStatus.ACTIVE / organisations!.length) * 100)}% of total` : undefined}
 							onClick={() => navigate("/platform/organisations")}
 						/>
 						<StatTile
 							label="Trial organisations"
+								icon={<HourglassTopIcon />}
+								tint="orange"
 							value={String(orgCountByStatus.TRIAL)}
 							hint={organisations!.length ? `${Math.round((orgCountByStatus.TRIAL / organisations!.length) * 100)}% of total` : undefined}
 							onClick={() => navigate("/platform/organisations")}
 						/>
 						<StatTile
 							label="Outstanding"
+								icon={<ReceiptLongIcon />}
+								tint="pink"
 							value={currency(outstandingTotal)}
 							hint={`${outstandingInvoices.length} invoice${outstandingInvoices.length === 1 ? "" : "s"}`}
 							onClick={() => navigate("/platform/invoices")}
 						/>
-						<StatTile label="Collection rate" value={collectionRate === null ? "—" : `${collectionRate.toFixed(1)}%`} />
+						<StatTile icon={<PercentIcon />} tint="blue" label="Collection rate" value={collectionRate === null ? "—" : `${collectionRate.toFixed(1)}%`} />
 						<StatTile
 							label="MRR"
+								icon={<PaidIcon />}
+								tint="violet"
 							value={currency(mrr!)}
 							hint="rate × active students ÷ 12"
 							onClick={() => navigate("/platform/subscriptions")}
 						/>
-					</Stack>
+					</StatGrid>
 
 					<Stack direction={{ xs: "column", md: "row" }} spacing={2}>
-						<Paper variant="outlined" sx={{ p: 2.5, flex: 1, minWidth: 0 }}>
+						<Paper sx={{ p: 2.5, flex: 1, minWidth: 0 }}>
 							<Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center", mb: 1 }}>
 								<Box>
 									<Typography variant="h6">Organisation growth</Typography>
@@ -285,7 +282,7 @@ export function DashboardPage() {
 							</Box>
 						</Paper>
 
-						<Paper variant="outlined" sx={{ p: 2.5, flex: 1, minWidth: 0 }}>
+						<Paper sx={{ p: 2.5, flex: 1, minWidth: 0 }}>
 							<Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center", mb: 1 }}>
 								<Box>
 									<Typography variant="h6">Billed revenue</Typography>
@@ -318,7 +315,7 @@ export function DashboardPage() {
 					</Stack>
 
 					<Stack direction={{ xs: "column", md: "row" }} spacing={2} sx={{ alignItems: "stretch" }}>
-						<Paper variant="outlined" sx={{ p: 2.5, flex: 1, minWidth: 0 }}>
+						<Paper sx={{ p: 2.5, flex: 1, minWidth: 0 }}>
 							<Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center", mb: 1 }}>
 								<Typography variant="h6">Needs attention</Typography>
 								<Chip label={needsAttentionCount} size="small" color={needsAttentionCount ? "error" : "default"} />
@@ -391,7 +388,7 @@ export function DashboardPage() {
 							</Stack>
 						</Paper>
 
-						<Paper variant="outlined" sx={{ p: 2.5, flex: 1, minWidth: 0 }}>
+						<Paper sx={{ p: 2.5, flex: 1, minWidth: 0 }}>
 							<Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center", mb: 1 }}>
 								<Typography variant="h6">Recent activity</Typography>
 								<Button size="small" onClick={() => navigate("/platform/activity")}>
@@ -424,11 +421,11 @@ export function DashboardPage() {
 						<Typography variant="h6" sx={{ mb: 1.5 }}>
 							Plans
 						</Typography>
-						<Stack direction="row" spacing={2} sx={{ flexWrap: "wrap" }}>
-							<StatTile label="Active subscriptions" value={String(activeSubscriptions)} />
-							<StatTile label="Active plans" value={String(activePlans)} onClick={() => navigate("/platform/plans")} />
-							<StatTile label="Collected revenue" value={currency(paidTotal)} onClick={() => navigate("/platform/payments")} />
-						</Stack>
+						<StatGrid columns={3}>
+							<StatTile icon={<CheckCircleIcon />} tint="green" label="Active subscriptions" value={String(activeSubscriptions)} />
+							<StatTile icon={<SellIcon />} tint="violet" label="Active plans" value={String(activePlans)} onClick={() => navigate("/platform/plans")} />
+							<StatTile icon={<PaidIcon />} tint="blue" label="Collected revenue" value={currency(paidTotal)} onClick={() => navigate("/platform/payments")} />
+						</StatGrid>
 					</Box>
 				</>
 			)}

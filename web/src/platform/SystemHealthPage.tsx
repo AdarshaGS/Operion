@@ -6,6 +6,8 @@ import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import { getSystemHealth, type SystemHealthComponent } from "./api/systemHealth";
 import { PlatformApiError } from "./api/platformClient";
+import { BackupsPanel } from "./BackupsPanel";
+import { SecretsPanel } from "./SecretsPanel";
 
 /** Deliberately just API + Database - see SystemHealthController's javadoc for why the
  * mockup's other chips (Auth/Background Jobs/Email) aren't here: there's no scheduler/
@@ -15,11 +17,13 @@ export function SystemHealthPage() {
 	const [components, setComponents] = useState<SystemHealthComponent[] | null>(null);
 	const [error, setError] = useState<string | null>(null);
 
-	useEffect(() => {
+	function loadHealth() {
 		getSystemHealth()
 			.then(setComponents)
 			.catch((err) => setError(err instanceof PlatformApiError ? err.message : "Failed to load system health"));
-	}, []);
+	}
+
+	useEffect(loadHealth, []);
 
 	const allOperational = components?.every((c) => c.operational) ?? false;
 
@@ -59,6 +63,9 @@ export function SystemHealthPage() {
 					</Stack>
 				</Paper>
 			)}
+
+			<SecretsPanel />
+			<BackupsPanel onChange={loadHealth} />
 		</Stack>
 	);
 }

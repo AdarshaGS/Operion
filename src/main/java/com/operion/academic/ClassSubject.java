@@ -38,6 +38,10 @@ public class ClassSubject extends TenantScopedEntity {
 	@Column(nullable = false, length = 20)
 	private ClassSubjectStatus status;
 
+	/** Periods per week this subject gets in the class; null means no quota (nothing caps or requires its timetable slots). */
+	@Column(name = "weekly_periods")
+	private Integer weeklyPeriods;
+
 	public ClassSubject(SchoolClass schoolClass, Subject subject, boolean mandatory) {
 		this.schoolClass = schoolClass;
 		this.subject = subject;
@@ -47,6 +51,14 @@ public class ClassSubject extends TenantScopedEntity {
 
 	public void changeStatus(ClassSubjectStatus status) {
 		this.status = status;
+	}
+
+	/** Zero or null clears the quota. */
+	public void updateWeeklyPeriods(Integer weeklyPeriods) {
+		if (weeklyPeriods != null && weeklyPeriods < 0) {
+			throw new com.operion.common.InvalidRequestException("Weekly periods cannot be negative");
+		}
+		this.weeklyPeriods = weeklyPeriods == null || weeklyPeriods == 0 ? null : weeklyPeriods;
 	}
 
 	public void updateMandatory(boolean mandatory) {

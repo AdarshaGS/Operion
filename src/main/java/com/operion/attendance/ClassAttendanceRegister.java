@@ -1,5 +1,6 @@
 package com.operion.attendance;
 
+import java.time.Instant;
 import java.time.LocalDate;
 
 import com.operion.academic.Section;
@@ -43,6 +44,10 @@ public class ClassAttendanceRegister extends TenantScopedEntity {
 	@Column(name = "register_status", nullable = false, length = 20)
 	private ClassAttendanceRegisterStatus registerStatus;
 
+	/** When the register was submitted; null for registers submitted before this was recorded. */
+	@Column(name = "submitted_at")
+	private Instant submittedAt;
+
 	public ClassAttendanceRegister(AcademicYear academicYear, Section section, LocalDate attendanceDate) {
 		this.academicYear = academicYear;
 		this.section = section;
@@ -55,6 +60,7 @@ public class ClassAttendanceRegister extends TenantScopedEntity {
 			throw new IllegalStateException("Register " + getId() + " is not in DRAFT, cannot submit");
 		}
 		this.registerStatus = ClassAttendanceRegisterStatus.SUBMITTED;
+		this.submittedAt = Instant.now();
 	}
 
 	public void lock() {

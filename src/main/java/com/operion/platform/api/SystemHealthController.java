@@ -5,7 +5,9 @@ import java.util.List;
 
 import javax.sql.DataSource;
 
+import com.operion.backup.BackupService;
 import com.operion.common.SchedulerHeartbeat;
+import com.operion.common.SecretsGuard;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -24,10 +26,15 @@ public class SystemHealthController {
 
 	private final DataSource dataSource;
 	private final SchedulerHeartbeat schedulerHeartbeat;
+	private final BackupService backupService;
+	private final SecretsGuard secretsGuard;
 
-	public SystemHealthController(DataSource dataSource, SchedulerHeartbeat schedulerHeartbeat) {
+	public SystemHealthController(DataSource dataSource, SchedulerHeartbeat schedulerHeartbeat, BackupService backupService,
+			SecretsGuard secretsGuard) {
 		this.dataSource = dataSource;
 		this.schedulerHeartbeat = schedulerHeartbeat;
+		this.backupService = backupService;
+		this.secretsGuard = secretsGuard;
 	}
 
 	@GetMapping("/api/v1/platform/system-health")
@@ -35,7 +42,17 @@ public class SystemHealthController {
 		return List.of(
 				new SystemHealthComponentResponse("API", true),
 				new SystemHealthComponentResponse("Database", databaseIsUp()),
-				new SystemHealthComponentResponse("Background Jobs", schedulerHeartbeat.isHealthy()));
+				new SystemHealthComponentResponse("Background Jobs", schedulerHeartbeat.isHealthy()),
+				// A backup under a day old with no failure since - see BackupService.isHealthy.
+				new SystemHealthComponentResponse("Backups", backupService.isHealthy()),
+				// No secret left at a published default - see SecretsGuard; production refuses to start otherwise.
+				new SystemHealthComponentResponse("Secrets", secretsGuard.report().problems().isEmpty()));
+	}
+
+	/** What SecretsGuard found, by environment variable name only - never the values. */
+	@GetMapping("/api/v1/platform/system-health/secrets")
+	public SecretsGuard.Report secrets() {
+		return secretsGuard.report();
 	}
 
 	private boolean databaseIsUp() {
