@@ -24,7 +24,7 @@ Verification: **Confirmed** = read in code (H1, H2 re-checked by hand); **Plausi
 | SEC-M3 | Public token endpoints (refresh, reset, claim-invite, verify-email…) bcrypt-compare against every live token in the org with no rate limit → cheap CPU DoS | `PasswordResetService`, `RefreshTokenService`, `PortalInviteService` | Confirmed (DoS impact plausible) | open |
 | SEC-M4 | `POST /api/v1/organisations` is public and passes client `planId` to billing → anyone can create schools / pick a plan | `organisation/api/OrganisationController.java` | Confirmed (billing effect unverified) | open |
 | SEC-M5 | `/uploads/**` served without auth or tenant check; references not bound to the uploading org (only UUID names protect staff docs, photos, answer sheets) | `common/WebConfig.java`, `storage/LocalDiskAssetStorageService.java` | Confirmed | open |
-| SEC-M6 | `GET /api/v1/persons` has no permission check → any staff role (driver, librarian) can list every student/guardian's phone, email, address, DOB | `identity/api/PersonController.java` | Confirmed | open |
+| SEC-M6 | `GET /api/v1/persons` has no permission check → any staff role (driver, librarian) can list every student/guardian's phone, email, address, DOB | `identity/api/PersonController.java` | Confirmed | fixed — list/get return names+photo only unless the caller holds a people-viewing permission (STUDENT/GUARDIAN/HR/MEMBERSHIP view or manage, INVENTORY_CUSTOMER_MANAGE); pickers keep working |
 | SEC-M7 | Any member can open a direct message thread with any person (guardian → other children) | `messaging/api/MessagingController.java` | Confirmed — moot if Messaging is disabled for go-live | open |
 
 ## Security — Low

@@ -1,8 +1,10 @@
 package com.operion.identity.api;
 
 import java.util.List;
+import java.util.function.Function;
 
 import com.operion.authorization.AuthorizationDeniedException;
+import com.operion.authorization.PermissionChecker;
 import com.operion.authorization.PortalSessionPolicy;
 import com.operion.authorization.RequirePermission;
 import com.operion.common.InvalidRequestException;
@@ -30,10 +32,18 @@ public class PersonController {
 
 	private final PersonRepository personRepository;
 	private final PortalSessionPolicy portalSessionPolicy;
+	private final PermissionChecker permissionChecker;
 
-	public PersonController(PersonRepository personRepository, PortalSessionPolicy portalSessionPolicy) {
+	/** Phone, email, address and date of birth go only to roles that already see people's records elsewhere; everyone
+	 * else (a driver, a librarian picking a borrower) gets names and photos, which is all the pickers need (SEC-M6). */
+	private static final List<String> CONTACT_VIEW_CODES = List.of("STUDENT_VIEW", "STUDENT_MANAGE", "GUARDIAN_VIEW",
+			"GUARDIAN_MANAGE", "HR_VIEW", "HR_STAFF_MANAGE", "MEMBERSHIP_VIEW", "MEMBERSHIP_MANAGE", "INVENTORY_CUSTOMER_MANAGE");
+
+	public PersonController(PersonRepository personRepository, PortalSessionPolicy portalSessionPolicy,
+			PermissionChecker permissionChecker) {
 		this.personRepository = personRepository;
 		this.portalSessionPolicy = portalSessionPolicy;
+		this.permissionChecker = permissionChecker;
 	}
 
 	/** Persons are created from several modules (students, guardians, staff, members), so any of those manage permissions suffices. */
@@ -51,13 +61,19 @@ public class PersonController {
 	}
 
 	/** Reads stay open to staff (teacher pickers, attendance and marks screens all list
-	 * persons), but a portal-only session (guardian) never gets the org-wide directory. */
+	 * persons), but a portal-only session (guardian) never gets the org-wide directory,
+	 * and contact details are limited to CONTACT_VIEW_CODES holders. */
 	@GetMapping
 	public List<PersonResponse> list() {
 		if (portalSessionPolicy.isPortalOnly(TenantContext.getActorId())) {
 			throw new AuthorizationDeniedException("The person directory is not available to portal users");
 		}
-		return personRepository.findAll().stream().map(PersonResponse::from).toList();
+		Function<Person, PersonResponse> view = seesContactDetails() ? PersonResponse::from : PersonResponse::nameOnly;
+		return personRepository.findAll().stream().map(view).toList();
+	}
+
+	private boolean seesContactDetails() {
+		return permissionChecker.holdsAny(TenantContext.getActorId(), CONTACT_VIEW_CODES);
 	}
 
 	/** A portal session still needs names (message threads, teacher on a child's
@@ -65,7 +81,7 @@ public class PersonController {
 	@GetMapping("/{id}")
 	public PersonResponse get(@PathVariable Long id) {
 		Person person = findOrThrow(id);
-		if (portalSessionPolicy.isPortalOnly(TenantContext.getActorId())) {
+		if (portalSessionPolicy.isPortalOnly(TenantContext.getActorId()) || !seesContactDetails()) {
 			return PersonResponse.nameOnly(person);
 		}
 		return PersonResponse.from(person);
