@@ -46,7 +46,33 @@ Verification: **Confirmed** = read in code (H1, H2 re-checked by hand); **Plausi
 
 ## Automation failures
 
-_Pending: full API/UI + sanity run in progress on the throwaway stack (:8091 / :5184)._
+Run 2026-10-21 on a fresh `operion_auto` stack, jar built from `725f08f` (before any fix above).
+**Sanity: 17/17 journeys pass (all 15 phases + legacy journey).** API/UI: 2662 passed, 65 failed, 3 skipped, 8 did not run.
+
+### Product bugs (from the run)
+
+| ID | Bug | Evidence | Severity | Status |
+|---|---|---|---|---|
+| AUTO-1 | Performance endpoints answer while the Performance module is switched off (module gate bypass) | PERF-01: `GET /api/v1/performance/metrics` → 200 with module off | Medium | open |
+| AUTO-2 | Resending a staff invite fails: `POST /users/{id}/resend-invite` → 404 "No user with id" | AUTH-22 | Medium | open — investigate |
+| AUTO-3 | A fee payment dated 2999-01-01 is accepted and gets a receipt number | FEE-25 | Medium (receipt data) | open |
+| AUTO-4 | Unknown grade-level stage (`GALACTIC`) accepted | ACA-06 | Low | open |
+| AUTO-5 | Three 500s instead of 400: audit-log sort by unknown field; report create/run with `parameters` / `parameterValues` omitted (NPE) | backend.log | Low | open |
+| AUTO-6 | Two inputs both named "Search" on the student list (top-bar global search + page search) — ambiguous for screen readers; breaks ~10 UI tests | STU-U03/U05/U08/U10 strict-mode violations; `layout/TopbarParts.tsx:191` | Low | open |
+| AUTO-7 | 116 "Unhandled exception … Broken pipe" ERROR lines when the browser leaves mid-response — log noise that would hide real errors in production | backend.log | Low | open |
+
+### Automation out of date (screen/behaviour changed on purpose — fix the test, not the product)
+
+| Tests | Why |
+|---|---|
+| SET-12 | Expects Communication off by default; it is now a core module on by default (sanity 12 relies on that) |
+| ME-02 leave balance | Leave now counts working days (holiday-aware leave); the fixture asks 2 days over a weekly off |
+| EXM-U01/U05/U06/U08 (10) | Examination settings moved behind a Settings tab on the Exams page |
+| MEM-U04 | `getByLabel('Password')` now also matches the new "Show password" button |
+
+### Not yet triaged (need the failure screenshots)
+
+Fees UI (33 — student picker option not found / two "Class" comboboxes on the overdue page; likely one shared cause), Performance UI (3), CERT-U03, AUTH-U07 ×2 (email-verification page), ADM-U01 (empty-state text), ACA-U01 (a 5xx during class creation), COM-U04.
 
 ## Checked and fine (security review)
 
