@@ -38,6 +38,24 @@ public class PermissionChecker {
 		return grantedCodes.contains("ALL_FUNCTIONS") || codes.stream().anyMatch(grantedCodes::contains);
 	}
 
+	/** Delegation rule: a caller can only hand out (via a role or a membership) what they hold themselves. */
+	public boolean holdsAll(Long userId, Collection<String> codes) {
+		if (userId == null) {
+			return false;
+		}
+		if (codes.isEmpty() || membershipRepository.existsByUserIdAndStatusAndOwner(userId, MembershipStatus.ACTIVE, true)) {
+			return true;
+		}
+		Set<String> grantedCodes = membershipRepository.findActivePermissionCodesForUser(userId);
+		return grantedCodes.contains("ALL_FUNCTIONS") || grantedCodes.containsAll(codes);
+	}
+
+	public void requireAll(Long userId, Collection<String> codes, String message) {
+		if (!holdsAll(userId, codes)) {
+			throw new AuthorizationDeniedException(message);
+		}
+	}
+
 	public void require(Long userId, String code) {
 		if (!holdsAny(userId, Set.of(code))) {
 			throw new AuthorizationDeniedException("Missing required permission: " + code);

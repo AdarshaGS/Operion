@@ -58,6 +58,9 @@ class MembershipServiceTest {
 	@Autowired
 	private AuditLogRepository auditLogRepository;
 
+	@Autowired
+	private PermissionRepository permissionRepository;
+
 	private Organisation organisation;
 
 	@BeforeEach
@@ -89,6 +92,67 @@ class MembershipServiceTest {
 		assertThat(membership.getStatus()).isEqualTo(MembershipStatus.ACTIVE);
 		assertThat(membership.getMemberId()).isNull();
 		assertThat(membership.getJoiningDate()).isNull();
+	}
+
+	/** A member who manages memberships, holding {@code actorCodes}, plus a target role carrying {@code targetCodes}. */
+	private Long actorHolding(String... actorCodes) {
+		Role actorRole = new Role("Office " + System.nanoTime(), "manages members", false);
+		for (String code : actorCodes) {
+			actorRole.grant(permission(code));
+		}
+		actorRole = roleRepository.save(actorRole);
+		User actor = userRepository.save(new User("actor-" + System.nanoTime() + "@example.com", null, "hash"));
+		Person person = personRepository.save(new Person("Office", "Manager"));
+		membershipRepository.save(new OrganisationMembership(actor, person, actorRole, null));
+		return actor.getId();
+	}
+
+	private Permission permission(String code) {
+		return permissionRepository.findAll().stream().filter(p -> p.getCode().equals(code)).findFirst()
+				.orElseGet(() -> permissionRepository.save(new Permission(code, "test", null)));
+	}
+
+	@Test
+	void anActorCannotGrantARoleCarryingPermissionsTheyDoNotHold() {
+		Long actorId = actorHolding("MEMBERSHIP_MANAGE", "MS_LOW");
+		Role adminLike = new Role("Admin-like", "more than the actor has", false);
+		adminLike.grant(permission("MS_LOW"));
+		adminLike.grant(permission("ALL_FUNCTIONS"));
+		Long roleId = roleRepository.save(adminLike).getId();
+		User target = userRepository.save(new User("escalate@example.com", null, "hash"));
+		Person person = personRepository.save(new Person("Esca", "Late"));
+
+		assertThatThrownBy(() -> membershipService.grant(target.getId(), person.getId(), roleId, null, null, null, null, actorId))
+				.isInstanceOf(AuthorizationDeniedException.class);
+		assertThat(membershipRepository.findByUserId(target.getId())).isEmpty();
+	}
+
+	@Test
+	void anActorCanGrantARoleWhosePermissionsTheyHold() {
+		Long actorId = actorHolding("MEMBERSHIP_MANAGE", "MS_LOW", "MS_MID");
+		Role teacher = new Role("Teacher", "teaches", false);
+		teacher.grant(permission("MS_LOW"));
+		Long roleId = roleRepository.save(teacher).getId();
+		User target = userRepository.save(new User("allowed@example.com", null, "hash"));
+		Person person = personRepository.save(new Person("Al", "Lowed"));
+
+		membershipService.grant(target.getId(), person.getId(), roleId, null, null, null, null, actorId);
+
+		assertThat(membershipRepository.findByUserId(target.getId())).hasSize(1);
+	}
+
+	@Test
+	void anAllFunctionsHolderCanGrantAnyRole() {
+		Long actorId = actorHolding("ALL_FUNCTIONS");
+		Role role = new Role("Bursar", "money", false);
+		role.grant(permission("MS_HIGH"));
+		Long roleId = roleRepository.save(role).getId();
+		User target = userRepository.save(new User("bursar@example.com", null, "hash"));
+		Person person = personRepository.save(new Person("Bur", "Sar"));
+
+		membershipService.grant(target.getId(), person.getId(), roleId, null, null, null, null, actorId);
+
+		assertThat(membershipRepository.findByUserId(target.getId())).hasSize(1);
 	}
 
 	@Test

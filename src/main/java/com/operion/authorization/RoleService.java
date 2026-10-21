@@ -17,6 +17,7 @@ public class RoleService {
 	private final PermissionRepository permissionRepository;
 	private final AuditLogService auditLogService;
 	private final OrganisationMembershipRepository membershipRepository;
+	private final PermissionChecker permissionChecker;
 
 	public RoleService(RoleRepository roleRepository, PermissionRepository permissionRepository, AuditLogService auditLogService,
 			OrganisationMembershipRepository membershipRepository) {
@@ -24,6 +25,7 @@ public class RoleService {
 		this.permissionRepository = permissionRepository;
 		this.auditLogService = auditLogService;
 		this.membershipRepository = membershipRepository;
+		this.permissionChecker = new PermissionChecker(membershipRepository);
 	}
 
 	@Transactional
@@ -33,12 +35,20 @@ public class RoleService {
 
 	@Transactional
 	public Role create(String name, String description, Set<String> permissionCodes, boolean portal) {
+		return create(name, description, permissionCodes, portal, null);
+	}
+
+	/** {@code actorId} is the signed-in user on the HTTP path: a new role may only carry permissions they hold themselves.
+	 * Internal callers (the school template) pass null. */
+	@Transactional
+	public Role create(String name, String description, Set<String> permissionCodes, boolean portal, Long actorId) {
 		if (name == null || name.isBlank()) {
 			throw new InvalidRequestException("A role name is required");
 		}
 		if (permissionCodes == null) {
 			permissionCodes = Set.of();
 		}
+		rejectDelegatingUnheld(actorId, permissionCodes);
 		Role role = new Role(name.trim(), description, false, false, portal);
 		resolvePermissions(permissionCodes).forEach(role::grant);
 		role = roleRepository.save(role);
@@ -85,6 +95,9 @@ public class RoleService {
 		}
 		Role role = findOrThrow(roleId);
 		Set<String> before = role.getPermissions().stream().map(Permission::getCode).collect(Collectors.toSet());
+		// Only codes being added are checked - codes the role already carries (incl. those of switched-off modules the
+		// controller keeps) can stay even if the caller doesn't hold them, so an admin can still untick other boxes.
+		rejectDelegatingUnheld(actorId, permissionCodes.stream().filter(code -> !before.contains(code)).collect(Collectors.toSet()));
 
 		resolvePermissions(permissionCodes).forEach(role::grant);
 		role.getPermissions().stream()
@@ -125,6 +138,14 @@ public class RoleService {
 	private void rejectActorHolding(Long roleId, Long actorId) {
 		if (actorId != null && membershipRepository.existsByUserIdAndRoleIdAndStatus(actorId, roleId, MembershipStatus.ACTIVE)) {
 			throw new AuthorizationDeniedException("You cannot change a role you hold yourself - ask another administrator to do it");
+		}
+	}
+
+	/** Nobody may hand out access they don't have - without this, ROLE_MANAGE alone is a path to ALL_FUNCTIONS. */
+	private void rejectDelegatingUnheld(Long actorId, Set<String> codes) {
+		if (actorId != null) {
+			permissionChecker.requireAll(actorId, codes, "You cannot give a role permissions you don't hold yourself: "
+					+ codes.stream().sorted().collect(Collectors.joining(", ")));
 		}
 	}
 

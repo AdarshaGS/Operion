@@ -1,6 +1,7 @@
 package com.operion.authorization;
 
 import java.time.LocalDate;
+import java.util.List;
 
 import com.operion.audit.AuditLogService;
 import com.operion.common.InvalidRequestException;
@@ -25,6 +26,7 @@ public class MembershipService {
 	private final CampusRepository campusRepository;
 	private final DepartmentRepository departmentRepository;
 	private final AuditLogService auditLogService;
+	private final PermissionChecker permissionChecker;
 
 	public MembershipService(OrganisationMembershipRepository membershipRepository, UserRepository userRepository,
 			PersonRepository personRepository, RoleRepository roleRepository, CampusRepository campusRepository,
@@ -36,6 +38,7 @@ public class MembershipService {
 		this.campusRepository = campusRepository;
 		this.departmentRepository = departmentRepository;
 		this.auditLogService = auditLogService;
+		this.permissionChecker = new PermissionChecker(membershipRepository);
 	}
 
 	public OrganisationMembership grant(Long userId, Long personId, Long roleId, Long campusId, Long departmentId) {
@@ -45,6 +48,14 @@ public class MembershipService {
 	@Transactional
 	public OrganisationMembership grant(Long userId, Long personId, Long roleId, Long campusId, Long departmentId, String memberId,
 			LocalDate joiningDate) {
+		return grant(userId, personId, roleId, campusId, departmentId, memberId, joiningDate, null);
+	}
+
+	/** {@code actorId} is the signed-in user on the HTTP path: they may only grant a role whose permissions they already hold,
+	 * so MEMBERSHIP_MANAGE alone can't be turned into admin access. Internal callers (portal invite claim) pass null. */
+	@Transactional
+	public OrganisationMembership grant(Long userId, Long personId, Long roleId, Long campusId, Long departmentId, String memberId,
+			LocalDate joiningDate, Long actorId) {
 		if (userId == null || personId == null || roleId == null) {
 			throw new InvalidRequestException("userId, personId and roleId are required");
 		}
@@ -56,6 +67,11 @@ public class MembershipService {
 				.orElseThrow(() -> new IllegalArgumentException("No role with id " + roleId));
 		if (role.getStatus() != RoleStatus.ACTIVE) {
 			throw new IllegalStateException("The role " + role.getName() + " is inactive and cannot be assigned");
+		}
+		if (actorId != null) {
+			List<String> roleCodes = role.getPermissions().stream().map(Permission::getCode).toList();
+			permissionChecker.requireAll(actorId, roleCodes,
+					"You can only assign a role whose permissions you hold yourself - ask an administrator to assign " + role.getName());
 		}
 		Campus campus = campusId == null ? null : campusRepository.findById(campusId)
 				.orElseThrow(() -> new IllegalArgumentException("No campus with id " + campusId));

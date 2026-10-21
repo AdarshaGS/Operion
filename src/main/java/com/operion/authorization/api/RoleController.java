@@ -52,7 +52,8 @@ public class RoleController {
 	@RequirePermission("ROLE_MANAGE")
 	public RoleResponse create(@RequestBody CreateRoleRequest request) {
 		return RoleResponse.from(
-				roleService.create(request.name(), request.description(), request.permissionCodes(), request.portal()));
+				roleService.create(request.name(), request.description(), request.permissionCodes(), request.portal(),
+						TenantContext.getActorId()));
 	}
 
 	@PostMapping("/{id}/permissions")

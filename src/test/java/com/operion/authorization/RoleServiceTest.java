@@ -11,6 +11,10 @@ import com.operion.common.InvalidRequestException;
 import com.operion.common.JpaConfig;
 import com.operion.common.MultiTenancyConfig;
 import com.operion.common.TenantContext;
+import com.operion.identity.Person;
+import com.operion.identity.PersonRepository;
+import com.operion.identity.User;
+import com.operion.identity.UserRepository;
 import com.operion.organisation.Organisation;
 import com.operion.organisation.OrganisationRepository;
 import org.junit.jupiter.api.AfterEach;
@@ -45,6 +49,12 @@ class RoleServiceTest {
 	@Autowired
 	private AuditLogRepository auditLogRepository;
 
+	@Autowired
+	private UserRepository userRepository;
+
+	@Autowired
+	private PersonRepository personRepository;
+
 	@BeforeEach
 	void setUp() {
 		roleService = new RoleService(roleRepository, permissionRepository, new AuditLogService(auditLogRepository, new ObjectMapper()), membershipRepository);
@@ -71,6 +81,66 @@ class RoleServiceTest {
 				.filter(p -> p.getCode().equals(code))
 				.findFirst()
 				.orElseGet(() -> permissionRepository.save(new Permission(code, "test", null)));
+	}
+
+	/** A member who manages roles, holding exactly {@code codes}; returns their user id. */
+	private Long actorHolding(String... codes) {
+		Role actorRole = new Role("Role Admin " + System.nanoTime(), "manages roles", false);
+		for (String code : codes) {
+			actorRole.grant(findOrCreatePermission(code));
+		}
+		actorRole = roleRepository.save(actorRole);
+		User actor = userRepository.save(new User("role-actor-" + System.nanoTime() + "@example.com", null, "hash"));
+		Person person = personRepository.save(new Person("Role", "Admin"));
+		membershipRepository.save(new OrganisationMembership(actor, person, actorRole, null));
+		return actor.getId();
+	}
+
+	@Test
+	void anActorCannotCreateARoleWithPermissionsTheyDoNotHold() {
+		Long actorId = actorHolding("ROLE_MANAGE", "RS_D_LOW");
+		findOrCreatePermission("ALL_FUNCTIONS");
+		long before = roleRepository.count();
+
+		assertThatThrownBy(() -> roleService.create("Shadow Admin", "escalation", Set.of("RS_D_LOW", "ALL_FUNCTIONS"), false, actorId))
+				.isInstanceOf(AuthorizationDeniedException.class);
+		assertThat(roleRepository.count()).isEqualTo(before);
+	}
+
+	@Test
+	void anActorCanCreateARoleWithinTheirOwnPermissions() {
+		Long actorId = actorHolding("ROLE_MANAGE", "RS_D_LOW", "RS_D_MID");
+
+		Role role = roleService.create("Helper", "subset", Set.of("RS_D_LOW"), false, actorId);
+
+		assertThat(role.getPermissions()).extracting(Permission::getCode).containsExactly("RS_D_LOW");
+	}
+
+	@Test
+	void anActorCannotAddAPermissionTheyDoNotHoldToAnExistingRole() {
+		Long actorId = actorHolding("ROLE_MANAGE", "RS_D_LOW");
+		Role target = new Role("Clerk", "clerk", false);
+		target.grant(findOrCreatePermission("RS_D_LOW"));
+		Long roleId = roleRepository.save(target).getId();
+		findOrCreatePermission("RS_D_HIGH");
+
+		assertThatThrownBy(() -> roleService.updatePermissions(roleId, Set.of("RS_D_LOW", "RS_D_HIGH"), actorId))
+				.isInstanceOf(AuthorizationDeniedException.class);
+		assertThat(roleRepository.findById(roleId).orElseThrow().getPermissions()).extracting(Permission::getCode)
+				.containsExactly("RS_D_LOW");
+	}
+
+	@Test
+	void anActorCanKeepAnUnheldPermissionAlreadyOnTheRoleWhileRemovingAnother() {
+		Long actorId = actorHolding("ROLE_MANAGE", "RS_D_LOW");
+		Role target = new Role("Accounts", "accounts", false);
+		target.grant(findOrCreatePermission("RS_D_LOW"));
+		target.grant(findOrCreatePermission("RS_D_HIGH"));
+		Long roleId = roleRepository.save(target).getId();
+
+		Role updated = roleService.updatePermissions(roleId, Set.of("RS_D_HIGH"), actorId);
+
+		assertThat(updated.getPermissions()).extracting(Permission::getCode).containsExactly("RS_D_HIGH");
 	}
 
 	@Test

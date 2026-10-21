@@ -5,6 +5,7 @@ import java.util.List;
 import com.operion.authorization.MembershipService;
 import com.operion.authorization.OrganisationMembershipRepository;
 import com.operion.authorization.RequirePermission;
+import com.operion.common.TenantContext;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -36,7 +37,7 @@ public class OrganisationMembershipController {
 	@PostMapping
 	public MembershipResponse grant(@RequestBody GrantMembershipRequest request) {
 		return MembershipResponse.from(membershipService.grant(request.userId(), request.personId(), request.roleId(), request.campusId(),
-				request.departmentId(), request.memberId(), request.joiningDate()));
+				request.departmentId(), request.memberId(), request.joiningDate(), TenantContext.getActorId()));
 	}
 
 	@PostMapping("/{id}/revoke")
