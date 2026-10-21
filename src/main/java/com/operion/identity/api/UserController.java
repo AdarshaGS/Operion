@@ -5,6 +5,7 @@ import java.util.List;
 import com.operion.authorization.OrganisationMembership;
 import com.operion.authorization.OrganisationMembershipRepository;
 import com.operion.authorization.RequirePermission;
+import com.operion.common.TenantContext;
 import com.operion.common.EnumParam;
 import com.operion.identity.User;
 import com.operion.identity.UserRepository;
@@ -100,7 +101,7 @@ public class UserController {
 	@PutMapping("/{id}")
 	public UserResponse update(@PathVariable Long id, @Valid @RequestBody UpdateUserRequest request) {
 		requireInCurrentOrg(id);
-		return UserResponse.from(userService.update(id, request.email(), request.phone()));
+		return UserResponse.from(userService.update(id, request.email(), request.phone(), TenantContext.getActorId()));
 	}
 
 	/** Also the deactivate path (status=DISABLED) - see UserService.changeStatus. */

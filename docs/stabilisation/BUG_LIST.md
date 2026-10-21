@@ -19,7 +19,7 @@ Verification: **Confirmed** = read in code (H1, H2 re-checked by hand); **Plausi
 
 | ID | Bug | Where | Confidence | Status |
 |---|---|---|---|---|
-| SEC-M1 | `MEMBERSHIP_MANAGE` holder can change the **Owner's** email (no owner guard on update) → account takeover once reset emails go live | `identity/UserService.java` `update` | Confirmed | open |
+| SEC-M1 | `MEMBERSHIP_MANAGE` holder can change the **Owner's** email (no owner guard on update) → account takeover once reset emails go live | `identity/UserService.java` `update` | Confirmed | fixed — only the Owner may change the Owner's contact; anyone else's only if the caller holds all of that user's permissions (also closes the same path against admins) |
 | SEC-M2 | Password-reset link (with token) written to the application log | `identity/auth/PasswordResetService.java` `requestReset` | Confirmed | fixed — reset link is emailed (same path as verification); raw reset/verification tokens logged only when `app.dev.log-auth-tokens=true` (automation stack sets `APP_DEV_LOGAUTHTOKENS=true`) |
 | SEC-M3 | Public token endpoints (refresh, reset, claim-invite, verify-email…) bcrypt-compare against every live token in the org with no rate limit → cheap CPU DoS | `PasswordResetService`, `RefreshTokenService`, `PortalInviteService` | Confirmed (DoS impact plausible) | open |
 | SEC-M4 | `POST /api/v1/organisations` is public and passes client `planId` to billing → anyone can create schools / pick a plan | `organisation/api/OrganisationController.java` | Confirmed (billing effect unverified) | open |

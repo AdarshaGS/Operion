@@ -3,8 +3,10 @@ package com.operion.identity;
 import java.util.Map;
 
 import com.operion.audit.AuditLogService;
+import com.operion.authorization.AuthorizationDeniedException;
 import com.operion.authorization.MembershipStatus;
 import com.operion.authorization.OrganisationMembershipRepository;
+import com.operion.authorization.PermissionChecker;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -14,12 +16,14 @@ public class UserService {
 	private final UserRepository userRepository;
 	private final AuditLogService auditLogService;
 	private final OrganisationMembershipRepository membershipRepository;
+	private final PermissionChecker permissionChecker;
 
 	public UserService(UserRepository userRepository, AuditLogService auditLogService,
 			OrganisationMembershipRepository membershipRepository) {
 		this.userRepository = userRepository;
 		this.auditLogService = auditLogService;
 		this.membershipRepository = membershipRepository;
+		this.permissionChecker = new PermissionChecker(membershipRepository);
 	}
 
 	/** Also the deactivate path (status=DISABLED) - User is a shared/global login identity
@@ -40,6 +44,23 @@ public class UserService {
 
 	@Transactional
 	public User update(Long userId, String email, String phone) {
+		return update(userId, email, phone, null);
+	}
+
+	/** {@code actorId} is the signed-in user on the HTTP path. A login email is how a password reset reaches an account, so
+	 * changing someone else's is only allowed when the caller already holds everything that account holds - otherwise
+	 * MEMBERSHIP_MANAGE could redirect the Owner's (or an admin's) email and take the account over through a reset (SEC-M1). */
+	@Transactional
+	public User update(Long userId, String email, String phone, Long actorId) {
+		if (actorId != null && !actorId.equals(userId)) {
+			boolean targetIsOwner = membershipRepository.existsByUserIdAndStatusAndOwner(userId, MembershipStatus.ACTIVE, true);
+			boolean actorIsOwner = membershipRepository.existsByUserIdAndStatusAndOwner(actorId, MembershipStatus.ACTIVE, true);
+			if (targetIsOwner && !actorIsOwner) {
+				throw new AuthorizationDeniedException("Only the Owner can change the Owner's email or phone");
+			}
+			permissionChecker.requireAll(actorId, membershipRepository.findActivePermissionCodesForUser(userId),
+					"You can only change the email or phone of someone whose access you already have yourself");
+		}
 		User user = findOrThrow(userId);
 		Map<String, String> before = Map.of("email", user.getEmail(), "phone", String.valueOf(user.getPhone()));
 		user.setEmail(email);
