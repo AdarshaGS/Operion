@@ -1,17 +1,21 @@
 package com.operion.identity.auth;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
 
 import com.operion.common.TenantContext;
+import com.operion.email.EmailDeliveryService;
 import com.operion.identity.User;
 import com.operion.identity.UserRepository;
 import com.operion.organisation.Organisation;
 import com.operion.organisation.OrganisationRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -19,11 +23,12 @@ import org.springframework.stereotype.Service;
  * Public/unauthenticated forgot-password flow. Unlike StaffInviteService.issue() (an
  * admin-authenticated caller issuing a token for someone else, safe to hand back directly -
  * see GuardianController.grantPortalAccess for the same trust tier), requestReset() is
- * reachable by anyone who knows an email address. There is no email-sending infrastructure
- * in this codebase yet, but returning the raw token in the response here - instead of
- * emailing it - would let anyone take over any account just by knowing its address. So the
- * token is logged server-side only (a stand-in for "the email that would be sent") and the
- * response is always the same generic ack regardless of whether the org/email matched,
+ * reachable by anyone who knows an email address. Returning the raw token in the response
+ * would let anyone take over any account just by knowing its address, so the link is only
+ * ever emailed to the account's own address (EmailDeliveryService, same as verification).
+ * The raw token is logged only when app.dev.log-auth-tokens is on (local/automation stacks
+ * that have no mail provider) - never by default, since log access must not equal account
+ * access (SEC-M2). The response is always the same generic ack regardless of whether the org/email matched,
  * mirroring AuthenticationService.login()'s anti-enumeration stance.
  */
 @Service
@@ -36,14 +41,22 @@ public class PasswordResetService {
 	private final UserRepository userRepository;
 	private final OrganisationRepository organisationRepository;
 	private final PasswordEncoder passwordEncoder;
+	private final EmailDeliveryService emailDeliveryService;
+	private final String frontendBaseUrl;
+	private final boolean logRawTokens;
 	private final SecureRandom secureRandom = new SecureRandom();
 
 	public PasswordResetService(PasswordResetTokenRepository passwordResetTokenRepository, UserRepository userRepository,
-			OrganisationRepository organisationRepository, PasswordEncoder passwordEncoder) {
+			OrganisationRepository organisationRepository, PasswordEncoder passwordEncoder, EmailDeliveryService emailDeliveryService,
+			@Value("${app.frontend.base-url:http://localhost:5173}") String frontendBaseUrl,
+			@Value("${app.dev.log-auth-tokens:false}") boolean logRawTokens) {
 		this.passwordResetTokenRepository = passwordResetTokenRepository;
 		this.userRepository = userRepository;
 		this.organisationRepository = organisationRepository;
 		this.passwordEncoder = passwordEncoder;
+		this.emailDeliveryService = emailDeliveryService;
+		this.frontendBaseUrl = frontendBaseUrl;
+		this.logRawTokens = logRawTokens;
 	}
 
 	public void requestReset(String organisationSlug, String email) {
@@ -60,10 +73,19 @@ public class PasswordResetService {
 			String rawToken = generateToken();
 			PasswordResetToken token = passwordResetTokenRepository
 					.save(new PasswordResetToken(user.getId(), passwordEncoder.encode(rawToken), Instant.now().plus(RESET_TOKEN_VALIDITY)));
-			// Stands in for the email that would otherwise be sent - see class javadoc. Never
-			// returned to the HTTP caller.
-			log.info("Password reset requested: org={} userId={} link=/reset-password?org={}&token={} expiresAt={}",
-					organisationSlug, user.getId(), organisationSlug, rawToken, token.getExpiresAt());
+			// Never returned to the HTTP caller - see class javadoc.
+			if (logRawTokens) {
+				log.info("Password reset requested: org={} userId={} link=/reset-password?org={}&token={} expiresAt={}",
+						organisationSlug, user.getId(), organisationSlug, rawToken, token.getExpiresAt());
+			} else {
+				log.info("Password reset requested: org={} userId={} expiresAt={}", organisationSlug, user.getId(), token.getExpiresAt());
+			}
+			String link = frontendBaseUrl + "/reset-password?org=" + urlEncode(organisationSlug) + "&token=" + urlEncode(rawToken);
+			String html = "<p>A password reset was requested for your account at <strong>" + organisationSlug + "</strong> on Operion.</p>"
+					+ "<p><a href=\"" + link + "\">Choose a new password</a></p>"
+					+ "<p>Or paste this link into your browser:<br>" + link + "</p>"
+					+ "<p>This link expires in 1 hour. If you didn't ask for this, you can ignore this email.</p>";
+			emailDeliveryService.sendBestEffort(user.getEmail(), "Reset your Operion password", html);
 		} finally {
 			TenantContext.clear();
 		}
@@ -96,5 +118,9 @@ public class PasswordResetService {
 		byte[] bytes = new byte[32];
 		secureRandom.nextBytes(bytes);
 		return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
+	}
+
+	private static String urlEncode(String value) {
+		return URLEncoder.encode(value, StandardCharsets.UTF_8);
 	}
 }

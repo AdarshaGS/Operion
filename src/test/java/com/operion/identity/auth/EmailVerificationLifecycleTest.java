@@ -48,7 +48,7 @@ class EmailVerificationLifecycleTest {
 	private EmailVerificationService emailVerificationService() {
 		// No EmailSender configured - see StaffInviteLifecycleTest's identical reasoning.
 		return new EmailVerificationService(emailVerificationTokenRepository, userRepository, organisationRepository, ENCODER,
-				new EmailDeliveryService(List.of(), emailOutboxRepository), "http://localhost:5173");
+				new EmailDeliveryService(List.of(), emailOutboxRepository), "http://localhost:5173", false);
 	}
 
 	private Organisation newOrg(String slugPrefix) {

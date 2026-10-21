@@ -38,18 +38,22 @@ public class EmailVerificationService {
 	private final OrganisationRepository organisationRepository;
 	private final PasswordEncoder passwordEncoder;
 	private final EmailDeliveryService emailDeliveryService;
+	/** Raw tokens reach the log only on local/automation stacks without a mail provider (SEC-M2). */
+	private final boolean logRawTokens;
 	private final String frontendBaseUrl;
 	private final SecureRandom secureRandom = new SecureRandom();
 
 	public EmailVerificationService(EmailVerificationTokenRepository emailVerificationTokenRepository, UserRepository userRepository,
 			OrganisationRepository organisationRepository, PasswordEncoder passwordEncoder, EmailDeliveryService emailDeliveryService,
-			@Value("${app.frontend.base-url:http://localhost:5173}") String frontendBaseUrl) {
+			@Value("${app.frontend.base-url:http://localhost:5173}") String frontendBaseUrl,
+			@Value("${app.dev.log-auth-tokens:false}") boolean logRawTokens) {
 		this.emailVerificationTokenRepository = emailVerificationTokenRepository;
 		this.userRepository = userRepository;
 		this.organisationRepository = organisationRepository;
 		this.passwordEncoder = passwordEncoder;
 		this.emailDeliveryService = emailDeliveryService;
 		this.frontendBaseUrl = frontendBaseUrl;
+		this.logRawTokens = logRawTokens;
 	}
 
 	/** Caller must already have TenantContext set - same precondition as
@@ -64,8 +68,12 @@ public class EmailVerificationService {
 		String organisationSlug = organisationRepository.findById(TenantContext.getOrganisationId())
 				.map(Organisation::getSlug)
 				.orElse(null);
-		log.info("Email verification issued: org={} userId={} link=/verify-email?org={}&token={} expiresAt={}", organisationSlug,
-				userId, organisationSlug, rawToken, token.getExpiresAt());
+		if (logRawTokens) {
+			log.info("Email verification issued: org={} userId={} link=/verify-email?org={}&token={} expiresAt={}", organisationSlug,
+					userId, organisationSlug, rawToken, token.getExpiresAt());
+		} else {
+			log.info("Email verification issued: org={} userId={} expiresAt={}", organisationSlug, userId, token.getExpiresAt());
+		}
 
 		if (organisationSlug == null) {
 			return;
