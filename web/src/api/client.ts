@@ -50,7 +50,15 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 		headers.set("Authorization", `Bearer ${session.token}`);
 	}
 
-	const response = await fetch(`${API_BASE_URL}${path}`, { ...options, headers });
+	// fetch() only rejects when no HTTP response came back at all (server down, network drop,
+	// request blocked by the browser). Wrap it so callers show a real reason instead of their
+	// generic "Failed to ..." fallback, which hides that the request never reached the server.
+	let response: Response;
+	try {
+		response = await fetch(`${API_BASE_URL}${path}`, { ...options, headers });
+	} catch {
+		throw new ApiError(0, "Couldn't reach the Operion server - check that it is running and your connection is up, then try again");
+	}
 
 	if (response.status === 401 && session) {
 		clearSession();

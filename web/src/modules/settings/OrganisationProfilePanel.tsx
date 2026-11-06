@@ -16,9 +16,11 @@ import { getOrganisationProfile, updateOrganisationProfile } from "../../api/org
 interface OrganisationProfilePanelProps {
 	/** Fired after a successful save - the Structure setup wizard uses it to advance. */
 	onSaved?: () => void;
+	/** Lets a button outside the panel submit this form (the wizard's "Save and continue"). */
+	formId?: string;
 }
 
-export function OrganisationProfilePanel({ onSaved }: OrganisationProfilePanelProps = {}) {
+export function OrganisationProfilePanel({ onSaved, formId }: OrganisationProfilePanelProps = {}) {
 	const [name, setName] = useState("");
 	const [legalName, setLegalName] = useState("");
 	const [logoUrl, setLogoUrl] = useState("");
@@ -62,6 +64,7 @@ export function OrganisationProfilePanel({ onSaved }: OrganisationProfilePanelPr
 		event.preventDefault();
 		setSubmitting(true);
 		setSaved(false);
+		setError(null);
 		try {
 			await updateOrganisationProfile({
 				name,
@@ -81,7 +84,11 @@ export function OrganisationProfilePanel({ onSaved }: OrganisationProfilePanelPr
 			setSaved(true);
 			onSaved?.();
 		} catch (err) {
-			setError(err instanceof ApiError ? err.message : "Failed to update organisation profile");
+			setError(
+				err instanceof ApiError
+					? err.message
+					: `Failed to update organisation profile${err instanceof Error && err.message ? `: ${err.message}` : ""}`,
+			);
 		} finally {
 			setSubmitting(false);
 		}
@@ -92,7 +99,7 @@ export function OrganisationProfilePanel({ onSaved }: OrganisationProfilePanelPr
 	}
 
 	return (
-		<Paper component="form" onSubmit={handleSubmit} sx={{ p: 3 }}>
+		<Paper component="form" id={formId} onSubmit={handleSubmit} sx={{ p: 3 }}>
 			<Stack spacing={2}>
 				<Typography variant="h6">Organisation profile</Typography>
 

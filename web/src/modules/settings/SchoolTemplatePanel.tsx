@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { Fragment, useEffect, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import Accordion from "@mui/material/Accordion";
 import AccordionDetails from "@mui/material/AccordionDetails";
@@ -9,10 +9,6 @@ import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Checkbox from "@mui/material/Checkbox";
 import Chip from "@mui/material/Chip";
-import Dialog from "@mui/material/Dialog";
-import DialogActions from "@mui/material/DialogActions";
-import DialogContent from "@mui/material/DialogContent";
-import DialogTitle from "@mui/material/DialogTitle";
 import IconButton from "@mui/material/IconButton";
 import MenuItem from "@mui/material/MenuItem";
 import Paper from "@mui/material/Paper";
@@ -130,7 +126,7 @@ function TemplateCategorySection({ config, onChanged }: { config: CategoryConfig
 	const [items, setItems] = useState<SchoolTemplateItemResponse[]>([]);
 	const [permissions, setPermissions] = useState<PermissionResponse[]>([]);
 	const [error, setError] = useState<string | null>(null);
-	const [dialogOpen, setDialogOpen] = useState(false);
+	const [formOpen, setFormOpen] = useState(false);
 	const [editingId, setEditingId] = useState<number | null>(null);
 	const [form, setForm] = useState(EMPTY_FORM);
 	const [submitting, setSubmitting] = useState(false);
@@ -174,7 +170,7 @@ function TemplateCategorySection({ config, onChanged }: { config: CategoryConfig
 	function openCreate() {
 		setEditingId(null);
 		setForm(EMPTY_FORM);
-		setDialogOpen(true);
+		setFormOpen(true);
 	}
 
 	function openEdit(item: SchoolTemplateItemResponse) {
@@ -192,7 +188,12 @@ function TemplateCategorySection({ config, onChanged }: { config: CategoryConfig
 			unit: item.unit ?? "PCS",
 			itemCategoryCode: item.itemCategoryCode ?? "",
 		});
-		setDialogOpen(true);
+		setFormOpen(true);
+	}
+
+	function closeForm() {
+		setFormOpen(false);
+		setEditingId(null);
 	}
 
 	async function handleDelete(item: SchoolTemplateItemResponse) {
@@ -227,7 +228,7 @@ function TemplateCategorySection({ config, onChanged }: { config: CategoryConfig
 			} else {
 				await createSchoolTemplateItem(config.key, request);
 			}
-			setDialogOpen(false);
+			closeForm();
 			refresh();
 			onChanged?.();
 		} catch (err) {
@@ -236,6 +237,118 @@ function TemplateCategorySection({ config, onChanged }: { config: CategoryConfig
 			setSubmitting(false);
 		}
 	}
+
+	const singular = config.label.toLowerCase().replace(/s$/, "");
+	// Opens in place - under the header for a new row, under the row being edited - rather than in a
+	// pop-up, so the list being changed stays in view. Named like the old dialog ("Add section") so it
+	// can still be found by role and name.
+	const editor = (
+		<Box
+			component="form"
+			onSubmit={handleSubmit}
+			onKeyDown={(e) => e.key === "Escape" && closeForm()}
+			aria-label={`${editingId != null ? "Edit" : "Add"} ${singular}`}
+			sx={{ p: 2, border: 1, borderColor: "divider", borderRadius: 1, bgcolor: "action.hover" }}
+		>
+			<Stack spacing={2}>
+				<TextField
+					label="Name"
+					value={form.name}
+					onChange={(e) => setForm({ ...form, name: e.target.value })}
+					required
+					autoFocus
+					fullWidth
+				/>
+				{config.fields.includes("code") && (
+					<TextField label="Code" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} fullWidth />
+				)}
+				{config.fields.includes("description") && (
+					<TextField
+						label="Description"
+						value={form.description}
+						onChange={(e) => setForm({ ...form, description: e.target.value })}
+						fullWidth
+						multiline
+					/>
+				)}
+				{config.fields.includes("itemCategoryCode") && (
+					<TextField
+						label="Inventory category code"
+						value={form.itemCategoryCode}
+						onChange={(e) => setForm({ ...form, itemCategoryCode: e.target.value })}
+						helperText="Code of an inventory category, e.g. STATIONERY. Skipped on apply if your school has no such category."
+						required
+						fullWidth
+					/>
+				)}
+				{config.fields.includes("unit") && (
+					<TextField
+						label="Unit"
+						value={form.unit}
+						onChange={(e) => setForm({ ...form, unit: e.target.value })}
+						helperText="e.g. PCS, BOX, LTR"
+						fullWidth
+					/>
+				)}
+				{config.fields.includes("stage") && (
+					<TextField label="Stage (optional)" value={form.stage} onChange={(e) => setForm({ ...form, stage: e.target.value })} fullWidth />
+				)}
+				{config.fields.includes("sequenceOrder") && (
+					<TextField
+						label="Position"
+						type="number"
+						value={form.sequenceOrder}
+						onChange={(e) => setForm({ ...form, sequenceOrder: e.target.value })}
+						helperText="Controls display/apply order relative to other items in this category"
+						fullWidth
+					/>
+				)}
+				{config.fields.includes("categoryType") && (
+					<TextField
+						select
+						label="Type"
+						value={form.categoryType}
+						onChange={(e) => setForm({ ...form, categoryType: e.target.value })}
+						fullWidth
+					>
+						<MenuItem value="GENERAL">General</MenuItem>
+						<MenuItem value="TRANSPORT">Transport</MenuItem>
+					</TextField>
+				)}
+				{config.fields.includes("minPercentage") && (
+					<TextField
+						label="Minimum percentage"
+						type="number"
+						value={form.minPercentage}
+						onChange={(e) => setForm({ ...form, minPercentage: e.target.value })}
+						required
+						fullWidth
+					/>
+				)}
+				{config.fields.includes("remark") && (
+					<TextField label="Remark" value={form.remark} onChange={(e) => setForm({ ...form, remark: e.target.value })} fullWidth />
+				)}
+				{config.fields.includes("permissionCodes") && (
+					<Autocomplete
+						multiple
+						options={permissions}
+						groupBy={(option) => option.module}
+						getOptionLabel={(option) => `${option.code} — ${option.description}`}
+						isOptionEqualToValue={(option, value) => option.code === value.code}
+						value={permissions.filter((permission) => form.permissionCodes.includes(permission.code))}
+						onChange={(_event, value) => setForm({ ...form, permissionCodes: value.map((v) => v.code) })}
+						renderInput={(params) => <TextField {...params} label="Permissions" placeholder="Add permission" />}
+					/>
+				)}
+			</Stack>
+			<Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1, mt: 2 }}>
+				<Button onClick={closeForm}>Cancel</Button>
+				<Button type="submit" variant="contained" disabled={submitting}>
+					Save
+				</Button>
+			</Box>
+		</Box>
+	);
 
 	return (
 		<Accordion disableGutters>
@@ -258,6 +371,7 @@ function TemplateCategorySection({ config, onChanged }: { config: CategoryConfig
 							Add
 						</Button>
 					</Box>
+					{formOpen && editingId == null && editor}
 					<TableContainer>
 						<Table size="small">
 							<TableHead>
@@ -279,26 +393,33 @@ function TemplateCategorySection({ config, onChanged }: { config: CategoryConfig
 							</TableHead>
 							<TableBody>
 								{items.map((item) => (
-									<TableRow key={item.id} sx={item.included ? undefined : { opacity: 0.55 }}>
-										<TableCell padding="checkbox">
-											<Checkbox
-												size="small"
-												checked={item.included}
-												onChange={() => handleToggleIncluded(item)}
-												slotProps={{ input: { "aria-label": `${item.included ? "Exclude" : "Include"} ${item.name}` } }}
-											/>
-										</TableCell>
-										<TableCell>{item.name}</TableCell>
-										{config.extraColumn && <TableCell>{config.extraColumn(item)}</TableCell>}
-										<TableCell align="right">
-											<IconButton size="small" onClick={() => openEdit(item)} aria-label={`Edit ${item.name}`}>
-												<EditIcon fontSize="small" />
-											</IconButton>
-											<IconButton size="small" onClick={() => handleDelete(item)} aria-label={`Remove ${item.name}`}>
-												<DeleteIcon fontSize="small" />
-											</IconButton>
-										</TableCell>
-									</TableRow>
+									<Fragment key={item.id}>
+										<TableRow sx={item.included ? undefined : { opacity: 0.55 }}>
+											<TableCell padding="checkbox">
+												<Checkbox
+													size="small"
+													checked={item.included}
+													onChange={() => handleToggleIncluded(item)}
+													slotProps={{ input: { "aria-label": `${item.included ? "Exclude" : "Include"} ${item.name}` } }}
+												/>
+											</TableCell>
+											<TableCell>{item.name}</TableCell>
+											{config.extraColumn && <TableCell>{config.extraColumn(item)}</TableCell>}
+											<TableCell align="right">
+												<IconButton size="small" onClick={() => openEdit(item)} aria-label={`Edit ${item.name}`}>
+													<EditIcon fontSize="small" />
+												</IconButton>
+												<IconButton size="small" onClick={() => handleDelete(item)} aria-label={`Remove ${item.name}`}>
+													<DeleteIcon fontSize="small" />
+												</IconButton>
+											</TableCell>
+										</TableRow>
+										{formOpen && editingId === item.id && (
+											<TableRow>
+												<TableCell colSpan={config.extraColumn ? 4 : 3}>{editor}</TableCell>
+											</TableRow>
+										)}
+									</Fragment>
 								))}
 								{items.length === 0 && (
 									<TableRow>
@@ -315,110 +436,6 @@ function TemplateCategorySection({ config, onChanged }: { config: CategoryConfig
 				</Stack>
 			</AccordionDetails>
 
-			<Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} component="form" onSubmit={handleSubmit} fullWidth maxWidth="sm">
-				<DialogTitle>
-					{editingId != null ? "Edit" : "Add"} {config.label.toLowerCase().replace(/s$/, "")}
-				</DialogTitle>
-				<DialogContent>
-					<Stack spacing={2} sx={{ mt: 1 }}>
-						<TextField
-							label="Name"
-							value={form.name}
-							onChange={(e) => setForm({ ...form, name: e.target.value })}
-							required
-							autoFocus
-							fullWidth
-						/>
-						{config.fields.includes("code") && (
-							<TextField label="Code" value={form.code} onChange={(e) => setForm({ ...form, code: e.target.value })} fullWidth />
-						)}
-						{config.fields.includes("description") && (
-							<TextField
-								label="Description"
-								value={form.description}
-								onChange={(e) => setForm({ ...form, description: e.target.value })}
-								fullWidth
-								multiline
-							/>
-						)}
-						{config.fields.includes("itemCategoryCode") && (
-							<TextField
-								label="Inventory category code"
-								value={form.itemCategoryCode}
-								onChange={(e) => setForm({ ...form, itemCategoryCode: e.target.value })}
-								helperText="Code of an inventory category, e.g. STATIONERY. Skipped on apply if your school has no such category."
-								required
-								fullWidth
-							/>
-						)}
-						{config.fields.includes("unit") && (
-							<TextField
-								label="Unit"
-								value={form.unit}
-								onChange={(e) => setForm({ ...form, unit: e.target.value })}
-								helperText="e.g. PCS, BOX, LTR"
-								fullWidth
-							/>
-						)}
-						{config.fields.includes("stage") && (
-							<TextField label="Stage (optional)" value={form.stage} onChange={(e) => setForm({ ...form, stage: e.target.value })} fullWidth />
-						)}
-						{config.fields.includes("sequenceOrder") && (
-							<TextField
-								label="Position"
-								type="number"
-								value={form.sequenceOrder}
-								onChange={(e) => setForm({ ...form, sequenceOrder: e.target.value })}
-								helperText="Controls display/apply order relative to other items in this category"
-								fullWidth
-							/>
-						)}
-						{config.fields.includes("categoryType") && (
-							<TextField
-								select
-								label="Type"
-								value={form.categoryType}
-								onChange={(e) => setForm({ ...form, categoryType: e.target.value })}
-								fullWidth
-							>
-								<MenuItem value="GENERAL">General</MenuItem>
-								<MenuItem value="TRANSPORT">Transport</MenuItem>
-							</TextField>
-						)}
-						{config.fields.includes("minPercentage") && (
-							<TextField
-								label="Minimum percentage"
-								type="number"
-								value={form.minPercentage}
-								onChange={(e) => setForm({ ...form, minPercentage: e.target.value })}
-								required
-								fullWidth
-							/>
-						)}
-						{config.fields.includes("remark") && (
-							<TextField label="Remark" value={form.remark} onChange={(e) => setForm({ ...form, remark: e.target.value })} fullWidth />
-						)}
-						{config.fields.includes("permissionCodes") && (
-							<Autocomplete
-								multiple
-								options={permissions}
-								groupBy={(option) => option.module}
-								getOptionLabel={(option) => `${option.code} — ${option.description}`}
-								isOptionEqualToValue={(option, value) => option.code === value.code}
-								value={permissions.filter((permission) => form.permissionCodes.includes(permission.code))}
-								onChange={(_event, value) => setForm({ ...form, permissionCodes: value.map((v) => v.code) })}
-								renderInput={(params) => <TextField {...params} label="Permissions" placeholder="Add permission" />}
-							/>
-						)}
-					</Stack>
-				</DialogContent>
-				<DialogActions>
-					<Button onClick={() => setDialogOpen(false)}>Cancel</Button>
-					<Button type="submit" variant="contained" disabled={submitting}>
-						Save
-					</Button>
-				</DialogActions>
-			</Dialog>
 		</Accordion>
 	);
 }

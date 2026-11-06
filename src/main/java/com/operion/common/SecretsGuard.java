@@ -26,8 +26,8 @@ import com.operion.platform.PlatformAdminRepository;
 /**
  * Refuses to start production while any secret is still a value published in this repository (the dev-only JWT and
  * integration keys, the reporting_ro password from the school baseline, the seeded platform admin password), empty, or
- * too short. With the prod profile (or SECRETS_GUARD=enforce) a finding stops startup; otherwise each one is logged as a
- * warning so local stacks keep working. Findings name the environment variable to set, never the value. The same report
+ * too short. A finding stops startup unless the dev or test profile is active (or SECRETS_GUARD=warn), in which case
+ * each one is logged as a warning so local stacks keep working - so a deploy that forgets its profile fails closed. Findings name the environment variable to set, never the value. The same report
  * is shown on the platform console's System health page.
  */
 @Component
@@ -108,7 +108,9 @@ public class SecretsGuard implements ApplicationRunner {
 		return switch (mode) {
 			case "enforce" -> true;
 			case "warn" -> false;
-			default -> environment.acceptsProfiles(Profiles.of("prod"));
+			// Fail closed: only an explicit dev/test profile relaxes the check. A server started with no profile, or with
+			// an unrecognised one, is treated as production rather than trusting the published development secrets.
+			default -> !environment.acceptsProfiles(Profiles.of("dev | test"));
 		};
 	}
 

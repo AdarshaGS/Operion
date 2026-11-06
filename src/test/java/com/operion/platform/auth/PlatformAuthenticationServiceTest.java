@@ -5,6 +5,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.operion.common.JpaConfig;
 import com.operion.common.MultiTenancyConfig;
+import com.operion.identity.auth.LoginAttemptRepository;
+import com.operion.identity.auth.LoginAttemptService;
 import com.operion.platform.PlatformAdmin;
 import com.operion.platform.PlatformAdminRepository;
 import com.operion.platform.PlatformAdminStatus;
@@ -12,6 +14,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,8 +38,16 @@ class PlatformAuthenticationServiceTest {
 	@Autowired
 	private PlatformAdminRepository platformAdminRepository;
 
+	@Autowired
+	private LoginAttemptRepository loginAttemptRepository;
+
 	private PlatformAuthenticationService authenticationService() {
-		return new PlatformAuthenticationService(platformAdminRepository, ENCODER, new PlatformJwtService(TEST_SECRET, 60));
+		return authenticationService(5);
+	}
+
+	private PlatformAuthenticationService authenticationService(int maxFailedAttempts) {
+		return new PlatformAuthenticationService(platformAdminRepository, ENCODER, new PlatformJwtService(TEST_SECRET, 60),
+				new LoginAttemptService(loginAttemptRepository, maxFailedAttempts, 15));
 	}
 
 	@Test
@@ -84,5 +96,58 @@ class PlatformAuthenticationServiceTest {
 
 		assertThatThrownBy(() -> differentSecretService.decodeToPlatformAdminId(token))
 				.isInstanceOf(InvalidPlatformTokenException.class);
+	}
+
+	@Test
+	void locksTheAccountAfterRepeatedFailuresEvenForTheCorrectPassword() {
+		platformAdminRepository.save(new PlatformAdmin("Erin", "erin@operion.platform", ENCODER.encode("correct-horse")));
+		PlatformAuthenticationService service = authenticationService(3);
+
+		for (int i = 0; i < 3; i++) {
+			assertThatThrownBy(() -> service.login("erin@operion.platform", "wrong-password"))
+					.isInstanceOf(PlatformAuthenticationFailedException.class);
+		}
+		assertThatThrownBy(() -> service.login("erin@operion.platform", "correct-horse"))
+				.isInstanceOf(PlatformAuthenticationFailedException.class)
+				.hasMessage("Invalid email or password");
+		assertThat(new LoginAttemptService(loginAttemptRepository, 3, 15).isLocked(1L, "erin@operion.platform"))
+				.as("a school account with the same email is not affected").isFalse();
+	}
+
+	@Test
+	void aSuccessfulLoginClearsEarlierFailures() {
+		platformAdminRepository.save(new PlatformAdmin("Fay", "fay@operion.platform", ENCODER.encode("correct-horse")));
+		PlatformAuthenticationService service = authenticationService(3);
+
+		assertThatThrownBy(() -> service.login("fay@operion.platform", "wrong-password"));
+		assertThatThrownBy(() -> service.login("fay@operion.platform", "wrong-password"));
+		service.login("fay@operion.platform", "correct-horse");
+		assertThatThrownBy(() -> service.login("fay@operion.platform", "wrong-password"));
+		assertThatThrownBy(() -> service.login("fay@operion.platform", "wrong-password"));
+
+		assertThat(service.login("fay@operion.platform", "correct-horse").token()).isNotBlank();
+	}
+
+	@Test
+	void aDisabledAdminsExistingTokenStopsWorkingImmediately() throws Exception {
+		PlatformAdmin admin = platformAdminRepository.save(
+				new PlatformAdmin("Gus", "gus@operion.platform", ENCODER.encode("correct-horse")));
+		PlatformJwtService jwt = new PlatformJwtService(TEST_SECRET, 60);
+		String token = authenticationService().login("gus@operion.platform", "correct-horse").token();
+		PlatformAuthenticationInterceptor interceptor = new PlatformAuthenticationInterceptor(jwt, platformAdminRepository);
+
+		assertThat(interceptor.preHandle(platformRequest(token), new MockHttpServletResponse(), null)).isTrue();
+
+		admin.changeStatus(PlatformAdminStatus.INACTIVE);
+		platformAdminRepository.save(admin);
+		MockHttpServletResponse response = new MockHttpServletResponse();
+		assertThat(interceptor.preHandle(platformRequest(token), response, null)).isFalse();
+		assertThat(response.getStatus()).isEqualTo(401);
+	}
+
+	private static MockHttpServletRequest platformRequest(String token) {
+		MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/v1/platform/organisations");
+		request.addHeader("Authorization", "Bearer " + token);
+		return request;
 	}
 }

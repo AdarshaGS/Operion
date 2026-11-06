@@ -69,6 +69,15 @@ class SecretsGuardStartupTest {
 	}
 
 	@Test
+	void aServerStartedWithoutADevProfileFailsClosed() {
+		admins.deleteAll();
+		assertThatThrownBy(() -> guard("", DEV_JWT).run(new DefaultApplicationArguments()))
+				.as("no profile at all").hasMessageContaining("Refusing to start");
+		assertThat(guard("", DEV_JWT, "staging").report().enforced()).as("an unrecognised profile").isTrue();
+		assertThat(guard("", DEV_JWT, "test").report().enforced()).isFalse();
+	}
+
+	@Test
 	void theSeededPlatformAdminPasswordBlocksProductionUntilPlatformAdminPasswordIsSet() {
 		seededAdmin();
 		assertThat(guard("", GOOD_A, "prod").report().problems()).extracting(Finding::setting).containsExactly("PLATFORM_ADMIN_PASSWORD");

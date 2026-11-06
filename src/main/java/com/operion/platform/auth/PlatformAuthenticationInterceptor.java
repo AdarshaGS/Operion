@@ -1,6 +1,8 @@
 package com.operion.platform.auth;
 
 import com.operion.common.TenantContext;
+import com.operion.platform.PlatformAdminRepository;
+import com.operion.platform.PlatformAdminStatus;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.HttpMethod;
@@ -23,9 +25,11 @@ public class PlatformAuthenticationInterceptor implements HandlerInterceptor {
 	private static final String BEARER_PREFIX = "Bearer ";
 
 	private final PlatformJwtService platformJwtService;
+	private final PlatformAdminRepository platformAdminRepository;
 
-	public PlatformAuthenticationInterceptor(PlatformJwtService platformJwtService) {
+	public PlatformAuthenticationInterceptor(PlatformJwtService platformJwtService, PlatformAdminRepository platformAdminRepository) {
 		this.platformJwtService = platformJwtService;
+		this.platformAdminRepository = platformAdminRepository;
 	}
 
 	@Override
@@ -40,14 +44,24 @@ public class PlatformAuthenticationInterceptor implements HandlerInterceptor {
 			return false;
 		}
 
+		Long platformAdminId;
 		try {
-			Long platformAdminId = platformJwtService.decodeToPlatformAdminId(header.substring(BEARER_PREFIX.length()));
-			TenantContext.set(null, platformAdminId);
-			return true;
+			platformAdminId = platformJwtService.decodeToPlatformAdminId(header.substring(BEARER_PREFIX.length()));
 		} catch (InvalidPlatformTokenException ex) {
 			response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
 			return false;
 		}
+		// A valid signature only proves the admin was active when the token was issued. Re-check on every request so
+		// disabling (or deleting) an admin cuts off their console access at once, not when the token expires.
+		boolean active = platformAdminRepository.findById(platformAdminId)
+				.map(admin -> admin.getStatus() == PlatformAdminStatus.ACTIVE)
+				.orElse(false);
+		if (!active) {
+			response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+			return false;
+		}
+		TenantContext.set(null, platformAdminId);
+		return true;
 	}
 
 	@Override

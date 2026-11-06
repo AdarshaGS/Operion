@@ -9,8 +9,11 @@ both backend and frontend).
 Requires Docker only.
 
 ```bash
-docker compose up --build
+SPRING_PROFILES_ACTIVE=dev docker compose up --build
 ```
+
+`SPRING_PROFILES_ACTIVE=dev` is required for a local run: without it the backend treats itself as
+production and refuses to start on the published development secrets (see Production secrets below).
 
 This starts three services, wired together (see `docker-compose.yml` at the repo root):
 
@@ -110,11 +113,12 @@ for running the test suites, [docs/architecture](../architecture) for how the sy
 
 ## Production secrets
 
-Every secret below ships with a development value that is published in this repository. With
-`SPRING_PROFILES_ACTIVE=prod` the backend **refuses to start** while any of them is still a built-in
-default, empty, or too short, and the error lists the variables to set (never their values). Outside
-production the same findings are logged as warnings, and the platform console shows them under
-**System health > Secrets**.
+Every secret below ships with a development value that is published in this repository. Unless the
+`dev` or `test` profile is active, the backend **refuses to start** while any of them is still a built-in
+default, empty, or too short, and the error lists the variables to set (never their values). This
+includes a server started with no profile at all: there is no default profile, so forgetting
+`SPRING_PROFILES_ACTIVE` fails closed instead of silently running as dev. Under `dev`/`test` the same
+findings are logged as warnings, and the platform console shows them under **System health > Secrets**.
 
 | Variable | Requirement |
 |---|---|
@@ -126,8 +130,8 @@ production the same findings are logged as warnings, and the platform console sh
 | `REPORTING_DB_PASSWORD` | not `mysql` or `changeme-reporting-ro`; rotate the user first: `ALTER USER 'reporting_ro'@'%' IDENTIFIED BY '...'` |
 | `PLATFORM_ADMIN_PASSWORD` | needed while a platform admin still has the seeded password `ChangeMe123!`; at least 12 characters. At startup it replaces the seeded password only - a password that was already changed is never touched. |
 
-Generate a key with `openssl rand -base64 48`. `SECRETS_GUARD=enforce` turns the check on outside the
-`prod` profile (e.g. a staging server); `SECRETS_GUARD=warn` turns it off in production - avoid that.
+Generate a key with `openssl rand -base64 48`. `SECRETS_GUARD=enforce` turns the check on even under
+`dev`; `SECRETS_GUARD=warn` turns it off everywhere - avoid that outside a laptop.
 A warning (not a failure) is also logged while scheduled backups are off (`BACKUP_ENABLED`).
 
 ## Backup and recovery

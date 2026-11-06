@@ -29,9 +29,11 @@ function daysToMask(days: boolean[]): number {
 interface BusinessSettingsPanelProps {
 	/** Fired after a successful save - the Structure setup wizard uses it to advance. */
 	onSaved?: () => void;
+	/** Lets a button outside the panel submit this form (the wizard's "Save and continue"). */
+	formId?: string;
 }
 
-export function BusinessSettingsPanel({ onSaved }: BusinessSettingsPanelProps = {}) {
+export function BusinessSettingsPanel({ onSaved, formId }: BusinessSettingsPanelProps = {}) {
 	const [timezone, setTimezone] = useState("");
 	const [timezones, setTimezones] = useState<TimezoneResponse[]>([]);
 	const [defaultCurrency, setDefaultCurrency] = useState("");
@@ -104,7 +106,7 @@ export function BusinessSettingsPanel({ onSaved }: BusinessSettingsPanelProps = 
 	}
 
 	return (
-		<Paper component="form" onSubmit={handleSubmit} sx={{ p: 3 }}>
+		<Paper component="form" id={formId} onSubmit={handleSubmit} sx={{ p: 3 }}>
 			<Stack spacing={2}>
 				<Typography variant="h6">Business settings</Typography>
 

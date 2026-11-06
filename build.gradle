@@ -71,6 +71,11 @@ tasks.named('test') {
 	maxHeapSize = '2g'
 }
 
+// The app has no default profile (SecretsGuard treats that as production), so a local bootRun opts in to dev.
+tasks.named('bootRun') {
+	environment 'SPRING_PROFILES_ACTIVE', System.getenv('SPRING_PROFILES_ACTIVE') ?: 'dev'
+}
+
 // Retains parameter names in bytecode so @PathVariable/@RequestParam can match by
 // reflection without every one needing an explicit name - otherwise this breaks on
 // every controller, not just this one.

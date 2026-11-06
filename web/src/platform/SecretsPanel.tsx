@@ -53,7 +53,7 @@ export function SecretsPanel() {
 								<Alert severity={report.enforced ? "error" : "warning"}>
 									{report.enforced
 										? "This server is in production mode and should not have started with these - restart it after setting them."
-										: "Fine for development. A production server (SPRING_PROFILES_ACTIVE=prod) refuses to start until these are set."}
+										: "Fine for development. Any server not running the dev profile refuses to start until these are set."}
 								</Alert>
 								<Table size="small" aria-label="Secrets to set">
 									<TableHead>

@@ -30,14 +30,18 @@ interface Step {
 	/** onSaved advances the wizard - only form-style panels (one Save button) wire it up;
 	 * list panels (years, campuses) add rows in place and move on via Continue. */
 	render: (onSaved: () => void) => React.ReactNode;
+	/** Set on form-style steps: the wizard's main button submits that form (save, then advance)
+	 * instead of only re-checking what is already saved - typed-but-unsaved values otherwise
+	 * failed the check with "add the primary contact..." while the fields looked filled in. */
+	formId?: string;
 }
 
 /** Minimal onboarding - just enough to establish the school. Fees, departments and
  * designations are deliberately not here: they're part of the school setup template (Academic setup),
  * and the Dashboard's setup card points to what comes next. */
 const STEPS: Step[] = [
-	{ key: "profile", label: "Organisation profile", optional: false, render: (onSaved) => <OrganisationProfilePanel onSaved={onSaved} /> },
-	{ key: "business", label: "Business settings", optional: false, render: (onSaved) => <BusinessSettingsPanel onSaved={onSaved} /> },
+	{ key: "profile", label: "Organisation profile", optional: false, formId: "setup-profile-form", render: (onSaved) => <OrganisationProfilePanel onSaved={onSaved} formId="setup-profile-form" /> },
+	{ key: "business", label: "Business settings", optional: false, formId: "setup-business-form", render: (onSaved) => <BusinessSettingsPanel onSaved={onSaved} formId="setup-business-form" /> },
 	{
 		key: "academicYear",
 		label: "Academic year",
@@ -267,11 +271,16 @@ export function StructureSetupPage() {
 					<Button disabled={activeStep === 0} onClick={() => goTo(activeStep - 1)}>
 						Back
 					</Button>
-					{!isReviewStep && (
-						<Button variant="contained" onClick={advance} disabled={checking}>
-							Continue
-						</Button>
-					)}
+					{!isReviewStep &&
+						(STEPS[activeStep].formId ? (
+							<Button variant="contained" type="submit" form={STEPS[activeStep].formId} disabled={checking}>
+								Save and continue
+							</Button>
+						) : (
+							<Button variant="contained" onClick={advance} disabled={checking}>
+								Continue
+							</Button>
+						))}
 				</Stack>
 			</Stack>
 		</Stack>

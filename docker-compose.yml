@@ -25,7 +25,10 @@ services:
       DB_URL: jdbc:mysql://mysql:3306/operion
       DB_USERNAME: root
       DB_PASSWORD: ${DB_ROOT_PASSWORD:-operion}
-      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
+      # No dev default: the fallbacks below are published development values, and without
+      # SPRING_PROFILES_ACTIVE=dev the backend refuses to start on them (SecretsGuard). Local use:
+      # SPRING_PROFILES_ACTIVE=dev docker compose up. Anywhere else, set real secrets (docs/setup/README.md).
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-}
       JWT_SECRET: ${JWT_SECRET:-dev-only-secret-change-me-before-any-real-deployment-32bytes-min}
       PLATFORM_JWT_SECRET: ${PLATFORM_JWT_SECRET:-dev-only-platform-secret-change-me-before-any-real-deployment-32b}
     ports:
