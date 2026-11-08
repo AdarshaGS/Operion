@@ -10,8 +10,9 @@ const seed: SeedData = JSON.parse(readFileSync(join(AUTH_DIR, "seed.json"), "utf
 
 test("claiming a staff invite through the real UI activates the account and logs in", async ({ page }) => {
 	// Issuing the invite is a precondition, not the thing under test - done via API as
-	// the owner (mirrors clicking "Add user" in Members without re-driving that whole
-	// flow here; tests/tenant/members/invite-user.spec.ts already covers the issuing UI).
+	// the owner. The Members screen no longer issues invites (admins set the member's
+	// password directly, see tests/tenant/members/add-member.spec.ts); the invite/claim
+	// endpoints remain for PENDING users.
 	const ownerSession = await login(seed.organisationSlug, seed.ownerEmail, seed.ownerPassword);
 	const invite = await inviteUser(ownerSession.token, `claim-ui-${Date.now()}@example.test`);
 

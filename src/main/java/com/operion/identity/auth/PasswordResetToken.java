@@ -23,6 +23,7 @@ public class PasswordResetToken extends TenantScopedEntity {
 	@Column(name = "user_id", nullable = false)
 	private Long userId;
 
+	/** SHA-256 hex of the raw token (see TokenHasher), looked up by equality - never the raw value. */
 	@Column(name = "token_hash", nullable = false)
 	private String tokenHash;
 

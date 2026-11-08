@@ -1,8 +1,13 @@
 package com.operion.messaging;
 
 import java.time.Instant;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import com.operion.academic.Section;
@@ -53,18 +58,70 @@ public class MessagingService {
 		this.broadcaster = broadcaster;
 	}
 
+	/**
+	 * The REST entry point for a class-group thread. Access rule: the requester must be one of the
+	 * section's would-be members (an enrolled student, one of an enrolled student's guardians, or an
+	 * ACTIVE teacher assignment of the section) - exactly the set classGroupMembers() computes, so a
+	 * person can open the thread if and only if they belong in it. Anyone else gets
+	 * AuthorizationDeniedException (403) and nothing is created: without this any authenticated member
+	 * of the organisation could create the thread for any section and read back its full roster
+	 * (students' and guardians' names). There is deliberately no admin override - an admin who is not
+	 * a member could not read or post in the thread anyway (requireParticipant), so letting them open
+	 * it would only expose the roster; whether admins should be able to moderate class groups is a
+	 * product decision, not something to invent a permission for here.
+	 *
+	 * <p>The participant list is also re-synced to the section's current membership every time the
+	 * thread is opened (a student enrolled, withdrawn or moved, a guardian linked, a teacher assigned
+	 * or unassigned since the thread was created): missing members are added and people who no longer
+	 * belong are removed. It is NOT re-synced on read/send/subscribe, so a person who left stays in the
+	 * thread until someone next opens it.
+	 */
 	@Transactional
-	public MessageThread getOrCreateClassGroupThread(Section section) {
-		return messageThreadRepository.findBySectionIdAndType(section.getId(), MessageThreadType.CLASS_GROUP)
-				.orElseGet(() -> createClassGroupThread(section));
+	public MessageThread openClassGroupThread(Section section, Person requester) {
+		Map<Long, Person> members = new LinkedHashMap<>();
+		classGroupMembers(section).forEach(person -> members.put(person.getId(), person));
+		if (!members.containsKey(requester.getId())) {
+			throw new AuthorizationDeniedException("Only a student, guardian or teacher of this section can open its class group");
+		}
+		Optional<MessageThread> existing = messageThreadRepository.findBySectionIdAndType(section.getId(), MessageThreadType.CLASS_GROUP);
+		if (existing.isEmpty()) {
+			return createClassGroupThread(section, members.values());
+		}
+		syncClassGroupParticipants(existing.get(), members);
+		return existing.get();
 	}
 
-	private MessageThread createClassGroupThread(Section section) {
+	/** Creation without an access check or re-sync - package-private so only this service's own flows
+	 * (and its test) can reach it; callers outside go through openClassGroupThread. */
+	@Transactional
+	MessageThread getOrCreateClassGroupThread(Section section) {
+		return messageThreadRepository.findBySectionIdAndType(section.getId(), MessageThreadType.CLASS_GROUP)
+				.orElseGet(() -> createClassGroupThread(section, classGroupMembers(section)));
+	}
+
+	private MessageThread createClassGroupThread(Section section, Collection<Person> members) {
 		MessageThread thread = messageThreadRepository.save(new MessageThread(MessageThreadType.CLASS_GROUP, section));
-		for (Person person : classGroupMembers(section)) {
+		for (Person person : members) {
 			threadParticipantRepository.save(new ThreadParticipant(thread, person));
 		}
 		return thread;
+	}
+
+	private void syncClassGroupParticipants(MessageThread thread, Map<Long, Person> members) {
+		Set<Long> present = new HashSet<>();
+		for (ThreadParticipant participant : threadParticipantRepository.findByThreadId(thread.getId())) {
+			Long personId = participant.getPerson().getId();
+			if (members.containsKey(personId)) {
+				present.add(personId);
+			} else {
+				threadParticipantRepository.delete(participant);
+			}
+		}
+		members.forEach((personId, person) -> {
+			if (!present.contains(personId)) {
+				threadParticipantRepository.save(new ThreadParticipant(thread, person));
+			}
+		});
 	}
 
 	private Set<Person> classGroupMembers(Section section) {

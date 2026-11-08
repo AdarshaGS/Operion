@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
@@ -53,6 +53,7 @@ import { listSections, type SectionResponse } from "../../api/sections";
 import { listStudents, type StudentResponse } from "../../api/students";
 import { listSubjects, type SubjectResponse } from "../../api/subjects";
 import { useAuth } from "../../auth/AuthContext";
+import { useCampusFiltered, useSelectedCampusId } from "../../layout/selectedCampus";
 import { useSchoolClassLabel } from "../../utils/useSchoolClassLabel";
 
 const TABS = ["overview", "schedule", "marks", "results", "reportCards"] as const;
@@ -83,6 +84,10 @@ export function ExamDetailPage() {
   const [schedules, setSchedules] = useState<ExamScheduleResponse[]>([]);
   const [classes, setClasses] = useState<SchoolClassResponse[]>([]);
   const classLabel = useSchoolClassLabel();
+  const selectedCampusId = useSelectedCampusId();
+  // Only the pickers below are campus-limited; className() keeps resolving every class, since the exam's
+  // existing schedules may belong to classes of another campus and must still show their names.
+  const campusClasses = useCampusFiltered(classes);
   const [subjects, setSubjects] = useState<SubjectResponse[]>([]);
   const [sectionsByClass, setSectionsByClass] = useState<
     Record<number, SectionResponse[]>
@@ -130,6 +135,26 @@ export function ExamDetailPage() {
     useState<ReportCardResponse | null>(null);
 
   const [submitting, setSubmitting] = useState(false);
+
+  // "Print a whole section" offers the sections of the selected campus's classes only.
+  const pdfSectionOptions = useMemo(() => {
+    const campusClassIds = new Set(campusClasses.map((c) => c.id));
+    return Object.entries(sectionsByClass)
+      .filter(([classId]) => selectedCampusId === null || campusClassIds.has(Number(classId)))
+      .flatMap(([classId, sections]) => sections.map((section) => ({ classId: Number(classId), section })));
+  }, [sectionsByClass, campusClasses, selectedCampusId]);
+
+  // A class or section picked under another campus is dropped when the campus changes.
+  useEffect(() => {
+    if (schoolClassId && !campusClasses.some((c) => String(c.id) === String(schoolClassId))) {
+      setSchoolClassId("");
+      setSectionId("");
+      setDialogSections([]);
+    }
+  }, [campusClasses, schoolClassId]);
+  useEffect(() => {
+    if (pdfSectionId && !pdfSectionOptions.some((o) => String(o.section.id) === pdfSectionId)) setPdfSectionId("");
+  }, [pdfSectionOptions, pdfSectionId]);
 
   useEffect(() => {
     if (!examId) return;
@@ -563,13 +588,11 @@ export function ExamDetailPage() {
               onChange={(e) => setPdfSectionId(e.target.value)}
               sx={{ minWidth: 240 }}
             >
-              {Object.entries(sectionsByClass).flatMap(([classId, sections]) =>
-                sections.map((section) => (
-                  <MenuItem key={section.id} value={section.id}>
-                    {className(Number(classId))} - {section.name}
-                  </MenuItem>
-                )),
-              )}
+              {pdfSectionOptions.map(({ classId, section }) => (
+                <MenuItem key={section.id} value={section.id}>
+                  {className(classId)} - {section.name}
+                </MenuItem>
+              ))}
             </TextField>
             <Button variant="outlined" disabled={!pdfSectionId || pdfBusy} onClick={handleSectionPdf}>
               {pdfBusy ? "Preparing…" : "Download section report cards (PDF)"}
@@ -592,6 +615,9 @@ export function ExamDetailPage() {
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
             {scheduleError && <Alert severity="error">{scheduleError}</Alert>}
+            {selectedCampusId !== null && classes.length > 0 && campusClasses.length === 0 && (
+              <Alert severity="info">No classes in the selected campus.</Alert>
+            )}
             <TextField
               select
               label="Class"
@@ -600,7 +626,7 @@ export function ExamDetailPage() {
               required
               fullWidth
             >
-              {classes.map((schoolClass) => (
+              {campusClasses.map((schoolClass) => (
                 <MenuItem key={schoolClass.id} value={schoolClass.id}>
                   {classLabel(schoolClass)}
                 </MenuItem>

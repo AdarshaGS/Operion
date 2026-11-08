@@ -18,6 +18,7 @@ import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import AddIcon from "@mui/icons-material/Add";
+import { Can } from "../../auth/Can";
 import { ApiError } from "../../api/client";
 import { listRegulatoryExportSchemas, type RegulatoryExportSchemaResponse } from "../../api/regulatoryExports";
 import {
@@ -81,9 +82,11 @@ export function TransferConnectorsPanel() {
 			<Stack spacing={2}>
 				<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 2 }}>
 					<Typography variant="h6">Transfer hand-off jobs</Typography>
-					<Button size="small" startIcon={<AddIcon />} onClick={() => setPrepareOpen(true)}>
-						Prepare job
-					</Button>
+					<Can anyOf={["REGULATORY_EXPORT_MANAGE"]}>
+						<Button size="small" startIcon={<AddIcon />} onClick={() => setPrepareOpen(true)}>
+							Prepare job
+						</Button>
+					</Can>
 				</Box>
 				<Typography variant="body2" color="text.secondary">
 					For a student recorded as transferred out, prepare the record an external system needs, then note here
@@ -141,26 +144,28 @@ export function TransferConnectorsPanel() {
 									<Button size="small" onClick={() => setViewing(job)}>
 										View payload
 									</Button>
-									{job.status === "PREPARED" && (
-										<>
-											<Button size="small" onClick={() => setPrompt({ kind: "submit", job })}>
-												Mark submitted
+									<Can anyOf={["REGULATORY_EXPORT_MANAGE"]}>
+										{job.status === "PREPARED" && (
+											<>
+												<Button size="small" onClick={() => setPrompt({ kind: "submit", job })}>
+													Mark submitted
+												</Button>
+												<Button size="small" onClick={() => setPrompt({ kind: "fail", job })}>
+													Mark failed
+												</Button>
+											</>
+										)}
+										{job.status === "FAILED" && (
+											<Button size="small" onClick={() => run(() => reprepareTransferConnectorJob(job.id), "Failed to re-prepare")}>
+												Re-prepare
 											</Button>
-											<Button size="small" onClick={() => setPrompt({ kind: "fail", job })}>
-												Mark failed
+										)}
+										{(job.status === "PREPARED" || job.status === "FAILED") && (
+											<Button size="small" color="error" onClick={() => run(() => cancelTransferConnectorJob(job.id), "Failed to cancel")}>
+												Cancel
 											</Button>
-										</>
-									)}
-									{job.status === "FAILED" && (
-										<Button size="small" onClick={() => run(() => reprepareTransferConnectorJob(job.id), "Failed to re-prepare")}>
-											Re-prepare
-										</Button>
-									)}
-									{(job.status === "PREPARED" || job.status === "FAILED") && (
-										<Button size="small" color="error" onClick={() => run(() => cancelTransferConnectorJob(job.id), "Failed to cancel")}>
-											Cancel
-										</Button>
-									)}
+										)}
+									</Can>
 								</TableCell>
 							</TableRow>
 						))}

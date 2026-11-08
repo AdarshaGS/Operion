@@ -37,11 +37,25 @@ public class FeeCategory extends TenantScopedEntity {
 	@Column(name = "category_type", nullable = false, length = 20)
 	private FeeCategoryType categoryType;
 
+	/** When true, a student's first instalment of this category's fee structure is assigned and invoiced
+	 * at enrolment and gates their admission-fee clearance (see AdmissionFeeService). */
+	@Column(name = "required_at_admission", nullable = false)
+	private boolean requiredAtAdmission;
+
+	public FeeCategory(String code, String name, String description, FeeCategoryType categoryType, boolean requiredAtAdmission) {
+		this(code, name, description, categoryType);
+		this.requiredAtAdmission = requiredAtAdmission;
+	}
+
 	public FeeCategory(String code, String name, String description, FeeCategoryType categoryType) {
 		this.code = code;
 		this.name = name;
 		this.description = description;
 		this.status = FeeCategoryStatus.ACTIVE;
 		this.categoryType = categoryType;
+	}
+
+	public void setRequiredAtAdmission(boolean requiredAtAdmission) {
+		this.requiredAtAdmission = requiredAtAdmission;
 	}
 }

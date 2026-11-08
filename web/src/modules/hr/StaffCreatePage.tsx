@@ -11,15 +11,15 @@ import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
+import Tooltip from "@mui/material/Tooltip";
+import { useCan } from "../../auth/useCan";
 import { AddMemberFields, EMPTY_ADD_MEMBER_FORM, submitAddMember, type AddMemberFormState } from "../../components/AddMemberForm";
-import { StaffInviteDialog } from "../../components/StaffInviteDialog";
 import { listCampuses, type CampusResponse } from "../../api/campuses";
 import { ApiError } from "../../api/client";
 import { listDepartments, type DepartmentResponse } from "../../api/departments";
 import { listDesignations, type DesignationResponse } from "../../api/designations";
 import { listRoles, type RoleResponse } from "../../api/roles";
 import { createStaffProfile, listStaffProfiles, type StaffProfileResponse } from "../../api/staffProfiles";
-import { type StaffInviteResponse } from "../../api/users";
 
 const EMPLOYMENT_TYPES = ["PERMANENT", "CONTRACT", "PART_TIME"];
 
@@ -51,11 +51,11 @@ export function StaffCreatePage() {
 	const [existingStaff, setExistingStaff] = useState<StaffProfileResponse[]>([]);
 	const [error, setError] = useState<string | null>(null);
 	const [submitting, setSubmitting] = useState(false);
+	// Creating the StaffProfile is POST /hr/staff (HR_STAFF_MANAGE); the person/user steps before it carry their own codes.
+	const canManageStaff = useCan("HR_STAFF_MANAGE");
 
 	const [wantsStaffProfile, setWantsStaffProfile] = useState(true);
 	const [hrExtension, setHrExtension] = useState<HrExtension>(EMPTY_HR_EXTENSION);
-	const [issuedInvite, setIssuedInvite] = useState<StaffInviteResponse | null>(null);
-	const [pendingNavigateTo, setPendingNavigateTo] = useState<string | null>(null);
 
 	useEffect(() => {
 		listCampuses().then(setCampuses).catch(() => {});
@@ -85,9 +85,9 @@ export function StaffCreatePage() {
 				return;
 			}
 
-			const { person, invite } = await submitAddMember(form);
+			const { person, user } = await submitAddMember(form);
 
-			let landingPath = invite ? `/settings/users/${invite.userId}` : "/hr";
+			let landingPath = user ? `/settings/users/${user.id}` : "/hr";
 			if (wantsStaffProfile) {
 				const staffProfile = await createStaffProfile({
 					personId: person.id,
@@ -102,26 +102,11 @@ export function StaffCreatePage() {
 				landingPath = `/hr/staff/${staffProfile.id}`;
 			}
 
-			if (invite) {
-				// Navigation is deferred until the invite dialog is closed - the claim token
-				// is shown once and never stored server-side, so an immediate redirect
-				// would lose it.
-				setPendingNavigateTo(landingPath);
-				setIssuedInvite(invite);
-			} else {
-				navigate(landingPath, { replace: true });
-			}
+			navigate(landingPath, { replace: true });
 		} catch (err) {
 			setError(err instanceof ApiError ? err.message : "Failed to add staff member");
 		} finally {
 			setSubmitting(false);
-		}
-	}
-
-	function closeInviteDialog() {
-		setIssuedInvite(null);
-		if (pendingNavigateTo) {
-			navigate(pendingNavigateTo, { replace: true });
 		}
 	}
 
@@ -199,14 +184,16 @@ export function StaffCreatePage() {
 
 					<Box sx={{ display: "flex", gap: 2, justifyContent: "flex-end" }}>
 						<Button onClick={() => navigate("/hr")}>Cancel</Button>
-						<Button type="submit" variant="contained" disabled={submitting}>
-							{submitting ? "Adding..." : "Add staff member"}
-						</Button>
+						<Tooltip title={wantsStaffProfile && !canManageStaff ? "You don't have permission to create staff profiles" : ""}>
+							<span>
+								<Button type="submit" variant="contained" disabled={submitting || (wantsStaffProfile && !canManageStaff)}>
+									{submitting ? "Adding..." : "Add staff member"}
+								</Button>
+							</span>
+						</Tooltip>
 					</Box>
 				</Stack>
 			</Paper>
-
-			<StaffInviteDialog invite={issuedInvite} onClose={closeInviteDialog} />
 		</Stack>
 	);
 }

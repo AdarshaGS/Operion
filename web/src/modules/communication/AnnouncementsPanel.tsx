@@ -24,6 +24,8 @@ import {
 	publishAnnouncement,
 	type AnnouncementResponse,
 } from "../../api/announcements";
+import { Can } from "../../auth/Can";
+import { useCan } from "../../auth/useCan";
 import { getCalendarDays, type CalendarNonWorkingDay } from "../../api/calendar";
 import { type CampusResponse, listCampuses } from "../../api/campuses";
 import { ApiError } from "../../api/client";
@@ -33,6 +35,7 @@ import { listStaffProfiles, type StaffProfileResponse } from "../../api/staffPro
 import { listStudents, type StudentResponse } from "../../api/students";
 import { type PersonResponse, listPersons } from "../../api/persons";
 import { formatCalendarDate } from "../../components/LeaveDaysHint";
+import { useCampusFiltered, useSelectedCampusId } from "../../layout/selectedCampus";
 import { useSchoolClassLabel } from "../../utils/useSchoolClassLabel";
 
 const AUDIENCE_TYPES = ["ORG", "CAMPUS", "CLASS", "SECTION", "INDIVIDUAL", "STAFF", "STAFF_MEMBER", "SELECTED_GROUP"];
@@ -42,6 +45,9 @@ export function AnnouncementsPanel() {
 	const [published, setPublished] = useState<AnnouncementResponse[]>([]);
 	const [error, setError] = useState<string | null>(null);
 	const [submitting, setSubmitting] = useState(false);
+	const canCreate = useCan("ANNOUNCEMENT_CREATE");
+	const canPublish = useCan("ANNOUNCEMENT_PUBLISH");
+	const canCancel = useCan("ANNOUNCEMENT_CANCEL");
 
 	const [title, setTitle] = useState("");
 	const [body, setBody] = useState("");
@@ -60,6 +66,8 @@ export function AnnouncementsPanel() {
 	const [campuses, setCampuses] = useState<CampusResponse[]>([]);
 	const [classes, setClasses] = useState<SchoolClassResponse[]>([]);
 	const classLabel = useSchoolClassLabel();
+	const selectedCampusId = useSelectedCampusId();
+	const campusClasses = useCampusFiltered(classes);
 	const [sections, setSections] = useState<SectionResponse[]>([]);
 	const [students, setStudents] = useState<StudentResponse[]>([]);
 	const [persons, setPersons] = useState<PersonResponse[]>([]);
@@ -107,6 +115,11 @@ export function AnnouncementsPanel() {
 		listPersons().then(setPersons).catch(() => {});
 		listStaffProfiles().then(setStaffProfiles).catch(() => {});
 	}, []);
+
+	// A class picked under another campus is dropped when the campus changes (which also clears its section).
+	useEffect(() => {
+		if (classId && !campusClasses.some((c) => String(c.id) === String(classId))) setClassId("");
+	}, [campusClasses, classId]);
 
 	useEffect(() => {
 		setSectionId("");
@@ -226,160 +239,167 @@ export function AnnouncementsPanel() {
 
 	return (
 		<Stack spacing={3}>
-			<Paper sx={{ p: 3 }}>
-				<Stack spacing={2} component="form" onSubmit={handleCreate}>
-					<Typography variant="h6">Compose announcement</Typography>
-					{error && <Alert severity="error">{error}</Alert>}
-					<TextField label="Title" value={title} onChange={(e) => setTitle(e.target.value)} required fullWidth />
-					<TextField label="Body" value={body} onChange={(e) => setBody(e.target.value)} required multiline rows={3} fullWidth />
-					<TextField select label="Audience" value={audienceType} onChange={(e) => setAudienceType(e.target.value)} sx={{ maxWidth: 240 }}>
-						{AUDIENCE_TYPES.map((type) => (
-							<MenuItem key={type} value={type}>
-								{type}
-							</MenuItem>
-						))}
-					</TextField>
-
-					{audienceType === "CAMPUS" && (
-						<TextField select label="Campus" value={campusId} onChange={(e) => setCampusId(e.target.value)} required sx={{ maxWidth: 300 }}>
-							{campuses.map((campus) => (
-								<MenuItem key={campus.id} value={campus.id}>
-									{campus.name}
+			<Can anyOf={["ANNOUNCEMENT_CREATE"]}>
+				<Paper sx={{ p: 3 }}>
+					<Stack spacing={2} component="form" onSubmit={handleCreate}>
+						<Typography variant="h6">Compose announcement</Typography>
+						{error && <Alert severity="error">{error}</Alert>}
+						<TextField label="Title" value={title} onChange={(e) => setTitle(e.target.value)} required fullWidth />
+						<TextField label="Body" value={body} onChange={(e) => setBody(e.target.value)} required multiline rows={3} fullWidth />
+						<TextField select label="Audience" value={audienceType} onChange={(e) => setAudienceType(e.target.value)} sx={{ maxWidth: 240 }}>
+							{AUDIENCE_TYPES.map((type) => (
+								<MenuItem key={type} value={type}>
+									{type}
 								</MenuItem>
 							))}
 						</TextField>
-					)}
 
-					{(audienceType === "CLASS" || audienceType === "SECTION") && (
-						<TextField select label="Class" value={classId} onChange={(e) => setClassId(e.target.value)} required sx={{ maxWidth: 300 }}>
-							{classes.map((schoolClass) => (
-								<MenuItem key={schoolClass.id} value={schoolClass.id}>
-									{classLabel(schoolClass)}
-								</MenuItem>
-							))}
-						</TextField>
-					)}
-
-					{audienceType === "SECTION" && (
-						<TextField
-							select
-							label="Section"
-							value={sectionId}
-							onChange={(e) => setSectionId(e.target.value)}
-							required
-							disabled={!classId}
-							sx={{ maxWidth: 300 }}
-						>
-							{sections.map((section) => (
-								<MenuItem key={section.id} value={section.id}>
-									{section.name}
-								</MenuItem>
-							))}
-						</TextField>
-					)}
-
-					{audienceType === "INDIVIDUAL" && (
-						<TextField select label="Student" value={studentId} onChange={(e) => setStudentId(e.target.value)} required sx={{ maxWidth: 300 }}>
-							{students.map((student) => (
-								<MenuItem key={student.id} value={student.id}>
-									{studentLabel(student)}
-								</MenuItem>
-							))}
-						</TextField>
-					)}
-
-					{audienceType === "STAFF_MEMBER" && (
-						<TextField
-							select
-							label="Staff member"
-							value={staffProfileId}
-							onChange={(e) => setStaffProfileId(e.target.value)}
-							required
-							sx={{ maxWidth: 300 }}
-						>
-							{staffProfiles.map((staffProfile) => (
-								<MenuItem key={staffProfile.id} value={staffProfile.id}>
-									{staffLabel(staffProfile)}
-								</MenuItem>
-							))}
-						</TextField>
-					)}
-
-					{audienceType === "SELECTED_GROUP" && (
-						<Box>
-							<Typography variant="body2" sx={{ mb: 1 }}>
-								Select recipients
-							</Typography>
-							<Stack sx={{ maxHeight: 240, overflowY: "auto" }}>
-								{persons.map((person) => (
-									<FormControlLabel
-										key={person.id}
-										control={
-											<Checkbox checked={selectedPersonIds.includes(person.id)} onChange={() => toggleSelectedPerson(person.id)} />
-										}
-										label={personLabel(person)}
-									/>
+						{audienceType === "CAMPUS" && (
+							<TextField select label="Campus" value={campusId} onChange={(e) => setCampusId(e.target.value)} required sx={{ maxWidth: 300 }}>
+								{campuses.map((campus) => (
+									<MenuItem key={campus.id} value={campus.id}>
+										{campus.name}
+									</MenuItem>
 								))}
-							</Stack>
-						</Box>
-					)}
+							</TextField>
+						)}
 
-					<Box>
-						<FormControlLabel
-							control={<Checkbox checked={scheduleForLater} onChange={(e) => setScheduleForLater(e.target.checked)} />}
-							label="Schedule for later instead of publishing manually"
-						/>
-						{scheduleForLater && (
+						{(audienceType === "CLASS" || audienceType === "SECTION") && (
+							<TextField select label="Class" value={classId} onChange={(e) => setClassId(e.target.value)} required sx={{ maxWidth: 300 }}>
+								{campusClasses.map((schoolClass) => (
+									<MenuItem key={schoolClass.id} value={schoolClass.id}>
+										{classLabel(schoolClass)}
+									</MenuItem>
+								))}
+							</TextField>
+						)}
+						{(audienceType === "CLASS" || audienceType === "SECTION") && selectedCampusId !== null && classes.length > 0 && campusClasses.length === 0 && (
+							<Alert severity="info">No classes in the selected campus.</Alert>
+						)}
+
+						{audienceType === "SECTION" && (
 							<TextField
-								type="datetime-local"
-								label="Publish at"
-								value={scheduledAt}
-								onChange={(e) => setScheduledAt(e.target.value)}
+								select
+								label="Section"
+								value={sectionId}
+								onChange={(e) => setSectionId(e.target.value)}
 								required
-								slotProps={{ inputLabel: { shrink: true } }}
-								sx={{ maxWidth: 260, display: "block" }}
-							/>
+								disabled={!classId}
+								sx={{ maxWidth: 300 }}
+							>
+								{sections.map((section) => (
+									<MenuItem key={section.id} value={section.id}>
+										{section.name}
+									</MenuItem>
+								))}
+							</TextField>
 						)}
-						{scheduleForLater && scheduledDayOff && (
-							<Alert severity="info" sx={{ mt: 1 }}>
-								{formatCalendarDate(scheduledDayOff.date)} is {scheduledDayOff.kind === "HOLIDAY" ? `a holiday (${scheduledDayOff.label})` : "a weekly off"}.
-								Unless you tick the box below, this will be held until the next working day.
-								<FormControlLabel
-									sx={{ display: "block" }}
-									control={<Checkbox checked={sendOnNonWorkingDays} onChange={(e) => setSendOnNonWorkingDays(e.target.checked)} />}
-									label="Send on that day anyway"
+
+						{audienceType === "INDIVIDUAL" && (
+							<TextField select label="Student" value={studentId} onChange={(e) => setStudentId(e.target.value)} required sx={{ maxWidth: 300 }}>
+								{students.map((student) => (
+									<MenuItem key={student.id} value={student.id}>
+										{studentLabel(student)}
+									</MenuItem>
+								))}
+							</TextField>
+						)}
+
+						{audienceType === "STAFF_MEMBER" && (
+							<TextField
+								select
+								label="Staff member"
+								value={staffProfileId}
+								onChange={(e) => setStaffProfileId(e.target.value)}
+								required
+								sx={{ maxWidth: 300 }}
+							>
+								{staffProfiles.map((staffProfile) => (
+									<MenuItem key={staffProfile.id} value={staffProfile.id}>
+										{staffLabel(staffProfile)}
+									</MenuItem>
+								))}
+							</TextField>
+						)}
+
+						{audienceType === "SELECTED_GROUP" && (
+							<Box>
+								<Typography variant="body2" sx={{ mb: 1 }}>
+									Select recipients
+								</Typography>
+								<Stack sx={{ maxHeight: 240, overflowY: "auto" }}>
+									{persons.map((person) => (
+										<FormControlLabel
+											key={person.id}
+											control={
+												<Checkbox checked={selectedPersonIds.includes(person.id)} onChange={() => toggleSelectedPerson(person.id)} />
+											}
+											label={personLabel(person)}
+										/>
+									))}
+								</Stack>
+							</Box>
+						)}
+
+						<Box>
+							<FormControlLabel
+								control={<Checkbox checked={scheduleForLater} onChange={(e) => setScheduleForLater(e.target.checked)} />}
+								label="Schedule for later instead of publishing manually"
+							/>
+							{scheduleForLater && (
+								<TextField
+									type="datetime-local"
+									label="Publish at"
+									value={scheduledAt}
+									onChange={(e) => setScheduledAt(e.target.value)}
+									required
+									slotProps={{ inputLabel: { shrink: true } }}
+									sx={{ maxWidth: 260, display: "block" }}
 								/>
-							</Alert>
-						)}
-					</Box>
+							)}
+							{scheduleForLater && scheduledDayOff && (
+								<Alert severity="info" sx={{ mt: 1 }}>
+									{formatCalendarDate(scheduledDayOff.date)} is {scheduledDayOff.kind === "HOLIDAY" ? `a holiday (${scheduledDayOff.label})` : "a weekly off"}.
+									Unless you tick the box below, this will be held until the next working day.
+									<FormControlLabel
+										sx={{ display: "block" }}
+										control={<Checkbox checked={sendOnNonWorkingDays} onChange={(e) => setSendOnNonWorkingDays(e.target.checked)} />}
+										label="Send on that day anyway"
+									/>
+								</Alert>
+							)}
+						</Box>
 
-					<Box>
-						<Button variant="outlined" disabled={previewing} onClick={handlePreview}>
-							Preview audience
-						</Button>
-						{audiencePreview && (
-							<Chip
-								sx={{ ml: 2 }}
-								label={
-									audiencePreview.notifiableCount === audiencePreview.audienceSize
-										? `Will reach ${audiencePreview.notifiableCount} people`
-										: `Will reach ${audiencePreview.notifiableCount} of ${audiencePreview.audienceSize} people (rest have notifications off)`
-								}
-							/>
-						)}
-					</Box>
+						<Box>
+							<Button variant="outlined" disabled={previewing} onClick={handlePreview}>
+								Preview audience
+							</Button>
+							{audiencePreview && (
+								<Chip
+									sx={{ ml: 2 }}
+									label={
+										audiencePreview.notifiableCount === audiencePreview.audienceSize
+											? `Will reach ${audiencePreview.notifiableCount} people`
+											: `Will reach ${audiencePreview.notifiableCount} of ${audiencePreview.audienceSize} people (rest have notifications off)`
+									}
+								/>
+							)}
+						</Box>
 
-					<Box>
-						<Button type="submit" variant="contained" disabled={submitting}>
-							Save as draft
-						</Button>
-					</Box>
-				</Stack>
-			</Paper>
+						<Box>
+							<Button type="submit" variant="contained" disabled={submitting}>
+								Save as draft
+							</Button>
+						</Box>
+					</Stack>
+				</Paper>
+			</Can>
 
 			<Paper sx={{ p: 3 }}>
 				<Stack spacing={2}>
 					<Typography variant="h6">Drafts</Typography>
+					{/* The compose form (hidden without ANNOUNCEMENT_CREATE) is where errors normally show. */}
+					{error && !canCreate && <Alert severity="error">{error}</Alert>}
 					{drafts.length === 0 && <Alert severity="info">No drafts.</Alert>}
 					{drafts.length > 0 && (
 						<TableContainer>
@@ -389,7 +409,7 @@ export function AnnouncementsPanel() {
 										<TableCell>Title</TableCell>
 										<TableCell>Audience</TableCell>
 										<TableCell>Scheduled</TableCell>
-										<TableCell />
+										{(canPublish || canCancel) && <TableCell />}
 									</TableRow>
 								</TableHead>
 								<TableBody>
@@ -403,14 +423,20 @@ export function AnnouncementsPanel() {
 													<Chip size="small" variant="outlined" label="Sends even on a day off" sx={{ ml: 1 }} />
 												)}
 											</TableCell>
-											<TableCell>
-												<Button size="small" onClick={() => handlePublish(announcement.id)}>
-													Publish
-												</Button>
-												<Button size="small" color="error" onClick={() => handleCancel(announcement.id)}>
-													Cancel
-												</Button>
-											</TableCell>
+											{(canPublish || canCancel) && (
+												<TableCell>
+													<Can anyOf={["ANNOUNCEMENT_PUBLISH"]}>
+														<Button size="small" onClick={() => handlePublish(announcement.id)}>
+															Publish
+														</Button>
+													</Can>
+													<Can anyOf={["ANNOUNCEMENT_CANCEL"]}>
+														<Button size="small" color="error" onClick={() => handleCancel(announcement.id)}>
+															Cancel
+														</Button>
+													</Can>
+												</TableCell>
+											)}
 										</TableRow>
 									))}
 								</TableBody>

@@ -11,6 +11,7 @@ import com.operion.audit.AuditLogRepository;
 import com.operion.audit.AuditLogService;
 import com.operion.common.JpaConfig;
 import com.operion.common.MultiTenancyConfig;
+import com.operion.common.InvalidRequestException;
 import com.operion.common.TenantContext;
 import com.operion.identity.Person;
 import com.operion.identity.PersonRepository;
@@ -148,12 +149,41 @@ class SubscriptionLifecycleTest {
 		Plan plan = billingService.createPlan("PAID-" + organisation.getId(), "Paid Plan", new BigDecimal("100.00"));
 		billingService.subscribe(organisation.getId(), plan.getId(), LocalDate.of(2026, 4, 1));
 		PlatformInvoice invoice = billingService.generateInvoice(
-				organisation.getId(), LocalDate.of(2026, 4, 1), LocalDate.of(2027, 3, 31), LocalDate.of(2026, 4, 15));
+				organisation.getId(), LocalDate.of(2026, 4, 1), LocalDate.of(2027, 3, 31), LocalDate.of(2026, 4, 15), new BigDecimal("100.00"));
 
 		PlatformInvoice paid = billingService.markPaid(invoice.getId());
 		assertThat(paid.getStatus()).isEqualTo(PlatformInvoiceStatus.PAID);
 		assertThat(paid.getPaidAt()).isNotNull();
 
 		assertThatThrownBy(() -> billingService.markPaid(invoice.getId())).isInstanceOf(IllegalStateException.class);
+	}
+
+	@Test
+	void anExplicitAmountOverridesTheCalculationEvenWithNoStudents() {
+		Organisation organisation = newOrganisation("manual-amount-school");
+		TenantContext.set(organisation.getId(), null);
+		Plan plan = billingService.createPlan("MAN-" + organisation.getId(), "Manual Plan", new BigDecimal("150.00"));
+		billingService.subscribe(organisation.getId(), plan.getId(), LocalDate.of(2026, 4, 1));
+
+		PlatformInvoice invoice = billingService.generateInvoice(
+				organisation.getId(), LocalDate.of(2026, 4, 1), LocalDate.of(2027, 3, 31), LocalDate.of(2026, 4, 15), new BigDecimal("5000"));
+
+		assertThat(invoice.getStudentCountAtBilling()).isZero();
+		assertThat(invoice.getAmount()).isEqualByComparingTo("5000.00");
+	}
+
+	@Test
+	void aZeroValueInvoiceIsRefusedWhenThereAreNoStudentsAndNoAmount() {
+		Organisation organisation = newOrganisation("zero-school");
+		TenantContext.set(organisation.getId(), null);
+		Plan plan = billingService.createPlan("ZERO-" + organisation.getId(), "Zero Plan", new BigDecimal("150.00"));
+		billingService.subscribe(organisation.getId(), plan.getId(), LocalDate.of(2026, 4, 1));
+
+		assertThatThrownBy(() -> billingService.generateInvoice(
+				organisation.getId(), LocalDate.of(2026, 4, 1), LocalDate.of(2027, 3, 31), LocalDate.of(2026, 4, 15)))
+				.isInstanceOf(InvalidRequestException.class);
+		assertThatThrownBy(() -> billingService.generateInvoice(
+				organisation.getId(), LocalDate.of(2026, 4, 1), LocalDate.of(2027, 3, 31), LocalDate.of(2026, 4, 15), BigDecimal.ZERO))
+				.isInstanceOf(InvalidRequestException.class);
 	}
 }

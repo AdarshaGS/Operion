@@ -19,6 +19,7 @@ import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import AddIcon from "@mui/icons-material/Add";
+import { Can } from "../../auth/Can";
 import { ApiError } from "../../api/client";
 import { listPersons, type PersonResponse } from "../../api/persons";
 import { listSubjects, type SubjectResponse } from "../../api/subjects";
@@ -116,9 +117,11 @@ export function TeacherAssignmentsPanel({ sectionId }: { sectionId: number }) {
 			<Stack spacing={2}>
 				<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
 					<Typography variant="h6">Teacher assignments</Typography>
-					<Button size="small" startIcon={<AddIcon />} onClick={openAssignDialog}>
-						Assign teacher
-					</Button>
+					<Can anyOf={["TEACHER_ASSIGNMENT_MANAGE"]}>
+						<Button size="small" startIcon={<AddIcon />} onClick={openAssignDialog}>
+							Assign teacher
+						</Button>
+					</Can>
 				</Box>
 
 				{error && <Alert severity="error">{error}</Alert>}
@@ -152,9 +155,11 @@ export function TeacherAssignmentsPanel({ sectionId }: { sectionId: number }) {
 										</TableCell>
 										<TableCell>
 											{assignment.status === "ACTIVE" && (
-												<Button size="small" color="error" onClick={() => handleEnd(assignment.id)}>
-													End
-												</Button>
+												<Can anyOf={["TEACHER_ASSIGNMENT_MANAGE"]}>
+													<Button size="small" color="error" onClick={() => handleEnd(assignment.id)}>
+														End
+													</Button>
+												</Can>
 											)}
 										</TableCell>
 									</TableRow>

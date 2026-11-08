@@ -21,6 +21,7 @@ import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import AddIcon from "@mui/icons-material/Add";
+import { Can } from "../../auth/Can";
 import { type AcademicYearResponse, listAcademicYears } from "../../api/academicYears";
 import { type CampusResponse, listCampuses } from "../../api/campuses";
 import { ApiError } from "../../api/client";
@@ -32,7 +33,7 @@ import {
 	updateSchoolClassDisplayName,
 	type SchoolClassResponse,
 } from "../../api/schoolClasses";
-import { useSelectedCampusId } from "../../layout/selectedCampus";
+import { filterByCampus, useSelectedCampusId } from "../../layout/selectedCampus";
 
 export function SchoolClassesPanel() {
 	const navigate = useNavigate();
@@ -107,7 +108,7 @@ export function SchoolClassesPanel() {
 	const academicYearsById = new Map(academicYears.map((year) => [year.id, year]));
 	const campusesById = new Map(campuses.map((campus) => [campus.id, campus]));
 	// Org -> campus -> class: with a campus picked in the top bar, only that campus's classes show (and new ones land in it).
-	const visibleClasses = selectedCampusId === null ? classes : classes.filter((schoolClass) => schoolClass.campusId === selectedCampusId);
+	const visibleClasses = filterByCampus(classes, selectedCampusId);
 	const activeCampusName = selectedCampusId === null ? null : (campusesById.get(selectedCampusId)?.name ?? null);
 	const gradeLevelsById = new Map(gradeLevels.map((level) => [level.id, level]));
 
@@ -140,17 +141,19 @@ export function SchoolClassesPanel() {
 			<Stack spacing={2}>
 				<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
 					<Typography variant="h6">{activeCampusName ? `Classes - ${activeCampusName}` : "Classes"}</Typography>
-					<Button
-						size="small"
-						startIcon={<AddIcon />}
-						onClick={() => {
-							refreshLookups();
-							setDialogError(null);
-							setDialogOpen(true);
-						}}
-					>
-						Add class
-					</Button>
+					<Can anyOf={["CLASS_MANAGE"]}>
+						<Button
+							size="small"
+							startIcon={<AddIcon />}
+							onClick={() => {
+								refreshLookups();
+								setDialogError(null);
+								setDialogOpen(true);
+							}}
+						>
+							Add class
+						</Button>
+					</Can>
 				</Box>
 
 				{(academicYears.length === 0 || campuses.length === 0 || gradeLevels.length === 0) && (
@@ -189,12 +192,14 @@ export function SchoolClassesPanel() {
 										<Chip label={schoolClass.status} size="small" />
 									</TableCell>
 									<TableCell onClick={(e) => e.stopPropagation()}>
-										<Button size="small" onClick={() => openEdit(schoolClass)}>
-											Edit
-										</Button>
-										<Button size="small" onClick={() => handleToggleStatus(schoolClass)}>
-											{schoolClass.status === "ACTIVE" ? "Deactivate" : "Reactivate"}
-										</Button>
+										<Can anyOf={["CLASS_MANAGE"]}>
+											<Button size="small" onClick={() => openEdit(schoolClass)}>
+												Edit
+											</Button>
+											<Button size="small" onClick={() => handleToggleStatus(schoolClass)}>
+												{schoolClass.status === "ACTIVE" ? "Deactivate" : "Reactivate"}
+											</Button>
+										</Can>
 									</TableCell>
 								</TableRow>
 							))}

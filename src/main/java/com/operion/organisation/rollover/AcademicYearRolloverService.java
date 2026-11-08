@@ -13,8 +13,8 @@ import com.operion.audit.AuditLogService;
 import com.operion.common.TenantContext;
 import com.operion.modules.ModuleAccessService;
 import com.operion.organisation.AcademicYear;
+import com.operion.organisation.AcademicYearGuard;
 import com.operion.organisation.AcademicYearRepository;
-import com.operion.organisation.AcademicYearStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.interceptor.TransactionAspectSupport;
@@ -73,9 +73,8 @@ public class AcademicYearRolloverService {
 		if (source.getId().equals(target.getId())) {
 			throw new IllegalArgumentException("Choose a different year to copy from");
 		}
-		if (target.getStatus() == AcademicYearStatus.CLOSED) {
-			throw new IllegalStateException("A closed academic year cannot be prepared");
-		}
+		// Only the target is written to; a closed source year is read-only input and may still be copied from.
+		AcademicYearGuard.requireOpen(target, "preparing it from another year");
 		RolloverOptions options = new RolloverOptions(request.feeIncreasePercent());
 		if (options.feeIncreasePercent().compareTo(MAX_FEE_CHANGE_PERCENT) > 0 || options.feeIncreasePercent().compareTo(new BigDecimal("-100")) < 0) {
 			throw new IllegalArgumentException("Fee change must be between -100% and 500%");

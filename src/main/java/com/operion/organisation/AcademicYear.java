@@ -50,6 +50,13 @@ public class AcademicYear extends TenantScopedEntity {
 		return status == AcademicYearStatus.CLOSED;
 	}
 
+	/** Write paths call this (via AcademicYearGuard) before changing anything scoped to this year. */
+	public void requireOpen(String action) {
+		if (isClosed()) {
+			throw new ClosedAcademicYearException(name, action);
+		}
+	}
+
 	public void markCurrent() {
 		if (isClosed()) {
 			throw new IllegalStateException("A closed academic year cannot be made current again");

@@ -46,13 +46,14 @@ public class PlatformJwtService {
 	}
 
 	public Long decodeToPlatformAdminId(String token) {
-		Claims claims;
+		// Subject parsing is inside the try: a signed token with a non-numeric subject must be a 401
+		// (InvalidPlatformTokenException), not a NumberFormatException (an IllegalArgumentException) -> 500.
 		try {
-			claims = Jwts.parser().verifyWith(key).build().parseSignedClaims(token).getPayload();
+			Claims claims = Jwts.parser().verifyWith(key).build().parseSignedClaims(token).getPayload();
+			return Long.parseLong(claims.getSubject());
 		} catch (JwtException | IllegalArgumentException ex) {
 			throw new InvalidPlatformTokenException("Invalid or expired platform token", ex);
 		}
-		return Long.parseLong(claims.getSubject());
 	}
 
 	public record IssuedToken(String token, Instant expiresAt) {

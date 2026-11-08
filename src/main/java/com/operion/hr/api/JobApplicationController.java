@@ -10,6 +10,10 @@ import com.operion.hr.JobApplicationHireService;
 import com.operion.hr.EmploymentType;
 import com.operion.common.InvalidRequestException;
 import com.operion.common.EnumParam;
+import com.operion.common.ClientIpResolver;
+import com.operion.common.SlidingWindowRateLimiter;
+import com.operion.common.TooManyRequestsException;
+import java.time.Duration;
 import java.util.List;
 
 import com.operion.academic.SubjectRepository;
@@ -22,6 +26,8 @@ import com.operion.hr.JobApplicationRepository;
 import com.operion.hr.JobApplicationStatus;
 import com.operion.organisation.Organisation;
 import com.operion.organisation.OrganisationRepository;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -53,11 +59,16 @@ public class JobApplicationController {
 	private final DesignationRepository designationRepository;
 	private final CampusRepository campusRepository;
 	private final DepartmentRepository departmentRepository;
+	private final ClientIpResolver clientIpResolver;
+	/** Per caller address, shared by the two public endpoints (submit + subject list). */
+	private final SlidingWindowRateLimiter publicLimiter = new SlidingWindowRateLimiter(30, Duration.ofHours(1), 10_000);
 
 	public JobApplicationController(HrService hrService, JobApplicationRepository jobApplicationRepository,
 			OrganisationRepository organisationRepository, SubjectRepository subjectRepository,
 			JobApplicationHireService hireService, DesignationRepository designationRepository,
-			CampusRepository campusRepository, DepartmentRepository departmentRepository) {
+			CampusRepository campusRepository, DepartmentRepository departmentRepository,
+			ClientIpResolver clientIpResolver) {
+		this.clientIpResolver = clientIpResolver;
 		this.hireService = hireService;
 		this.designationRepository = designationRepository;
 		this.campusRepository = campusRepository;
@@ -69,16 +80,19 @@ public class JobApplicationController {
 	}
 
 	@PostMapping
-	public JobApplicationResponse submit(@RequestBody SubmitJobApplicationRequest request) {
-		JobApplication jobApplication = hrService.submitJobApplication(
+	public PublicJobApplicationResponse submit(@Valid @RequestBody SubmitJobApplicationRequest request, HttpServletRequest httpRequest) {
+		limit(httpRequest);
+		// The result (new vs. already applied) is deliberately not surfaced - see PublicJobApplicationResponse.
+		hrService.submitJobApplication(
 				request.organisationSlug(), request.applicantName(), request.email(), request.specialization(), request.yearsExperience());
-		return JobApplicationResponse.from(jobApplication);
+		return PublicJobApplicationResponse.received();
 	}
 
 	@GetMapping("/subjects")
-	public List<PublicSubjectResponse> subjectsForOrganisation(@RequestParam String organisationSlug) {
+	public List<PublicSubjectResponse> subjectsForOrganisation(@RequestParam String organisationSlug, HttpServletRequest httpRequest) {
+		limit(httpRequest);
 		Organisation organisation = organisationRepository.findBySlug(organisationSlug)
-				.orElseThrow(() -> new IllegalArgumentException("No organisation with slug " + organisationSlug));
+				.orElseThrow(() -> new IllegalArgumentException("No such organisation"));
 		TenantContext.set(organisation.getId(), null);
 		return subjectRepository.findByStatus(SubjectStatus.ACTIVE).stream().map(PublicSubjectResponse::from).toList();
 	}
@@ -120,6 +134,12 @@ public class JobApplicationController {
 	@RequirePermission("HR_RECRUITMENT_MANAGE")
 	public JobApplicationResponse reject(@PathVariable Long id) {
 		return JobApplicationResponse.from(hrService.rejectJobApplication(findJobApplication(id), TenantContext.getActorId()));
+	}
+
+	private void limit(HttpServletRequest httpRequest) {
+		if (!publicLimiter.tryAcquire(clientIpResolver.resolve(httpRequest))) {
+			throw new TooManyRequestsException("Too many requests. Please try again later.");
+		}
 	}
 
 	private JobApplication findJobApplication(Long id) {

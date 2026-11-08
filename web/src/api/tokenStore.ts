@@ -2,6 +2,8 @@
 // (which has no business depending on React) can read the current token without a
 // circular import back into the auth layer.
 
+import { subscribeToStorageKey } from "./storageSync";
+
 export interface StoredSession {
 	token: string;
 	expiresAt: string;
@@ -37,4 +39,12 @@ export function onSessionCleared(listener: () => void): () => void {
 export function clearSession(): void {
 	localStorage.removeItem(STORAGE_KEY);
 	clearListeners.forEach((listener) => listener());
+}
+
+/** Called when *another tab* changes or removes the stored session (the `storage` event), with
+ * what is stored now - null after a logout elsewhere, a different session after a login
+ * elsewhere. Lets this tab drop to sign-in (or adopt the new identity) instead of carrying on
+ * with state that no longer matches the token the API client will read from storage. */
+export function onSessionChangedElsewhere(listener: (session: StoredSession | null) => void): () => void {
+	return subscribeToStorageKey(STORAGE_KEY, () => listener(getSession()));
 }

@@ -1,5 +1,6 @@
 package com.operion.student;
 
+import java.time.Instant;
 import java.time.LocalDate;
 
 import com.operion.academic.Section;
@@ -61,6 +62,23 @@ public class StudentEnrollment extends TenantScopedEntity {
 	@Column(name = "exit_date")
 	private LocalDate exitDate;
 
+	/** Admission-fee standing, written only by finance code in the same transaction as the money movement - see FeeClearanceStatus. */
+	@Enumerated(EnumType.STRING)
+	@Column(name = "fee_clearance_status", nullable = false, length = 20)
+	private FeeClearanceStatus feeClearanceStatus;
+
+	/** Nullable - when feeClearanceStatus last changed. */
+	@Column(name = "fee_clearance_changed_at")
+	private Instant feeClearanceChangedAt;
+
+	/** Nullable - only set by a manual override (EXEMPTED). */
+	@Column(name = "fee_clearance_override_by")
+	private Long feeClearanceOverrideBy;
+
+	/** Nullable - the reason recorded with a manual override. */
+	@Column(name = "fee_clearance_override_reason", length = 500)
+	private String feeClearanceOverrideReason;
+
 	public StudentEnrollment(Student student, AcademicYear academicYear, Section section, Integer rollNumber,
 			LocalDate enrolledDate) {
 		this.student = student;
@@ -70,6 +88,27 @@ public class StudentEnrollment extends TenantScopedEntity {
 		this.enrollmentStatus = StudentEnrollmentStatus.ENROLLED;
 		this.current = true;
 		this.enrolledDate = enrolledDate;
+		this.feeClearanceStatus = FeeClearanceStatus.NOT_REQUIRED;
+	}
+
+	/** Moves the admission-fee standing and stamps when. Callers (finance code only) decide which transitions are legal. */
+	public void changeFeeClearanceStatus(FeeClearanceStatus status) {
+		this.feeClearanceStatus = status;
+		this.feeClearanceChangedAt = Instant.now();
+	}
+
+	/** Manual override: EXEMPTED, with who and why. The time is feeClearanceChangedAt. Callers (finance code only) check the starting status. */
+	public void exemptFromFeeClearance(Long overriddenBy, String reason) {
+		changeFeeClearanceStatus(FeeClearanceStatus.EXEMPTED);
+		this.feeClearanceOverrideBy = overriddenBy;
+		this.feeClearanceOverrideReason = reason;
+	}
+
+	/** Revokes an override: moves to the recalculated status and forgets who exempted the student and why. */
+	public void revokeFeeClearanceOverride(FeeClearanceStatus recalculated) {
+		changeFeeClearanceStatus(recalculated);
+		this.feeClearanceOverrideBy = null;
+		this.feeClearanceOverrideReason = null;
 	}
 
 	public void close(StudentEnrollmentStatus exitStatus, LocalDate exitDate) {

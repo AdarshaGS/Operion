@@ -12,15 +12,18 @@ import { verifyEmail } from "../api/auth";
 import { ApiError } from "../api/client";
 import { Wordmark } from "../branding/Wordmark";
 import { colors } from "../theme";
+import { useUrlToken } from "./useUrlToken";
 
 /** Public, unauthenticated. Reached via the link EmailVerificationService.issue() logs
  * server-side on user creation (see its own javadoc for why there's no real email
  * delivery yet) - confirm() just marks the account verified, it doesn't log anyone in. */
 export function EmailVerifyPage() {
 	const [searchParams] = useSearchParams();
+	// Token is read once, then removed from the address bar - see useUrlToken.
+	const urlToken = useUrlToken();
 
 	const [organisationSlug, setOrganisationSlug] = useState(searchParams.get("org") ?? "");
-	const [token, setToken] = useState(searchParams.get("token") ?? "");
+	const [token, setToken] = useState(urlToken);
 	const [error, setError] = useState<string | null>(null);
 	const [verified, setVerified] = useState(false);
 	const [submitting, setSubmitting] = useState(false);

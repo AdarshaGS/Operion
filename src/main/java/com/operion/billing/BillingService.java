@@ -11,6 +11,7 @@ import java.util.stream.Collectors;
 import com.operion.audit.AuditLogRepository;
 import com.operion.audit.AuditLogRepository.OrganisationLastActivity;
 import com.operion.audit.AuditLogService;
+import com.operion.common.InvalidRequestException;
 import com.operion.common.TenantContext;
 import com.operion.organisation.Organisation;
 import com.operion.organisation.OrganisationRepository;
@@ -129,13 +130,32 @@ public class BillingService {
 	 * tenant-scoped read, isolated to its own short-lived session in countActiveStudents.
 	 */
 	public PlatformInvoice generateInvoice(Long organisationId, LocalDate periodStart, LocalDate periodEnd, LocalDate dueDate) {
+		return generateInvoice(organisationId, periodStart, periodEnd, dueDate, null);
+	}
+
+	/**
+	 * As above, but the platform admin may bill an explicit amount (e.g. a school with no
+	 * enrolled students yet, or a negotiated figure). With no amount the invoice is the
+	 * subscription rate x active headcount; if that comes to zero the call is refused rather
+	 * than silently issuing a zero-value invoice. studentCountAtBilling is always the live headcount.
+	 */
+	public PlatformInvoice generateInvoice(Long organisationId, LocalDate periodStart, LocalDate periodEnd, LocalDate dueDate,
+			BigDecimal requestedAmount) {
+		if (requestedAmount != null && requestedAmount.signum() <= 0) {
+			throw new InvalidRequestException("Invoice amount must be greater than zero");
+		}
 		Organisation organisation = organisationRepository.findById(organisationId)
 				.orElseThrow(() -> new IllegalArgumentException("No organisation with id " + organisationId));
 		Subscription subscription = subscriptionRepository.findByOrganisationIdAndStatus(organisationId, SubscriptionStatus.ACTIVE)
 				.orElseThrow(() -> new IllegalStateException("Organisation " + organisationId + " has no active subscription"));
 
 		int studentCount = countActiveStudents(organisationId);
-		BigDecimal amount = subscription.getPricePerStudentPerYear().multiply(BigDecimal.valueOf(studentCount));
+		BigDecimal amount = requestedAmount != null ? requestedAmount.setScale(2, RoundingMode.HALF_UP)
+				: subscription.getPricePerStudentPerYear().multiply(BigDecimal.valueOf(studentCount));
+		if (amount.signum() <= 0) {
+			throw new InvalidRequestException("This organisation has no active students to bill at " + subscription.getPricePerStudentPerYear()
+					+ " per student per year - enter an invoice amount");
+		}
 
 		PlatformInvoice invoice = platformInvoiceRepository.save(
 				new PlatformInvoice(organisation, subscription, periodStart, periodEnd, studentCount, amount, dueDate));

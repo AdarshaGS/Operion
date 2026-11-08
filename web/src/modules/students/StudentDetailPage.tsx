@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import Alert from "@mui/material/Alert";
 import Avatar from "@mui/material/Avatar";
 import Box from "@mui/material/Box";
@@ -16,10 +16,15 @@ import MenuItem from "@mui/material/MenuItem";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
+import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import FolderOpenOutlinedIcon from "@mui/icons-material/FolderOpenOutlined";
+import HourglassEmptyIcon from "@mui/icons-material/HourglassEmpty";
 import { listAcademicYears, type AcademicYearResponse } from "../../api/academicYears";
 import { Can } from "../../auth/Can";
+import { ModuleEnabled } from "../../auth/ModuleEnabled";
 import { ApiError } from "../../api/client";
 import {
 	createEnrollment,
@@ -33,12 +38,14 @@ import { getStudent, updateStudent, type StudentResponse } from "../../api/stude
 import { resolveAssetUrl, uploadAsset } from "../../api/assets";
 import { CustomFieldsDisplay, CustomFieldsFormSection } from "../../components/CustomFieldsFormSection";
 import { BorrowerLoanHistoryPanel } from "../library/BorrowerLoanHistoryPanel";
+import { useCampusFiltered, useSelectedCampusId } from "../../layout/selectedCampus";
 import { useSchoolClassLabel } from "../../utils/useSchoolClassLabel";
+import { AdmissionFeeCard } from "./AdmissionFeeCard";
+import { AdmissionFeePreview } from "./AdmissionFeePreview";
 import { StudentAttendanceSummaryPanel } from "./StudentAttendanceSummaryPanel";
-import { StudentDocumentsPanel } from "./StudentDocumentsPanel";
 import { StudentGuardiansPanel } from "./StudentGuardiansPanel";
-import { StudentTransferPanel } from "./StudentTransferPanel";
-import { StudentCertificatesPanel } from "../certificates/StudentCertificatesPanel";
+import { StudentRecordsDrawer } from "./StudentRecordsDrawer";
+import { isRecordsTab, useAvailableRecordsTabs, type RecordsTab } from "./studentRecordsTabs";
 
 function Field({ label, value }: { label: string; value: string | number | null | undefined }) {
 	return (
@@ -65,8 +72,11 @@ interface EnrollDialogProps {
  * use for scoping to a section. */
 function EnrollDialog({ open, onClose, onEnrolled, studentId }: EnrollDialogProps) {
 	const classLabel = useSchoolClassLabel();
+	const selectedCampusId = useSelectedCampusId();
 	const [academicYears, setAcademicYears] = useState<AcademicYearResponse[]>([]);
 	const [schoolClasses, setSchoolClasses] = useState<SchoolClassResponse[]>([]);
+	// Only the class picker in this dialog is campus-limited; the student's own enrolment/class display is not.
+	const campusClasses = useCampusFiltered(schoolClasses);
 	const [sections, setSections] = useState<SectionResponse[]>([]);
 	const [academicYearId, setAcademicYearId] = useState("");
 	const [schoolClassId, setSchoolClassId] = useState("");
@@ -87,6 +97,11 @@ function EnrollDialog({ open, onClose, onEnrolled, studentId }: EnrollDialogProp
 		if (!academicYearId) return;
 		listSchoolClasses(Number(academicYearId)).then(setSchoolClasses).catch(() => {});
 	}, [academicYearId]);
+
+	// A class picked under another campus is dropped when the campus changes (which also clears its section).
+	useEffect(() => {
+		if (schoolClassId && !campusClasses.some((c) => String(c.id) === String(schoolClassId))) setSchoolClassId("");
+	}, [campusClasses, schoolClassId]);
 
 	useEffect(() => {
 		setSectionId("");
@@ -136,12 +151,15 @@ function EnrollDialog({ open, onClose, onEnrolled, studentId }: EnrollDialogProp
 						fullWidth
 						disabled={!academicYearId}
 					>
-						{schoolClasses.map((schoolClass) => (
+						{campusClasses.map((schoolClass) => (
 							<MenuItem key={schoolClass.id} value={schoolClass.id}>
 								{classLabel(schoolClass)}
 							</MenuItem>
 						))}
 					</TextField>
+					{selectedCampusId !== null && schoolClasses.length > 0 && campusClasses.length === 0 && (
+						<Alert severity="info">No classes in the selected campus.</Alert>
+					)}
 					<TextField
 						select
 						label="Section"
@@ -157,6 +175,7 @@ function EnrollDialog({ open, onClose, onEnrolled, studentId }: EnrollDialogProp
 							</MenuItem>
 						))}
 					</TextField>
+					<AdmissionFeePreview academicYearId={academicYearId} sectionId={sectionId} />
 					<TextField label="Roll number" type="number" value={rollNumber} onChange={(e) => setRollNumber(e.target.value)} fullWidth />
 					<TextField
 						label="Enrolled date"
@@ -370,6 +389,8 @@ function EditStudentDialog({ open, onClose, onSaved, student, person }: EditStud
 export function StudentDetailPage() {
 	const { studentId } = useParams<{ studentId: string }>();
 	const navigate = useNavigate();
+	const [searchParams, setSearchParams] = useSearchParams();
+	const recordsTabs = useAvailableRecordsTabs();
 	const [student, setStudent] = useState<StudentResponse | null>(null);
 	const [person, setPerson] = useState<PersonResponse | null>(null);
 	const [enrollments, setEnrollments] = useState<StudentEnrollmentResponse[]>([]);
@@ -411,6 +432,43 @@ export function StudentDetailPage() {
 
 	useEffect(refresh, [studentId]);
 
+	// `?records=<tab>` makes the Records drawer linkable: present means open, its value picks the tab.
+	const recordsParam = searchParams.get("records");
+	const recordsOpen = recordsTabs.length > 0 && recordsParam !== null;
+	const recordsTab: RecordsTab = isRecordsTab(recordsParam) && recordsTabs.includes(recordsParam) ? recordsParam : recordsTabs[0];
+
+	// Opening pushes one history entry (so Back closes the drawer); switching tabs and closing replace
+	// it, so neither leaves extra entries that would reopen the drawer on Back/Forward.
+	function openRecords(tab: RecordsTab) {
+		setSearchParams((prev) => {
+			const next = new URLSearchParams(prev);
+			next.set("records", tab);
+			return next;
+		});
+	}
+
+	function switchRecordsTab(tab: RecordsTab) {
+		setSearchParams(
+			(prev) => {
+				const next = new URLSearchParams(prev);
+				next.set("records", tab);
+				return next;
+			},
+			{ replace: true },
+		);
+	}
+
+	function closeRecords() {
+		setSearchParams(
+			(prev) => {
+				const next = new URLSearchParams(prev);
+				next.delete("records");
+				return next;
+			},
+			{ replace: true },
+		);
+	}
+
 	if (error) {
 		return <Alert severity="error">{error}</Alert>;
 	}
@@ -424,6 +482,9 @@ export function StudentDetailPage() {
 	}
 
 	const currentEnrollment = enrollments.find((enrollment) => enrollment.current) ?? null;
+	const enrolledText = currentEnrollment
+		? `Enrolled - roll no. ${currentEnrollment.rollNumber ?? "—"}, since ${currentEnrollment.enrolledDate}`
+		: "";
 
 	return (
 		<Stack spacing={2}>
@@ -434,11 +495,33 @@ export function StudentDetailPage() {
 			</Box>
 
 			<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-				<Typography variant="h4" component="h1">
-					{person ? `${person.firstName} ${person.lastName}` : `Student #${student.id}`}
-				</Typography>
+				<Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+					<Typography variant="h4" component="h1">
+						{person ? `${person.firstName} ${person.lastName}` : `Student #${student.id}`}
+					</Typography>
+					{currentEnrollment ? (
+						<Tooltip title={enrolledText}>
+							<Box component="span" role="img" aria-label={enrolledText} tabIndex={0} sx={{ display: "inline-flex" }}>
+								<CheckCircleIcon color="success" />
+							</Box>
+						</Tooltip>
+					) : (
+						student.status === "ADMITTED" && (
+							<Tooltip title="Admitted - not enrolled yet">
+								<Box component="span" role="img" aria-label="Admitted - not enrolled yet" tabIndex={0} sx={{ display: "inline-flex" }}>
+									<HourglassEmptyIcon color="warning" />
+								</Box>
+							</Tooltip>
+						)
+					)}
+					<Chip size="small" label={student.status} />
+				</Stack>
 				<Stack direction="row" spacing={1.5} sx={{ alignItems: "center" }}>
-					<Chip label={student.status} />
+					{recordsTabs.length > 0 && (
+						<Button size="small" variant="outlined" startIcon={<FolderOpenOutlinedIcon />} onClick={() => openRecords(recordsTabs[0])}>
+							Records
+						</Button>
+					)}
 					{student.status === "ADMITTED" && (
 						<Can anyOf={["STUDENT_ENROLLMENT_MANAGE"]}>
 							<Button size="small" variant="contained" onClick={() => setEnrollDialogOpen(true)}>
@@ -448,12 +531,6 @@ export function StudentDetailPage() {
 					)}
 				</Stack>
 			</Box>
-
-			{currentEnrollment && (
-				<Alert severity="success" variant="outlined">
-					Enrolled - roll number {currentEnrollment.rollNumber ?? "—"}, since {currentEnrollment.enrolledDate}
-				</Alert>
-			)}
 
 			<EnrollDialog
 				open={enrollDialogOpen}
@@ -556,17 +633,35 @@ export function StudentDetailPage() {
 				</Stack>
 			</Paper>
 
-			{currentEnrollment && <StudentAttendanceSummaryPanel enrollmentId={currentEnrollment.id} />}
+			{currentEnrollment && (
+				<ModuleEnabled module="FEES">
+					<Can anyOf={["FEE_VIEW"]}>
+						<AdmissionFeeCard enrollment={currentEnrollment} onChanged={refresh} />
+					</Can>
+				</ModuleEnabled>
+			)}
+
+			{currentEnrollment && (
+				<ModuleEnabled module="ATTENDANCE">
+					<StudentAttendanceSummaryPanel enrollmentId={currentEnrollment.id} />
+				</ModuleEnabled>
+			)}
 
 			<StudentGuardiansPanel studentId={student.id} />
 
-			<StudentDocumentsPanel studentId={student.id} />
+			<ModuleEnabled module="LIBRARY">
+				<BorrowerLoanHistoryPanel personId={student.personId} />
+			</ModuleEnabled>
 
-			<StudentTransferPanel studentId={student.id} />
-
-			<StudentCertificatesPanel studentId={student.id} />
-
-			<BorrowerLoanHistoryPanel personId={student.personId} />
+			<StudentRecordsDrawer
+				open={recordsOpen}
+				tab={recordsTab}
+				tabs={recordsTabs}
+				onTabChange={switchRecordsTab}
+				onClose={closeRecords}
+				studentId={student.id}
+				enrollments={enrollments}
+			/>
 		</Stack>
 	);
 }

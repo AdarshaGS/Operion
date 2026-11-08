@@ -32,8 +32,10 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import tools.jackson.databind.ObjectMapper;
 
 /**
@@ -90,11 +92,14 @@ class SectionCapacityTest {
 	@Autowired
 	private CustomFieldDefinitionRepository customFieldDefinitionRepository;
 
+	@Autowired
+	private PlatformTransactionManager transactionManager;
+
 	@BeforeEach
 	void setUpStudentService() {
-		studentService = new StudentService(studentRepository, studentEnrollmentRepository, studentDocumentRepository,
-			studentExitRepository, null, null, studentIdGenerator, new AuditLogService(auditLogRepository, new ObjectMapper()),
-			new CustomFieldService(customFieldDefinitionRepository, new ObjectMapper()));
+		studentService = TransactionalServiceProxy.of(new StudentService(studentRepository, studentEnrollmentRepository, studentDocumentRepository,
+			studentExitRepository, sectionRepository, gradeLevelRepository, null, null, studentIdGenerator, new AuditLogService(auditLogRepository, new ObjectMapper()),
+			new CustomFieldService(customFieldDefinitionRepository, new ObjectMapper())), transactionManager);
 	}
 
 	@AfterEach
@@ -182,6 +187,30 @@ class SectionCapacityTest {
 				() -> studentService.promote(promoting, ay2, section6A, 2, LocalDate.of(2026, 4, 30), false))
 				.isInstanceOf(IllegalStateException.class)
 				.hasMessageContaining("capacity");
+	}
+
+	/**
+	 * A genuine two-thread race is not provable here: an in-memory H2 DB has no MySQL REPEATABLE READ snapshot
+	 * semantics and the tests run one thread. What this does prove is that the locking query itself is valid and
+	 * returns the section when run inside a transaction, as promote() does. Only promote() takes the lock today -
+	 * enroll() and reassignSection() check capacity without it, a known gap.
+	 */
+	@Test
+	void sectionRowLockQueryReturnsTheSectionInsideATransaction() {
+		Organisation organisation =
+				organisationRepository.save(new Organisation("Test School", "Test School Trust", "capacity-lock-school"));
+		TenantContext.set(organisation.getId(), null);
+		AcademicYear academicYear = academicYearRepository.save(
+				new AcademicYear("2025-2026", LocalDate.of(2025, 6, 1), LocalDate.of(2026, 4, 30)));
+		Campus campus = campusRepository.save(new Campus("Main Campus", "MAIN"));
+		GradeLevel grade5 = gradeLevelRepository.save(new GradeLevel("Grade 5", 5, null));
+		Section section = sectionRepository.save(new Section(schoolClassRepository.save(new SchoolClass(academicYear, campus, grade5, null)), "A", 1, null));
+
+		Section locked = new TransactionTemplate(transactionManager)
+				.execute(status -> sectionRepository.findByIdForUpdate(section.getId()).orElseThrow());
+
+		assertThat(locked.getId()).isEqualTo(section.getId());
+		assertThat(locked.getCapacity()).isEqualTo(1);
 	}
 
 	@Test

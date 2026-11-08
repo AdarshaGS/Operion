@@ -4,13 +4,10 @@ import Box from "@mui/material/Box";
 import ButtonBase from "@mui/material/ButtonBase";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
-import BarChartIcon from "@mui/icons-material/BarChart";
 import CampaignIcon from "@mui/icons-material/Campaign";
 import ChevronRightIcon from "@mui/icons-material/ChevronRight";
 import EventIcon from "@mui/icons-material/Event";
-import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, XAxis, YAxis } from "recharts";
 import { listAnnouncements, type AnnouncementResponse } from "../../api/announcements";
-import type { DashboardChartsResponse } from "../../api/dashboard";
 import { listSchoolEvents, type SchoolEventResponse } from "../../api/schoolEvents";
 import { useAuth } from "../../auth/AuthContext";
 import { EmptyNote, IconTile, SectionCard } from "../../components/DashboardKit";
@@ -21,42 +18,6 @@ const DAYS_AHEAD = 45;
 function isoDate(date: Date): string {
 	const offset = date.getTimezoneOffset() * 60_000;
 	return new Date(date.getTime() - offset).toISOString().slice(0, 10);
-}
-
-function weekday(isoDay: string): string {
-	return new Date(`${isoDay}T00:00:00`).toLocaleDateString("en-IN", { weekday: "short" });
-}
-
-/** The most recent school days with attendance marked, as bars of % present. */
-export function AttendanceOverview({ charts }: { charts: DashboardChartsResponse | null }) {
-	const points = (charts?.attendanceTrend ?? []).slice(-7);
-	return (
-		<SectionCard title="Attendance overview" icon={<BarChartIcon fontSize="small" />} tint="green" actionLabel="Open" actionPath="/attendance">
-			{points.length === 0 ? (
-				<EmptyNote>{charts ? "No attendance marked in the last 30 days." : "Loading…"}</EmptyNote>
-			) : (
-				<Box sx={{ height: 230 }}>
-					<ResponsiveContainer width="100%" height="100%">
-						<BarChart data={points} barCategoryGap="28%">
-							<CartesianGrid strokeDasharray="3 3" vertical={false} stroke={colors.rule} />
-							<XAxis dataKey="date" tickFormatter={weekday} tickLine={false} axisLine={false} />
-							<YAxis domain={[0, 100]} unit="%" tickLine={false} axisLine={false} width={44} />
-							<RechartsTooltip
-								cursor={{ fill: colors.accentSoft }}
-								labelFormatter={(label) => new Date(`${String(label)}T00:00:00`).toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "short" })}
-								formatter={(value, _name, item) => [`${value}% (${item.payload.present} of ${item.payload.marked})`, "Present"]}
-							/>
-							<Bar dataKey="ratePercent" name="Present" radius={[8, 8, 0, 0]}>
-								{points.map((point, index) => (
-									<Cell key={point.date} fill={colors.ok} fillOpacity={index === points.length - 1 ? 1 : 0.7} />
-								))}
-							</Bar>
-						</BarChart>
-					</ResponsiveContainer>
-				</Box>
-			)}
-		</SectionCard>
-	);
 }
 
 /** Latest published announcements. */

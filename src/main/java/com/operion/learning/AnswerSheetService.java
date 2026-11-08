@@ -16,6 +16,7 @@ import com.operion.examination.ExamSchedule;
 import com.operion.examination.ExamScheduleRepository;
 import com.operion.examination.ExamStatus;
 import com.operion.identity.PersonRepository;
+import com.operion.student.AdmissionFeeGate;
 import com.operion.student.StudentEnrollment;
 import com.operion.student.StudentEnrollmentRepository;
 import org.springframework.stereotype.Service;
@@ -48,10 +49,12 @@ public class AnswerSheetService {
 	private final SectionRepository sectionRepository;
 	private final StudentEnrollmentRepository enrollmentRepository;
 	private final PersonRepository personRepository;
+	private final AdmissionFeeGate admissionFeeGate;
 
 	public AnswerSheetService(AnswerSheetRepository sheetRepository, AnswerSheetPageRepository pageRepository,
 			AnswerSheetAnnotationRepository annotationRepository, ExamScheduleRepository scheduleRepository,
-			SectionRepository sectionRepository, StudentEnrollmentRepository enrollmentRepository, PersonRepository personRepository) {
+			SectionRepository sectionRepository, StudentEnrollmentRepository enrollmentRepository, PersonRepository personRepository,
+			AdmissionFeeGate admissionFeeGate) {
 		this.sheetRepository = sheetRepository;
 		this.pageRepository = pageRepository;
 		this.annotationRepository = annotationRepository;
@@ -59,6 +62,7 @@ public class AnswerSheetService {
 		this.sectionRepository = sectionRepository;
 		this.enrollmentRepository = enrollmentRepository;
 		this.personRepository = personRepository;
+		this.admissionFeeGate = admissionFeeGate;
 	}
 
 	/** Exam schedules of active exams the actor may work on (every one for managers/viewers). */
@@ -99,6 +103,7 @@ public class AnswerSheetService {
 				.orElseThrow(() -> new IllegalArgumentException("Enrollment not found: " + enrollmentId));
 		requireInScope(schedule, enrollment);
 		actor.requireWrite(enrollment.getSection().getId(), schedule.getSubject().getId());
+		admissionFeeGate.requireAllowed(enrollment, "upload an answer sheet");
 		List<String> refs = pageRefs == null ? List.of() : pageRefs.stream().filter(r -> r != null && !r.isBlank()).map(String::trim).toList();
 		if (refs.isEmpty()) {
 			throw new InvalidRequestException("Attach at least one scanned page");
@@ -136,6 +141,7 @@ public class AnswerSheetService {
 		AnswerSheet sheet = sheet(sheetId);
 		ExamSchedule schedule = sheet.getExamSchedule();
 		actor.requireWrite(sheet.getStudentEnrollment().getSection().getId(), schedule.getSubject().getId());
+		admissionFeeGate.requireAllowed(sheet.getStudentEnrollment(), "mark an answer sheet");
 		if (sheet.getStatus() == AnswerSheetStatus.RELEASED) {
 			throw new IllegalStateException("This sheet has been released and can no longer be changed");
 		}
@@ -178,6 +184,7 @@ public class AnswerSheetService {
 	public AnswerSheet release(LearningActor actor, Long sheetId, Instant now) {
 		AnswerSheet sheet = sheet(sheetId);
 		actor.requireWrite(sheet.getStudentEnrollment().getSection().getId(), sheet.getExamSchedule().getSubject().getId());
+		admissionFeeGate.requireAllowed(sheet.getStudentEnrollment(), "release an answer sheet");
 		sheet.release(now);
 		return sheet;
 	}

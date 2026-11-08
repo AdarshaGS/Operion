@@ -16,8 +16,10 @@ import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
-import Typography from "@mui/material/Typography";
+import { PanelTitle } from "./PanelTitle";
 import AddIcon from "@mui/icons-material/Add";
+import { Can } from "../../auth/Can";
+import { useCan } from "../../auth/useCan";
 import { ApiError } from "../../api/client";
 import {
 	closeAcademicYear,
@@ -27,6 +29,7 @@ import {
 	type AcademicYearResponse,
 	type RolloverReport,
 } from "../../api/academicYears";
+import { NewYearSetupDialog } from "./NewYearSetupDialog";
 import { RolloverDialog } from "./RolloverDialog";
 
 export function AcademicYearsPanel() {
@@ -37,8 +40,11 @@ export function AcademicYearsPanel() {
 	const [startDate, setStartDate] = useState("");
 	const [endDate, setEndDate] = useState("");
 	const [submitting, setSubmitting] = useState(false);
+	const [setupYear, setSetupYear] = useState<AcademicYearResponse | null>(null);
 	const [rolloverTarget, setRolloverTarget] = useState<AcademicYearResponse | null>(null);
 	const [rolloverResult, setRolloverResult] = useState<RolloverReport | null>(null);
+	// Create, mark-current, close, set-up (template apply) and copy-forward all need ORGANISATION_MANAGE on the backend.
+	const canManage = useCan("ORGANISATION_MANAGE");
 
 	function refresh() {
 		listAcademicYears()
@@ -70,12 +76,13 @@ export function AcademicYearsPanel() {
 		event.preventDefault();
 		setSubmitting(true);
 		try {
-			await createAcademicYear({ name, startDate, endDate });
+			const created = await createAcademicYear({ name, startDate, endDate });
 			setName("");
 			setStartDate("");
 			setEndDate("");
 			setDialogOpen(false);
 			refresh();
+			setSetupYear(created);
 		} catch (err) {
 			setError(err instanceof ApiError ? err.message : "Failed to create academic year");
 		} finally {
@@ -87,10 +94,12 @@ export function AcademicYearsPanel() {
 		<Paper sx={{ p: 3 }}>
 			<Stack spacing={2}>
 				<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-					<Typography variant="h6">Academic years</Typography>
-					<Button size="small" startIcon={<AddIcon />} onClick={() => setDialogOpen(true)}>
-						Add academic year
-					</Button>
+					<PanelTitle>Academic years</PanelTitle>
+					<Can anyOf={["ORGANISATION_MANAGE"]}>
+						<Button size="small" startIcon={<AddIcon />} onClick={() => setDialogOpen(true)}>
+							Add academic year
+						</Button>
+					</Can>
 				</Box>
 
 				{error && <Alert severity="error">{error}</Alert>}
@@ -113,7 +122,7 @@ export function AcademicYearsPanel() {
 								<TableCell>End date</TableCell>
 								<TableCell>Current</TableCell>
 								<TableCell>Status</TableCell>
-								<TableCell />
+								{canManage && <TableCell />}
 							</TableRow>
 						</TableHead>
 						<TableBody>
@@ -126,29 +135,46 @@ export function AcademicYearsPanel() {
 									<TableCell>
 										<Chip label={year.status} size="small" />
 									</TableCell>
-									<TableCell>
-										{year.status !== "CLOSED" && years.length > 1 && (
-											<Button size="small" onClick={() => setRolloverTarget(year)}>
-												Copy forward
-											</Button>
-										)}
-										{year.status !== "CLOSED" && !year.current && (
-											<Button size="small" onClick={() => handleMarkCurrent(year.id)}>
-												Mark current
-											</Button>
-										)}
-										{year.status !== "CLOSED" && (
-											<Button size="small" color="error" onClick={() => handleClose(year.id)}>
-												Close
-											</Button>
-										)}
-									</TableCell>
+									{canManage && (
+										<TableCell>
+											{year.status !== "CLOSED" && (
+												<Button size="small" onClick={() => setSetupYear(year)}>
+													Set up
+												</Button>
+											)}
+											{year.status !== "CLOSED" && years.length > 1 && (
+												<Button size="small" onClick={() => setRolloverTarget(year)}>
+													Copy forward
+												</Button>
+											)}
+											{year.status !== "CLOSED" && !year.current && (
+												<Button size="small" onClick={() => handleMarkCurrent(year.id)}>
+													Mark current
+												</Button>
+											)}
+											{year.status !== "CLOSED" && (
+												<Button size="small" color="error" onClick={() => handleClose(year.id)}>
+													Close
+												</Button>
+											)}
+										</TableCell>
+									)}
 								</TableRow>
 							))}
 						</TableBody>
 					</Table>
 				</TableContainer>
 			</Stack>
+
+			<NewYearSetupDialog
+				year={setupYear}
+				canCopyForward={setupYear !== null && years.some((year) => year.id !== setupYear.id)}
+				onClose={() => setSetupYear(null)}
+				onCopyForward={(year) => {
+					setSetupYear(null);
+					setRolloverTarget(year);
+				}}
+			/>
 
 			<RolloverDialog
 				target={rolloverTarget}

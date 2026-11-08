@@ -32,6 +32,7 @@ import {
 	type AnswerSheet,
 	type AnswerSheetRosterRow,
 	type AnswerSheetSchedule,
+	type LearningScope,
 	type SheetAnnotation,
 } from "../../api/learning";
 import { AnnotatedPage } from "./AnnotatedPage";
@@ -39,7 +40,7 @@ import { AnnotatedPage } from "./AnnotatedPage";
 const STATUS_COLOR = { NOT_UPLOADED: "default", UPLOADED: "warning", MARKED: "info", RELEASED: "success" } as const;
 
 /** Scanned answer sheets: upload per student, mark on-screen, release to the guardian portal (#230). */
-export function AnswerSheetsPanel() {
+export function AnswerSheetsPanel({ scope }: { scope: LearningScope }) {
 	const [schedules, setSchedules] = useState<AnswerSheetSchedule[] | null>(null);
 	const [scheduleId, setScheduleId] = useState<number | "">("");
 	const [roster, setRoster] = useState<AnswerSheetRosterRow[]>([]);
@@ -47,6 +48,9 @@ export function AnswerSheetsPanel() {
 	const [busy, setBusy] = useState(false);
 	const [marking, setMarking] = useState<number | null>(null);
 	const schedule = schedules?.find((s) => s.id === scheduleId);
+	// Mirrors the server's requireWrite (manager, or assigned to teach this subject in a section). The roster rows carry no
+	// section id, so this is subject-level: view-only callers (e.g. LEARNING_VIEW) see no upload / mark / release controls.
+	const canWrite = !!schedule && (scope.manager || scope.sections.some((s) => s.writableSubjectIds.includes(schedule.subjectId)));
 
 	useEffect(() => {
 		listAnswerSheetSchedules()
@@ -136,14 +140,14 @@ export function AnswerSheetsPanel() {
 											<TableCell><Chip size="small" color={STATUS_COLOR[row.status]} label={row.status === "NOT_UPLOADED" ? "Not uploaded" : `${row.status.toLowerCase()} · ${row.pages}p`} /></TableCell>
 											<TableCell>{row.totalMarks ?? "—"}</TableCell>
 											<TableCell align="right">
-												{(row.status === "NOT_UPLOADED" || row.status === "UPLOADED") && (
+												{canWrite && (row.status === "NOT_UPLOADED" || row.status === "UPLOADED") && (
 													<Button component="label" size="small" disabled={busy}>
 														{row.status === "UPLOADED" ? "Replace scans" : "Upload scans"}
 														<input hidden multiple type="file" accept="image/png,image/jpeg,application/pdf" onChange={(e) => handleFiles(row, e)} />
 													</Button>
 												)}
-												{(row.status === "UPLOADED" || row.status === "MARKED") && <Button size="small" onClick={() => setMarking(row.sheetId)}>Mark</Button>}
-												{row.status === "MARKED" && <Button size="small" variant="contained" onClick={() => handleRelease(row)}>Release</Button>}
+												{(row.status === "UPLOADED" || row.status === "MARKED") && <Button size="small" onClick={() => setMarking(row.sheetId)}>{canWrite ? "Mark" : "View"}</Button>}
+												{canWrite && row.status === "MARKED" && <Button size="small" variant="contained" onClick={() => handleRelease(row)}>Release</Button>}
 												{row.status === "RELEASED" && <Button size="small" onClick={() => setMarking(row.sheetId)}>View</Button>}
 											</TableCell>
 										</TableRow>
@@ -154,12 +158,12 @@ export function AnswerSheetsPanel() {
 					)}
 				</Stack>
 			</Paper>
-			{marking != null && <MarkingDialog sheetId={marking} onClose={() => { setMarking(null); if (scheduleId !== "") refreshRoster(scheduleId); }} />}
+			{marking != null && <MarkingDialog sheetId={marking} canWrite={canWrite} onClose={() => { setMarking(null); if (scheduleId !== "") refreshRoster(scheduleId); }} />}
 		</Stack>
 	);
 }
 
-function MarkingDialog({ sheetId, onClose }: { sheetId: number; onClose: () => void }) {
+function MarkingDialog({ sheetId, canWrite, onClose }: { sheetId: number; canWrite: boolean; onClose: () => void }) {
 	const [sheet, setSheet] = useState<AnswerSheet | null>(null);
 	const [annotations, setAnnotations] = useState<SheetAnnotation[]>([]);
 	const [tool, setTool] = useState<AnnotationKind | "ERASE">("TICK");
@@ -181,7 +185,8 @@ function MarkingDialog({ sheetId, onClose }: { sheetId: number; onClose: () => v
 			.catch((err) => setError(err instanceof ApiError ? err.message : "Failed to load the sheet"));
 	}, [sheetId]);
 
-	const locked = sheet?.status === "RELEASED";
+	const released = sheet?.status === "RELEASED";
+	const locked = released || !canWrite;
 	const summed = annotations.reduce((acc, a) => acc + (a.kind === "MARKS" ? (a.marks ?? 0) : 0), 0);
 
 	function place(pageNumber: number, x: number, y: number) {
@@ -219,7 +224,7 @@ function MarkingDialog({ sheetId, onClose }: { sheetId: number; onClose: () => v
 			<DialogContent>
 				<Stack spacing={2} sx={{ mt: 1 }}>
 					{error && <Alert severity="error" onClose={() => setError(null)}>{error}</Alert>}
-					{locked && <Alert severity="success">Released to the guardian - marking is locked.</Alert>}
+					{released && <Alert severity="success">Released to the guardian - marking is locked.</Alert>}
 					{!locked && (
 						<Stack direction="row" spacing={2} sx={{ alignItems: "center", flexWrap: "wrap" }}>
 							<ToggleButtonGroup size="small" exclusive value={tool} onChange={(_, next) => next && setTool(next)}>

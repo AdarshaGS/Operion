@@ -283,7 +283,7 @@ window.OPERION_MAP = {
 				{ key: "transfer-connectors", label: "Transfer hand-offs", path: "/settings/transfer-connectors", desc: "Prepare and track a transferred student's record for an external system." },
 				{ key: "imports-exports", label: "Imports & exports", path: "/settings/imports-exports", desc: "Bulk import from Excel/CSV, or export existing records." },
 				{ key: "integrations", label: "Integrations & API", path: "/settings/integrations", desc: "Your own accounts for email and SMS delivery and other services." },
-				{ key: "setup-structure", label: "Setup wizard: structure", path: "/setup/structure", desc: "Step-by-step: organisation profile, primary contact, address, business settings, academic year." },
+				{ key: "setup-structure", label: "Setup wizard: structure", path: "/setup/structure", desc: "Step-by-step: organisation profile, primary contact, address, business settings." },
 				{ key: "setup-review", label: "Setup wizard: review", path: "/setup/review", desc: "Everything the school has configured, with a 'Manage' link for each area." },
 				{ key: "setup-go-live", label: "Setup wizard: go-live check", path: "/setup/go-live", desc: "Per-module readiness check with a 'Fix' button for anything missing." },
 			],

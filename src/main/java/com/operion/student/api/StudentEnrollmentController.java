@@ -8,6 +8,7 @@ import com.operion.academic.SectionRepository;
 import com.operion.authorization.RequirePermission;
 import com.operion.organisation.AcademicYear;
 import com.operion.organisation.AcademicYearRepository;
+import com.operion.student.AdmissionEnrollmentPort;
 import com.operion.student.Student;
 import com.operion.student.StudentEnrollment;
 import com.operion.student.StudentEnrollmentRepository;
@@ -26,15 +27,18 @@ import org.springframework.web.bind.annotation.RestController;
 public class StudentEnrollmentController {
 
 	private final StudentService studentService;
+	private final AdmissionEnrollmentPort admissionEnrollmentPort;
 	private final StudentRepository studentRepository;
 	private final StudentEnrollmentRepository studentEnrollmentRepository;
 	private final AcademicYearRepository academicYearRepository;
 	private final SectionRepository sectionRepository;
 
-	public StudentEnrollmentController(StudentService studentService, StudentRepository studentRepository,
+	public StudentEnrollmentController(StudentService studentService, AdmissionEnrollmentPort admissionEnrollmentPort,
+			StudentRepository studentRepository,
 			StudentEnrollmentRepository studentEnrollmentRepository, AcademicYearRepository academicYearRepository,
 			SectionRepository sectionRepository) {
 		this.studentService = studentService;
+		this.admissionEnrollmentPort = admissionEnrollmentPort;
 		this.studentRepository = studentRepository;
 		this.studentEnrollmentRepository = studentEnrollmentRepository;
 		this.academicYearRepository = academicYearRepository;
@@ -49,7 +53,7 @@ public class StudentEnrollmentController {
 		Section section = findSection(request.sectionId());
 
 		StudentEnrollment enrollment =
-				studentService.enroll(student, academicYear, section, request.rollNumber(), request.enrolledDate());
+				admissionEnrollmentPort.enroll(student, academicYear, section, request.rollNumber(), request.enrolledDate());
 		return StudentEnrollmentResponse.from(enrollment);
 	}
 

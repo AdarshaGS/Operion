@@ -100,6 +100,12 @@ class FeePaymentGatewayServiceTest {
 	private PaymentGatewayOrderRepository paymentGatewayOrderRepository;
 
 	@Autowired
+	private PaymentGatewayAttemptRepository paymentGatewayAttemptRepository;
+
+	@Autowired
+	private org.springframework.transaction.PlatformTransactionManager transactionManager;
+
+	@Autowired
 	private StudentRepository studentRepository;
 
 	@Autowired
@@ -125,15 +131,15 @@ class FeePaymentGatewayServiceTest {
 	@BeforeEach
 	void setUpStudentService() {
 		studentService = new StudentService(studentRepository, studentEnrollmentRepository, studentDocumentRepository,
-			studentExitRepository, null, null, studentIdGenerator, new AuditLogService(auditLogRepository, new ObjectMapper()),
+			studentExitRepository, sectionRepository, gradeLevelRepository, null, null, studentIdGenerator, new AuditLogService(auditLogRepository, new ObjectMapper()),
 			new CustomFieldService(customFieldDefinitionRepository, new ObjectMapper()));
 	}
 
 	private FeePaymentGatewayService gatewayService() {
 		RazorpayCredentialsProvider credentialsProvider =
 				new RazorpayCredentialsProvider("test-key-id", "test-key-secret", "test-webhook-secret");
-		return new FeePaymentGatewayService(
-				paymentGatewayOrderRepository, invoiceRepository, organisationRepository, feeService, credentialsProvider, gateway);
+		return new FeePaymentGatewayService(paymentGatewayOrderRepository, paymentGatewayAttemptRepository, invoiceRepository,
+				organisationRepository, feeService, credentialsProvider, gateway, transactionManager);
 	}
 
 	@AfterEach
@@ -220,7 +226,7 @@ class FeePaymentGatewayServiceTest {
 		TenantContext.clear();
 
 		gateway.signatureValid = true;
-		gatewayService().handleWebhook("{}", "sig", "payment.captured", gatewayOrderId, "pay_stub_1");
+		gatewayService().handleWebhook("{}", "sig", "payment.captured", gatewayOrderId, "pay_stub_1", 500_000L, "INR");
 
 		TenantContext.set(fixture.organisation().getId(), null);
 		Invoice reloadedInvoice = invoiceRepository.findById(fixture.invoice().getId()).orElseThrow();
@@ -241,8 +247,8 @@ class FeePaymentGatewayServiceTest {
 		String gatewayOrderId = paymentGatewayOrderRepository.findByLinkToken(link.linkToken()).orElseThrow().getGatewayOrderId();
 		TenantContext.clear();
 
-		gatewayService().handleWebhook("{}", "sig", "payment.captured", gatewayOrderId, "pay_stub_2");
-		gatewayService().handleWebhook("{}", "sig", "payment.captured", gatewayOrderId, "pay_stub_2");
+		gatewayService().handleWebhook("{}", "sig", "payment.captured", gatewayOrderId, "pay_stub_2", 500_000L, "INR");
+		gatewayService().handleWebhook("{}", "sig", "payment.captured", gatewayOrderId, "pay_stub_2", 500_000L, "INR");
 
 		TenantContext.set(fixture.organisation().getId(), null);
 		Invoice reloadedInvoice = invoiceRepository.findById(fixture.invoice().getId()).orElseThrow();
@@ -261,7 +267,7 @@ class FeePaymentGatewayServiceTest {
 		TenantContext.clear();
 
 		gateway.signatureValid = false;
-		assertThatThrownBy(() -> gatewayService().handleWebhook("{}", "bad-sig", "payment.captured", gatewayOrderId, "pay_stub_3"))
+		assertThatThrownBy(() -> gatewayService().handleWebhook("{}", "bad-sig", "payment.captured", gatewayOrderId, "pay_stub_3", 500_000L, "INR"))
 				.isInstanceOf(WebhookVerificationException.class);
 
 		TenantContext.set(fixture.organisation().getId(), null);
@@ -278,7 +284,7 @@ class FeePaymentGatewayServiceTest {
 		TenantContext.clear();
 
 		gateway.signatureValid = true;
-		gatewayService().handleWebhook("{}", "sig", "payment.failed", gatewayOrderId, "pay_stub_4");
+		gatewayService().handleWebhook("{}", "sig", "payment.failed", gatewayOrderId, "pay_stub_4", 500_000L, "INR");
 
 		TenantContext.set(fixture.organisation().getId(), null);
 		assertThat(invoiceRepository.findById(fixture.invoice().getId()).orElseThrow().getStatus()).isEqualTo(InvoiceStatus.ISSUED);

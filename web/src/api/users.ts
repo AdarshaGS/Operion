@@ -35,12 +35,14 @@ export interface UserResponse {
 	invitedAt: string;
 }
 
+/** How members are onboarded now: the admin sets the password and the member signs in with
+ * it straight away (status ACTIVE) - see UserController.create(). */
 export function createUser(request: CreateUserRequest): Promise<UserResponse> {
 	return api.post<UserResponse>("/api/v1/users", request);
 }
 
-/** Preferred path for onboarding a new staff login - see UserController.invite(). The
- * admin never sees or sets the real password, unlike createUser() above. */
+/** Token-based invite - no longer used when adding members (see createUser() above); kept
+ * for portal/PENDING users. See UserController.invite(). */
 export function inviteUser(request: InviteUserRequest): Promise<StaffInviteResponse> {
 	return api.post<StaffInviteResponse>("/api/v1/users/invite", request);
 }

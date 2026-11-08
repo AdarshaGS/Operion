@@ -140,7 +140,7 @@ class OverdueInvoiceReminderSchedulerTest {
 	@BeforeEach
 	void setUp() {
 		studentService = new StudentService(studentRepository, studentEnrollmentRepository, studentDocumentRepository,
-				studentExitRepository, null, null, studentIdGenerator, new AuditLogService(auditLogRepository, new ObjectMapper()),
+				studentExitRepository, sectionRepository, gradeLevelRepository, null, null, studentIdGenerator, new AuditLogService(auditLogRepository, new ObjectMapper()),
 				new CustomFieldService(customFieldDefinitionRepository, new ObjectMapper()));
 		// A real calendar would make this test depend on the weekday it runs on; pin it instead.
 		workingDayService = mock(WorkingDayService.class);

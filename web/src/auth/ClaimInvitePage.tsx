@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -11,16 +11,18 @@ import { ApiError } from "../api/client";
 import { Wordmark } from "../branding/Wordmark";
 import { colors } from "../theme";
 import { useAuth } from "./AuthContext";
+import { useUrlToken } from "./useUrlToken";
 
 /** Public, unauthenticated - same trust tier as LoginPage. Reached via the one-time link
  * staff hand a guardian after GuardianController.grantPortalAccess() issues an invite. */
 export function ClaimInvitePage() {
 	const { isAuthenticated, claimInvite } = useAuth();
 	const navigate = useNavigate();
-	const [searchParams] = useSearchParams();
+	// Token is read once, then removed from the address bar - see useUrlToken.
+	const urlToken = useUrlToken();
 
 	const [organisationSlug, setOrganisationSlug] = useState("");
-	const [token, setToken] = useState(searchParams.get("token") ?? "");
+	const [token, setToken] = useState(urlToken);
 	const [password, setPassword] = useState("");
 	const [confirmPassword, setConfirmPassword] = useState("");
 	const [error, setError] = useState<string | null>(null);

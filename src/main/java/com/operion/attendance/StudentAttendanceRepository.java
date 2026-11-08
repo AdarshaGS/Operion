@@ -19,6 +19,10 @@ public interface StudentAttendanceRepository extends JpaRepository<StudentAttend
 
 	long countByAttendanceDate(LocalDate attendanceDate);
 
+	/** "Has any attendance ever been marked" as a LIMIT 1 probe - student_attendance is the
+	 * largest table in the app, so the dashboard setup checklist must not COUNT(*) it. */
+	boolean existsByIdNotNull();
+
 	/** Feeds the dashboard attendance trend - one row per (day, status) with its count, so the
 	 * caller can derive each day's present-rate without loading individual records. */
 	@Query("SELECT a.attendanceDate, a.attendanceStatus, COUNT(a) FROM StudentAttendance a "

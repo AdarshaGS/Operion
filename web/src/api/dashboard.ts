@@ -64,13 +64,23 @@ export interface PurchaseSummary {
 }
 
 export interface SetupChecklist {
-	structureConfigured: boolean;
 	rolesConfigured: boolean;
 	membersAdded: boolean;
 	academicSetupConfigured: boolean;
 	studentsAdded: boolean;
 	feesConfigured: boolean;
 	attendanceStarted: boolean;
+	/** Flags below back the school-lifecycle card (SetupProgress); fee structure and attendance reuse feesConfigured / attendanceStarted. */
+	institutionProfileConfigured: boolean;
+	academicYearSet: boolean;
+	classesAndSectionsCreated: boolean;
+	subjectsMapped: boolean;
+	admissionsCompleted: boolean;
+	studentRecordsExist: boolean;
+	examCreated: boolean;
+	marksApproved: boolean;
+	libraryStocked: boolean;
+	academicYearClosed: boolean;
 }
 
 export interface DashboardPreferences {
@@ -100,13 +110,9 @@ export function getDashboardSummary(): Promise<DashboardSummaryResponse> {
 }
 
 /** Permanent per-user dismissal (#backend DashboardController) - no undo endpoint by
- * design; re-showing these cards is a future Settings > Learning affordance, not this one. */
+ * design; re-showing the card is a future Settings > Learning affordance, not this one. */
 export function dismissSetupProgress(): Promise<void> {
 	return api.post<void>("/api/v1/dashboard/setup-progress/dismiss");
-}
-
-export function dismissQuickActions(): Promise<void> {
-	return api.post<void>("/api/v1/dashboard/quick-actions/dismiss");
 }
 
 export interface AttendanceTrendPoint {

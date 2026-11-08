@@ -16,8 +16,10 @@ import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
-import Typography from "@mui/material/Typography";
+import { PanelTitle } from "./PanelTitle";
 import AddIcon from "@mui/icons-material/Add";
+import { Can } from "../../auth/Can";
+import { useCan } from "../../auth/useCan";
 import { changeDesignationStatus, createDesignation, listDesignations, type DesignationResponse } from "../../api/designations";
 import { ApiError } from "../../api/client";
 
@@ -27,6 +29,7 @@ export function DesignationsPanel() {
 	const [dialogOpen, setDialogOpen] = useState(false);
 	const [name, setName] = useState("");
 	const [submitting, setSubmitting] = useState(false);
+	const canManage = useCan("ORGANISATION_MANAGE");
 
 	function refresh() {
 		listDesignations()
@@ -64,10 +67,12 @@ export function DesignationsPanel() {
 		<Paper sx={{ p: 3 }}>
 			<Stack spacing={2}>
 				<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-					<Typography variant="h6">Designations</Typography>
-					<Button size="small" startIcon={<AddIcon />} onClick={() => setDialogOpen(true)}>
-						Add designation
-					</Button>
+					<PanelTitle>Designations</PanelTitle>
+					<Can anyOf={["ORGANISATION_MANAGE"]}>
+						<Button size="small" startIcon={<AddIcon />} onClick={() => setDialogOpen(true)}>
+							Add designation
+						</Button>
+					</Can>
 				</Box>
 
 				{error && <Alert severity="error">{error}</Alert>}
@@ -78,7 +83,7 @@ export function DesignationsPanel() {
 							<TableRow>
 								<TableCell>Name</TableCell>
 								<TableCell>Status</TableCell>
-								<TableCell />
+								{canManage && <TableCell />}
 							</TableRow>
 						</TableHead>
 						<TableBody>
@@ -88,11 +93,13 @@ export function DesignationsPanel() {
 									<TableCell>
 										<Chip label={designation.status} size="small" />
 									</TableCell>
-									<TableCell>
-										<Button size="small" onClick={() => handleToggleStatus(designation)}>
-											{designation.status === "ACTIVE" ? "Deactivate" : "Reactivate"}
-										</Button>
-									</TableCell>
+									{canManage && (
+										<TableCell>
+											<Button size="small" onClick={() => handleToggleStatus(designation)}>
+												{designation.status === "ACTIVE" ? "Deactivate" : "Reactivate"}
+											</Button>
+										</TableCell>
+									)}
 								</TableRow>
 							))}
 						</TableBody>

@@ -20,6 +20,7 @@ import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
+import { PanelTitle } from "./PanelTitle";
 import AddIcon from "@mui/icons-material/Add";
 import { ApiError } from "../../api/client";
 import { Can } from "../../auth/Can";
@@ -117,7 +118,7 @@ export function CustomFieldsPanel() {
 		<Paper sx={{ p: 3 }}>
 			<Stack spacing={2}>
 				<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-					<Typography variant="h6">Custom fields</Typography>
+					<PanelTitle>Custom fields</PanelTitle>
 					<Can anyOf={["ORGANISATION_MANAGE"]}>
 						<Button
 							size="small"

@@ -8,6 +8,8 @@ export interface ImportEntityConfig {
 	label: string;
 	description: string;
 	group: ImportGroupKey;
+	/** Backend module code (AppModule) that owns this entity's import/export endpoints; hidden when the module is switched off for the organisation. */
+	module: string;
 	icon: ReactNode;
 	/** Column order the backend's RowImportService expects - keep in sync. */
 	templateHeaders: string[];
@@ -16,6 +18,10 @@ export interface ImportEntityConfig {
 	/** false only for the original Students endpoint, which predates validateOnly and
 	 * always imports immediately - see ImportWorkflowDialog. */
 	supportsPreview: boolean;
+	/** Backend permission codes (any-of) required by this entity's import endpoint - keep in sync with its controller's @RequirePermission. */
+	importPermissions: string[];
+	/** Backend permission codes (any-of) required by this entity's export endpoint (usually the module's *_VIEW code). */
+	exportPermissions: string[];
 	runImport: (file: File, validateOnly: boolean) => Promise<ImportRowResult[]>;
 	/** Undefined until that entity's export endpoint is wired up. */
 	exportData?: () => Promise<void>;

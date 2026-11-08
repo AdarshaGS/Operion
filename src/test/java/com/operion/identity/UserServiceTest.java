@@ -16,6 +16,7 @@ import com.operion.audit.AuditLogService;
 import com.operion.common.JpaConfig;
 import com.operion.common.MultiTenancyConfig;
 import com.operion.common.TenantContext;
+import com.operion.identity.auth.StaffInviteRepository;
 import com.operion.organisation.Organisation;
 import com.operion.organisation.OrganisationRepository;
 import org.junit.jupiter.api.AfterEach;
@@ -49,6 +50,9 @@ class UserServiceTest {
 	private AuditLogRepository auditLogRepository;
 
 	@Autowired
+	private StaffInviteRepository staffInviteRepository;
+
+	@Autowired
 	private PersonRepository personRepository;
 
 	@Autowired
@@ -59,7 +63,8 @@ class UserServiceTest {
 
 	@BeforeEach
 	void setUp() {
-		userService = new UserService(userRepository, new AuditLogService(auditLogRepository, new ObjectMapper()), membershipRepository);
+		userService = new UserService(userRepository, new AuditLogService(auditLogRepository, new ObjectMapper()), membershipRepository,
+				staffInviteRepository);
 
 		Organisation organisation = organisationRepository.save(
 				new Organisation("Test School", "Test School Trust", "user-svc-test-" + System.nanoTime()));

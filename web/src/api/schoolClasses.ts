@@ -11,6 +11,7 @@ export interface SchoolClassResponse {
 	id: number;
 	academicYearId: number;
 	campusId: number;
+	campusName: string;
 	gradeLevelId: number;
 	displayName: string | null;
 	status: string;

@@ -1,11 +1,14 @@
 package com.operion.academic;
 
 import java.time.LocalDate;
+import java.util.Locale;
 import java.util.Optional;
+import java.util.Set;
 
 import com.operion.identity.Person;
 import com.operion.common.InvalidRequestException;
 import com.operion.organisation.AcademicYear;
+import com.operion.organisation.AcademicYearGuard;
 import com.operion.organisation.Campus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -37,7 +40,20 @@ public class AcademicService {
 		this.teacherAssignmentRepository = teacherAssignmentRepository;
 	}
 
+	/** Stages a grade level can be grouped under, compared ignoring case, spaces, hyphens and underscores
+	 * ("Pre-Primary", "PRE_PRIMARY" and "preprimary" are the same stage). */
+	private static final Set<String> GRADE_STAGES = Set.of("nursery", "preprimary", "foundational", "preparatory", "primary",
+			"middle", "secondary", "seniorsecondary", "highersecondary");
+
+	private static void requireKnownStage(String stage) {
+		if (stage != null && !stage.isBlank() && !GRADE_STAGES.contains(stage.toLowerCase(Locale.ROOT).replaceAll("[\\s_-]", ""))) {
+			throw new InvalidRequestException("Unknown stage '" + stage + "'; use one of Nursery, Pre-Primary, Foundational, "
+					+ "Preparatory, Primary, Middle, Secondary, Senior Secondary or Higher Secondary");
+		}
+	}
+
 	public GradeLevel createGradeLevel(String name, int sequenceOrder, String stage) {
+		requireKnownStage(stage);
 		return gradeLevelRepository.save(new GradeLevel(name, sequenceOrder, stage));
 	}
 
@@ -51,6 +67,7 @@ public class AcademicService {
 		if (name != null && name.isBlank()) {
 			throw new InvalidRequestException("Grade level name must not be blank");
 		}
+		requireKnownStage(stage);
 		gradeLevel.update(name != null ? name : gradeLevel.getName(),
 				sequenceOrder != null ? sequenceOrder : gradeLevel.getSequenceOrder(),
 				stage != null ? stage : gradeLevel.getStage());
@@ -70,9 +87,7 @@ public class AcademicService {
 	}
 
 	public SchoolClass createSchoolClass(AcademicYear academicYear, Campus campus, GradeLevel gradeLevel, String displayName) {
-		if (academicYear.isClosed()) {
-			throw new IllegalStateException("Academic year " + academicYear.getName() + " is closed and accepts no new classes");
-		}
+		AcademicYearGuard.requireOpen(academicYear, "adding a class");
 		if (gradeLevel.getStatus() != GradeLevelStatus.ACTIVE) {
 			throw new IllegalStateException("Grade level " + gradeLevel.getName() + " is not active and cannot be used for a new class");
 		}
@@ -80,30 +95,36 @@ public class AcademicService {
 	}
 
 	public SchoolClass changeSchoolClassStatus(SchoolClass schoolClass, SchoolClassStatus status) {
+		AcademicStructureYearGuard.requireOpen(schoolClass, "changing a class's status");
 		schoolClass.changeStatus(status);
 		return schoolClassRepository.save(schoolClass);
 	}
 
 	public SchoolClass updateSchoolClassDisplayName(SchoolClass schoolClass, String displayName) {
+		AcademicStructureYearGuard.requireOpen(schoolClass, "renaming a class");
 		schoolClass.updateDisplayName(displayName);
 		return schoolClassRepository.save(schoolClass);
 	}
 
 	public Section createSection(SchoolClass schoolClass, String name, Integer capacity, String room) {
+		AcademicStructureYearGuard.requireOpen(schoolClass, "adding a section");
 		return sectionRepository.save(new Section(schoolClass, name, capacity, room));
 	}
 
 	public Section changeSectionStatus(Section section, SectionStatus status) {
+		AcademicStructureYearGuard.requireOpen(section, "changing a section's status");
 		section.changeStatus(status);
 		return sectionRepository.save(section);
 	}
 
 	public Section updateSection(Section section, String name, Integer capacity, String room) {
+		AcademicStructureYearGuard.requireOpen(section, "editing a section");
 		section.update(name, capacity, room);
 		return sectionRepository.save(section);
 	}
 
 	public ClassSubject assignSubjectToClass(SchoolClass schoolClass, Subject subject, boolean mandatory) {
+		AcademicStructureYearGuard.requireOpen(schoolClass, "adding a subject to a class");
 		if (subject.getStatus() != SubjectStatus.ACTIVE) {
 			throw new IllegalStateException("Subject " + subject.getName() + " is not active and cannot be added to a class");
 		}
@@ -111,6 +132,7 @@ public class AcademicService {
 	}
 
 	public ClassSubject assignSubjectToClass(SchoolClass schoolClass, Subject subject, boolean mandatory, Integer weeklyPeriods) {
+		AcademicStructureYearGuard.requireOpen(schoolClass, "adding a subject to a class");
 		ClassSubject classSubject = assignSubjectToClass(schoolClass, subject, mandatory);
 		if (weeklyPeriods != null) {
 			classSubject.updateWeeklyPeriods(weeklyPeriods);
@@ -120,6 +142,7 @@ public class AcademicService {
 	}
 
 	public ClassSubject updateClassSubject(ClassSubject classSubject, boolean mandatory, Integer weeklyPeriods) {
+		AcademicStructureYearGuard.requireOpen(classSubject, "editing a class subject");
 		classSubject.updateMandatory(mandatory);
 		if (weeklyPeriods != null) {
 			classSubject.updateWeeklyPeriods(weeklyPeriods);
@@ -128,11 +151,13 @@ public class AcademicService {
 	}
 
 	public ClassSubject changeClassSubjectStatus(ClassSubject classSubject, ClassSubjectStatus status) {
+		AcademicStructureYearGuard.requireOpen(classSubject, "changing a class subject's status");
 		classSubject.changeStatus(status);
 		return classSubjectRepository.save(classSubject);
 	}
 
 	public ClassSubject updateClassSubjectMandatory(ClassSubject classSubject, boolean mandatory) {
+		AcademicStructureYearGuard.requireOpen(classSubject, "editing a class subject");
 		classSubject.updateMandatory(mandatory);
 		return classSubjectRepository.save(classSubject);
 	}
@@ -146,6 +171,7 @@ public class AcademicService {
 	@Transactional
 	public TeacherAssignment assignTeacher(Section section, Subject subject, Person teacherPerson,
 			TeacherAssignmentType assignmentType, LocalDate startDate) {
+		AcademicStructureYearGuard.requireOpen(section, "assigning a teacher");
 		Optional<TeacherAssignment> existing = subject == null
 				? teacherAssignmentRepository.findBySectionIdAndAssignmentTypeAndStatus(
 						section.getId(), assignmentType, TeacherAssignmentStatus.ACTIVE)
@@ -160,6 +186,7 @@ public class AcademicService {
 	}
 
 	public TeacherAssignment endTeacherAssignment(TeacherAssignment assignment, LocalDate endDate) {
+		AcademicStructureYearGuard.requireOpen(assignment, "ending a teacher assignment");
 		assignment.end(endDate);
 		return teacherAssignmentRepository.save(assignment);
 	}

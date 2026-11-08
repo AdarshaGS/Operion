@@ -19,11 +19,12 @@ import Typography from "@mui/material/Typography";
 import AddIcon from "@mui/icons-material/Add";
 import { ApiError } from "../../api/client";
 import { Can } from "../../auth/Can";
+import { CompactFilterBar, type ActiveFilter } from "../../components/CompactFilterBar";
 import { listSchoolClasses, type SchoolClassResponse } from "../../api/schoolClasses";
+import { useCampusFiltered, useSelectedCampusId } from "../../layout/selectedCampus";
 import { useSchoolClassLabel } from "../../utils/useSchoolClassLabel";
 import { listSections, type SectionResponse } from "../../api/sections";
 import { searchStudents, type StudentListRowResponse } from "../../api/students";
-import { ApplicantsPanel } from "./ApplicantsPanel";
 import { TransferRequestsInboxPanel } from "./TransferRequestsInboxPanel";
 
 const PAGE_SIZE = 25;
@@ -46,6 +47,9 @@ export function StudentListPage() {
 	const [admissionDateTo, setAdmissionDateTo] = useState("");
 
 	const [schoolClasses, setSchoolClasses] = useState<SchoolClassResponse[]>([]);
+	// The Class filter offers only the campus picked in the top bar; row labels still resolve from the full list.
+	const campusClasses = useCampusFiltered(schoolClasses);
+	const campusId = useSelectedCampusId();
 	const [sections, setSections] = useState<SectionResponse[]>([]);
 
 	/** The row's own class name is empty for template-built classes, so label it from the loaded class list. */
@@ -59,6 +63,14 @@ export function StudentListPage() {
 	useEffect(() => {
 		listSchoolClasses().then(setSchoolClasses).catch(() => {});
 	}, []);
+
+	// Switching campus drops a class filter that belongs to another campus.
+	useEffect(() => {
+		if (schoolClassId && schoolClasses.length > 0 && !campusClasses.some((c) => String(c.id) === schoolClassId)) {
+			setSchoolClassId("");
+			setPage(0);
+		}
+	}, [campusClasses, schoolClasses, schoolClassId]);
 
 	useEffect(() => {
 		setSectionId("");
@@ -75,6 +87,7 @@ export function StudentListPage() {
 			status: status || null,
 			schoolClassId: schoolClassId ? Number(schoolClassId) : null,
 			sectionId: sectionId ? Number(sectionId) : null,
+			campusId,
 			admissionDateFrom: admissionDateFrom || null,
 			admissionDateTo: admissionDateTo || null,
 			page,
@@ -93,7 +106,12 @@ export function StudentListPage() {
 		return () => {
 			current = false;
 		};
-	}, [search, status, schoolClassId, sectionId, admissionDateFrom, admissionDateTo, page]);
+	}, [search, status, schoolClassId, sectionId, campusId, admissionDateFrom, admissionDateTo, page]);
+
+	// Changing the top-bar campus starts again from the first page of that campus's students.
+	useEffect(() => {
+		setPage(0);
+	}, [campusId]);
 
 	function resetPageAnd<T>(setter: (value: T) => void) {
 		return (value: T) => {
@@ -103,6 +121,16 @@ export function StudentListPage() {
 	}
 
 	const hasFilters = search !== "" || status !== "" || schoolClassId !== "" || admissionDateFrom !== "" || admissionDateTo !== "";
+
+	const selectedClass = schoolClasses.find((c) => String(c.id) === schoolClassId);
+	const selectedSection = sections.find((sec) => String(sec.id) === sectionId);
+	const activeFilters: ActiveFilter[] = [
+		...(schoolClassId ? [{ key: "class", label: `Class: ${selectedClass ? classLabel(selectedClass) : schoolClassId}`, onDelete: () => resetPageAnd(setSchoolClassId)("") }] : []),
+		...(sectionId ? [{ key: "section", label: `Section: ${selectedSection?.name ?? sectionId}`, onDelete: () => resetPageAnd(setSectionId)("") }] : []),
+		...(status ? [{ key: "status", label: `Status: ${status.replaceAll("_", " ")}`, onDelete: () => resetPageAnd(setStatus)("") }] : []),
+		...(admissionDateFrom ? [{ key: "from", label: `Admitted from: ${admissionDateFrom}`, onDelete: () => resetPageAnd(setAdmissionDateFrom)("") }] : []),
+		...(admissionDateTo ? [{ key: "to", label: `Admitted to: ${admissionDateTo}`, onDelete: () => resetPageAnd(setAdmissionDateTo)("") }] : []),
+	];
 
 	function clearFilters() {
 		setSearch("");
@@ -135,90 +163,80 @@ export function StudentListPage() {
 
 			{error && <Alert severity="error">{error}</Alert>}
 
-			<Paper sx={{ p: 2 }}>
-				<Stack spacing={2}>
-					<Stack direction="row" spacing={2} sx={{ flexWrap: "wrap" }}>
-						<TextField
-							label="Search"
-							placeholder="Name or admission number"
-							size="small"
-							value={search}
-							onChange={(e) => resetPageAnd(setSearch)(e.target.value)}
-							sx={{ minWidth: 220 }}
-						/>
-						<TextField
-							select
-							label="Class"
-							size="small"
-							value={schoolClassId}
-							onChange={(e) => resetPageAnd(setSchoolClassId)(e.target.value)}
-							sx={{ minWidth: 160 }}
-						>
-							<MenuItem value="">All</MenuItem>
-							{schoolClasses.map((schoolClass) => (
-								<MenuItem key={schoolClass.id} value={schoolClass.id}>
-									{classLabel(schoolClass)}
-								</MenuItem>
-							))}
-						</TextField>
-						<TextField
-							select
-							label="Section"
-							size="small"
-							value={sectionId}
-							onChange={(e) => resetPageAnd(setSectionId)(e.target.value)}
-							disabled={!schoolClassId}
-							sx={{ minWidth: 140 }}
-						>
-							<MenuItem value="">All</MenuItem>
-							{sections.map((section) => (
-								<MenuItem key={section.id} value={section.id}>
-									{section.name}
-								</MenuItem>
-							))}
-						</TextField>
-						<TextField
-							select
-							label="Status"
-							size="small"
-							value={status}
-							onChange={(e) => resetPageAnd(setStatus)(e.target.value)}
-							sx={{ minWidth: 160 }}
-						>
-							<MenuItem value="">All</MenuItem>
-							{STUDENT_STATUSES.map((s) => (
-								<MenuItem key={s} value={s}>
-									{s.replaceAll("_", " ")}
-								</MenuItem>
-							))}
-						</TextField>
-						<TextField
-							label="Admitted from"
-							type="date"
-							size="small"
-							value={admissionDateFrom}
-							onChange={(e) => resetPageAnd(setAdmissionDateFrom)(e.target.value)}
-							slotProps={{ inputLabel: { shrink: true } }}
-						/>
-						<TextField
-							label="Admitted to"
-							type="date"
-							size="small"
-							value={admissionDateTo}
-							onChange={(e) => resetPageAnd(setAdmissionDateTo)(e.target.value)}
-							slotProps={{ inputLabel: { shrink: true } }}
-						/>
-						{hasFilters && (
-							<Button size="small" onClick={clearFilters} sx={{ alignSelf: "center" }}>
-								Clear filters
-							</Button>
-						)}
-					</Stack>
-
-					<Typography variant="body2" color="text.secondary">
-						{totalElements} student{totalElements === 1 ? "" : "s"}
-					</Typography>
-				</Stack>
+			<Paper sx={{ p: 1.5 }}>
+				<CompactFilterBar
+					searchValue={search}
+					onSearchChange={resetPageAnd(setSearch)}
+					searchLabel="Search students"
+					searchPlaceholder="Name or admission number"
+					activeFilters={activeFilters}
+					onClearAll={clearFilters}
+					endSlot={
+						<Typography variant="body2" color="text.secondary">
+							{totalElements} student{totalElements === 1 ? "" : "s"}
+						</Typography>
+					}
+				>
+					<TextField
+						select
+						label="Class"
+						size="small"
+						value={schoolClassId}
+						onChange={(e) => resetPageAnd(setSchoolClassId)(e.target.value)}
+					>
+						<MenuItem value="">All</MenuItem>
+						{schoolClasses.map((schoolClass) => (
+							<MenuItem key={schoolClass.id} value={schoolClass.id}>
+								{classLabel(schoolClass)}
+							</MenuItem>
+						))}
+					</TextField>
+					<TextField
+						select
+						label="Section"
+						size="small"
+						value={sectionId}
+						onChange={(e) => resetPageAnd(setSectionId)(e.target.value)}
+						disabled={!schoolClassId}
+					>
+						<MenuItem value="">All</MenuItem>
+						{sections.map((section) => (
+							<MenuItem key={section.id} value={section.id}>
+								{section.name}
+							</MenuItem>
+						))}
+					</TextField>
+					<TextField
+						select
+						label="Status"
+						size="small"
+						value={status}
+						onChange={(e) => resetPageAnd(setStatus)(e.target.value)}
+					>
+						<MenuItem value="">All</MenuItem>
+						{STUDENT_STATUSES.map((s) => (
+							<MenuItem key={s} value={s}>
+								{s.replaceAll("_", " ")}
+							</MenuItem>
+						))}
+					</TextField>
+					<TextField
+						label="Admitted from"
+						type="date"
+						size="small"
+						value={admissionDateFrom}
+						onChange={(e) => resetPageAnd(setAdmissionDateFrom)(e.target.value)}
+						slotProps={{ inputLabel: { shrink: true } }}
+					/>
+					<TextField
+						label="Admitted to"
+						type="date"
+						size="small"
+						value={admissionDateTo}
+						onChange={(e) => resetPageAnd(setAdmissionDateTo)(e.target.value)}
+						slotProps={{ inputLabel: { shrink: true } }}
+					/>
+				</CompactFilterBar>
 			</Paper>
 
 			{loaded && rows.length === 0 && (
@@ -273,7 +291,6 @@ export function StudentListPage() {
 			)}
 
 			<TransferRequestsInboxPanel />
-			<ApplicantsPanel />
 		</Stack>
 	);
 }

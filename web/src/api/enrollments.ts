@@ -1,4 +1,5 @@
 import { api } from "./client";
+import type { FeeClearanceStatus } from "./admission";
 
 export interface CreateEnrollmentRequest {
 	academicYearId: number;
@@ -18,6 +19,7 @@ export interface StudentEnrollmentResponse {
 	current: boolean;
 	enrolledDate: string;
 	exitDate: string | null;
+	feeClearanceStatus: FeeClearanceStatus;
 }
 
 export function createEnrollment(studentId: number, request: CreateEnrollmentRequest): Promise<StudentEnrollmentResponse> {

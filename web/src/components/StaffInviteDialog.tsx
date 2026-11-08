@@ -18,10 +18,9 @@ interface StaffInviteDialogProps {
 	onClose: () => void;
 }
 
-/** Shows a freshly-issued staff/user invite's one-time claim link + raw token - shared
- * across every place a login gets granted (Settings > Users' "Add user", HR's staff
- * detail "Grant login access", and the "Add staff member" opt-in checkbox) so this UX
- * lives in exactly one place. See UserController.invite()/StaffInviteService - the
+/** Shows a re-issued staff/user invite's one-time claim link + raw token. Members are no
+ * longer created through invites (the admin sets their password), so this is only shown
+ * by Settings > Users' "Resend invitation" for members still in PENDING status. See UserController.invite()/StaffInviteService - the
  * token is never stored server-side after this, so losing it means starting over. */
 export function StaffInviteDialog({ invite, onClose }: StaffInviteDialogProps) {
 	return (

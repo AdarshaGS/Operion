@@ -1,11 +1,17 @@
+# LOCAL DEVELOPMENT STACK - not a production deployment. It runs the backend as the MySQL root user and
+# falls back to published development secrets (root password "operion", the JWT secrets below); the backend
+# refuses to start on those unless SPRING_PROFILES_ACTIVE=dev is set (SecretsGuard). Every published port is
+# bound to 127.0.0.1 so the stack is reachable from this machine only, never from the network. For anything
+# else set DB_ROOT_PASSWORD / JWT_SECRET / PLATFORM_JWT_SECRET to real values and put TLS in front.
 services:
   mysql:
     image: mysql:8.4
     environment:
       MYSQL_DATABASE: operion
+      # Dev-only default - override with DB_ROOT_PASSWORD. Never reuse this value anywhere real.
       MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-operion}
     ports:
-      - "3306:3306"
+      - "127.0.0.1:3306:3306"
     volumes:
       - operion-mysql-data:/var/lib/mysql
     healthcheck:
@@ -32,16 +38,23 @@ services:
       JWT_SECRET: ${JWT_SECRET:-dev-only-secret-change-me-before-any-real-deployment-32bytes-min}
       PLATFORM_JWT_SECRET: ${PLATFORM_JWT_SECRET:-dev-only-platform-secret-change-me-before-any-real-deployment-32b}
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
 
   frontend:
     build:
       context: web
       dockerfile: Dockerfile
+      args:
+        # Baked into the bundle at build time; the web Dockerfile refuses to build without it so a
+        # production image can't silently ship pointing at localhost. This is the dev stack, so the
+        # browser (on the host) reaches the published backend port directly. For a real deployment
+        # build the image with its public API origin (or an empty value for same-origin via /api).
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8080}
     depends_on:
       - backend
     ports:
-      - "5173:80"
+      # The unprivileged nginx image listens on 8080 inside the container (not 80).
+      - "127.0.0.1:5173:8080"
 
 volumes:
   operion-mysql-data:

@@ -47,7 +47,7 @@ class EmailVerificationLifecycleTest {
 
 	private EmailVerificationService emailVerificationService() {
 		// No EmailSender configured - see StaffInviteLifecycleTest's identical reasoning.
-		return new EmailVerificationService(emailVerificationTokenRepository, userRepository, organisationRepository, ENCODER,
+		return new EmailVerificationService(emailVerificationTokenRepository, userRepository, organisationRepository,
 				new EmailDeliveryService(List.of(), emailOutboxRepository), "http://localhost:5173", false);
 	}
 
@@ -68,7 +68,7 @@ class EmailVerificationLifecycleTest {
 
 		emailVerificationService().issue(userId);
 
-		var tokens = emailVerificationTokenRepository.findByConsumedFalse();
+		var tokens = emailVerificationTokenRepository.findAll();
 		assertThat(tokens).hasSize(1);
 		assertThat(tokens.get(0).getUserId()).isEqualTo(userId);
 	}
@@ -81,7 +81,7 @@ class EmailVerificationLifecycleTest {
 		assertThat(user.getEmailVerifiedAt()).isNull();
 		String rawToken = "raw-verify-token";
 		EmailVerificationToken token = emailVerificationTokenRepository
-				.save(new EmailVerificationToken(user.getId(), ENCODER.encode(rawToken), Instant.now().plusSeconds(3600)));
+				.save(new EmailVerificationToken(user.getId(), TokenHasher.sha256Hex(rawToken), Instant.now().plusSeconds(3600)));
 		TenantContext.clear();
 
 		emailVerificationService().confirm(organisation.getSlug(), rawToken);
@@ -97,7 +97,7 @@ class EmailVerificationLifecycleTest {
 		Organisation organisation = newOrg("wrong-token");
 		TenantContext.set(organisation.getId(), null);
 		User user = userRepository.save(new User("wrong-token@email-verify.test", null, "hash"));
-		emailVerificationTokenRepository.save(new EmailVerificationToken(user.getId(), ENCODER.encode("real-token"), Instant.now().plusSeconds(3600)));
+		emailVerificationTokenRepository.save(new EmailVerificationToken(user.getId(), TokenHasher.sha256Hex("real-token"), Instant.now().plusSeconds(3600)));
 		TenantContext.clear();
 
 		assertThatThrownBy(() -> emailVerificationService().confirm(organisation.getSlug(), "not-the-real-token"))
@@ -110,7 +110,7 @@ class EmailVerificationLifecycleTest {
 		TenantContext.set(organisation.getId(), null);
 		User user = userRepository.save(new User("expired@email-verify.test", null, "hash"));
 		String rawToken = "expired-raw-token";
-		emailVerificationTokenRepository.save(new EmailVerificationToken(user.getId(), ENCODER.encode(rawToken), Instant.now().minusSeconds(60)));
+		emailVerificationTokenRepository.save(new EmailVerificationToken(user.getId(), TokenHasher.sha256Hex(rawToken), Instant.now().minusSeconds(60)));
 		TenantContext.clear();
 
 		assertThatThrownBy(() -> emailVerificationService().confirm(organisation.getSlug(), rawToken))

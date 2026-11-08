@@ -18,6 +18,8 @@ export interface GenerateInvoiceRequest {
 	periodStart: string;
 	periodEnd: string;
 	dueDate: string;
+	/** Optional: omitted, the server bills subscription rate x active students; given, it is billed as entered. */
+	amount?: number;
 }
 
 export function listInvoices(organisationId: number): Promise<PlatformInvoiceResponse[]> {

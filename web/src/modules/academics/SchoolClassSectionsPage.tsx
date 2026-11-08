@@ -7,9 +7,9 @@ import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { ApiError } from "../../api/client";
-import { listGradeLevels, type GradeLevelResponse } from "../../api/gradeLevels";
 import { listSchoolClasses, type SchoolClassResponse } from "../../api/schoolClasses";
 import { ClassSubjectsPanel } from "./ClassSubjectsPanel";
+import { useClassLabel } from "./classLabel";
 import { SectionsPanel } from "./SectionsPanel";
 
 /** No GET-by-id endpoint exists on SchoolClassController - at the scale of "classes in
@@ -22,7 +22,7 @@ export function SchoolClassSectionsPage() {
 	const { classId } = useParams<{ classId: string }>();
 	const navigate = useNavigate();
 	const [schoolClass, setSchoolClass] = useState<SchoolClassResponse | null>(null);
-	const [gradeLevels, setGradeLevels] = useState<GradeLevelResponse[]>([]);
+	const classLabel = useClassLabel();
 	const [error, setError] = useState<string | null>(null);
 
 	useEffect(() => {
@@ -31,12 +31,10 @@ export function SchoolClassSectionsPage() {
 		listSchoolClasses()
 			.then((classes) => setSchoolClass(classes.find((c) => c.id === id) ?? null))
 			.catch((err) => setError(err instanceof ApiError ? err.message : "Failed to load class"));
-		listGradeLevels().then(setGradeLevels).catch(() => {});
 	}, [classId]);
 
 	if (!classId) return null;
 	const id = Number(classId);
-	const gradeLevelName = schoolClass ? gradeLevels.find((level) => level.id === schoolClass.gradeLevelId)?.name : undefined;
 
 	return (
 		<Stack spacing={2}>
@@ -47,7 +45,7 @@ export function SchoolClassSectionsPage() {
 			</Box>
 
 			<Typography variant="h4" component="h1">
-				{schoolClass?.displayName ?? gradeLevelName ?? `Class #${classId}`}
+				{schoolClass ? classLabel(schoolClass) : `Class #${classId}`}
 			</Typography>
 
 			{error && <Alert severity="error">{error}</Alert>}

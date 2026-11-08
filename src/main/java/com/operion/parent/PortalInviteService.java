@@ -10,10 +10,12 @@ import com.operion.authorization.Permission;
 import com.operion.authorization.PermissionRepository;
 import com.operion.authorization.Role;
 import com.operion.authorization.RoleRepository;
+import com.operion.common.SlidingWindowRateLimiter;
 import com.operion.common.TenantContext;
 import com.operion.identity.Person;
 import com.operion.identity.User;
 import com.operion.identity.UserRepository;
+import com.operion.identity.UserStatus;
 import com.operion.identity.auth.AuthenticationFailedException;
 import com.operion.identity.auth.JwtService;
 import com.operion.identity.auth.LoginResult;
@@ -41,6 +43,11 @@ public class PortalInviteService {
 
 	private static final Duration INVITE_VALIDITY = Duration.ofDays(7);
 
+	/** Claims against an account that already exists are a password check, so cap them per account - otherwise a
+	 * valid invite would be an unthrottled password oracle that bypasses the normal login lockout. */
+	private static final int MAX_EXISTING_ACCOUNT_CLAIMS = 5;
+	private static final Duration EXISTING_ACCOUNT_CLAIM_WINDOW = Duration.ofMinutes(15);
+
 	private static final String GUARDIAN_ROLE_NAME = "Guardian";
 	private static final String PARENT_PORTAL_ACCESS_CODE = "PARENT_PORTAL_ACCESS";
 
@@ -55,6 +62,8 @@ public class PortalInviteService {
 	private final JwtService jwtService;
 	private final RefreshTokenService refreshTokenService;
 	private final SecureRandom secureRandom = new SecureRandom();
+	private final SlidingWindowRateLimiter existingAccountClaims = new SlidingWindowRateLimiter(MAX_EXISTING_ACCOUNT_CLAIMS,
+			EXISTING_ACCOUNT_CLAIM_WINDOW, 10_000);
 
 	public PortalInviteService(PortalInviteRepository portalInviteRepository, GuardianRepository guardianRepository,
 			UserRepository userRepository, RoleRepository roleRepository, PermissionRepository permissionRepository,
@@ -106,12 +115,20 @@ public class PortalInviteService {
 					.filter(candidate -> candidate.getExpiresAt().isAfter(Instant.now()))
 					.orElseThrow(() -> invalidInvite);
 
-			// A guardian who already has a User at this school (e.g. also staff here) is reused as-is rather than having their existing password
-			// silently overwritten - the password argument only takes effect for a
-			// brand-new User.
+			// A guardian whose email already belongs to a User at this school (e.g. also staff here) reuses that
+			// account - but only once the claimer proves they own it by supplying its current password. Without
+			// that, whoever can set a guardian's email (GUARDIAN_MANAGE) could point it at the Owner's login, issue
+			// an invite, claim it and receive the Owner's session. The password argument never changes an
+			// existing account's password, and every failure here is the same generic invalidInvite.
 			Person person = invite.getPerson();
-			User user = userRepository.findByEmail(person.getEmail())
-					.orElseGet(() -> userRepository.save(new User(person.getEmail(), person.getPhone(), passwordEncoder.encode(password))));
+			User user = userRepository.findByEmail(person.getEmail()).orElse(null);
+			if (user == null) {
+				user = userRepository.save(new User(person.getEmail(), person.getPhone(), passwordEncoder.encode(password)));
+			} else if (user.getStatus() != UserStatus.ACTIVE
+					|| !existingAccountClaims.tryAcquire(organisation.getId() + "|" + user.getId())
+					|| password == null || !passwordEncoder.matches(password, user.getPasswordHash())) {
+				throw invalidInvite;
+			}
 
 			Role guardianRole = roleRepository.findFirstByManaged(true).orElseGet(this::createGuardianPortalRole);
 			membershipService.grant(user.getId(), person.getId(), guardianRole.getId(), null, null);

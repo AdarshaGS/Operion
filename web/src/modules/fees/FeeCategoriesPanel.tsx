@@ -2,11 +2,14 @@ import { useEffect, useState, type FormEvent } from "react";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
+import Checkbox from "@mui/material/Checkbox";
 import Chip from "@mui/material/Chip";
 import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
+import FormControlLabel from "@mui/material/FormControlLabel";
+import FormHelperText from "@mui/material/FormHelperText";
 import MenuItem from "@mui/material/MenuItem";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
@@ -20,7 +23,7 @@ import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import AddIcon from "@mui/icons-material/Add";
 import { ApiError } from "../../api/client";
-import { createFeeCategory, listFeeCategories, type FeeCategoryResponse } from "../../api/feeCategories";
+import { createFeeCategory, listFeeCategories, updateFeeCategoryAdmission, type FeeCategoryResponse } from "../../api/feeCategories";
 
 const CATEGORY_TYPES = ["GENERAL", "TRANSPORT"];
 
@@ -32,6 +35,7 @@ export function FeeCategoriesPanel() {
 	const [name, setName] = useState("");
 	const [description, setDescription] = useState("");
 	const [categoryType, setCategoryType] = useState("GENERAL");
+	const [requiredAtAdmission, setRequiredAtAdmission] = useState(false);
 	const [submitting, setSubmitting] = useState(false);
 
 	function refresh() {
@@ -46,17 +50,28 @@ export function FeeCategoriesPanel() {
 		event.preventDefault();
 		setSubmitting(true);
 		try {
-			await createFeeCategory({ code, name, description: description || null, categoryType });
+			await createFeeCategory({ code, name, description: description || null, categoryType, requiredAtAdmission });
 			setCode("");
 			setName("");
 			setDescription("");
 			setCategoryType("GENERAL");
+			setRequiredAtAdmission(false);
 			setDialogOpen(false);
 			refresh();
 		} catch (err) {
 			setError(err instanceof ApiError ? err.message : "Failed to create fee category");
 		} finally {
 			setSubmitting(false);
+		}
+	}
+
+	async function handleToggleAdmission(category: FeeCategoryResponse, required: boolean) {
+		setError(null);
+		try {
+			await updateFeeCategoryAdmission(category.id, required);
+			refresh();
+		} catch (err) {
+			setError(err instanceof ApiError ? err.message : "Failed to update fee category");
 		}
 	}
 
@@ -80,6 +95,7 @@ export function FeeCategoriesPanel() {
 								<TableCell>Name</TableCell>
 								<TableCell>Description</TableCell>
 								<TableCell>Type</TableCell>
+								<TableCell>Collect at admission</TableCell>
 								<TableCell>Status</TableCell>
 							</TableRow>
 						</TableHead>
@@ -90,6 +106,14 @@ export function FeeCategoriesPanel() {
 									<TableCell>{category.name}</TableCell>
 									<TableCell>{category.description ?? "—"}</TableCell>
 									<TableCell>{category.categoryType}</TableCell>
+									<TableCell>
+										<Checkbox
+											size="small"
+											checked={category.requiredAtAdmission}
+											onChange={(e) => handleToggleAdmission(category, e.target.checked)}
+											slotProps={{ input: { "aria-label": `Collect ${category.name} at admission` } }}
+										/>
+									</TableCell>
 									<TableCell>
 										<Chip label={category.status} size="small" />
 									</TableCell>
@@ -114,6 +138,15 @@ export function FeeCategoriesPanel() {
 								</MenuItem>
 							))}
 						</TextField>
+						<Box>
+							<FormControlLabel
+								control={<Checkbox checked={requiredAtAdmission} onChange={(e) => setRequiredAtAdmission(e.target.checked)} />}
+								label="Collect at admission"
+							/>
+							<FormHelperText sx={{ mt: -0.5, ml: 4 }}>
+								Students are invoiced this fee's first instalment when enrolled, and must pay it to clear admission.
+							</FormHelperText>
+						</Box>
 					</Stack>
 				</DialogContent>
 				<DialogActions>

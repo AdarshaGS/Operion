@@ -112,7 +112,7 @@ class OpeningBalanceRowImportServiceTest {
 	}
 
 	private String setUpFixture(String orgSlug, String admissionNumber, boolean withFeeStructureGroup) {
-		studentService = new StudentService(studentRepository, studentEnrollmentRepository, studentDocumentRepository, studentExitRepository,
+		studentService = new StudentService(studentRepository, studentEnrollmentRepository, studentDocumentRepository, studentExitRepository, sectionRepository, gradeLevelRepository,
 				null, null, studentIdGenerator, new AuditLogService(auditLogRepository, new ObjectMapper()),
 			new CustomFieldService(customFieldDefinitionRepository, new ObjectMapper()));
 

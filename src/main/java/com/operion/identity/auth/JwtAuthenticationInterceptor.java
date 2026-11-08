@@ -3,6 +3,7 @@ package com.operion.identity.auth;
 import com.operion.authorization.MembershipStatus;
 import com.operion.authorization.OrganisationMembershipRepository;
 import com.operion.common.TenantContext;
+import com.operion.identity.User;
 import com.operion.identity.UserRepository;
 import com.operion.identity.UserStatus;
 import jakarta.servlet.http.HttpServletRequest;
@@ -61,11 +62,15 @@ public class JwtAuthenticationInterceptor implements HandlerInterceptor {
 			TenantContext.set(principal.organisationId(), principal.userId());
 			// A signature-valid token outlives the account state it was issued under - disabling
 			// a user has to cut off tokens already in their hands, not just future logins.
-			boolean active = userRepository.findById(principal.userId())
-					.map(user -> user.getStatus() == UserStatus.ACTIVE)
-					.orElse(false);
-			if (!active) {
+			User user = userRepository.findById(principal.userId()).orElse(null);
+			if (user == null || user.getStatus() != UserStatus.ACTIVE) {
 				return reject(response, "a user who is no longer active", principal, request);
+			}
+			// A password change/reset bumps the user's credential version; a token issued under an
+			// older version (e.g. one a thief is holding) stops working at once. A token with no
+			// version claim counts as version 0 - see JwtService.
+			if (principal.credentialVersion() != user.getCredentialVersion()) {
+				return reject(response, "a token issued before the user's last password change", principal, request);
 			}
 			// Same gates login() and refresh() apply, re-checked per request: suspending or
 			// archiving the org, or revoking the caller's last membership, must cut off access
@@ -86,6 +91,13 @@ public class JwtAuthenticationInterceptor implements HandlerInterceptor {
 			log.warn("Rejected request with invalid/expired token: {} {} ({})", request.getMethod(), request.getRequestURI(), ex.getMessage());
 			response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
 			return false;
+		} catch (RuntimeException | Error ex) {
+			// Spring does not call afterCompletion() for an interceptor whose preHandle threw, and
+			// TenantContext is set part-way through this method - so a failure in one of the lookups
+			// above (a DB error, say) would otherwise leave this request's tenant on a pooled thread
+			// for the next request to inherit.
+			TenantContext.clear();
+			throw ex;
 		}
 	}
 

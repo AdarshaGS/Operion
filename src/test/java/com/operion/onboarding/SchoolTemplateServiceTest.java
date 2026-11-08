@@ -1,6 +1,7 @@
 package com.operion.onboarding;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.List;
 
@@ -62,6 +63,8 @@ import com.operion.organisation.DesignationRepository;
 import com.operion.organisation.Organisation;
 import com.operion.organisation.OrganisationBrandingRepository;
 import com.operion.organisation.OrganisationRepository;
+import com.operion.modules.ModuleAccessService;
+import com.operion.student.AdmissionFeeGate;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -73,9 +76,11 @@ import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.ObjectMapper;
 
 @DataJpaTest
-@Import({ MultiTenancyConfig.class, JpaConfig.class })
+@Import({ MultiTenancyConfig.class, JpaConfig.class, AdmissionFeeGate.class, ModuleAccessService.class })
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class SchoolTemplateServiceTest {
+
+	@Autowired private AdmissionFeeGate admissionFeeGate;
 
 	@Autowired
 	private OrganisationRepository organisationRepository;
@@ -196,7 +201,7 @@ class SchoolTemplateServiceTest {
 				stockIssueRepository, stockAdjustmentRepository, stockTransferRepository, assetRepository);
 		ExaminationService examinationService = new ExaminationService(examRepository, examScheduleRepository, gradingScaleRepository,
 				gradingScaleBandRepository, marksEntryRepository, marksEntryRegisterRepository, reportCardRepository,
-				examinationSettingsRepository, auditLogService);
+				examinationSettingsRepository, auditLogService, admissionFeeGate);
 		schoolTemplateItemService = new SchoolTemplateItemService(schoolTemplateItemRepository, schoolTemplateMasterItemRepository);
 
 		schoolTemplateService = new SchoolTemplateService(schoolTemplateItemService, academicService, gradeLevelRepository,
@@ -563,6 +568,126 @@ class SchoolTemplateServiceTest {
 		assertThat(schoolClassRepository.findAll()).isEmpty();
 	}
 
+	private com.operion.organisation.AcademicYear nextYear() {
+		return academicYearRepository.save(
+				new com.operion.organisation.AcademicYear("2027-28", java.time.LocalDate.of(2027, 6, 1), java.time.LocalDate.of(2028, 4, 30)));
+	}
+
+	@Test
+	void anExplicitOpenYearGetsTheClassesAndSectionsAndTheCurrentYearGetsNone() {
+		var current = currentYear();
+		var next = nextYear();
+		campusRepository.save(new com.operion.organisation.Campus("Main Campus", "MAIN"));
+
+		assertThat(schoolTemplateService.preview(java.util.Set.of(), next.getId()).classes()).isNotEmpty().noneMatch(SchoolTemplateCategoryStatus::alreadyExists);
+		assertThat(schoolTemplateService.preview(java.util.Set.of(), next.getId()).sections()).isNotEmpty().noneMatch(SchoolTemplateCategoryStatus::alreadyExists);
+
+		SchoolTemplateResult result = schoolTemplateService.apply(java.util.Set.of(), next.getId());
+
+		assertThat(result.getClassesNote()).isNull();
+		assertThat(result.getClassesCreated()).hasSize(12);
+		assertThat(result.getSectionsCreated()).hasSize(12).contains("Grade 5 - A");
+		assertThat(schoolClassRepository.findByAcademicYearId(next.getId())).hasSize(12);
+		assertThat(schoolClassRepository.findByAcademicYearId(current.getId())).isEmpty();
+		assertThat(sectionRepository.findAll()).hasSize(12);
+		assertThat(schoolTemplateService.preview(java.util.Set.of(), next.getId()).classes()).allMatch(SchoolTemplateCategoryStatus::alreadyExists);
+		assertThat(schoolTemplateService.preview(java.util.Set.of(), next.getId()).sections()).allMatch(SchoolTemplateCategoryStatus::alreadyExists);
+		// The current year is untouched, so its own preview still shows everything pending.
+		assertThat(schoolTemplateService.preview().classes()).noneMatch(SchoolTemplateCategoryStatus::alreadyExists);
+		assertThat(schoolTemplateService.preview().sections()).noneMatch(SchoolTemplateCategoryStatus::alreadyExists);
+	}
+
+	@Test
+	void applyingAnExplicitYearAgainIsANoOp() {
+		currentYear();
+		var next = nextYear();
+		campusRepository.save(new com.operion.organisation.Campus("Main Campus", "MAIN"));
+		schoolTemplateService.apply(java.util.Set.of(), next.getId());
+
+		SchoolTemplateResult second = schoolTemplateService.apply(java.util.Set.of(), next.getId());
+
+		assertThat(second.getClassesCreated()).isEmpty();
+		assertThat(second.getClassesSkipped()).hasSize(12);
+		assertThat(second.getSectionsCreated()).isEmpty();
+		assertThat(second.getSectionsSkipped()).hasSize(12);
+		assertThat(schoolClassRepository.findByAcademicYearId(next.getId())).hasSize(12);
+		assertThat(sectionRepository.findAll()).hasSize(12);
+	}
+
+	@Test
+	void anExplicitYearWorksEvenWithNoCurrentYear() {
+		var next = nextYear();
+		campusRepository.save(new com.operion.organisation.Campus("Main Campus", "MAIN"));
+
+		SchoolTemplateResult result = schoolTemplateService.apply(java.util.Set.of(), next.getId());
+
+		assertThat(result.getClassesNote()).isNull();
+		assertThat(schoolClassRepository.findByAcademicYearId(next.getId())).hasSize(12);
+	}
+
+	@Test
+	void anExplicitYearWithNoActiveCampusReportsTheCampusReason() {
+		var next = nextYear();
+
+		SchoolTemplateResult result = schoolTemplateService.apply(java.util.Set.of(), next.getId());
+
+		assertThat(result.getClassesNote()).contains("no active campus");
+		assertThat(schoolClassRepository.findAll()).isEmpty();
+	}
+
+	@Test
+	void aNullYearIdBehavesExactlyLikeTheCurrentYearOverloads() {
+		var current = currentYear();
+		nextYear();
+		campusRepository.save(new com.operion.organisation.Campus("Main Campus", "MAIN"));
+
+		SchoolTemplateResult result = schoolTemplateService.apply(java.util.Set.of(), null);
+
+		assertThat(result.getClassesCreated()).hasSize(12);
+		assertThat(schoolClassRepository.findByAcademicYearId(current.getId())).hasSize(12);
+		assertThat(schoolClassRepository.findAll()).hasSize(12);
+		assertThat(schoolTemplateService.preview(java.util.Set.of(), null).classes()).allMatch(SchoolTemplateCategoryStatus::alreadyExists);
+		assertThat(schoolTemplateService.preview().classes()).allMatch(SchoolTemplateCategoryStatus::alreadyExists);
+	}
+
+	@Test
+	void aClosedYearIsRejectedAndNothingIsWritten() {
+		var closed = nextYear();
+		closed.close();
+		closed = academicYearRepository.save(closed);
+		Long closedId = closed.getId();
+		campusRepository.save(new com.operion.organisation.Campus("Main Campus", "MAIN"));
+
+		assertThatThrownBy(() -> schoolTemplateService.apply(java.util.Set.of(), closedId))
+				.isInstanceOf(com.operion.organisation.ClosedAcademicYearException.class);
+		assertThatThrownBy(() -> schoolTemplateService.preview(java.util.Set.of(), closedId))
+				.isInstanceOf(com.operion.organisation.ClosedAcademicYearException.class);
+		assertThat(schoolClassRepository.findAll()).isEmpty();
+		assertThat(gradeLevelRepository.findAll()).isEmpty();
+	}
+
+	@Test
+	void anUnknownYearIdIsRejected() {
+		assertThatThrownBy(() -> schoolTemplateService.apply(java.util.Set.of(), 987654321L))
+				.isInstanceOf(IllegalArgumentException.class).hasMessageContaining("987654321");
+		assertThatThrownBy(() -> schoolTemplateService.preview(java.util.Set.of(), 987654321L))
+				.isInstanceOf(IllegalArgumentException.class).hasMessageContaining("not found");
+	}
+
+	@Test
+	void anotherOrganisationsYearIsRejected() {
+		Long mineOrganisationId = TenantContext.getOrganisationId();
+		Organisation other = organisationRepository.save(new Organisation("Other School", "Other Trust", "school-template-other-" + System.nanoTime()));
+		TenantContext.set(other.getId(), null);
+		Long othersYearId = nextYear().getId();
+		TenantContext.set(mineOrganisationId, null);
+		campusRepository.save(new com.operion.organisation.Campus("Main Campus", "MAIN"));
+
+		assertThatThrownBy(() -> schoolTemplateService.apply(java.util.Set.of(), othersYearId)).isInstanceOf(IllegalArgumentException.class)
+				.hasMessageContaining("not found");
+		assertThat(schoolClassRepository.findAll()).isEmpty();
+	}
+
 	@Test
 	void classesFollowTheAcademicsModule() {
 		currentYear();
@@ -695,6 +820,102 @@ class SchoolTemplateServiceTest {
 		List<GradeLevel> grades = gradeLevelRepository.findAll();
 		assertThat(grades).hasSize(12);
 		assertThat(grades.stream().map(GradeLevel::getSequenceOrder).distinct()).hasSize(12);
+	}
+
+	private List<String> gradeNamesInOrder() {
+		return gradeLevelRepository.findAll().stream().sorted(java.util.Comparator.comparingInt(GradeLevel::getSequenceOrder))
+				.map(GradeLevel::getName).toList();
+	}
+
+	private static final List<String> TEMPLATE_GRADES = List.of("LKG", "UKG", "Grade 1", "Grade 2", "Grade 3", "Grade 4", "Grade 5", "Grade 6",
+			"Grade 7", "Grade 8", "Grade 9", "Grade 10");
+
+	/** The real org-1 data: Grade 5-8 hand-made at 5-8, the template used to append LKG... after them, so promotion
+	 * proposed Grade 8 -> LKG and Grade 4 -> Grade 9. */
+	@Test
+	void handMadeGradesAreSlottedIntoTheTemplateOrderNotAppendedAfterThem() {
+		var ids = new java.util.HashMap<String, Long>();
+		for (int number = 5; number <= 8; number++) {
+			GradeLevel saved = gradeLevelRepository.save(new GradeLevel("Grade " + number, number, "Primary"));
+			ids.put(saved.getName(), saved.getId());
+		}
+
+		SchoolTemplateResult result = schoolTemplateService.apply();
+
+		assertThat(gradeNamesInOrder()).containsExactlyElementsOf(TEMPLATE_GRADES);
+		assertThat(result.getGradesCreated()).containsExactly("LKG", "UKG", "Grade 1", "Grade 2", "Grade 3", "Grade 4", "Grade 9", "Grade 10");
+		assertThat(result.getGradesSkipped()).containsExactly("Grade 5", "Grade 6", "Grade 7", "Grade 8");
+		assertThat(result.getGradesReordered()).containsExactlyInAnyOrder("Grade 5", "Grade 6", "Grade 7", "Grade 8");
+		// Same rows, same names - only sequence_order moved - and the order is unique per org.
+		List<GradeLevel> grades = gradeLevelRepository.findAll();
+		ids.forEach((name, id) -> assertThat(grades).anyMatch(grade -> grade.getId().equals(id) && grade.getName().equals(name)));
+		assertThat(grades.stream().map(GradeLevel::getSequenceOrder).distinct()).hasSize(12);
+
+		SchoolTemplateResult again = schoolTemplateService.apply();
+		assertThat(again.getGradesCreated()).isEmpty();
+		assertThat(again.getGradesReordered()).isEmpty();
+		assertThat(gradeNamesInOrder()).containsExactlyElementsOf(TEMPLATE_GRADES);
+	}
+
+	@Test
+	void anEmptyOrganisationGetsTheTemplateOrderStartingAtZero() {
+		SchoolTemplateResult result = schoolTemplateService.apply();
+
+		assertThat(result.getGradesReordered()).isEmpty();
+		assertThat(gradeNamesInOrder()).containsExactlyElementsOf(TEMPLATE_GRADES);
+		assertThat(gradeLevelRepository.findAll().stream().map(GradeLevel::getSequenceOrder).sorted().toList())
+				.containsExactly(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11);
+	}
+
+	@Test
+	void gradesAlreadyInTemplateOrderAreNotRenumbered() {
+		// Gapped numbers (10, 20, 30...) already in template order: the missing grades fit in or after, existing rows are untouched.
+		var original = new java.util.HashMap<String, Integer>();
+		int order = 10;
+		for (String name : List.of("LKG", "UKG", "Grade 1", "Grade 4", "Grade 5", "Grade 8")) {
+			gradeLevelRepository.save(new GradeLevel(name, order, "Primary"));
+			original.put(name, order);
+			order += 10;
+		}
+
+		SchoolTemplateResult result = schoolTemplateService.apply();
+
+		assertThat(result.getGradesReordered()).isEmpty();
+		assertThat(gradeNamesInOrder()).containsExactlyElementsOf(TEMPLATE_GRADES);
+		gradeLevelRepository.findAll().stream().filter(grade -> original.containsKey(grade.getName()))
+				.forEach(grade -> assertThat(grade.getSequenceOrder()).as(grade.getName()).isEqualTo(original.get(grade.getName())));
+	}
+
+	@Test
+	void aCompleteOrganisationInTemplateOrderIsLeftExactlyAsIs() {
+		schoolTemplateService.apply();
+		var before = gradeLevelRepository.findAll().stream().collect(java.util.stream.Collectors.toMap(GradeLevel::getId, GradeLevel::getSequenceOrder));
+
+		SchoolTemplateResult result = schoolTemplateService.apply();
+
+		assertThat(result.getGradesReordered()).isEmpty();
+		assertThat(gradeLevelRepository.findAll().stream().collect(java.util.stream.Collectors.toMap(GradeLevel::getId, GradeLevel::getSequenceOrder)))
+				.isEqualTo(before);
+	}
+
+	@Test
+	void customGradesNotInTheTemplateAreKeptInTheirRelativePlace() {
+		gradeLevelRepository.save(new GradeLevel("Pre-Nursery", 1, "Pre-Primary"));
+		gradeLevelRepository.save(new GradeLevel("Grade 5", 2, "Primary"));
+		gradeLevelRepository.save(new GradeLevel("Remedial Bridge", 3, "Primary"));
+		gradeLevelRepository.save(new GradeLevel("Grade 8", 4, "Secondary"));
+		gradeLevelRepository.save(new GradeLevel("Std 11", 5, "Senior"));
+		gradeLevelRepository.save(new GradeLevel("Std 12", 6, "Senior"));
+
+		SchoolTemplateResult result = schoolTemplateService.apply();
+
+		// Pre-Nursery has no matched grade before it -> stays first; Remedial Bridge stays right after Grade 5; Std 11/12 follow every template grade.
+		assertThat(gradeNamesInOrder()).containsExactly("Pre-Nursery", "LKG", "UKG", "Grade 1", "Grade 2", "Grade 3", "Grade 4", "Grade 5",
+				"Remedial Bridge", "Grade 6", "Grade 7", "Grade 8", "Grade 9", "Grade 10", "Std 11", "Std 12");
+		assertThat(result.getGradesCreated()).doesNotContain("Pre-Nursery", "Remedial Bridge", "Std 11", "Std 12");
+		assertThat(gradeLevelRepository.findAll()).hasSize(16);
+		assertThat(gradeLevelRepository.findAll().stream().map(GradeLevel::getSequenceOrder).distinct()).hasSize(16);
+		assertThat(schoolTemplateService.apply().getGradesReordered()).isEmpty();
 	}
 
 	@Test

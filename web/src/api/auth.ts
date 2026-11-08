@@ -69,6 +69,8 @@ export interface MeResponse {
 	roleNames: string[];
 	roles: RoleSummary[];
 	permissions: string[];
+	/** True for the org Owner - holds every permission with no explicit role grants (absent on older backends). */
+	owner?: boolean;
 	/** Module codes the platform owner switched off for this organisation (absent on older backends). */
 	disabledModules?: string[];
 }

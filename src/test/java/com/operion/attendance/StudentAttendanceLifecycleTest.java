@@ -31,6 +31,10 @@ import com.operion.organisation.Campus;
 import com.operion.organisation.CampusRepository;
 import com.operion.organisation.Organisation;
 import com.operion.organisation.OrganisationRepository;
+import com.operion.student.AdmissionFeeClearanceMode;
+import com.operion.student.AdmissionSettings;
+import com.operion.student.AdmissionSettingsRepository;
+import com.operion.student.FeeClearanceStatus;
 import com.operion.student.Student;
 import com.operion.student.StudentDocumentRepository;
 import com.operion.student.StudentEnrollment;
@@ -105,6 +109,9 @@ class StudentAttendanceLifecycleTest {
 	private StudentIdGenerator studentIdGenerator;
 
 	@Autowired
+	private AdmissionSettingsRepository admissionSettingsRepository;
+
+	@Autowired
 	private StudentAttendanceRepository studentAttendanceRepository;
 
 	@Autowired
@@ -130,7 +137,7 @@ class StudentAttendanceLifecycleTest {
 		attendanceService = new AttendanceService(studentAttendanceRepository, classAttendanceRegisterRepository,
 				attendanceCorrectionRepository, staffAttendanceRepository, new AuditLogService(auditLogRepository, new ObjectMapper()));
 		studentService = new StudentService(studentRepository, studentEnrollmentRepository, studentDocumentRepository,
-			studentExitRepository, null, null, studentIdGenerator, new AuditLogService(auditLogRepository, new ObjectMapper()),
+			studentExitRepository, sectionRepository, gradeLevelRepository, null, null, studentIdGenerator, new AuditLogService(auditLogRepository, new ObjectMapper()),
 			new CustomFieldService(customFieldDefinitionRepository, new ObjectMapper()));
 	}
 
@@ -181,6 +188,30 @@ class StudentAttendanceLifecycleTest {
 
 		assertThatThrownBy(() -> attendanceService.markDailyAttendance(fixture.academicYear(), fixture.section(), date, marks))
 				.isInstanceOf(IllegalStateException.class);
+	}
+
+	/** Attendance is deliberately not gated by the admission fee: a PENDING student in BLOCK mode is still marked, submitted, corrected and locked. */
+	@Test
+	void attendanceIsStillMarkedForAPendingStudentInBlockMode() {
+		Fixture fixture = setUpFixture("attendance-fee-block-school", "ADM-120");
+		AdmissionSettings settings = new AdmissionSettings();
+		settings.setFeeClearanceMode(AdmissionFeeClearanceMode.BLOCK);
+		admissionSettingsRepository.save(settings);
+		StudentEnrollment pending = studentEnrollmentRepository.findById(fixture.enrollment().getId()).orElseThrow();
+		pending.changeFeeClearanceStatus(FeeClearanceStatus.PENDING);
+		pending = studentEnrollmentRepository.save(pending);
+		LocalDate date = LocalDate.of(2025, 7, 4);
+
+		ClassAttendanceRegister register = attendanceService.markDailyAttendance(fixture.academicYear(), fixture.section(), date,
+				List.of(new StudentAttendanceMark(pending, AttendanceStatus.ABSENT, false, null)));
+		StudentAttendance attendance = studentAttendanceRepository.findBySectionIdAndAttendanceDate(fixture.section().getId(), date).get(0);
+		ClassAttendanceRegister submitted = attendanceService.submitRegister(register);
+		StudentAttendance corrected = attendanceService.correct(attendance, AttendanceStatus.PRESENT, "Marked absent by mistake");
+		ClassAttendanceRegister locked = attendanceService.lockRegister(submitted);
+
+		assertThat(corrected.getAttendanceStatus()).isEqualTo(AttendanceStatus.PRESENT);
+		assertThat(locked.getRegisterStatus()).isEqualTo(ClassAttendanceRegisterStatus.LOCKED);
+		assertThat(studentEnrollmentRepository.findById(pending.getId()).orElseThrow().getFeeClearanceStatus()).isEqualTo(FeeClearanceStatus.PENDING);
 	}
 
 	@Test

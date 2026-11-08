@@ -30,6 +30,12 @@ import org.springframework.stereotype.Service;
  * that have no mail provider) - never by default, since log access must not equal account
  * access (SEC-M2). The response is always the same generic ack regardless of whether the org/email matched,
  * mirroring AuthenticationService.login()'s anti-enumeration stance.
+ *
+ * Tokens are stored as a SHA-256 hash and found by an indexed equality lookup (they are 256-bit
+ * random, so a fast hash is enough - see TokenHasher), instead of bcrypt-comparing every live token.
+ * Confirming is single-use via one conditional UPDATE, so two concurrent confirms cannot both win; a
+ * new request invalidates the user's earlier unused tokens; and a completed reset revokes the user's
+ * refresh tokens and (through User.setPasswordHash) every access token issued before it.
  */
 @Service
 public class PasswordResetService {
@@ -41,19 +47,22 @@ public class PasswordResetService {
 	private final UserRepository userRepository;
 	private final OrganisationRepository organisationRepository;
 	private final PasswordEncoder passwordEncoder;
+	private final RefreshTokenService refreshTokenService;
 	private final EmailDeliveryService emailDeliveryService;
 	private final String frontendBaseUrl;
 	private final boolean logRawTokens;
 	private final SecureRandom secureRandom = new SecureRandom();
 
 	public PasswordResetService(PasswordResetTokenRepository passwordResetTokenRepository, UserRepository userRepository,
-			OrganisationRepository organisationRepository, PasswordEncoder passwordEncoder, EmailDeliveryService emailDeliveryService,
+			OrganisationRepository organisationRepository, PasswordEncoder passwordEncoder, RefreshTokenService refreshTokenService,
+			EmailDeliveryService emailDeliveryService,
 			@Value("${app.frontend.base-url:http://localhost:5173}") String frontendBaseUrl,
 			@Value("${app.dev.log-auth-tokens:false}") boolean logRawTokens) {
 		this.passwordResetTokenRepository = passwordResetTokenRepository;
 		this.userRepository = userRepository;
 		this.organisationRepository = organisationRepository;
 		this.passwordEncoder = passwordEncoder;
+		this.refreshTokenService = refreshTokenService;
 		this.emailDeliveryService = emailDeliveryService;
 		this.frontendBaseUrl = frontendBaseUrl;
 		this.logRawTokens = logRawTokens;
@@ -70,9 +79,11 @@ public class PasswordResetService {
 			if (user == null) {
 				return;
 			}
+			// Only the newest link works: an earlier unused one (say, from a leaked inbox) dies here.
+			passwordResetTokenRepository.consumeAllForUser(user.getId());
 			String rawToken = generateToken();
 			PasswordResetToken token = passwordResetTokenRepository
-					.save(new PasswordResetToken(user.getId(), passwordEncoder.encode(rawToken), Instant.now().plus(RESET_TOKEN_VALIDITY)));
+					.save(new PasswordResetToken(user.getId(), TokenHasher.sha256Hex(rawToken), Instant.now().plus(RESET_TOKEN_VALIDITY)));
 			// Never returned to the HTTP caller - see class javadoc.
 			if (logRawTokens) {
 				log.info("Password reset requested: org={} userId={} link=/reset-password?org={}&token={} expiresAt={}",
@@ -97,18 +108,22 @@ public class PasswordResetService {
 		Organisation organisation = organisationRepository.findBySlug(organisationSlug).orElseThrow(() -> invalid);
 		TenantContext.set(organisation.getId(), null);
 		try {
-			PasswordResetToken token = passwordResetTokenRepository.findByConsumedFalse().stream()
-					.filter(candidate -> passwordEncoder.matches(rawToken, candidate.getTokenHash()))
-					.findFirst()
-					.filter(PasswordResetToken::isValid)
+			PasswordResetToken token = passwordResetTokenRepository.findByTokenHash(TokenHasher.sha256Hex(rawToken))
 					.orElseThrow(() -> invalid);
+			// Atomic single-use gate: only the caller whose UPDATE flips the row (1 row) proceeds; a
+			// replay, a concurrent twin, or an expired token matches 0 rows.
+			if (passwordResetTokenRepository.consumeIfValid(token.getId(), Instant.now()) != 1) {
+				throw invalid;
+			}
 
 			User user = userRepository.findById(token.getUserId()).orElseThrow(() -> invalid);
 			user.setPasswordHash(passwordEncoder.encode(newPassword));
 			userRepository.save(user);
 
-			token.consume();
-			passwordResetTokenRepository.save(token);
+			// Any other reset link still outstanding for this user is now moot, and every session
+			// that predates the reset must go: refresh tokens here, access tokens via credentialVersion.
+			passwordResetTokenRepository.consumeAllForUser(user.getId());
+			refreshTokenService.revokeAllForUser(user.getId());
 		} finally {
 			TenantContext.clear();
 		}

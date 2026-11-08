@@ -2,6 +2,7 @@ package com.operion.student;
 
 import java.time.LocalDate;
 
+import org.springframework.dao.DataAccessException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,8 +26,14 @@ public class StudentIdGenerator {
 	@Transactional
 	public String next(LocalDate admissionDate) {
 		int year = admissionDate.getYear();
-		StudentIdCounter counter = studentIdCounterRepository.findByYear(year)
-				.orElseGet(() -> studentIdCounterRepository.save(new StudentIdCounter(year)));
+		if (!studentIdCounterRepository.existsByYear(year)) {
+			try {
+				studentIdCounterRepository.createIfMissing(year);
+			} catch (DataAccessException ignored) {
+				// Another admission created the row first; the locking read below picks it up.
+			}
+		}
+		StudentIdCounter counter = studentIdCounterRepository.findByYear(year).orElseThrow();
 		long number = counter.consumeNext();
 		studentIdCounterRepository.save(counter);
 		return "STU-" + year + "-" + String.format("%05d", number);

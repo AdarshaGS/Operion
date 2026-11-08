@@ -15,6 +15,16 @@ export class AcademicYearsPage {
 		await this.page.getByRole("button", { name: "Add", exact: true }).click();
 	}
 
+	async markCurrent(name: string) {
+		await this.yearRow(name).getByRole("button", { name: "Mark current" }).click();
+	}
+
+	/** The back arrow reads "Back to dashboard" when the page was opened from the dashboard setup card,
+	 * "Back to settings" otherwise (see SettingsSectionPage.tsx / useBackTarget). */
+	async backToDashboard() {
+		await this.page.getByRole("button", { name: "Back to dashboard" }).click();
+	}
+
 	yearRow(name: string) {
 		return this.page.getByRole("row").filter({ hasText: name });
 	}

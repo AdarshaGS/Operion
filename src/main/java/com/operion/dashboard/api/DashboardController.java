@@ -13,6 +13,7 @@ import java.util.Set;
 import java.util.TreeMap;
 
 import com.operion.academic.SchoolClassRepository;
+import com.operion.academic.SectionRepository;
 import com.operion.attendance.AttendanceStatus;
 import com.operion.attendance.StudentAttendanceRepository;
 import com.operion.authorization.MembershipStatus;
@@ -24,6 +25,8 @@ import com.operion.communication.AnnouncementStatus;
 import com.operion.dashboard.DashboardPreferenceRepository;
 import com.operion.examination.ExamRepository;
 import com.operion.examination.ExamStatus;
+import com.operion.examination.MarksEntryRegisterRepository;
+import com.operion.examination.MarksEntryRegisterStatus;
 import com.operion.finance.FeeStructureRepository;
 import com.operion.finance.InvoiceRepository;
 import com.operion.finance.InvoiceStatus;
@@ -42,6 +45,7 @@ import com.operion.library.BorrowStatus;
 import com.operion.common.TenantContext;
 import org.springframework.dao.DataAccessException;
 import com.operion.organisation.AcademicYearRepository;
+import com.operion.organisation.AcademicYearStatus;
 import com.operion.organisation.CampusRepository;
 import com.operion.organisation.DepartmentRepository;
 import com.operion.organisation.DesignationRepository;
@@ -50,6 +54,8 @@ import com.operion.organisation.OrganisationConfigurationRepository;
 import com.operion.purchase.PurchaseOrderRepository;
 import com.operion.purchase.PurchaseOrderStatus;
 import com.operion.sales.SaleRepository;
+import com.operion.student.ApplicantRepository;
+import com.operion.student.ApplicantStatus;
 import com.operion.student.StudentEnrollmentRepository;
 import com.operion.student.StudentRepository;
 import com.operion.student.StudentStatus;
@@ -112,6 +118,9 @@ public class DashboardController {
 	private final DashboardPreferenceRepository dashboardPreferenceRepository;
 	private final PaymentRepository paymentRepository;
 	private final StudentEnrollmentRepository studentEnrollmentRepository;
+	private final SectionRepository sectionRepository;
+	private final ApplicantRepository applicantRepository;
+	private final MarksEntryRegisterRepository marksEntryRegisterRepository;
 
 	public DashboardController(StudentRepository studentRepository, CampusRepository campusRepository,
 			StudentAttendanceRepository studentAttendanceRepository, InvoiceRepository invoiceRepository,
@@ -125,7 +134,8 @@ public class DashboardController {
 			SchoolClassRepository schoolClassRepository, AcademicYearRepository academicYearRepository,
 			FeeStructureRepository feeStructureRepository, OrganisationConfigurationRepository organisationConfigurationRepository,
 			DashboardPreferenceRepository dashboardPreferenceRepository, PaymentRepository paymentRepository,
-			StudentEnrollmentRepository studentEnrollmentRepository) {
+			StudentEnrollmentRepository studentEnrollmentRepository, SectionRepository sectionRepository,
+			ApplicantRepository applicantRepository, MarksEntryRegisterRepository marksEntryRegisterRepository) {
 		this.studentRepository = studentRepository;
 		this.campusRepository = campusRepository;
 		this.studentAttendanceRepository = studentAttendanceRepository;
@@ -154,6 +164,9 @@ public class DashboardController {
 		this.dashboardPreferenceRepository = dashboardPreferenceRepository;
 		this.paymentRepository = paymentRepository;
 		this.studentEnrollmentRepository = studentEnrollmentRepository;
+		this.sectionRepository = sectionRepository;
+		this.applicantRepository = applicantRepository;
+		this.marksEntryRegisterRepository = marksEntryRegisterRepository;
 	}
 
 	@GetMapping("/summary")
@@ -161,8 +174,6 @@ public class DashboardController {
 		long activeStudents = studentRepository.countByStatus(StudentStatus.ACTIVE);
 		long departments = departmentRepository.count();
 		long designations = designationRepository.count();
-		long activeMembers = membershipRepository.countByStatus(MembershipStatus.ACTIVE);
-		long totalRoles = roleRepository.count();
 		Access access = access();
 
 		// Each module section is returned only to a caller who may view that module, the same rule
@@ -187,9 +198,7 @@ public class DashboardController {
 						: null,
 				access.any("SALES_VIEW") ? sales() : null,
 				access.any("PURCHASE_VIEW") ? purchase() : null,
-				new SetupChecklist(structureConfigured(), totalRoles > DEFAULT_ROLE_COUNT, activeMembers > 1,
-						academicYearRepository.existsByCurrentTrue() && schoolClassRepository.count() > 0, activeStudents > 0,
-						feeStructureRepository.count() > 0, studentAttendanceRepository.count() > 0),
+				setupChecklist(activeStudents),
 				preferences());
 	}
 
@@ -243,23 +252,77 @@ public class DashboardController {
 		}
 	}
 
-	// Mirrors the Structure Setup wizard's required steps: organisation profile contact,
-	// business settings, and a current academic year. Campuses (one is auto-created at
-	// provisioning), fees, departments and designations are optional and configured in
-	// their own modules, so they deliberately don't gate this signal.
-	private boolean structureConfigured() {
+	/** Cheap existence/count probes only - this runs on every dashboard load. The first six flags
+	 * keep their original meaning for the screens that still read them; the rest back the
+	 * school-lifecycle card (see SetupChecklist for the step -> flag mapping). */
+	private SetupChecklist setupChecklist(long activeStudents) {
 		OrganisationConfiguration configuration = organisationConfigurationRepository.findById(TenantContext.getOrganisationId())
 				.orElse(null);
-		if (configuration == null) {
-			return false;
+		boolean hasCurrentYear = academicYearRepository.existsByCurrentTrue();
+		boolean profileConfigured = false;
+		if (configuration != null) {
+			profileConfigured = isInstitutionProfileConfigured(configuration.getPrimaryContactName(),
+					configuration.getPrimaryContactEmail(), configuration.getTimezone());
 		}
-		return isStructureConfigured(configuration.getPrimaryContactName(), configuration.getPrimaryContactEmail(),
-				configuration.getTimezone(), academicYearRepository.existsByCurrentTrue());
+		boolean hasClosedYear = academicYearRepository.existsByStatus(AcademicYearStatus.CLOSED);
+		boolean hasClasses = schoolClassRepository.count() > 0;
+		boolean studentRecordsExist = studentRepository.count() > 0;
+		boolean attendanceStarted = studentAttendanceRepository.existsByIdNotNull();
+		boolean feesConfigured = feeStructureRepository.count() > 0;
+
+		return new SetupChecklist(roleRepository.count() > DEFAULT_ROLE_COUNT,
+				membershipRepository.countByStatus(MembershipStatus.ACTIVE) > 1, hasCurrentYear && hasClasses, activeStudents > 0,
+				feesConfigured, attendanceStarted, profileConfigured, isAcademicYearSet(hasCurrentYear),
+				isClassStructureCreated(hasClasses, sectionRepository.count() > 0),
+				areSubjectsMappedInLatestYear(academicYearRepository, schoolClassRepository),
+				isAdmissionsStepDone(applicantRepository.countByStatus(ApplicantStatus.CONVERTED) > 0, studentRecordsExist),
+				studentRecordsExist,
+				examRepository.countByStatus(ExamStatus.ACTIVE) > 0,
+				marksEntryRegisterRepository.existsByRegisterStatus(MarksEntryRegisterStatus.APPROVED),
+				bookRepository.countByStatus(BookStatus.ACTIVE) > 0, hasClosedYear);
 	}
 
-	static boolean isStructureConfigured(String primaryContactName, String primaryContactEmail, String timezone,
-			boolean hasCurrentAcademicYear) {
-		return !isBlank(primaryContactName) && !isBlank(primaryContactEmail) && !isBlank(timezone) && hasCurrentAcademicYear;
+	/** Setup step "Institution setup": the school profile contact and the business-settings timezone are filled in - the academic year is its own step, managed under Settings. */
+	static boolean isInstitutionProfileConfigured(String primaryContactName, String primaryContactEmail, String timezone) {
+		return !isBlank(primaryContactName) && !isBlank(primaryContactEmail) && !isBlank(timezone);
+	}
+
+	/** Setup step "Academic year creation": an academic year is current (active). A closed year does not count, and
+	 * neither does a draft that was never made current. */
+	static boolean isAcademicYearSet(boolean hasCurrentAcademicYear) {
+		return hasCurrentAcademicYear;
+	}
+
+	/** Setup step "Class & section creation": a class alone is not enough - students are enrolled into a section. */
+	static boolean isClassStructureCreated(boolean hasClasses, boolean hasSections) {
+		return hasClasses && hasSections;
+	}
+
+	/** Setup step "Subject configuration", evaluated against the latest academic year: the current year if there is
+	 * one, else the most recently closed year (latest end date, ties by id). A DRAFT-only school, or one with no
+	 * years, has no latest year, so the step is not done. Other years' classes are ignored so a past year's
+	 * leftovers can't hold the step open. */
+	static boolean areSubjectsMappedInLatestYear(AcademicYearRepository academicYearRepository,
+			SchoolClassRepository schoolClassRepository) {
+		return academicYearRepository.findByCurrentTrue()
+				.or(() -> academicYearRepository.findFirstByStatusOrderByEndDateDescIdDesc(AcademicYearStatus.CLOSED))
+				.map(year -> areSubjectsMappedToEveryClass(schoolClassRepository.countActiveInAcademicYear(year.getId()),
+						schoolClassRepository.countActiveInAcademicYearWithoutActiveSubject(year.getId())))
+				.orElse(false);
+	}
+
+	/** The counting rule: at least one ACTIVE class and every one of them has at least one ACTIVE subject mapping -
+	 * one mapped class out of ten is not "configured". The classes are the year-scoped SchoolClass offerings (what
+	 * sections and enrolments hang off). */
+	static boolean areSubjectsMappedToEveryClass(long activeClasses, long activeClassesWithoutSubjects) {
+		return activeClasses > 0 && activeClassesWithoutSubjects == 0;
+	}
+
+	/** Setup step "Student admissions": an applicant has been admitted, or - for schools that import or add existing
+	 * students directly and never use the admissions pipeline - students already exist, so the step
+	 * can't strand them. */
+	static boolean isAdmissionsStepDone(boolean hasAdmittedApplicant, boolean hasStudentRecords) {
+		return hasAdmittedApplicant || hasStudentRecords;
 	}
 
 	private static boolean isBlank(String value) {

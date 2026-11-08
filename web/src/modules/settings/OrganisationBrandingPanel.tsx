@@ -8,6 +8,7 @@ import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
+import { PanelTitle } from "./PanelTitle";
 import { resolveAssetUrl, uploadAsset } from "../../api/assets";
 import { ApiError } from "../../api/client";
 import { getOrganisationBranding, updateOrganisationBranding } from "../../api/organisationBranding";
@@ -193,7 +194,7 @@ export function OrganisationBrandingPanel() {
 	return (
 		<Paper component="form" onSubmit={handleSubmit} sx={{ p: 3 }}>
 			<Stack spacing={2}>
-				<Typography variant="h6">Branding &amp; documents</Typography>
+				<PanelTitle>Branding &amp; documents</PanelTitle>
 				<Typography variant="body2" color="text.secondary">
 					These assets and formats appear on fee receipts, certificates, and exports.
 				</Typography>

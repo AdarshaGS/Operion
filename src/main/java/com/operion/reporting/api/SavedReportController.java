@@ -115,12 +115,18 @@ public class SavedReportController {
 	}
 
 	private List<SavedReportService.ParameterInput> toParameterInputs(List<ReportParameterRequest> parameters) {
+		if (parameters == null) {
+			return List.of();
+		}
 		return parameters.stream()
 				.map(p -> new SavedReportService.ParameterInput(p.name(), ReportParameterType.valueOf(p.type()), p.label(), p.sortOrder()))
 				.toList();
 	}
 
 	private List<SavedReportService.ColumnInput> toColumnInputs(List<ReportColumnRequest> columns) {
+		if (columns == null) {
+			return List.of();
+		}
 		return columns.stream().map(c -> new SavedReportService.ColumnInput(c.sourceColumn(), c.label(), c.sortOrder())).toList();
 	}
 

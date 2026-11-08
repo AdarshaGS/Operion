@@ -9,7 +9,9 @@ import com.operion.finance.FeeCategoryStatus;
 import com.operion.finance.FeeService;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -30,8 +32,18 @@ public class FeeCategoryController {
 	@PostMapping
 	@RequirePermission("FEE_CATEGORY_MANAGE")
 	public FeeCategoryResponse create(@Valid @RequestBody CreateFeeCategoryRequest request) {
-		FeeCategory category = feeService.createCategory(request.code(), request.name(), request.description(), request.categoryType());
+		FeeCategory category = feeService.createCategory(request.code(), request.name(), request.description(), request.categoryType(),
+				Boolean.TRUE.equals(request.requiredAtAdmission()));
 		return FeeCategoryResponse.from(category);
+	}
+
+	/** Narrow update: flips whether the category's first instalment is charged at enrolment. */
+	@PutMapping("/{id}/admission")
+	@RequirePermission("FEE_CATEGORY_MANAGE")
+	public FeeCategoryResponse updateAdmission(@PathVariable Long id, @Valid @RequestBody UpdateFeeCategoryAdmissionRequest request) {
+		FeeCategory category = feeCategoryRepository.findById(id)
+				.orElseThrow(() -> new IllegalArgumentException("No fee category with id " + id));
+		return FeeCategoryResponse.from(feeService.setCategoryRequiredAtAdmission(category, request.requiredAtAdmission()));
 	}
 
 	@GetMapping

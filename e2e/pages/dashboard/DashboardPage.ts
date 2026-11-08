@@ -22,19 +22,18 @@ export class DashboardPage {
 	}
 
 	setupProgressCount() {
-		// "N of 6 setup tasks complete"
-		return this.page.getByText(/of 6 setup tasks complete/);
+		// "N of 12 setup tasks complete" (shown while the card is expanded, its default) - the card counts
+		// every step except the last one, academic year closure, which is listed but not counted. The
+		// total shrinks if a module (fees, library...) is switched off (see SetupProgress.tsx).
+		return this.page.getByText(/of 12 setup tasks complete/);
 	}
 
+	/** label is a lifecycle step's title, e.g. "Institution setup" or "Class & section creation". */
 	async goToSetupStep(label: string) {
 		// SetupProgress renders each step's label as a <p> (role "paragraph") - scoping to
 		// that role avoids colliding with a same-named sidebar nav <button> ("Students",
 		// "Fees", ...) that getByText(label, {exact:true}) would otherwise also match.
 		await this.page.getByRole("paragraph").filter({ hasText: new RegExp(`^${label}$`) }).click();
-	}
-
-	quickAction(label: string) {
-		return this.page.getByText(label, { exact: true });
 	}
 
 	sectionHeading(title: string) {

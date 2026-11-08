@@ -199,4 +199,15 @@ class BorrowRecordLifecycleTest {
 		assertThatThrownBy(() -> libraryService.issue(anotherCopy, borrower, LocalDate.now(), LocalDate.now().plusDays(14)))
 				.isInstanceOf(IllegalStateException.class);
 	}
+
+	@Test
+	void withdrawingATitleMarksItsCopiesWithdrawnAndTheyCannotBeIssued() {
+		Fixture fixture = setUpFixture("library-withdraw-copies");
+
+		libraryService.withdrawBook(fixture.copy().getBook());
+
+		assertThat(bookCopyRepository.findById(fixture.copy().getId()).orElseThrow().getStatus()).isEqualTo(BookCopyStatus.WITHDRAWN);
+		assertThatThrownBy(() -> libraryService.issue(fixture.copy(), fixture.borrowerA(), LocalDate.of(2026, 1, 1), null))
+				.isInstanceOf(IllegalStateException.class);
+	}
 }

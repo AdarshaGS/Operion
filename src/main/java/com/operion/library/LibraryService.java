@@ -61,11 +61,19 @@ public class LibraryService {
 		return bookRepository.save(book);
 	}
 
+	@Transactional
 	public Book withdrawBook(Book book) {
 		if (bookCopyRepository.existsByBookIdAndStatus(book.getId(), BookCopyStatus.BORROWED)) {
 			throw new IllegalStateException("A copy of this book is on loan; take it back before withdrawing the book");
 		}
 		book.withdraw();
+		// A lost copy keeps LOST - its borrow record and fine refer to that outcome.
+		for (BookCopy copy : bookCopyRepository.findByBookId(book.getId())) {
+			if (copy.getStatus() != BookCopyStatus.LOST) {
+				copy.changeStatus(BookCopyStatus.WITHDRAWN);
+				bookCopyRepository.save(copy);
+			}
+		}
 		return bookRepository.save(book);
 	}
 

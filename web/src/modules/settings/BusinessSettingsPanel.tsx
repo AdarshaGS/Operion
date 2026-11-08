@@ -10,6 +10,9 @@ import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
+import { PanelTitle } from "./PanelTitle";
+import { Can } from "../../auth/Can";
+import { useCan } from "../../auth/useCan";
 import { ApiError } from "../../api/client";
 import { getOrganisationSettings, updateOrganisationSettings } from "../../api/organisationSettings";
 import { listTimezones, type TimezoneResponse } from "../../api/timezones";
@@ -34,6 +37,8 @@ interface BusinessSettingsPanelProps {
 }
 
 export function BusinessSettingsPanel({ onSaved, formId }: BusinessSettingsPanelProps = {}) {
+	// Saving needs ORGANISATION_MANAGE; everyone else gets a read-only view of the same values.
+	const canEdit = useCan("ORGANISATION_MANAGE");
 	const [timezone, setTimezone] = useState("");
 	const [timezones, setTimezones] = useState<TimezoneResponse[]>([]);
 	const [defaultCurrency, setDefaultCurrency] = useState("");
@@ -108,7 +113,7 @@ export function BusinessSettingsPanel({ onSaved, formId }: BusinessSettingsPanel
 	return (
 		<Paper component="form" id={formId} onSubmit={handleSubmit} sx={{ p: 3 }}>
 			<Stack spacing={2}>
-				<Typography variant="h6">Business settings</Typography>
+				<PanelTitle>Business settings</PanelTitle>
 
 				{error && <Alert severity="error">{error}</Alert>}
 				{saved && <Alert severity="success">Settings updated</Alert>}
@@ -120,6 +125,7 @@ export function BusinessSettingsPanel({ onSaved, formId }: BusinessSettingsPanel
 						value={timezone}
 						onChange={(e) => setTimezone(e.target.value)}
 						slotProps={{ select: { MenuProps: { slotProps: { paper: { sx: { maxHeight: 420 } } } } } }}
+						disabled={!canEdit}
 						fullWidth
 					>
 						<MenuItem value="">Not set</MenuItem>
@@ -137,6 +143,7 @@ export function BusinessSettingsPanel({ onSaved, formId }: BusinessSettingsPanel
 						placeholder="INR"
 						value={defaultCurrency}
 						onChange={(e) => setDefaultCurrency(e.target.value)}
+						disabled={!canEdit}
 						fullWidth
 					/>
 				</Box>
@@ -146,11 +153,12 @@ export function BusinessSettingsPanel({ onSaved, formId }: BusinessSettingsPanel
 						placeholder="dd-MM-yyyy"
 						value={dateFormat}
 						onChange={(e) => setDateFormat(e.target.value)}
+						disabled={!canEdit}
 						fullWidth
 					/>
-					<TextField label="Primary color" placeholder="#1976d2" value={primaryColor} onChange={(e) => setPrimaryColor(e.target.value)} fullWidth />
+					<TextField label="Primary color" placeholder="#1976d2" value={primaryColor} onChange={(e) => setPrimaryColor(e.target.value)} disabled={!canEdit} fullWidth />
 				</Box>
-				<TextField label="Logo URL" value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)} fullWidth />
+				<TextField label="Logo URL" value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)} disabled={!canEdit} fullWidth />
 
 				<Box>
 					<Typography variant="body2" sx={{ mb: 1 }}>
@@ -160,18 +168,20 @@ export function BusinessSettingsPanel({ onSaved, formId }: BusinessSettingsPanel
 						{DAYS.map((day, index) => (
 							<FormControlLabel
 								key={day}
-								control={<Checkbox checked={workingDays[index]} onChange={() => toggleDay(index)} />}
+								control={<Checkbox checked={workingDays[index]} onChange={() => toggleDay(index)} disabled={!canEdit} />}
 								label={day}
 							/>
 						))}
 					</Box>
 				</Box>
 
-				<Box sx={{ display: "flex", justifyContent: "flex-end" }}>
-					<Button type="submit" variant="contained" disabled={submitting}>
-						{submitting ? "Saving..." : "Save"}
-					</Button>
-				</Box>
+				<Can anyOf={["ORGANISATION_MANAGE"]}>
+					<Box sx={{ display: "flex", justifyContent: "flex-end" }}>
+						<Button type="submit" variant="contained" disabled={submitting}>
+							{submitting ? "Saving..." : "Save"}
+						</Button>
+					</Box>
+				</Can>
 			</Stack>
 		</Paper>
 	);

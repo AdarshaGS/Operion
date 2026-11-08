@@ -49,6 +49,7 @@ import com.operion.modules.ModuleAccessService;
 import com.operion.organisation.AcademicYear;
 import com.operion.organisation.AcademicYearRepository;
 import com.operion.organisation.Campus;
+import com.operion.organisation.ClosedAcademicYearException;
 import com.operion.organisation.CampusRepository;
 import com.operion.organisation.Organisation;
 import com.operion.organisation.OrganisationRepository;
@@ -249,6 +250,17 @@ class AcademicYearRolloverServiceTest {
 
 		target.close();
 		yearRepository.save(target);
-		assertThatThrownBy(() -> service.preview(target.getId(), request())).isInstanceOf(IllegalStateException.class);
+		assertThatThrownBy(() -> service.preview(target.getId(), request())).isInstanceOf(ClosedAcademicYearException.class);
+	}
+
+	@Test
+	void aClosedSourceYearCanStillBeCopiedIntoAnOpenTarget() {
+		source.close();
+		yearRepository.save(source);
+
+		RolloverReport report = service.apply(target.getId(), request("CLASSES"));
+
+		assertThat(copied(step(report, "CLASSES"), "Classes")).isEqualTo(1);
+		assertThat(classRepository.findAll()).extracting(c -> c.getAcademicYear().getId()).contains(target.getId());
 	}
 }

@@ -15,6 +15,7 @@ import com.operion.examination.MarksEntry;
 import com.operion.examination.MarksEntryRepository;
 import com.operion.identity.Person;
 import com.operion.identity.PersonRepository;
+import com.operion.student.AdmissionFeeGate;
 import com.operion.student.StudentEnrollment;
 import com.operion.student.StudentEnrollmentRepository;
 import org.springframework.stereotype.Service;
@@ -63,11 +64,12 @@ public class LeaderboardService {
 	private final LessonPlanRepository lessonPlanRepository;
 	private final AnswerSheetRepository answerSheetRepository;
 	private final PersonRepository personRepository;
+	private final AdmissionFeeGate admissionFeeGate;
 
 	public LeaderboardService(StudentEnrollmentRepository enrollmentRepository, QuizRepository quizRepository,
 			QuizAttemptRepository attemptRepository, MarksEntryRepository marksEntryRepository, StudentRewardRepository rewardRepository,
 			HomeworkRepository homeworkRepository, LearningMaterialRepository materialRepository, LessonPlanRepository lessonPlanRepository,
-			AnswerSheetRepository answerSheetRepository, PersonRepository personRepository) {
+			AnswerSheetRepository answerSheetRepository, PersonRepository personRepository, AdmissionFeeGate admissionFeeGate) {
 		this.enrollmentRepository = enrollmentRepository;
 		this.quizRepository = quizRepository;
 		this.attemptRepository = attemptRepository;
@@ -78,6 +80,7 @@ public class LeaderboardService {
 		this.lessonPlanRepository = lessonPlanRepository;
 		this.answerSheetRepository = answerSheetRepository;
 		this.personRepository = personRepository;
+		this.admissionFeeGate = admissionFeeGate;
 	}
 
 	@Transactional(readOnly = true)
@@ -115,6 +118,7 @@ public class LeaderboardService {
 		if (!actor.manager() && !actor.teaches(enrollment.getSection().getId())) {
 			throw new AuthorizationDeniedException("You do not teach this student's section");
 		}
+		admissionFeeGate.requireAllowed(enrollment, "grant a reward");
 		if (title == null || title.isBlank() || title.trim().length() > 200) {
 			throw new InvalidRequestException("A reward needs a title of up to 200 characters");
 		}

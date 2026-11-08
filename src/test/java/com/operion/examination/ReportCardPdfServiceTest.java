@@ -61,6 +61,8 @@ import com.operion.student.Student;
 import com.operion.student.StudentEnrollment;
 import com.operion.student.StudentEnrollmentRepository;
 import com.operion.student.StudentRepository;
+import com.operion.modules.ModuleAccessService;
+import com.operion.student.AdmissionFeeGate;
 
 import tools.jackson.databind.ObjectMapper;
 
@@ -71,9 +73,11 @@ import tools.jackson.databind.ObjectMapper;
  * published card of the section in one PDF, one page each.
  */
 @DataJpaTest
-@Import({ MultiTenancyConfig.class, JpaConfig.class })
+@Import({ MultiTenancyConfig.class, JpaConfig.class, AdmissionFeeGate.class, ModuleAccessService.class })
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class ReportCardPdfServiceTest {
+
+	@Autowired private AdmissionFeeGate admissionFeeGate;
 
 	@Autowired private OrganisationRepository organisationRepository;
 	@Autowired private OrganisationBrandingRepository brandingRepository;
@@ -129,7 +133,7 @@ class ReportCardPdfServiceTest {
 	void setUp() {
 		examinationService = new ExaminationService(examRepository, examScheduleRepository, gradingScaleRepository,
 				gradingScaleBandRepository, marksEntryRepository, marksEntryRegisterRepository, reportCardRepository,
-				examinationSettingsRepository, new AuditLogService(auditLogRepository, new ObjectMapper()));
+				examinationSettingsRepository, new AuditLogService(auditLogRepository, new ObjectMapper()), admissionFeeGate);
 		DocumentBrandingService branding =
 				new DocumentBrandingService(brandingRepository, configurationRepository, organisationRepository, noAssets);
 		pdfService = new ReportCardPdfService(reportCardRepository, examScheduleRepository, marksEntryRepository, issuedDocumentRepository,

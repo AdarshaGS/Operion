@@ -1,7 +1,4 @@
-import { ApiError, api } from "./client";
-import { getSession } from "./tokenStore";
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8080";
+import { ApiError, api, apiFetch } from "./client";
 
 export type RegulatoryEntityType = "STUDENT" | "STAFF";
 
@@ -72,13 +69,7 @@ export function changeRegulatoryExportStatus(id: number, status: "ACTIVE" | "INA
 /** Separate from api/client.ts's request() - the response is a CSV file, not JSON, so it has to be
  * read as a blob and handed to the browser as a download. */
 export async function downloadRegulatoryExport(schema: Pick<RegulatoryExportSchemaResponse, "id" | "code">): Promise<void> {
-	const session = getSession();
-	const headers = new Headers();
-	headers.set("ngrok-skip-browser-warning", "true");
-	if (session) {
-		headers.set("Authorization", `Bearer ${session.token}`);
-	}
-	const response = await fetch(`${API_BASE_URL}/api/v1/regulatory-export-schemas/${schema.id}/export`, { headers });
+	const response = await apiFetch(`/api/v1/regulatory-export-schemas/${schema.id}/export`);
 	if (!response.ok) {
 		const body = await response.json().catch(() => null);
 		throw new ApiError(response.status, body?.error ?? `Export failed with status ${response.status}`);

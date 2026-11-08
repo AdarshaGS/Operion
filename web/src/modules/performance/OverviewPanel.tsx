@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
-import InputAdornment from "@mui/material/InputAdornment";
 import MenuItem from "@mui/material/MenuItem";
 import Paper from "@mui/material/Paper";
 import Skeleton from "@mui/material/Skeleton";
@@ -21,8 +20,8 @@ import Typography from "@mui/material/Typography";
 import CheckCircleOutlinedIcon from "@mui/icons-material/CheckCircleOutlined";
 import GroupsOutlinedIcon from "@mui/icons-material/GroupsOutlined";
 import HourglassTopIcon from "@mui/icons-material/HourglassTop";
-import SearchIcon from "@mui/icons-material/Search";
 import TrendingUpIcon from "@mui/icons-material/TrendingUp";
+import { CompactFilterBar, type ActiveFilter } from "../../components/CompactFilterBar";
 import { StatCard, StatGrid } from "../../components/DashboardKit";
 import type { CycleOverview, StaffRow } from "../../api/performance";
 import { ReviewStatusChip } from "./ReviewStatusChip";
@@ -31,7 +30,6 @@ import {
 	filterStaff,
 	formatDate,
 	formatPercent,
-	hasFilters,
 	NO_FILTERS,
 	NOT_SET,
 	orNotSet,
@@ -77,6 +75,12 @@ export function OverviewPanel({ overview, loading, error, onRetry, canReview, ca
 		setPage(0);
 	}
 
+	const activeFilters: ActiveFilter[] = [
+		...(filters.department ? [{ key: "department", label: `Department: ${filters.department === NOT_SET ? "Not set" : filters.department}`, onDelete: () => change({ department: "" }) }] : []),
+		...(filters.designation ? [{ key: "designation", label: `Designation: ${filters.designation === NOT_SET ? "Not set" : filters.designation}`, onDelete: () => change({ designation: "" }) }] : []),
+		...(filters.status ? [{ key: "status", label: `Status: ${REVIEW_STATUS_LABEL[filters.status]}`, onDelete: () => change({ status: "" }) }] : []),
+	];
+
 	if (error) {
 		return (
 			<Alert severity="error" action={<Button color="inherit" size="small" onClick={onRetry}>Retry</Button>}>
@@ -115,23 +119,23 @@ export function OverviewPanel({ overview, loading, error, onRetry, canReview, ca
 			</Typography>
 
 			<Paper variant="outlined">
-				<Stack direction={{ xs: "column", md: "row" }} spacing={1.5} sx={{ p: 2, flexWrap: "wrap", alignItems: { md: "center" } }}>
-					<TextField size="small" placeholder="Search name or employee ID" value={filters.search} onChange={(e) => change({ search: e.target.value })}
-						sx={{ minWidth: { md: 300 } }} slotProps={{ htmlInput: { "aria-label": "Search staff" }, input: { startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment> } }} />
-					<TextField select size="small" label="Department" value={filters.department} onChange={(e) => change({ department: e.target.value })} sx={{ minWidth: 170 }}>
-						<MenuItem value="">All departments</MenuItem>
-						{departments.map((d) => <MenuItem key={d} value={d}>{d === NOT_SET ? "Not set" : d}</MenuItem>)}
-					</TextField>
-					<TextField select size="small" label="Designation" value={filters.designation} onChange={(e) => change({ designation: e.target.value })} sx={{ minWidth: 170 }}>
-						<MenuItem value="">All designations</MenuItem>
-						{designations.map((d) => <MenuItem key={d} value={d}>{d === NOT_SET ? "Not set" : d}</MenuItem>)}
-					</TextField>
-					<TextField select size="small" label="Review status" value={filters.status} onChange={(e) => change({ status: e.target.value as StaffFilters["status"] })} sx={{ minWidth: 160 }}>
-						<MenuItem value="">All statuses</MenuItem>
-						{REVIEW_STATUSES.map((s) => <MenuItem key={s} value={s}>{REVIEW_STATUS_LABEL[s]}</MenuItem>)}
-					</TextField>
-					{hasFilters(filters) && <Button size="small" onClick={() => change(NO_FILTERS)}>Clear filters</Button>}
-				</Stack>
+				<Box sx={{ p: 1.5 }}>
+					<CompactFilterBar searchValue={filters.search} onSearchChange={(search) => change({ search })} searchLabel="Search staff" searchPlaceholder="Name or employee ID"
+						activeFilters={activeFilters} onClearAll={() => change(NO_FILTERS)}>
+						<TextField select size="small" label="Department" value={filters.department} onChange={(e) => change({ department: e.target.value })}>
+							<MenuItem value="">All departments</MenuItem>
+							{departments.map((d) => <MenuItem key={d} value={d}>{d === NOT_SET ? "Not set" : d}</MenuItem>)}
+						</TextField>
+						<TextField select size="small" label="Designation" value={filters.designation} onChange={(e) => change({ designation: e.target.value })}>
+							<MenuItem value="">All designations</MenuItem>
+							{designations.map((d) => <MenuItem key={d} value={d}>{d === NOT_SET ? "Not set" : d}</MenuItem>)}
+						</TextField>
+						<TextField select size="small" label="Review status" value={filters.status} onChange={(e) => change({ status: e.target.value as StaffFilters["status"] })}>
+							<MenuItem value="">All statuses</MenuItem>
+							{REVIEW_STATUSES.map((s) => <MenuItem key={s} value={s}>{REVIEW_STATUS_LABEL[s]}</MenuItem>)}
+						</TextField>
+					</CompactFilterBar>
+				</Box>
 
 				<TableContainer>
 					<Table size="small" aria-label="Staff performance">

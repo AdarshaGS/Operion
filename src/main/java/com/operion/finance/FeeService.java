@@ -53,6 +53,10 @@ public class FeeService {
 	// have no such bean and fall back to creating the counter inline (fine single-threaded).
 	@Autowired(required = false)
 	private FeeDocumentCounterInitializer counterInitializer;
+	// Optional for the same reason: when absent (hand-built FeeService, narrow slices) no admission-fee
+	// clearance is tracked, which is exactly the pre-existing behaviour.
+	@Autowired(required = false)
+	private AdmissionFeeClearanceService admissionFeeClearanceService;
 
 	public FeeService(FeeCategoryRepository feeCategoryRepository, FeeStructureGroupRepository feeStructureGroupRepository,
 			FeeStructureRepository feeStructureRepository, FeeStructureInstallmentRepository feeStructureInstallmentRepository,
@@ -83,6 +87,18 @@ public class FeeService {
 
 	public FeeCategory createCategory(String code, String name, String description, FeeCategoryType categoryType) {
 		return feeCategoryRepository.save(new FeeCategory(code, name, description, categoryType));
+	}
+
+	public FeeCategory createCategory(String code, String name, String description, FeeCategoryType categoryType,
+			boolean requiredAtAdmission) {
+		return feeCategoryRepository.save(new FeeCategory(code, name, description, categoryType, requiredAtAdmission));
+	}
+
+	/** Takes effect for students enrolled from now on; admission fees already assigned are left as they are. */
+	@Transactional
+	public FeeCategory setCategoryRequiredAtAdmission(FeeCategory category, boolean requiredAtAdmission) {
+		category.setRequiredAtAdmission(requiredAtAdmission);
+		return feeCategoryRepository.save(category);
 	}
 
 	/** The named "one fee structure, several components" setup - see FeeStructureGroup. */
@@ -200,6 +216,12 @@ public class FeeService {
 	/** One invoice per (assignment, installment) - rejects a second generation for the same pair. */
 	@Transactional
 	public Invoice generateInvoice(StudentFeeAssignment assignment, FeeStructureInstallment installment) {
+		return generateInvoice(assignment, installment, false);
+	}
+
+	/** {@code admissionInvoice} flags the invoice as part of the student's admission-fee requirement - see AdmissionFeeService. */
+	@Transactional
+	public Invoice generateInvoice(StudentFeeAssignment assignment, FeeStructureInstallment installment, boolean admissionInvoice) {
 		if (assignment.getStatus() != StudentFeeAssignmentStatus.ACTIVE) {
 			throw new IllegalStateException("Fee assignment " + assignment.getId() + " is not ACTIVE, cannot invoice");
 		}
@@ -217,7 +239,8 @@ public class FeeService {
 
 		AcademicYear academicYear = assignment.getStudentEnrollment().getAcademicYear();
 		String invoiceNumber = nextDocumentNumber(academicYear, FeeDocumentType.INVOICE);
-		return invoiceRepository.save(new Invoice(academicYear, assignment, installment, invoiceNumber, totalAmount, installment.getDueDate()));
+		return invoiceRepository.save(
+				new Invoice(academicYear, assignment, installment, invoiceNumber, totalAmount, installment.getDueDate(), admissionInvoice));
 	}
 
 	/** Sum of allocations must exactly equal the payment amount - no partially-allocated or over-allocated payments. */
@@ -242,6 +265,9 @@ public class FeeService {
 		if (paymentDate == null) {
 			throw new InvalidRequestException("A payment date is required");
 		}
+		if (paymentDate.isAfter(LocalDate.now())) {
+			throw new InvalidRequestException("A payment cannot be dated in the future");
+		}
 		if (allocations == null || allocations.isEmpty()) {
 			throw new InvalidRequestException("A payment must be allocated to at least one invoice");
 		}
@@ -257,6 +283,10 @@ public class FeeService {
 			throw new InvalidRequestException("Allocated amount (" + allocatedTotal + ") must equal the payment amount (" + amount + ")");
 		}
 
+		// Enrollment first, then invoices in id order - the one lock order everything that touches admission invoices follows.
+		List<Long> admissionEnrollmentIds =
+				lockAdmissionEnrollments(allocations.stream().map(AllocationInput::invoiceId).toList());
+
 		String receiptNumber = nextDocumentNumber(academicYear, FeeDocumentType.PAYMENT);
 		Payment payment = paymentRepository.save(
 				new Payment(academicYear, receiptNumber, amount, paymentMethod, paymentDate, remarks, paymentReference, paymentBankName));
@@ -269,6 +299,7 @@ public class FeeService {
 			invoice.applyPayment(input.amount());
 			invoiceRepository.save(invoice);
 		}
+		recalculateAdmissionClearance(admissionEnrollmentIds);
 		audit("Payment", payment.getId(), "PAYMENT_RECORDED", null, amount);
 		return payment;
 	}
@@ -276,10 +307,13 @@ public class FeeService {
 	/** Reverses every allocation's effect on its invoice's amountPaid - never deletes the payment or its allocations. */
 	@Transactional
 	public Payment bouncePayment(Payment payment) {
-		payment.markBounced();
 		List<PaymentAllocation> allocations = paymentAllocationRepository.findByPaymentId(payment.getId()).stream()
 				.sorted(Comparator.comparing((PaymentAllocation a) -> a.getInvoice().getId()))
 				.toList();
+		// Lock only - a bounce never reverts a CLEARED student - but taking the enrollment first keeps the lock order
+		// consistent with a concurrent payment that holds it and is about to read this payment's sibling invoices.
+		lockAdmissionEnrollments(allocations.stream().map(a -> a.getInvoice().getId()).toList());
+		payment.markBounced();
 		for (PaymentAllocation allocation : allocations) {
 			Invoice invoice = lockInvoice(allocation.getInvoice().getId());
 			BigDecimal alreadyRefunded = refundRepository.findByPaymentId(payment.getId()).stream()
@@ -319,6 +353,7 @@ public class FeeService {
 			throw new InvalidRequestException("Refund " + amount + " exceeds what this payment still holds for the invoice ("
 					+ paidToInvoice.subtract(alreadyRefunded) + ")");
 		}
+		lockAdmissionEnrollments(List.of(invoice.getId()));
 		Invoice locked = lockInvoice(invoice.getId());
 		locked.reversePayment(amount);
 		invoiceRepository.save(locked);
@@ -335,11 +370,13 @@ public class FeeService {
 		if (amount == null || amount.signum() == 0) {
 			throw new InvalidRequestException("An adjustment amount cannot be zero");
 		}
+		List<Long> admissionEnrollmentIds = lockAdmissionEnrollments(List.of(invoice.getId()));
 		Invoice locked = lockInvoice(invoice.getId());
 		locked.applyAdjustment(amount);
 		invoiceRepository.save(locked);
 		Adjustment adjustment = adjustmentRepository.save(
 				new Adjustment(locked, amount, reason, approvedBy, adjustmentDate, proofFileReference, proofFileName));
+		recalculateAdmissionClearance(admissionEnrollmentIds);
 		audit("Adjustment", adjustment.getId(), "INVOICE_ADJUSTED", null, amount);
 		return adjustment;
 	}
@@ -352,12 +389,26 @@ public class FeeService {
 		if (amount == null || amount.signum() <= 0) {
 			throw new InvalidRequestException("A waiver amount must be greater than zero");
 		}
+		List<Long> admissionEnrollmentIds = lockAdmissionEnrollments(List.of(invoice.getId()));
 		Invoice locked = lockInvoice(invoice.getId());
 		locked.applyWaiver(amount);
 		invoiceRepository.save(locked);
 		Waiver waiver = waiverRepository.save(new Waiver(locked, amount, reason, approvedBy, waiverDate, proofFileReference, proofFileName));
+		recalculateAdmissionClearance(admissionEnrollmentIds);
 		audit("Waiver", waiver.getId(), "INVOICE_WAIVED", null, amount);
 		return waiver;
+	}
+
+	/** Locks (in id order) the enrollments behind any admission invoices among {@code invoiceIds}; empty when the
+	 * clearance feature is not wired in or none of the invoices is an admission invoice. */
+	private List<Long> lockAdmissionEnrollments(List<Long> invoiceIds) {
+		return admissionFeeClearanceService == null ? List.of() : admissionFeeClearanceService.lockEnrollmentsOf(invoiceIds);
+	}
+
+	private void recalculateAdmissionClearance(List<Long> enrollmentIds) {
+		if (admissionFeeClearanceService != null && !enrollmentIds.isEmpty()) {
+			admissionFeeClearanceService.recalculate(enrollmentIds);
+		}
 	}
 
 	private Invoice lockInvoice(Long invoiceId) {

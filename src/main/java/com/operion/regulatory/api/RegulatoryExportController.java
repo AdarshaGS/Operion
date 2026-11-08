@@ -2,6 +2,7 @@ package com.operion.regulatory.api;
 
 import java.util.List;
 
+import com.operion.common.DownloadFilenames;
 import com.operion.authorization.RequirePermission;
 import com.operion.regulatory.RegulatoryEntityType;
 import com.operion.regulatory.RegulatoryExportSchema;
@@ -81,7 +82,7 @@ public class RegulatoryExportController {
 		RegulatoryExportSchema schema = load(id);
 		String csv = exportService.exportCsv(schema);
 		return ResponseEntity.ok()
-				.header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + schema.getCode() + ".csv\"")
+				.header(HttpHeaders.CONTENT_DISPOSITION, DownloadFilenames.attachment(schema.getCode(), "csv"))
 				.contentType(MediaType.parseMediaType("text/csv"))
 				.body(csv);
 	}

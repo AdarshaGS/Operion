@@ -2,10 +2,11 @@ package com.operion.finance.api;
 
 import com.operion.finance.FeeCategory;
 
-public record FeeCategoryResponse(Long id, String code, String name, String description, String status, String categoryType) {
+public record FeeCategoryResponse(Long id, String code, String name, String description, String status, String categoryType,
+		boolean requiredAtAdmission) {
 
 	static FeeCategoryResponse from(FeeCategory category) {
 		return new FeeCategoryResponse(category.getId(), category.getCode(), category.getName(), category.getDescription(),
-				category.getStatus().name(), category.getCategoryType().name());
+				category.getStatus().name(), category.getCategoryType().name(), category.isRequiredAtAdmission());
 	}
 }

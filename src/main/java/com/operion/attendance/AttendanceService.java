@@ -4,10 +4,12 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 
+import com.operion.academic.AcademicStructureYearGuard;
 import com.operion.academic.Section;
 import com.operion.audit.AuditLogService;
 import com.operion.identity.Person;
 import com.operion.organisation.AcademicYear;
+import com.operion.organisation.AcademicYearGuard;
 import com.operion.organisation.Campus;
 import com.operion.student.StudentEnrollment;
 import org.springframework.stereotype.Service;
@@ -48,6 +50,8 @@ public class AttendanceService {
 	@Transactional
 	public ClassAttendanceRegister markDailyAttendance(
 			AcademicYear academicYear, Section section, LocalDate attendanceDate, List<StudentAttendanceMark> marks) {
+		AcademicYearGuard.requireOpen(academicYear, "marking attendance");
+		AcademicStructureYearGuard.requireOpen(section, "marking attendance");
 		ClassAttendanceRegister register = classAttendanceRegisterRepository
 				.findBySectionIdAndAttendanceDate(section.getId(), attendanceDate)
 				.orElseGet(() -> classAttendanceRegisterRepository
@@ -77,6 +81,7 @@ public class AttendanceService {
 
 	@Transactional
 	public ClassAttendanceRegister submitRegister(ClassAttendanceRegister register) {
+		AcademicYearGuard.requireOpen(register.getAcademicYear(), "submitting an attendance register");
 		register.submit();
 		auditLogService.record("ClassAttendanceRegister", register.getId(), "SUBMITTED", null, null);
 		return classAttendanceRegisterRepository.save(register);
@@ -84,6 +89,7 @@ public class AttendanceService {
 
 	@Transactional
 	public ClassAttendanceRegister lockRegister(ClassAttendanceRegister register) {
+		AcademicYearGuard.requireOpen(register.getAcademicYear(), "locking an attendance register");
 		register.lock();
 		auditLogService.record("ClassAttendanceRegister", register.getId(), "LOCKED", null, null);
 		return classAttendanceRegisterRepository.save(register);
@@ -91,6 +97,7 @@ public class AttendanceService {
 
 	@Transactional
 	public ClassAttendanceRegister unlockRegister(ClassAttendanceRegister register) {
+		AcademicYearGuard.requireOpen(register.getAcademicYear(), "unlocking an attendance register");
 		register.unlock();
 		auditLogService.record("ClassAttendanceRegister", register.getId(), "UNLOCKED", null, null);
 		return classAttendanceRegisterRepository.save(register);
@@ -99,6 +106,7 @@ public class AttendanceService {
 	/** Blocked once the day's register is LOCKED - use unlockRegister() first to allow corrections again. */
 	@Transactional
 	public StudentAttendance correct(StudentAttendance attendance, AttendanceStatus newStatus, String reason) {
+		AcademicYearGuard.requireOpen(attendance.getAcademicYear(), "correcting attendance");
 		if (!attendance.getStudentEnrollment().isCurrent()) {
 			throw new IllegalStateException(
 					"Student enrollment " + attendance.getStudentEnrollment().getId() + " is not a current enrollment");

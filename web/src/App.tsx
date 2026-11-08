@@ -51,6 +51,7 @@ import { SaleDetailPage } from "./modules/sales/SaleDetailPage";
 import { SalesPage } from "./modules/sales/SalesPage";
 import { MarketingPage } from "./marketing/MarketingPage";
 import { DashboardPage } from "./modules/dashboard/DashboardPage";
+import { MemberCreatePage } from "./modules/members/MemberCreatePage";
 import { MembersPage } from "./modules/members/MembersPage";
 import { StructureSetupPage } from "./modules/setup/StructureSetupPage";
 import { GoLiveCheckPage } from "./modules/onboarding/GoLiveCheckPage";
@@ -176,7 +177,8 @@ function App() {
 							<Route path="/payroll/runs/:runId" element={<PayrollRunDetailPage />} />
 							<Route path="/payroll/payslips/:payslipId" element={<PayslipPage />} />
 							<Route path="/members" element={<MembersPage />} />
-							<Route path="/members/invite" element={<MembersPage autoOpenInvite />} />
+							<Route path="/members/new" element={<MemberCreatePage />} />
+							<Route path="/members/invite" element={<Navigate to="/members/new" replace />} />
 							<Route path="/members/:userId" element={<UserDetailPage />} />
 							<Route path="/setup/structure" element={<StructureSetupPage />} />
 							<Route path="/setup/review" element={<ReviewSchoolSetupPage />} />

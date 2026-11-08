@@ -208,7 +208,7 @@ class PortalInviteLifecycleTest {
 	}
 
 	@Test
-	void claimingReusesAnExistingUserWithoutOverwritingItsPassword() {
+	void claimingReusesAnExistingUserWhenItsCurrentPasswordIsGivenWithoutChangingIt() {
 		Organisation organisation = newOrg("reuse");
 		User existingUser = userRepository.save(new User("shared@example.com", null, ENCODER.encode("OriginalPass1!")));
 		Person person = personRepository.save(new Person("Shared", "Login"));
@@ -218,7 +218,7 @@ class PortalInviteLifecycleTest {
 		PortalInviteService.IssuedInvite issued = portalInviteService().issue(guardian.getId());
 		TenantContext.clear();
 
-		LoginResult result = portalInviteService().claim(organisation.getSlug(), issued.rawToken(), "AttemptedNewPass1!");
+		LoginResult result = portalInviteService().claim(organisation.getSlug(), issued.rawToken(), "OriginalPass1!");
 
 		assertThat(result.userId()).isEqualTo(existingUser.getId());
 		TenantContext.set(organisation.getId(), null);

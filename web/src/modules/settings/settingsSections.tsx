@@ -1,4 +1,6 @@
-import type { ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useAuth } from "../../auth/AuthContext";
+import { listExternalServices } from "../../api/externalServices";
 import ApartmentIcon from "@mui/icons-material/Apartment";
 import BadgeIcon from "@mui/icons-material/Badge";
 import BrushIcon from "@mui/icons-material/Brush";
@@ -52,6 +54,12 @@ export interface SettingsSection {
 	description: string;
 	icon: ReactNode;
 	panel: ReactNode;
+	/** The panel renders its own title through PanelTitle, so SettingsSectionPage must not render a header row. */
+	selfTitled?: boolean;
+	/** Backend module code (e.g. "COMMUNICATION") this section depends on; the section is hidden when the module is switched off for the organisation. */
+	module?: string;
+	/** Hidden when the platform has enabled no third-party integration for the organisation (nothing to configure). */
+	needsIntegrations?: boolean;
 }
 
 export interface SettingsGroup {
@@ -71,18 +79,20 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
 		label: "Organisation",
 		sections: [
 			{
-				key: "business",
-				label: "Business settings",
-				description: "Timezone, currency, date format, and working days",
-				icon: <TuneIcon />,
-				panel: <BusinessSettingsPanel />,
-			},
-			{
 				key: "profile",
 				label: "Organisation profile",
 				description: "Name, logo, primary contact, address, and tax identifiers",
 				icon: <BadgeIcon />,
 				panel: <OrganisationProfilePanel />,
+				selfTitled: true,
+			},
+			{
+				key: "business",
+				label: "Business settings",
+				description: "Timezone, currency, date format, and working days",
+				icon: <TuneIcon />,
+				panel: <BusinessSettingsPanel />,
+				selfTitled: true,
 			},
 			{
 				key: "campuses",
@@ -90,6 +100,7 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
 				description: "Add or manage branch and location campuses",
 				icon: <LocationCityIcon />,
 				panel: <CampusesPanel />,
+				selfTitled: true,
 			},
 			{
 				key: "departments",
@@ -97,6 +108,7 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
 				description: "Manage the organisation's departments",
 				icon: <ApartmentIcon />,
 				panel: <DepartmentsPanel />,
+				selfTitled: true,
 			},
 			{
 				key: "designations",
@@ -104,6 +116,7 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
 				description: "Manage staff designations",
 				icon: <WorkIcon />,
 				panel: <DesignationsPanel />,
+				selfTitled: true,
 			},
 			{
 				key: "school-template",
@@ -111,6 +124,7 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
 				description: "Pre-fill grades, departments, designations, roles, fee and inventory categories, and a default grading scale",
 				icon: <AutoAwesomeIcon />,
 				panel: <SchoolTemplatePanel />,
+				selfTitled: true,
 			},
 		],
 	},
@@ -131,6 +145,7 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
 				description: "Define roles and their permissions",
 				icon: <SecurityIcon />,
 				panel: <RolesPanel />,
+				selfTitled: true,
 			},
 			{
 				key: "audit-logs",
@@ -138,6 +153,7 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
 				description: "Who changed roles, fee records, marks, student data, and settings",
 				icon: <HistoryIcon />,
 				panel: <AuditLogsPanel />,
+				selfTitled: true,
 			},
 			{
 				key: "profile-change-requests",
@@ -158,6 +174,7 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
 				description: "Manage academic year periods",
 				icon: <CalendarMonthIcon />,
 				panel: <AcademicYearsPanel />,
+				selfTitled: true,
 			},
 			{
 				key: "working-calendar",
@@ -172,6 +189,7 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
 				description: "Logo, stamp, signature, footer text, and numbering formats for printed documents",
 				icon: <BrushIcon />,
 				panel: <OrganisationBrandingPanel />,
+				selfTitled: true,
 			},
 			{
 				key: "letter-formats",
@@ -200,6 +218,7 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
 				description: "Message templates - channel credentials and who may send live under Integrations & Roles",
 				icon: <NotificationsIcon />,
 				panel: <NotificationSettingsPanel />,
+				module: "COMMUNICATION",
 			},
 			{
 				key: "custom-fields",
@@ -207,6 +226,7 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
 				description: "Add your own extra fields to records like Student, without a code change",
 				icon: <DynamicFormIcon />,
 				panel: <CustomFieldsPanel />,
+				selfTitled: true,
 			},
 		],
 	},
@@ -247,6 +267,7 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
 				description: "Bulk import school data from Excel/CSV, or export existing records",
 				icon: <ImportExportIcon />,
 				panel: <ImportsExportsPanel />,
+				selfTitled: true,
 			},
 			{
 				key: "integrations",
@@ -254,6 +275,7 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
 				description: "Connect your own accounts for 3rd-party services like email and SMS delivery",
 				icon: <CableIcon />,
 				panel: <ExternalServicesPanel />,
+				needsIntegrations: true,
 			},
 		],
 	},
@@ -262,3 +284,44 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
 /** Flattened view of SETTINGS_GROUPS, for lookups that don't care about grouping (the
  * /settings/:section route). */
 export const SETTINGS_SECTIONS: SettingsSection[] = SETTINGS_GROUPS.flatMap((group) => group.sections);
+
+/** Whether the platform has enabled at least one integration for this organisation. null until known; an
+ * unreadable answer (e.g. no permission, network) also stays null so the section is never hidden on a guess.
+ * Kept at module level so revisiting Settings doesn't flash the section while the answer reloads. */
+let lastIntegrationsAvailable: boolean | null = null;
+
+function useIntegrationsAvailable(): boolean | null {
+	const [available, setAvailable] = useState<boolean | null>(lastIntegrationsAvailable);
+	useEffect(() => {
+		let cancelled = false;
+		listExternalServices()
+			.then((services) => {
+				lastIntegrationsAvailable = services.some((service) => service.enabled);
+				if (!cancelled) setAvailable(lastIntegrationsAvailable);
+			})
+			.catch(() => {});
+		return () => {
+			cancelled = true;
+		};
+	}, []);
+	return available;
+}
+
+/** SETTINGS_GROUPS minus sections whose module is switched off, or that need an integration none of which is
+ * enabled, for this organisation (and any group left empty). */
+export function useVisibleSettingsGroups(): SettingsGroup[] {
+	const { isModuleEnabled } = useAuth();
+	const integrationsAvailable = useIntegrationsAvailable();
+	return useMemo(
+		() =>
+			SETTINGS_GROUPS.map((group) => ({
+				...group,
+				sections: group.sections.filter(
+					(section) =>
+						(!section.module || isModuleEnabled(section.module)) &&
+						!(section.needsIntegrations && integrationsAvailable === false),
+				),
+			})).filter((group) => group.sections.length > 0),
+		[isModuleEnabled, integrationsAvailable],
+	);
+}

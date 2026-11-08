@@ -8,7 +8,7 @@ import TodayIcon from "@mui/icons-material/Today";
 import { listAcademicYears, type AcademicYearResponse } from "../api/academicYears";
 import { listCampuses, type CampusResponse } from "../api/campuses";
 import { TopbarPill } from "./TopbarParts";
-import { CAMPUS_KEY, setSelectedCampusId } from "./selectedCampus";
+import { readStoredCampus, resolveCampusSelection, setSelectedCampusId, writeStoredCampus } from "./selectedCampus";
 
 const ACADEMIC_YEAR_KEY = "operion.selectedAcademicYearId";
 
@@ -37,9 +37,12 @@ interface PillSelectProps {
 	options: { id: number; label: string }[];
 	selectedId: number | null;
 	onSelect: (id: number) => void;
+	/** When set (and there is more than one option), a leading entry with this label selects "none" (selectedId null). */
+	allLabel?: string;
+	onSelectAll?: () => void;
 }
 
-function PillSelect({ icon, label, options, selectedId, onSelect }: PillSelectProps) {
+function PillSelect({ icon, label, options, selectedId, onSelect, allLabel, onSelectAll }: PillSelectProps) {
 	const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
 	const selected = options.find((option) => option.id === selectedId);
 
@@ -47,10 +50,23 @@ function PillSelect({ icon, label, options, selectedId, onSelect }: PillSelectPr
 		return null;
 	}
 
+	const showAll = allLabel !== undefined && options.length > 1;
+
 	return (
 		<>
-			<TopbarPill icon={icon} label={selected?.label ?? label} ariaLabel={label} onClick={(event) => setAnchorEl(event.currentTarget)} />
+			<TopbarPill icon={icon} label={selected?.label ?? (showAll && selectedId === null ? allLabel : label)} ariaLabel={label} onClick={(event) => setAnchorEl(event.currentTarget)} />
 			<Menu anchorEl={anchorEl} open={anchorEl !== null} onClose={() => setAnchorEl(null)}>
+				{showAll && (
+					<MenuItem
+						selected={selectedId === null}
+						onClick={() => {
+							onSelectAll?.();
+							setAnchorEl(null);
+						}}
+					>
+						{allLabel}
+					</MenuItem>
+				)}
 				{options.map((option) => (
 					<MenuItem
 						key={option.id}
@@ -69,7 +85,8 @@ function PillSelect({ icon, label, options, selectedId, onSelect }: PillSelectPr
 }
 
 /** Campus and Academic Year context pickers in the top bar. The campus choice is shared via
- * selectedCampus.ts (class lists filter by it); the year choice is still display-only.
+ * selectedCampus.ts (class lists filter by it; "All campuses" - the first entry, only offered when
+ * there is more than one campus - turns the filter off); the year choice is still display-only.
  * Selection persists per-browser only. */
 export function ContextSelectors({ search }: { search?: ReactNode }) {
 	const [campuses, setCampuses] = useState<CampusResponse[]>([]);
@@ -81,11 +98,11 @@ export function ContextSelectors({ search }: { search?: ReactNode }) {
 		listCampuses()
 			.then((result) => {
 				setCampuses(result);
-				const stored = readStored(CAMPUS_KEY);
-				const fallback = result[0]?.id ?? null;
-				const resolved = result.some((c) => c.id === stored) ? stored : fallback;
+				const resolved = resolveCampusSelection(readStoredCampus(), result.map((c) => c.id));
 				setCampusId(resolved);
 				setSelectedCampusId(resolved);
+				// Stored once resolved, so a stale id is replaced and the next load starts on the right campus.
+				writeStoredCampus(resolved);
 			})
 			.catch(() => {});
 		listAcademicYears()
@@ -112,7 +129,13 @@ export function ContextSelectors({ search }: { search?: ReactNode }) {
 				onSelect={(id) => {
 					setCampusId(id);
 					setSelectedCampusId(id);
-					writeStored(CAMPUS_KEY, id);
+					writeStoredCampus(id);
+				}}
+				allLabel="All campuses"
+				onSelectAll={() => {
+					setCampusId(null);
+					setSelectedCampusId(null);
+					writeStoredCampus(null);
 				}}
 			/>
 			{search ?? <Box sx={{ flexGrow: 1 }} />}

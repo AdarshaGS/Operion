@@ -24,6 +24,8 @@ import Typography from "@mui/material/Typography";
 import AddIcon from "@mui/icons-material/Add";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { ApiError } from "../../api/client";
+import { Can } from "../../auth/Can";
+import { useCan } from "../../auth/useCan";
 import { addRouteStop, listRoutes, listRouteStops, type RouteResponse, type RouteStopResponse } from "../../api/transportRoutes";
 import { listRouteRoster, type RouteRosterEntryResponse } from "../../api/transportAssignments";
 import {
@@ -50,6 +52,7 @@ function todayIso(): string {
 export function RouteDetailPage() {
 	const { routeId } = useParams<{ routeId: string }>();
 	const navigate = useNavigate();
+	const canLogTrips = useCan("TRANSPORT_TRIP_LOG");
 
 	const [route, setRoute] = useState<RouteResponse | null>(null);
 	const [stops, setStops] = useState<RouteStopResponse[]>([]);
@@ -245,9 +248,11 @@ export function RouteDetailPage() {
 				<Stack spacing={2}>
 					<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
 						<Typography variant="h6">Stops</Typography>
-						<Button size="small" startIcon={<AddIcon />} onClick={() => setStopDialogOpen(true)}>
-							Add stop
-						</Button>
+						<Can anyOf={["TRANSPORT_ROUTE_MANAGE"]}>
+							<Button size="small" startIcon={<AddIcon />} onClick={() => setStopDialogOpen(true)}>
+								Add stop
+							</Button>
+						</Can>
 					</Box>
 
 					{stops.length === 0 && <Alert severity="info">No stops yet.</Alert>}
@@ -331,16 +336,18 @@ export function RouteDetailPage() {
 								onChange={(e) => setTripDate(e.target.value)}
 								slotProps={{ inputLabel: { shrink: true } }}
 							/>
-							<Button
-								size="small"
-								startIcon={<AddIcon />}
-								onClick={() => {
-									listVehicles().then(setVehicles).catch(() => {});
-									setTripDialogOpen(true);
-								}}
-							>
-								Schedule trip
-							</Button>
+							<Can anyOf={["TRANSPORT_TRIP_LOG"]}>
+								<Button
+									size="small"
+									startIcon={<AddIcon />}
+									onClick={() => {
+										listVehicles().then(setVehicles).catch(() => {});
+										setTripDialogOpen(true);
+									}}
+								>
+									Schedule trip
+								</Button>
+							</Can>
 						</Box>
 					</Box>
 
@@ -367,19 +374,21 @@ export function RouteDetailPage() {
 											</TableCell>
 											<TableCell>
 												{trip.status === "SCHEDULED" && (
-													<>
+													<Can anyOf={["TRANSPORT_TRIP_LOG"]}>
 														<Button size="small" onClick={() => handleStart(trip.id)}>
 															Start
 														</Button>
 														<Button size="small" color="error" onClick={() => handleCancel(trip.id)}>
 															Cancel
 														</Button>
-													</>
+													</Can>
 												)}
 												{trip.status === "IN_PROGRESS" && (
-													<Button size="small" onClick={() => handleComplete(trip.id)}>
-														Complete
-													</Button>
+													<Can anyOf={["TRANSPORT_TRIP_LOG"]}>
+														<Button size="small" onClick={() => handleComplete(trip.id)}>
+															Complete
+														</Button>
+													</Can>
 												)}
 												{(trip.status === "IN_PROGRESS" || trip.status === "COMPLETED") && (
 													<Button size="small" onClick={() => openBoardingDialog(trip.id)}>
@@ -499,6 +508,7 @@ export function RouteDetailPage() {
 							{roster.map((entry) => (
 								<Box key={entry.assignmentId} sx={{ display: "flex", alignItems: "center", gap: 1 }}>
 									<Checkbox
+										disabled={!canLogTrips}
 										checked={boardingMarks[entry.studentEnrollmentId] ?? true}
 										onChange={(e) =>
 											setBoardingMarks((prev) => ({ ...prev, [entry.studentEnrollmentId]: e.target.checked }))
@@ -513,9 +523,11 @@ export function RouteDetailPage() {
 				<DialogActions>
 					<Button onClick={() => setBoardingDialogOpen(false)}>{boardingExisting.length > 0 ? "Close" : "Cancel"}</Button>
 					{boardingExisting.length === 0 && (
-						<Button variant="contained" onClick={handleSubmitBoarding} disabled={submitting || roster.length === 0}>
-							Save
-						</Button>
+						<Can anyOf={["TRANSPORT_TRIP_LOG"]}>
+							<Button variant="contained" onClick={handleSubmitBoarding} disabled={submitting || roster.length === 0}>
+								Save
+							</Button>
+						</Can>
 					)}
 				</DialogActions>
 			</Dialog>

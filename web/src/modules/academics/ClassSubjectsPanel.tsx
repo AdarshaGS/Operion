@@ -19,6 +19,7 @@ import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import AddIcon from "@mui/icons-material/Add";
+import { Can } from "../../auth/Can";
 import {
 	assignSubjectToClass,
 	changeClassSubjectStatus,
@@ -119,9 +120,11 @@ export function ClassSubjectsPanel({ classId }: { classId: number }) {
 			<Stack spacing={2}>
 				<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
 					<Typography variant="h6">Class subjects</Typography>
-					<Button size="small" startIcon={<AddIcon />} onClick={openAssignDialog}>
-						Assign subject
-					</Button>
+					<Can anyOf={["CLASS_MANAGE"]}>
+						<Button size="small" startIcon={<AddIcon />} onClick={openAssignDialog}>
+							Assign subject
+						</Button>
+					</Can>
 				</Box>
 
 				{error && <Alert severity="error">{error}</Alert>}
@@ -150,12 +153,14 @@ export function ClassSubjectsPanel({ classId }: { classId: number }) {
 											<Chip label={classSubject.status} size="small" />
 										</TableCell>
 										<TableCell>
-											<Button size="small" onClick={() => openEdit(classSubject)}>
-												Edit
-											</Button>
-											<Button size="small" onClick={() => handleToggleStatus(classSubject)}>
-												{classSubject.status === "ACTIVE" ? "Deactivate" : "Reactivate"}
-											</Button>
+											<Can anyOf={["CLASS_MANAGE"]}>
+												<Button size="small" onClick={() => openEdit(classSubject)}>
+													Edit
+												</Button>
+												<Button size="small" onClick={() => handleToggleStatus(classSubject)}>
+													{classSubject.status === "ACTIVE" ? "Deactivate" : "Reactivate"}
+												</Button>
+											</Can>
 										</TableCell>
 									</TableRow>
 								))}

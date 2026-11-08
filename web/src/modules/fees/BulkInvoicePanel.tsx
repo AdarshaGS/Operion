@@ -10,15 +10,33 @@ import { ApiError } from "../../api/client";
 import { listAcademicYears, type AcademicYearResponse } from "../../api/academicYears";
 import { bulkGenerateInvoices, type BulkInvoiceResult } from "../../api/invoices";
 import { type SchoolClassResponse } from "../../api/schoolClasses";
+import { useCampusFiltered, useSelectedCampusId } from "../../layout/selectedCampus";
 import { useSchoolClassLabel } from "../../utils/useSchoolClassLabel";
 
 function today(): string {
 	return new Date().toISOString().slice(0, 10);
 }
 
-/** Generate every invoice that has fallen due in one action: preview the count, then generate. */
+/** Adds one class's bulk result into the running total when "All classes" fans out over a campus's classes. */
+function addResult(total: BulkInvoiceResult, next: BulkInvoiceResult): BulkInvoiceResult {
+	return {
+		dryRun: total.dryRun,
+		toGenerate: total.toGenerate + next.toGenerate,
+		generated: total.generated + next.generated,
+		alreadyInvoiced: total.alreadyInvoiced + next.alreadyInvoiced,
+		invoiceIds: [...total.invoiceIds, ...next.invoiceIds],
+		failures: [...total.failures, ...next.failures],
+	};
+}
+
+/** Generate every invoice that has fallen due in one action: preview the count, then generate.
+ * `classes` is every class; the picker and the action are limited to the campus picked in the top bar. The
+ * bulk endpoint only narrows by a single class, so with a campus picked, "All classes" runs once per class
+ * of that campus (never the endpoint's organisation-wide mode) and the counts are summed. */
 export function BulkInvoicePanel({ classes, onGenerated }: { classes: SchoolClassResponse[]; onGenerated: () => void }) {
 	const classLabel = useSchoolClassLabel();
+	const selectedCampusId = useSelectedCampusId();
+	const campusClasses = useCampusFiltered(classes);
 	const [years, setYears] = useState<AcademicYearResponse[]>([]);
 	const [academicYearId, setAcademicYearId] = useState("");
 	const [schoolClassId, setSchoolClassId] = useState("");
@@ -38,23 +56,34 @@ export function BulkInvoicePanel({ classes, onGenerated }: { classes: SchoolClas
 			.catch(() => {});
 	}, []);
 
+	// A class picked under another campus is dropped when the campus changes.
+	useEffect(() => {
+		if (schoolClassId && !campusClasses.some((c) => String(c.id) === String(schoolClassId))) setSchoolClassId("");
+	}, [campusClasses, schoolClassId]);
+
 	// Any change to the inputs invalidates the last preview.
 	useEffect(() => {
 		setPreview(null);
 	}, [academicYearId, schoolClassId, dueOnOrBefore]);
+
+	const noCampusClasses = selectedCampusId !== null && campusClasses.length === 0;
 
 	async function run(dryRun: boolean) {
 		if (!academicYearId || !dueOnOrBefore) return;
 		setBusy(true);
 		setError(null);
 		setResult(null);
+		let response: BulkInvoiceResult = { dryRun, toGenerate: 0, generated: 0, alreadyInvoiced: 0, invoiceIds: [], failures: [] };
 		try {
-			const response = await bulkGenerateInvoices({
-				academicYearId: Number(academicYearId),
-				schoolClassId: schoolClassId ? Number(schoolClassId) : undefined,
-				dueOnOrBefore,
-				dryRun,
-			});
+			if (schoolClassId) {
+				response = await bulkGenerateInvoices({ academicYearId: Number(academicYearId), schoolClassId: Number(schoolClassId), dueOnOrBefore, dryRun });
+			} else if (selectedCampusId === null) {
+				response = await bulkGenerateInvoices({ academicYearId: Number(academicYearId), dueOnOrBefore, dryRun });
+			} else {
+				for (const schoolClass of campusClasses.filter((c) => c.academicYearId === Number(academicYearId))) {
+					response = addResult(response, await bulkGenerateInvoices({ academicYearId: Number(academicYearId), schoolClassId: schoolClass.id, dueOnOrBefore, dryRun }));
+				}
+			}
 			if (dryRun) {
 				setPreview(response);
 			} else {
@@ -64,6 +93,11 @@ export function BulkInvoicePanel({ classes, onGenerated }: { classes: SchoolClas
 			}
 		} catch (err) {
 			setError(err instanceof ApiError ? err.message : "Failed to generate invoices");
+			// A campus-wide run that stopped part-way still created invoices for the classes before the failure.
+			if (!dryRun && response.generated > 0) {
+				setResult(response);
+				onGenerated();
+			}
 		} finally {
 			setBusy(false);
 		}
@@ -86,8 +120,8 @@ export function BulkInvoicePanel({ classes, onGenerated }: { classes: SchoolClas
 						))}
 					</TextField>
 					<TextField select label="Class" value={schoolClassId} onChange={(e) => setSchoolClassId(e.target.value)} sx={{ minWidth: 200 }}>
-						<MenuItem value="">All classes</MenuItem>
-						{classes.map((schoolClass) => (
+						<MenuItem value="">{selectedCampusId === null ? "All classes" : "All classes in this campus"}</MenuItem>
+						{campusClasses.map((schoolClass) => (
 							<MenuItem key={schoolClass.id} value={schoolClass.id}>
 								{classLabel(schoolClass)}
 							</MenuItem>
@@ -102,6 +136,9 @@ export function BulkInvoicePanel({ classes, onGenerated }: { classes: SchoolClas
 					/>
 				</Stack>
 
+				{selectedCampusId !== null && classes.length > 0 && campusClasses.length === 0 && (
+					<Alert severity="info">No classes in the selected campus.</Alert>
+				)}
 				{error && <Alert severity="error">{error}</Alert>}
 				{preview && (
 					<Alert severity={preview.toGenerate > 0 ? "info" : "success"}>
@@ -122,7 +159,7 @@ export function BulkInvoicePanel({ classes, onGenerated }: { classes: SchoolClas
 				)}
 
 				<Stack direction="row" spacing={1}>
-					<Button variant="outlined" disabled={busy || !academicYearId} onClick={() => run(true)}>
+					<Button variant="outlined" disabled={busy || !academicYearId || noCampusClasses} onClick={() => run(true)}>
 						Preview
 					</Button>
 					<Button variant="contained" disabled={busy || !preview || preview.toGenerate === 0} onClick={() => run(false)}>

@@ -15,6 +15,7 @@ import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
+import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import { useNavigate } from "react-router-dom";
 import { getRegister, markAttendance } from "../../api/attendance";
@@ -24,6 +25,7 @@ import { type PersonResponse, listPersons } from "../../api/persons";
 import { listSchoolClasses, type SchoolClassResponse } from "../../api/schoolClasses";
 import { listSections, type SectionResponse } from "../../api/sections";
 import { listStudents, type StudentResponse } from "../../api/students";
+import { useCampusFiltered, useSelectedCampusId } from "../../layout/selectedCampus";
 import { useSchoolClassLabel } from "../../utils/useSchoolClassLabel";
 import { useMarkableSections } from "./useMarkableSections";
 
@@ -50,12 +52,15 @@ export function MarkAttendanceQuickPage() {
 
 	const [classes, setClasses] = useState<SchoolClassResponse[]>([]);
 	const classLabel = useSchoolClassLabel();
+	const selectedCampusId = useSelectedCampusId();
+	const campusClasses = useCampusFiltered(classes);
 	const [sections, setSections] = useState<SectionResponse[]>([]);
 	const [classId, setClassId] = useState("");
 	const [sectionId, setSectionId] = useState("");
-	const { markable } = useMarkableSections();
-	// A class teacher (scope OWN) only sees the classes/sections they're homeroom teacher of.
-	const visibleClasses = markable?.scope === "OWN" ? classes.filter((c) => markable.schoolClassIds.includes(c.id)) : classes;
+	const { markable, canMarkSection } = useMarkableSections();
+	// A class teacher (scope OWN) only sees the classes/sections they're homeroom teacher of; everyone sees only
+	// the selected campus's classes.
+	const visibleClasses = markable?.scope === "OWN" ? campusClasses.filter((c) => markable.schoolClassIds.includes(c.id)) : campusClasses;
 	const visibleSections = markable?.scope === "OWN" ? sections.filter((s) => markable.sectionIds.includes(s.id)) : sections;
 
 	const [loading, setLoading] = useState(false);
@@ -71,6 +76,12 @@ export function MarkAttendanceQuickPage() {
 	useEffect(() => {
 		listSchoolClasses().then(setClasses).catch(() => {});
 	}, []);
+
+	// A class picked under another campus is dropped when the campus changes (which also clears its section and register).
+	useEffect(() => {
+		const picked = classes.find((c) => String(c.id) === classId);
+		if (picked && selectedCampusId !== null && picked.campusId !== selectedCampusId) setClassId("");
+	}, [classes, classId, selectedCampusId]);
 
 	useEffect(() => {
 		setSectionId("");
@@ -119,6 +130,9 @@ export function MarkAttendanceQuickPage() {
 		return person ? `${person.firstName} ${person.lastName}` : `Student #${student.id}`;
 	}
 
+	// The register POST needs ATTENDANCE_MARK (own sections) or ATTENDANCE_MARK_ANY_SECTION; the markable-sections scope reflects both.
+	const canMark = !!sectionId && canMarkSection(sectionId);
+
 	function rollNumberFor(enrollmentId: number): number | null {
 		return enrollments.find((e) => e.id === enrollmentId)?.rollNumber ?? null;
 	}
@@ -163,6 +177,9 @@ export function MarkAttendanceQuickPage() {
 						<Alert severity="info">You are not the class teacher of any section, so there is nothing for you to mark.</Alert>
 					)}
 					{markable?.scope === "NONE" && <Alert severity="warning">You don't have permission to mark attendance.</Alert>}
+					{selectedCampusId !== null && classes.length > 0 && campusClasses.length === 0 && (
+						<Alert severity="info">No classes in the selected campus.</Alert>
+					)}
 					<Box sx={{ display: "flex", gap: 2 }}>
 						<TextField select label="Class" value={classId} onChange={(e) => setClassId(e.target.value)} sx={{ minWidth: 200 }}>
 							{visibleClasses.map((schoolClass) => (
@@ -222,12 +239,16 @@ export function MarkAttendanceQuickPage() {
 						<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
 							<Typography variant="subtitle1">{rows.length} student{rows.length === 1 ? "" : "s"}</Typography>
 							<Stack direction="row" spacing={1}>
-								<Button onClick={handleMarkAllPresent} disabled={loading || rows.length === 0}>
+								<Button onClick={handleMarkAllPresent} disabled={loading || rows.length === 0 || !canMark}>
 									Mark all present
 								</Button>
-								<Button variant="contained" onClick={handleSubmit} disabled={loading || rows.length === 0}>
-									Submit
-								</Button>
+								<Tooltip title={canMark ? "" : "You don't have permission to mark attendance for this section"}>
+									<span>
+										<Button variant="contained" onClick={handleSubmit} disabled={loading || rows.length === 0 || !canMark}>
+											Submit
+										</Button>
+									</span>
+								</Tooltip>
 							</Stack>
 						</Box>
 

@@ -6,9 +6,11 @@ import java.util.List;
 import com.operion.authorization.PermissionChecker;
 import com.operion.authorization.RequirePermission;
 import com.operion.common.TenantContext;
+import com.operion.student.StudentPromotionPreviewService;
 import com.operion.student.StudentPromotionService;
 import com.operion.student.StudentPromotionService.Action;
 import com.operion.student.StudentPromotionService.Decision;
+import com.operion.student.StudentPromotionPreviewService.ClassPreview;
 import com.operion.student.StudentPromotionService.Outcome;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -26,10 +28,13 @@ public class PromotionController {
 	}
 
 	private final StudentPromotionService promotionService;
+	private final StudentPromotionPreviewService previewService;
 	private final PermissionChecker permissionChecker;
 
-	public PromotionController(StudentPromotionService promotionService, PermissionChecker permissionChecker) {
+	public PromotionController(StudentPromotionService promotionService, StudentPromotionPreviewService previewService,
+			PermissionChecker permissionChecker) {
 		this.promotionService = promotionService;
+		this.previewService = previewService;
 		this.permissionChecker = permissionChecker;
 	}
 
@@ -40,5 +45,11 @@ public class PromotionController {
 			permissionChecker.require(actorId, "STUDENT_EXIT_MANAGE");
 		}
 		return promotionService.apply(request.targetAcademicYearId(), request.promotionDate(), request.decisions(), actorId);
+	}
+
+	/** Read-only suggestions for the wizard - writes nothing; the admin still submits explicit decisions to {@link #promote}. */
+	@PostMapping("/preview")
+	public List<ClassPreview> preview(@RequestBody StudentPromotionPreviewService.Request request) {
+		return previewService.preview(request);
 	}
 }

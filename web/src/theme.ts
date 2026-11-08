@@ -38,6 +38,13 @@ export type ColorTokens = {
 	tintOrange: string;
 	tintPink: string;
 	tintBlue: string;
+	/** School-lifecycle groups on the dashboard setup card (Foundation / Academic & students / Daily operations): a strong hue for numbers and labels, a soft one for the current step's fill. */
+	lifecycleFoundation: string;
+	lifecycleFoundationSoft: string;
+	lifecycleAcademic: string;
+	lifecycleAcademicSoft: string;
+	lifecycleOperations: string;
+	lifecycleOperationsSoft: string;
 	/** Full CSS `background` values (gradients) - used for the hero banner and the active sidebar item. */
 	heroBg: string;
 	navActiveBg: string;
@@ -73,6 +80,12 @@ const lightTokens: ColorTokens = {
 	tintOrange: "#FFEEDC",
 	tintPink: "#FFE6EB",
 	tintBlue: "#E3EEFF",
+	lifecycleFoundation: "#0E8F8A",
+	lifecycleFoundationSoft: "rgba(14,143,138,0.12)",
+	lifecycleAcademic: "#2F6FDB",
+	lifecycleAcademicSoft: "rgba(47,111,219,0.12)",
+	lifecycleOperations: "#8545D6",
+	lifecycleOperationsSoft: "rgba(133,69,214,0.12)",
 	heroBg: "linear-gradient(120deg, #E4E0FF 0%, #E9EEFF 55%, #DDEBFF 100%)",
 	navActiveBg: "rgba(91,80,230,0.12)",
 	navActiveInk: "#4337C8",
@@ -106,6 +119,12 @@ const darkTokens: ColorTokens = {
 	tintOrange: "rgba(245,165,36,0.16)",
 	tintPink: "rgba(255,107,120,0.16)",
 	tintBlue: "rgba(90,162,255,0.17)",
+	lifecycleFoundation: "#2DD4C4",
+	lifecycleFoundationSoft: "rgba(45,212,196,0.16)",
+	lifecycleAcademic: "#6AA8FF",
+	lifecycleAcademicSoft: "rgba(106,168,255,0.17)",
+	lifecycleOperations: "#B58CFF",
+	lifecycleOperationsSoft: "rgba(181,140,255,0.17)",
 	heroBg: "linear-gradient(120deg, #151A45 0%, #1B1F5E 50%, #172A66 100%)",
 	navActiveBg: "linear-gradient(90deg, #6D3FE8 0%, #4F6BF0 100%)",
 	navActiveInk: "#FFFFFF",

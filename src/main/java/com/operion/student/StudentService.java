@@ -5,13 +5,18 @@ import java.time.LocalDate;
 
 import java.util.Map;
 
+import com.operion.academic.GradeLevel;
+import com.operion.academic.GradeLevelRepository;
+import com.operion.academic.GradeLevelStatus;
 import com.operion.academic.Section;
+import com.operion.academic.SectionRepository;
 import com.operion.audit.AuditLogService;
 import com.operion.common.InvalidRequestException;
 import com.operion.common.TenantContext;
 import com.operion.customfield.CustomFieldService;
 import com.operion.identity.Person;
 import com.operion.organisation.AcademicYear;
+import com.operion.organisation.AcademicYearGuard;
 import com.operion.organisation.DocumentNumberFormatter;
 import com.operion.organisation.OrganisationBranding;
 import com.operion.organisation.OrganisationBrandingRepository;
@@ -33,6 +38,8 @@ public class StudentService {
 	private final StudentEnrollmentRepository studentEnrollmentRepository;
 	private final StudentDocumentRepository studentDocumentRepository;
 	private final StudentExitRepository studentExitRepository;
+	private final SectionRepository sectionRepository;
+	private final GradeLevelRepository gradeLevelRepository;
 	private final StudentAdmissionCounterRepository studentAdmissionCounterRepository;
 	private final OrganisationBrandingRepository organisationBrandingRepository;
 	private final StudentIdGenerator studentIdGenerator;
@@ -45,6 +52,7 @@ public class StudentService {
 
 	public StudentService(StudentRepository studentRepository, StudentEnrollmentRepository studentEnrollmentRepository,
 			StudentDocumentRepository studentDocumentRepository, StudentExitRepository studentExitRepository,
+			SectionRepository sectionRepository, GradeLevelRepository gradeLevelRepository,
 			StudentAdmissionCounterRepository studentAdmissionCounterRepository,
 			OrganisationBrandingRepository organisationBrandingRepository, StudentIdGenerator studentIdGenerator,
 			AuditLogService auditLogService, CustomFieldService customFieldService) {
@@ -52,6 +60,8 @@ public class StudentService {
 		this.studentEnrollmentRepository = studentEnrollmentRepository;
 		this.studentDocumentRepository = studentDocumentRepository;
 		this.studentExitRepository = studentExitRepository;
+		this.sectionRepository = sectionRepository;
+		this.gradeLevelRepository = gradeLevelRepository;
 		this.studentAdmissionCounterRepository = studentAdmissionCounterRepository;
 		this.organisationBrandingRepository = organisationBrandingRepository;
 		this.studentIdGenerator = studentIdGenerator;
@@ -142,13 +152,14 @@ public class StudentService {
 				.map(OrganisationBranding::getAdmissionNumberFormat)
 				.orElse(OrganisationBranding.DEFAULT_ADMISSION_NUMBER_FORMAT);
 		int calendarYear = admissionDate.getYear();
-		try {
-			studentAdmissionCounterRepository.createIfMissing(calendarYear);
-		} catch (DataAccessException ignored) {
-			// Another admission created the row first; the locking read below picks it up.
+		if (!studentAdmissionCounterRepository.existsByCalendarYear(calendarYear)) {
+			try {
+				studentAdmissionCounterRepository.createIfMissing(calendarYear);
+			} catch (DataAccessException ignored) {
+				// Another admission created the row first; the locking read below picks it up.
+			}
 		}
-		StudentAdmissionCounter counter = studentAdmissionCounterRepository.findByCalendarYear(calendarYear)
-				.orElseGet(() -> studentAdmissionCounterRepository.save(new StudentAdmissionCounter(calendarYear)));
+		StudentAdmissionCounter counter = studentAdmissionCounterRepository.findByCalendarYear(calendarYear).orElseThrow();
 		long number = counter.consumeNext();
 		studentAdmissionCounterRepository.save(counter);
 		return DocumentNumberFormatter.format(template, number, null, calendarYear);
@@ -161,9 +172,7 @@ public class StudentService {
 	@Transactional
 	public StudentEnrollment enroll(Student student, AcademicYear academicYear, Section section, Integer rollNumber,
 			LocalDate enrolledDate) {
-		if (academicYear.isClosed()) {
-			throw new IllegalStateException("Academic year " + academicYear.getName() + " is closed and accepts no new enrolments");
-		}
+		AcademicYearGuard.requireOpen(academicYear, "enrolling a student");
 		requireSectionInYear(section, academicYear);
 		studentEnrollmentRepository.findByStudentIdAndCurrentTrue(student.getId()).ifPresent(existing -> {
 			throw new IllegalStateException("Student " + student.getId() + " already has a current enrollment");
@@ -193,21 +202,91 @@ public class StudentService {
 	 * Closes the current enrollment (PROMOTED, or REPEATED for a same-grade repeat) and
 	 * inserts a new one for the new year/section - never mutates section/academicYear on
 	 * the existing row, so "which class in which year" stays queryable per student.
+	 * The target section is row-locked as the very first statement, so concurrent promotions into
+	 * it serialise. Then every rule is checked before the current enrollment is touched, so a
+	 * rejection leaves the student exactly as they were: the target year must be open, different from -
+	 * and later than - the current enrollment's year, the target class must be the next grade (PROMOTE)
+	 * or the same grade (REPEAT), the section must have room, and an explicit roll number must be free.
+	 * A null roll number is auto-assigned as the next free one.
 	 */
 	@Transactional
 	public StudentEnrollment promote(Student student, AcademicYear newAcademicYear, Section newSection,
 			Integer rollNumber, LocalDate promotionDate, boolean repeated) {
+		// The lock must come before ANY other read in this transaction. On MySQL's default REPEATABLE READ the
+		// first plain (non-locking) read fixes the transaction's snapshot; if that happened before we waited for
+		// the lock, the capacity count and the max roll number below would read data from before the winner of the
+		// race committed - letting two promotions overshoot capacity or both take max + 1.
+		Section lockedSection = lockSection(newSection);
+		AcademicYearGuard.requireOpen(newAcademicYear, "promoting a student into it");
 		requireSectionInYear(newSection, newAcademicYear);
 		StudentEnrollment current = studentEnrollmentRepository.findByStudentIdAndCurrentTrue(student.getId())
 				.orElseThrow(() -> new IllegalStateException("Student " + student.getId() + " has no current enrollment to promote from"));
+		AcademicYearGuard.requireOpen(current.getAcademicYear(), "promoting a student out of it");
+		if (current.getAcademicYear().getId().equals(newAcademicYear.getId())) {
+			throw new IllegalStateException("Student " + student.getId() + " is already enrolled in academic year "
+					+ newAcademicYear.getName() + "; promotion must move to a different academic year");
+		}
+		if (!newAcademicYear.getStartDate().isAfter(current.getAcademicYear().getStartDate())) {
+			throw new IllegalStateException("Academic year " + newAcademicYear.getName() + " does not start after "
+					+ current.getAcademicYear().getName() + "; a student cannot be promoted into an earlier year");
+		}
+		studentEnrollmentRepository.findByStudentIdAndAcademicYearId(student.getId(), newAcademicYear.getId()).ifPresent(existing -> {
+			throw new IllegalStateException("Student " + student.getId() + " already has an enrollment in academic year " + newAcademicYear.getName());
+		});
+		requireGradeSequence(current, newSection, repeated);
+		assertCapacityAvailable(lockedSection);
+		if (rollNumber != null && studentEnrollmentRepository.existsBySectionIdAndRollNumber(lockedSection.getId(), rollNumber)) {
+			throw new InvalidRequestException("Roll number " + rollNumber + " is already taken in this section");
+		}
+		Integer resolvedRollNumber = rollNumber != null ? rollNumber : nextRollNumber(lockedSection, newAcademicYear);
+
 		StudentEnrollmentStatus previousStatus = current.getEnrollmentStatus();
 		current.close(repeated ? StudentEnrollmentStatus.REPEATED : StudentEnrollmentStatus.PROMOTED, promotionDate);
 		studentEnrollmentRepository.save(current);
-		assertCapacityAvailable(newSection);
-		StudentEnrollment enrollment =
-				studentEnrollmentRepository.save(new StudentEnrollment(student, newAcademicYear, newSection, rollNumber, promotionDate));
+		StudentEnrollment enrollment = studentEnrollmentRepository
+				.save(new StudentEnrollment(student, newAcademicYear, newSection, resolvedRollNumber, promotionDate));
 		auditLogService.record("StudentEnrollment", enrollment.getId(), "STUDENT_PROMOTED", previousStatus, current.getEnrollmentStatus());
 		return enrollment;
+	}
+
+	/**
+	 * PROMOTE must land in the next grade, REPEAT in the same grade. "Next" is the smallest
+	 * sequence_order above the current grade's (orders may have gaps), never order + 1. A class
+	 * with no grade level - not possible with the current mapping, where the column is mandatory -
+	 * would be skipped rather than blocked.
+	 */
+	private void requireGradeSequence(StudentEnrollment current, Section targetSection, boolean repeated) {
+		GradeLevel currentGrade = current.getSection().getSchoolClass().getGradeLevel();
+		GradeLevel targetGrade = targetSection.getSchoolClass().getGradeLevel();
+		if (currentGrade == null || targetGrade == null) {
+			return;
+		}
+		if (repeated) {
+			if (!targetGrade.getId().equals(currentGrade.getId())) {
+				throw new IllegalStateException("A student repeating " + currentGrade.getName()
+						+ " must be placed in " + currentGrade.getName() + ", not " + targetGrade.getName());
+			}
+			return;
+		}
+		GradeLevel nextGrade = gradeLevelRepository.findFirstByStatusAndSequenceOrderGreaterThanOrderBySequenceOrderAsc(GradeLevelStatus.ACTIVE, currentGrade.getSequenceOrder())
+				.orElseThrow(() -> new IllegalStateException(
+						currentGrade.getName() + " is the last grade, so there is no next grade to promote into; graduate the student instead"));
+		if (targetGrade.getSequenceOrder() != nextGrade.getSequenceOrder()) {
+			throw new IllegalStateException("A student in " + currentGrade.getName() + " must be promoted to "
+					+ nextGrade.getName() + ", not " + targetGrade.getName());
+		}
+	}
+
+	/** Re-reads the section with a row lock so the capacity/roll-number checks that follow cannot race another placement. Must run inside the caller's transaction. */
+	private Section lockSection(Section section) {
+		return sectionRepository.findByIdForUpdate(section.getId())
+				.orElseThrow(() -> new IllegalArgumentException("No section with id " + section.getId()));
+	}
+
+	/** Next free roll number in the section for the year; the caller holds the section lock. */
+	private int nextRollNumber(Section section, AcademicYear academicYear) {
+		Integer max = studentEnrollmentRepository.findMaxRollNumber(section.getId(), academicYear.getId());
+		return max == null ? 1 : max + 1;
 	}
 
 	/** Mid-year section move only - mutates the current row in place, per the class-level note on StudentEnrollment. */
@@ -215,6 +294,7 @@ public class StudentService {
 	public StudentEnrollment reassignSection(Student student, Section newSection) {
 		StudentEnrollment current = studentEnrollmentRepository.findByStudentIdAndCurrentTrue(student.getId())
 				.orElseThrow(() -> new IllegalStateException("Student " + student.getId() + " has no current enrollment"));
+		AcademicYearGuard.requireOpen(current.getAcademicYear(), "moving a student to another section");
 		if (!newSection.getSchoolClass().getId().equals(current.getSection().getSchoolClass().getId())) {
 			throw new InvalidRequestException("A section can only be reassigned within the student's current class");
 		}
@@ -263,6 +343,8 @@ public class StudentService {
 		if (exitDate.isBefore(student.getAdmissionDate())) {
 			throw new InvalidRequestException("exitDate cannot be before the admission date (" + student.getAdmissionDate() + ")");
 		}
+		studentEnrollmentRepository.findByStudentIdAndCurrentTrue(student.getId())
+				.ifPresent(enrollment -> AcademicYearGuard.requireOpen(enrollment.getAcademicYear(), "recording a student's exit"));
 		StudentExit exit = studentExitRepository.save(new StudentExit(student, exitType, exitDate, reason, destinationSchool, initiatedBy));
 
 		studentEnrollmentRepository.findByStudentIdAndCurrentTrue(student.getId()).ifPresent(enrollment -> {

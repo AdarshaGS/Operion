@@ -24,6 +24,7 @@ import MenuItem from "@mui/material/MenuItem";
 import Typography from "@mui/material/Typography";
 import AddIcon from "@mui/icons-material/Add";
 import { Can } from "../../auth/Can";
+import { useCan } from "../../auth/useCan";
 import { convertApplicant, inquireApplicant } from "../../api/applicants";
 import { createPerson, GENDER_OPTIONS } from "../../api/persons";
 import {
@@ -53,6 +54,8 @@ function errMsg(err: unknown, fallback: string) {
 /** Admissions review queue (#219): public inquiries -> start review -> approve (admit as a
  * student) or reject, with a per-applicant document checklist. */
 export function AdmissionsPage() {
+	// Saving the received-documents checklist (PUT /applicants/{id}/documents) needs STUDENT_MANAGE; viewing it does not.
+	const canManageApplicants = useCan("STUDENT_MANAGE");
 	const [filter, setFilter] = useState<StatusFilter>("ALL");
 	const [counts, setCounts] = useState<AdmissionStatusCounts | null>(null);
 	const [rows, setRows] = useState<AdmissionApplicantResponse[]>([]);
@@ -515,7 +518,7 @@ export function AdmissionsPage() {
 								control={
 									<Checkbox
 										checked={d.received}
-										disabled={docsLoading}
+										disabled={docsLoading || !canManageApplicants}
 										onChange={(e) => setDocs((prev) => prev.map((x) => (x.docType === d.docType ? { ...x, received: e.target.checked } : x)))}
 									/>
 								}

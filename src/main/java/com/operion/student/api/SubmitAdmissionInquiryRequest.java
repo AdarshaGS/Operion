@@ -12,5 +12,5 @@ import jakarta.validation.constraints.Size;
 public record SubmitAdmissionInquiryRequest(@NotBlank @Size(max = 100) String firstName, @NotBlank @Size(max = 100) String lastName,
 		@NotNull @Past LocalDate dateOfBirth, @NotBlank @Size(max = 30) String gender, Long desiredGradeId,
 		@NotBlank @Size(max = 200) String guardianName, @NotBlank @Size(max = 30) String guardianPhone,
-		@Email @Size(max = 200) String guardianEmail, @Size(max = 2000) String notes, String website) {
+		@Email @Size(max = 200) String guardianEmail, @Size(max = 2000) String notes, @Size(max = 200) String website) {
 }

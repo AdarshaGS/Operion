@@ -5,7 +5,7 @@ import Grid from "@mui/material/Grid";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import { colors } from "../../theme";
-import { SETTINGS_GROUPS } from "./settingsSections";
+import { useVisibleSettingsGroups } from "./settingsSections";
 
 /** Landing page for Settings - a list of what can be configured, grouped under labeled
  * sections (Organisation / Access & Security / Configuration / System), each opening its
@@ -14,10 +14,11 @@ import { SETTINGS_GROUPS } from "./settingsSections";
  * of forms. */
 export function SettingsPage() {
 	const navigate = useNavigate();
+	const groups = useVisibleSettingsGroups();
 
 	return (
 		<Stack spacing={4}>
-			{SETTINGS_GROUPS.map((group) => (
+			{groups.map((group) => (
 				<Stack key={group.key} spacing={1}>
 					<Typography
 						variant="overline"
@@ -27,11 +28,12 @@ export function SettingsPage() {
 					</Typography>
 					<Grid container>
 						{group.sections.map((section) => (
-							<Grid size={{ xs: 12, sm: 6 }} key={section.key}>
+							<Grid size={{ xs: 12, sm: 6 }} key={section.key} sx={{ display: "flex" }}>
 								<ButtonBase
 									onClick={() => navigate(`/settings/${section.key}`)}
 									sx={{
 										display: "block",
+											alignSelf: "stretch", // match the row's tallest cell so dividers align
 										width: "100%",
 										textAlign: "left",
 										px: 2,

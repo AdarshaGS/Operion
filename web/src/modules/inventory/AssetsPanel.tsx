@@ -20,6 +20,7 @@ import Typography from "@mui/material/Typography";
 import AddIcon from "@mui/icons-material/Add";
 import { listCampuses, type CampusResponse } from "../../api/campuses";
 import { Can } from "../../auth/Can";
+import { useCan } from "../../auth/useCan";
 import { DialogErrorAlert } from "../../components/DialogErrorAlert";
 import { ApiError } from "../../api/client";
 import {
@@ -39,6 +40,7 @@ const ASSET_STATUSES = ["ACTIVE", "UNDER_REPAIR", "LOST", "DISPOSED"];
  * from the bulk-stock Items/StockEntry/StockIssue panels above. Campus-scoped like
  * VehiclesPanel; status changes via the same inline-select pattern VehiclesPanel uses. */
 export function AssetsPanel() {
+	const canManageAssets = useCan("INVENTORY_ASSET_MANAGE");
 	const [assets, setAssets] = useState<InventoryAssetResponse[]>([]);
 	const [items, setItems] = useState<ItemResponse[]>([]);
 	const [campuses, setCampuses] = useState<CampusResponse[]>([]);
@@ -186,7 +188,7 @@ export function AssetsPanel() {
 									<TableCell>Assigned to</TableCell>
 									<TableCell>Warranty expiry</TableCell>
 									<TableCell>Status</TableCell>
-									<TableCell />
+									{canManageAssets && <TableCell />}
 								</TableRow>
 							</TableHead>
 							<TableBody>
@@ -205,6 +207,8 @@ export function AssetsPanel() {
 												size="small"
 												value={asset.status}
 												onChange={(e) => handleStatusChange(asset.id, e.target.value)}
+												disabled={!canManageAssets}
+												title={canManageAssets ? undefined : "You don't have permission to change asset status"}
 												sx={{ minWidth: 140 }}
 											>
 												{ASSET_STATUSES.map((status) => (
@@ -214,11 +218,13 @@ export function AssetsPanel() {
 												))}
 											</TextField>
 										</TableCell>
-										<TableCell>
-											<Button size="small" onClick={() => openAssignDialog(asset)}>
-												Assign
-											</Button>
-										</TableCell>
+										{canManageAssets && (
+											<TableCell>
+												<Button size="small" onClick={() => openAssignDialog(asset)}>
+													Assign
+												</Button>
+											</TableCell>
+										)}
 									</TableRow>
 								))}
 							</TableBody>

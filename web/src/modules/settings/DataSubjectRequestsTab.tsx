@@ -17,6 +17,7 @@ import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import AddIcon from "@mui/icons-material/Add";
+import { Can } from "../../auth/Can";
 import { ApiError } from "../../api/client";
 import {
 	completeDataSubjectRequest,
@@ -103,9 +104,11 @@ export function DataSubjectRequestsTab() {
 						</MenuItem>
 					))}
 				</TextField>
-				<Button size="small" startIcon={<AddIcon />} onClick={() => setNewOpen(true)}>
-					Log request
-				</Button>
+				<Can anyOf={["PRIVACY_MANAGE"]}>
+					<Button size="small" startIcon={<AddIcon />} onClick={() => setNewOpen(true)}>
+						Log request
+					</Button>
+				</Can>
 			</Box>
 			{error && <Alert severity="error">{error}</Alert>}
 
@@ -149,27 +152,29 @@ export function DataSubjectRequestsTab() {
 								)}
 							</TableCell>
 							<TableCell align="right">
-								{request.status === "RECEIVED" && (
-									<Button size="small" onClick={() => setAction({ kind: "verify", request })}>
-										Verify identity
-									</Button>
-								)}
-								{request.status === "IDENTITY_VERIFIED" && (
-									<Button size="small" onClick={() => setAction({ kind: "complete", request })}>
-										Complete
-									</Button>
-								)}
-								{(request.status === "IDENTITY_VERIFIED" || request.status === "COMPLETED") &&
-									(request.requestType === "ACCESS" || request.requestType === "EXPORT") && (
-										<Button size="small" onClick={() => handleExport(request)}>
-											Download data
+								<Can anyOf={["PRIVACY_MANAGE"]}>
+									{request.status === "RECEIVED" && (
+										<Button size="small" onClick={() => setAction({ kind: "verify", request })}>
+											Verify identity
 										</Button>
 									)}
-								{(request.status === "RECEIVED" || request.status === "IDENTITY_VERIFIED") && (
-									<Button size="small" color="error" onClick={() => setAction({ kind: "reject", request })}>
-										Reject
-									</Button>
-								)}
+									{request.status === "IDENTITY_VERIFIED" && (
+										<Button size="small" onClick={() => setAction({ kind: "complete", request })}>
+											Complete
+										</Button>
+									)}
+									{(request.status === "IDENTITY_VERIFIED" || request.status === "COMPLETED") &&
+										(request.requestType === "ACCESS" || request.requestType === "EXPORT") && (
+											<Button size="small" onClick={() => handleExport(request)}>
+												Download data
+											</Button>
+										)}
+									{(request.status === "RECEIVED" || request.status === "IDENTITY_VERIFIED") && (
+										<Button size="small" color="error" onClick={() => setAction({ kind: "reject", request })}>
+											Reject
+										</Button>
+									)}
+								</Can>
 							</TableCell>
 						</TableRow>
 					))}

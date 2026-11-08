@@ -14,6 +14,7 @@ import com.operion.audit.AuditLogRepository;
 import com.operion.audit.AuditLogService;
 import com.operion.common.JpaConfig;
 import com.operion.common.MultiTenancyConfig;
+import com.operion.common.ClientIpResolver;
 import com.operion.common.TenantContext;
 import com.operion.common.TooManyRequestsException;
 import com.operion.identity.PersonRepository;
@@ -61,7 +62,7 @@ class ApplicantAdmissionsPipelineTest {
 				new AuditLogService(auditLogRepository, new ObjectMapper()));
 		inquiryService = new ApplicantInquiryService(personRepository, applicantRepository, gradeLevelRepository);
 		controller = new PublicAdmissionInquiryController(organisationRepository, gradeLevelRepository, inquiryService,
-				new InquiryRateLimiter());
+				new InquiryRateLimiter(), new ClientIpResolver(""));
 	}
 
 	@AfterEach
@@ -147,7 +148,7 @@ class ApplicantAdmissionsPipelineTest {
 
 	@Test
 	void unknownSlugIsNotFoundAndFormOptionsListOnlyActiveGrades() {
-		assertThatThrownBy(() -> controller.formOptions("nope-slug")).isInstanceOf(IllegalArgumentException.class);
+		assertThatThrownBy(() -> controller.formOptions("nope-slug", new MockHttpServletRequest())).isInstanceOf(IllegalArgumentException.class);
 
 		org("pipe-options");
 		gradeLevelRepository.save(new GradeLevel("Grade 1", 1, null));
@@ -156,7 +157,7 @@ class ApplicantAdmissionsPipelineTest {
 		gradeLevelRepository.save(inactive);
 		TenantContext.clear();
 
-		var options = controller.formOptions("pipe-options");
+		var options = controller.formOptions("pipe-options", new MockHttpServletRequest());
 		assertThat(options.organisationName()).isEqualTo("School");
 		assertThat(options.grades()).extracting(g -> g.name()).containsExactly("Grade 1");
 	}

@@ -62,6 +62,11 @@ public class UserController {
 		this.emailVerificationService = emailVerificationService;
 	}
 
+	/** How members are onboarded: the admin sets the password (min 8 chars, validated on
+	 * CreateUserRequest), it is stored hashed, and the user is ACTIVE straight away - they
+	 * sign in with it as soon as a membership is granted. No invite token is involved
+	 * (contrast invite() below, which creates a PENDING user). The email-verification
+	 * issued here is non-blocking - login never requires it. */
 	@PostMapping
 	public UserResponse create(@Valid @RequestBody CreateUserRequest request) {
 		User user = new User(request.email(), request.phone(), passwordEncoder.encode(request.password()));
@@ -115,7 +120,10 @@ public class UserController {
 	 * StaffInviteService.reissue(). */
 	@PostMapping("/{id}/resend-invite")
 	public StaffInviteResponse resendInvite(@PathVariable Long id) {
-		requireInCurrentOrg(id);
+		// A pending invitee has no membership yet - the org's own invite is the proof they belong to it.
+		if (!staffInviteService.hasInviteInCurrentOrg(id)) {
+			requireInCurrentOrg(id);
+		}
 		StaffInviteService.IssuedInvite invite = staffInviteService.reissue(id);
 		return new StaffInviteResponse(invite.userId(), invite.inviteId(), invite.rawToken(), invite.expiresAt(), invite.emailSent());
 	}

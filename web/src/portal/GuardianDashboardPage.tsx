@@ -58,38 +58,53 @@ export function GuardianDashboardPage() {
 	const { portalIdentity, isModuleEnabled } = useAuth();
 	const context = portalIdentity?.portalContexts.find((c) => c.type === "GUARDIAN");
 	const children = useMemo(() => context?.children ?? [], [context]);
+	// A switched-off module's cards are hidden and its API is never called (the backend would refuse it).
+	const attendanceOn = isModuleEnabled("ATTENDANCE");
+	const feesOn = isModuleEnabled("FEES");
+	const examsOn = isModuleEnabled("EXAMINATIONS");
+	const communicationOn = isModuleEnabled("COMMUNICATION");
 
 	const [selectedStudentId, setSelectedStudentId] = useState<number | null>(children[0]?.studentId ?? null);
 	const [attendance, setAttendance] = useState<GuardianAttendanceSummary | null>(null);
 	const [fees, setFees] = useState<GuardianInvoiceSummary[] | null>(null);
 	const [reportCards, setReportCards] = useState<GuardianReportCardSummary[] | null>(null);
 	const [payments, setPayments] = useState<GuardianPaymentSummary[]>([]);
+	const [dataLoaded, setDataLoaded] = useState(false);
 	const [announcements, setAnnouncements] = useState<PortalAnnouncementSummary[] | null>(null);
 	const [error, setError] = useState<string | null>(null);
 
 	useEffect(() => {
+		if (!communicationOn) return;
 		getPortalAnnouncements()
 			.then(setAnnouncements)
 			.catch((err) => setError(err instanceof ApiError ? err.message : "Failed to load announcements"));
-	}, []);
+	}, [communicationOn]);
 
 	useEffect(() => {
 		if (selectedStudentId === null) return;
 		setAttendance(null);
 		setFees(null);
 		setReportCards(null);
-		Promise.all([getChildAttendance(selectedStudentId), getChildFees(selectedStudentId), getChildReportCards(selectedStudentId)])
+		setDataLoaded(false);
+		Promise.all([
+			attendanceOn ? getChildAttendance(selectedStudentId) : Promise.resolve(null),
+			feesOn ? getChildFees(selectedStudentId) : Promise.resolve(null),
+			examsOn ? getChildReportCards(selectedStudentId) : Promise.resolve(null),
+		])
 			.then(([attendanceRes, feesRes, reportCardsRes]) => {
 				setAttendance(attendanceRes);
 				setFees(feesRes);
 				setReportCards(reportCardsRes);
+				setDataLoaded(true);
 			})
 			.catch((err) => setError(err instanceof ApiError ? err.message : "Failed to load your child's data"));
 		setPayments([]);
-		getChildPayments(selectedStudentId)
-			.then(setPayments)
-			.catch((err) => setError(err instanceof ApiError ? err.message : "Failed to load payments"));
-	}, [selectedStudentId]);
+		if (feesOn) {
+			getChildPayments(selectedStudentId)
+				.then(setPayments)
+				.catch((err) => setError(err instanceof ApiError ? err.message : "Failed to load payments"));
+		}
+		}, [selectedStudentId, attendanceOn, feesOn, examsOn]);
 
 	function handleDownloadReceipt(payment: GuardianPaymentSummary) {
 		if (selectedStudentId === null) return;
@@ -115,12 +130,16 @@ export function GuardianDashboardPage() {
 				<Typography variant="h5">Parent portal</Typography>
 				{selectedStudentId !== null && (
 					<Stack direction="row" spacing={1}>
-						<Button variant="outlined" size="small" component={RouterLink} to={`/portal/guardian/children/${selectedStudentId}/timetable`}>
-							Class timetable
-						</Button>
-						<Button variant="outlined" size="small" component={RouterLink} to={`/portal/guardian/children/${selectedStudentId}/learning`}>
-							Homework &amp; learning
-						</Button>
+						{isModuleEnabled("ACADEMICS") && (
+							<Button variant="outlined" size="small" component={RouterLink} to={`/portal/guardian/children/${selectedStudentId}/timetable`}>
+								Class timetable
+							</Button>
+						)}
+						{isModuleEnabled("LEARNING") && (
+							<Button variant="outlined" size="small" component={RouterLink} to={`/portal/guardian/children/${selectedStudentId}/learning`}>
+								Homework &amp; learning
+							</Button>
+						)}
 					</Stack>
 				)}
 				{children.length > 1 && (
@@ -143,13 +162,14 @@ export function GuardianDashboardPage() {
 
 			{error && <Alert severity="error">{error}</Alert>}
 
-			{!attendance || !fees || !reportCards ? (
+			{!dataLoaded ? (
 				<Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
 					<CircularProgress size={28} />
 				</Box>
 			) : (
 				<>
 					<Grid container spacing={2}>
+						{attendance && (<>
 						<Grid size={{ xs: 12, sm: 4 }}>
 							<Paper sx={{ p: 2, height: "100%" }}>
 								<Stack spacing={0.5}>
@@ -173,12 +193,15 @@ export function GuardianDashboardPage() {
 								sublabel={`${attendance.monthly.presentCount} present of ${attendance.monthly.totalMarkedDays} marked days`}
 							/>
 						</Grid>
-						<Grid size={{ xs: 12, sm: 4 }}>
-							<StatTile label="Fees outstanding" value={currency(outstandingTotal.toFixed(2))} sublabel="Across all invoices" />
-						</Grid>
+						</>)}
+						{fees && (
+							<Grid size={{ xs: 12, sm: 4 }}>
+								<StatTile label="Fees outstanding" value={currency(outstandingTotal.toFixed(2))} sublabel="Across all invoices" />
+							</Grid>
+						)}
 					</Grid>
 
-					<Paper sx={{ p: 2 }}>
+					{fees && (<Paper sx={{ p: 2 }}>
 						<Typography variant="subtitle1" sx={{ mb: 1 }}>
 							Fee invoices
 						</Typography>
@@ -216,7 +239,9 @@ export function GuardianDashboardPage() {
 						)}
 					</Paper>
 
-					<Paper sx={{ p: 2 }}>
+					)}
+
+					{feesOn && (<Paper sx={{ p: 2 }}>
 						<Typography variant="subtitle1" sx={{ mb: 1 }}>
 							Payments
 						</Typography>
@@ -258,7 +283,9 @@ export function GuardianDashboardPage() {
 						)}
 					</Paper>
 
-					<Paper sx={{ p: 2 }}>
+					)}
+
+					{reportCards && (<Paper sx={{ p: 2 }}>
 						<Typography variant="subtitle1" sx={{ mb: 1 }}>
 							Exam results
 						</Typography>
@@ -309,14 +336,14 @@ export function GuardianDashboardPage() {
 								</TableBody>
 							</Table>
 						)}
-					</Paper>
-				</>
-			)}
+					</Paper>)}
+					</>
+					)}
 
 			{/* Outside the loading gate: a child who has left (no current enrollment) still needs their certificates. */}
 			{isModuleEnabled("STUDENTS") && selectedStudentId !== null && <GuardianCertificatesSection studentId={selectedStudentId} />}
 
-			<Paper sx={{ p: 2 }}>
+			{communicationOn && (<Paper sx={{ p: 2 }}>
 				<Typography variant="subtitle1" sx={{ mb: 1 }}>
 					Announcements
 				</Typography>
@@ -338,7 +365,7 @@ export function GuardianDashboardPage() {
 						))}
 					</Stack>
 				)}
-			</Paper>
+			</Paper>)}
 		</Stack>
 	);
 }

@@ -4,14 +4,14 @@ import java.util.List;
 
 import com.operion.academic.Section;
 import com.operion.academic.SectionRepository;
-import com.operion.authorization.OrganisationMembership;
-import com.operion.authorization.OrganisationMembershipRepository;
 import com.operion.common.TenantContext;
 import com.operion.identity.Person;
 import com.operion.identity.PersonRepository;
+import com.operion.messaging.DirectMessagePolicy;
 import com.operion.messaging.Message;
 import com.operion.messaging.MessageThread;
 import com.operion.messaging.MessageThreadRepository;
+import com.operion.messaging.MessagingIdentityResolver;
 import com.operion.messaging.MessagingService;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -34,16 +34,18 @@ public class MessagingController {
 	private final MessageThreadRepository messageThreadRepository;
 	private final SectionRepository sectionRepository;
 	private final PersonRepository personRepository;
-	private final OrganisationMembershipRepository organisationMembershipRepository;
+	private final MessagingIdentityResolver messagingIdentityResolver;
+	private final DirectMessagePolicy directMessagePolicy;
 
 	public MessagingController(MessagingService messagingService, MessageThreadRepository messageThreadRepository,
 			SectionRepository sectionRepository, PersonRepository personRepository,
-			OrganisationMembershipRepository organisationMembershipRepository) {
+			MessagingIdentityResolver messagingIdentityResolver, DirectMessagePolicy directMessagePolicy) {
 		this.messagingService = messagingService;
 		this.messageThreadRepository = messageThreadRepository;
 		this.sectionRepository = sectionRepository;
 		this.personRepository = personRepository;
-		this.organisationMembershipRepository = organisationMembershipRepository;
+		this.messagingIdentityResolver = messagingIdentityResolver;
+		this.directMessagePolicy = directMessagePolicy;
 	}
 
 	@GetMapping("/threads")
@@ -57,14 +59,16 @@ public class MessagingController {
 	public MessageThreadResponse openClassGroupThread(@PathVariable Long sectionId) {
 		Section section = sectionRepository.findById(sectionId)
 				.orElseThrow(() -> new IllegalArgumentException("No section with id " + sectionId));
-		MessageThread thread = messagingService.getOrCreateClassGroupThread(section);
+		MessageThread thread = messagingService.openClassGroupThread(section, currentPerson());
 		return threadResponse(thread);
 	}
 
 	@PostMapping("/threads/direct/{personId}")
 	public MessageThreadResponse openDirectThread(@PathVariable Long personId) {
 		Person other = personRepository.findById(personId).orElseThrow(() -> new IllegalArgumentException("No person with id " + personId));
-		MessageThread thread = messagingService.getOrCreateDirectThread(currentPerson(), other);
+		Person requester = currentPerson();
+		directMessagePolicy.requireCanOpen(TenantContext.getActorId(), requester, other);
+		MessageThread thread = messagingService.getOrCreateDirectThread(requester, other);
 		return threadResponse(thread);
 	}
 
@@ -94,11 +98,9 @@ public class MessagingController {
 		return messageThreadRepository.findById(threadId).orElseThrow(() -> new IllegalArgumentException("No thread with id " + threadId));
 	}
 
-	/** A user has one Person per org even across multiple role memberships - same pattern as NotificationController.currentPerson. */
+	/** A user has one Person per org even across multiple role memberships - resolved by the shared
+	 * MessagingIdentityResolver (ACTIVE memberships, lowest id) so REST and STOMP agree on who the caller is. */
 	private Person currentPerson() {
-		return organisationMembershipRepository.findByUserId(TenantContext.getActorId()).stream()
-				.findFirst()
-				.map(OrganisationMembership::getPerson)
-				.orElseThrow(() -> new IllegalStateException("No organisation membership for the current user"));
+		return messagingIdentityResolver.requirePerson(TenantContext.getActorId());
 	}
 }

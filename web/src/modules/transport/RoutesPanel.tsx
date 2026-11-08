@@ -22,6 +22,7 @@ import Typography from "@mui/material/Typography";
 import AddIcon from "@mui/icons-material/Add";
 import { type CampusResponse, listCampuses } from "../../api/campuses";
 import { ApiError } from "../../api/client";
+import { Can } from "../../auth/Can";
 import { createRoute, listRoutes, type RouteResponse } from "../../api/transportRoutes";
 import { listVehicles, type VehicleResponse } from "../../api/vehicles";
 
@@ -84,16 +85,18 @@ export function RoutesPanel() {
 			<Stack spacing={2}>
 				<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
 					<Typography variant="h6">Routes</Typography>
-					<Button
-						size="small"
-						startIcon={<AddIcon />}
-						onClick={() => {
-							listVehicles().then(setVehicles).catch(() => {});
-							setDialogOpen(true);
-						}}
-					>
-						Add route
-					</Button>
+					<Can anyOf={["TRANSPORT_ROUTE_MANAGE"]}>
+						<Button
+							size="small"
+							startIcon={<AddIcon />}
+							onClick={() => {
+								listVehicles().then(setVehicles).catch(() => {});
+								setDialogOpen(true);
+							}}
+						>
+							Add route
+						</Button>
+					</Can>
 				</Box>
 
 				{error && <Alert severity="error">{error}</Alert>}

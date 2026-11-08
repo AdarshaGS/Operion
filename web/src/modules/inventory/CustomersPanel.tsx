@@ -139,9 +139,11 @@ export function CustomersPanel() {
 										<Button size="small" onClick={() => navigate(`/sales/customers/${customer.id}`)}>
 											History
 										</Button>
-										<Button size="small" onClick={() => handleToggleStatus(customer)}>
-											{customer.status === "ACTIVE" ? "Deactivate" : "Reactivate"}
-										</Button>
+										<Can anyOf={["INVENTORY_CUSTOMER_MANAGE"]}>
+											<Button size="small" onClick={() => handleToggleStatus(customer)}>
+												{customer.status === "ACTIVE" ? "Deactivate" : "Reactivate"}
+											</Button>
+										</Can>
 									</TableCell>
 								</TableRow>
 							))}

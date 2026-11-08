@@ -75,6 +75,12 @@ public class StaffInviteService {
 		return new IssuedInvite(user.getId(), invite.getId(), rawToken, invite.getExpiresAt(), emailSent);
 	}
 
+	/** True when this org has issued the user an invite (the repository is tenant-scoped). A user who has only been
+	 * invited, not yet granted a membership, can be proven to belong to the caller's org by that invite alone. */
+	public boolean hasInviteInCurrentOrg(Long userId) {
+		return staffInviteRepository.existsByUserId(userId);
+	}
+
 	/** Resend for a member who never claimed their invite - a brand-new StaffInvite row
 	 * (and email) for the same, still-PENDING User, since the original raw token was never
 	 * stored server-side and can't be recovered (see class javadoc). Every earlier pending
@@ -132,6 +138,15 @@ public class StaffInviteService {
 					.orElseThrow(() -> invalidInvite);
 
 			User user = userRepository.findById(invite.getUserId()).orElseThrow(() -> invalidInvite);
+			// Only a login shell that is still awaiting its first password can be claimed. Anything else (ACTIVE with a
+			// password already set, DISABLED, LOCKED) means the invite is stale - claiming it must not overwrite the
+			// password of a live account or re-enable one an admin switched off - so it is burned and fails like any
+			// other bad invite.
+			if (user.getStatus() != UserStatus.PENDING) {
+				invite.revoke();
+				staffInviteRepository.save(invite);
+				throw invalidInvite;
+			}
 			user.setPasswordHash(passwordEncoder.encode(password));
 			user.setStatus(UserStatus.ACTIVE);
 			userRepository.save(user);

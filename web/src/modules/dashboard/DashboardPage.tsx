@@ -1,24 +1,19 @@
 import { useEffect, useState } from "react";
-import { Navigate, useNavigate } from "react-router-dom";
+import { Navigate } from "react-router-dom";
 import Accordion from "@mui/material/Accordion";
 import AccordionDetails from "@mui/material/AccordionDetails";
 import AccordionSummary from "@mui/material/AccordionSummary";
-import Grid from "@mui/material/Grid";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
-import Button from "@mui/material/Button";
 import CircularProgress from "@mui/material/CircularProgress";
-import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
-import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
 import EventAvailableIcon from "@mui/icons-material/EventAvailable";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import BadgeIcon from "@mui/icons-material/Badge";
 import GroupsIcon from "@mui/icons-material/Groups";
 import PaymentsIcon from "@mui/icons-material/Payments";
 import {
-	dismissQuickActions,
 	dismissSetupProgress,
 	getDashboardCharts,
 	getDashboardSummary,
@@ -30,9 +25,8 @@ import { useAuth } from "../../auth/AuthContext";
 import { colors } from "../../theme";
 import { HeroBanner, StatCard, StatGrid } from "../../components/DashboardKit";
 import { DashboardCharts } from "./DashboardCharts";
-import { AnnouncementsCard, AttendanceOverview, UpcomingEventsCard } from "./DashboardWidgets";
-import { QuickActions } from "./QuickActions";
-import { isSetupComplete, SetupProgress } from "./SetupProgress";
+import { AnnouncementsCard, UpcomingEventsCard } from "./DashboardWidgets";
+import { SetupProgress } from "./SetupProgress";
 import { StatTile } from "./StatTile";
 
 function currency(amount: number): string {
@@ -70,8 +64,6 @@ const PATH_PERMISSIONS: Record<string, string[]> = {
 	"/sales": ["SALES_VIEW"],
 	"/purchase": ["PURCHASE_VIEW"],
 	"/communication": ["COMMUNICATION_VIEW"],
-	"/academics/setup": ["CLASS_VIEW", "GRADE_LEVEL_VIEW", "SUBJECT_VIEW", "TEACHER_ASSIGNMENT_VIEW"],
-	"/students/new": ["STUDENT_MANAGE"],
 };
 
 function buildSections(summary: DashboardSummaryResponse): Section[] {
@@ -162,7 +154,7 @@ function buildSections(summary: DashboardSummaryResponse): Section[] {
 }
 
 /** Post-login landing page for anyone with ORGANISATION_MANAGE (#30) - a greeting, the
- * setup-progress card and quick actions, headline stats, and a read-only rollup across
+ * setup-progress card, headline stats, and a read-only rollup across
  * every module below. */
 export function DashboardPage() {
 	const { profile, isPathEnabled: isModuleOn, hasAnyPermission, hasPermission, permissionsLoaded } = useAuth();
@@ -172,7 +164,6 @@ export function DashboardPage() {
 	/** A module shows only when it is switched on for the org AND the caller holds a
 	 * permission that opens it - ORGANISATION_MANAGE alone doesn't reveal every module. */
 	const isPathEnabled = (path: string) => isModuleOn(path) && (!PATH_PERMISSIONS[path] || hasAnyPermission(PATH_PERMISSIONS[path]));
-	const navigate = useNavigate();
 	const [summary, setSummary] = useState<DashboardSummaryResponse | null>(null);
 	const [charts, setCharts] = useState<DashboardChartsResponse | null>(null);
 	const [error, setError] = useState<string | null>(null);
@@ -198,24 +189,13 @@ export function DashboardPage() {
 		dismissSetupProgress().catch(() => undefined);
 	}
 
-	function handleDismissQuickActions() {
-		setSummary((current) => (current ? { ...current, preferences: { ...current.preferences, quickActionsDismissed: true } } : current));
-		dismissQuickActions().catch(() => undefined);
-	}
-
-	/** No students yet (#125) - lead with one clear next step instead of a wall of
-	 * zero-value tiles, checking academic setup before students per the issue's own
-	 * dependency order. Once students exist, this returns exactly today's layout. */
+	/** No students yet (#125) - fold the wall of zero-value tiles away; the setup guide card leads with the
+	 * next step. Once students exist, this returns exactly today's layout. */
 	function renderSummary(summaryData: DashboardSummaryResponse) {
 		const noStudents = summaryData.enrollment.activeStudents === 0;
-		const primaryCta = !summaryData.setupChecklist.academicSetupConfigured
-			? { heading: "Set up your academic year", label: "Set up academic year", path: "/academics/setup" }
-			: { heading: "Add your first students", label: "Add students", path: "/students/new" };
 
-		// Quick actions are part of the onboarding aid: once every setup step is done they go too.
-		const setupComplete = isSetupComplete(summaryData.setupChecklist, isModuleOn);
-		const showSetupProgress = !summaryData.preferences.setupProgressDismissed && !setupComplete;
-		const showQuickActions = !summaryData.preferences.quickActionsDismissed;
+		// Stays after every step is done so the steps can still be reviewed; only an explicit dismissal hides it.
+		const showSetupProgress = !summaryData.preferences.setupProgressDismissed;
 		const att = summaryData.attendanceToday;
 
 		const statRow = (
@@ -268,30 +248,6 @@ export function DashboardPage() {
 
 		return (
 			<>
-				{noStudents && (
-					<Paper
-						sx={{
-							p: 3,
-							display: "flex",
-							alignItems: "center",
-							justifyContent: "space-between",
-							gap: 2,
-							flexWrap: "wrap",
-							backgroundColor: colors.accentSoft,
-							border: `1px solid ${colors.accent}`,
-						}}
-					>
-						<Typography variant="subtitle1" sx={{ color: colors.ink, fontWeight: 700 }}>
-							{primaryCta.heading}
-						</Typography>
-						{isPathEnabled(primaryCta.path) && (
-							<Button variant="contained" endIcon={<ArrowForwardIcon />} onClick={() => navigate(primaryCta.path)}>
-								{primaryCta.label}
-							</Button>
-						)}
-					</Paper>
-				)}
-
 				{noStudents ? (
 					<Accordion disableGutters sx={{ "&:before": { display: "none" }, boxShadow: "none", border: `1px solid ${colors.rule}` }}>
 						<AccordionSummary expandIcon={<ExpandMoreIcon />}>
@@ -312,24 +268,12 @@ export function DashboardPage() {
 
 				{showSetupProgress && <SetupProgress checklist={summaryData.setupChecklist} onDismiss={handleDismissSetupProgress} />}
 
-				<Grid container spacing={2.5}>
-					{isPathEnabled("/attendance") && att && (
-						<Grid size={{ xs: 12, lg: showQuickActions ? 8 : 12 }}>
-							<AttendanceOverview charts={charts} />
-						</Grid>
-					)}
-					{showQuickActions && (
-						<Grid size={{ xs: 12, lg: isPathEnabled("/attendance") && att ? 4 : 12 }}>
-							<QuickActions onDismiss={handleDismissQuickActions} />
-						</Grid>
-					)}
-					<Grid size={{ xs: 12, md: 6 }}>
-						<AnnouncementsCard />
-					</Grid>
-					<Grid size={{ xs: 12, md: 6 }}>
-						<UpcomingEventsCard />
-					</Grid>
-				</Grid>
+				{/* Cards that hide themselves (no permission / module off) render nothing, so the
+				    auto-fit grid lets a lone card span the full width instead of sitting in a half. */}
+				<Box sx={{ display: "grid", gap: 2.5, gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 380px), 1fr))" }}>
+					<AnnouncementsCard />
+					<UpcomingEventsCard />
+				</Box>
 
 				{!noStudents && (
 					<>

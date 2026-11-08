@@ -13,6 +13,8 @@ import com.operion.audit.AuditLogService;
 import com.operion.common.InvalidRequestException;
 import com.operion.common.TenantContext;
 import com.operion.organisation.AcademicYear;
+import com.operion.organisation.AcademicYearGuard;
+import com.operion.student.AdmissionFeeGate;
 import com.operion.student.StudentEnrollment;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -37,12 +39,13 @@ public class ExaminationService {
 	private final ReportCardRepository reportCardRepository;
 	private final ExaminationSettingsRepository examinationSettingsRepository;
 	private final AuditLogService auditLogService;
+	private final AdmissionFeeGate admissionFeeGate;
 
 	public ExaminationService(ExamRepository examRepository, ExamScheduleRepository examScheduleRepository,
 			GradingScaleRepository gradingScaleRepository, GradingScaleBandRepository gradingScaleBandRepository,
 			MarksEntryRepository marksEntryRepository, MarksEntryRegisterRepository marksEntryRegisterRepository,
 			ReportCardRepository reportCardRepository, ExaminationSettingsRepository examinationSettingsRepository,
-			AuditLogService auditLogService) {
+			AuditLogService auditLogService, AdmissionFeeGate admissionFeeGate) {
 		this.examRepository = examRepository;
 		this.examScheduleRepository = examScheduleRepository;
 		this.gradingScaleRepository = gradingScaleRepository;
@@ -52,15 +55,18 @@ public class ExaminationService {
 		this.reportCardRepository = reportCardRepository;
 		this.examinationSettingsRepository = examinationSettingsRepository;
 		this.auditLogService = auditLogService;
+		this.admissionFeeGate = admissionFeeGate;
 	}
 
 	public Exam createExam(AcademicYear academicYear, String name, ExamType examType) {
+		AcademicYearGuard.requireOpen(academicYear, "creating an exam");
 		return examRepository.save(new Exam(academicYear, name, examType));
 	}
 
 	/** Whole-class schedule (applies to every section). */
 	public ExamSchedule addSchedule(
 			Exam exam, SchoolClass schoolClass, Subject subject, LocalDate examDate, Double maxMarks, Double passMarks) {
+		AcademicYearGuard.requireOpen(exam.getAcademicYear(), "scheduling an exam");
 		return addSchedule(exam, schoolClass, null, subject, examDate, maxMarks, passMarks);
 	}
 
@@ -72,6 +78,7 @@ public class ExaminationService {
 	@Transactional
 	public ExamSchedule addSchedule(Exam exam, SchoolClass schoolClass, Section section, Subject subject,
 			LocalDate examDate, Double maxMarks, Double passMarks) {
+		AcademicYearGuard.requireOpen(exam.getAcademicYear(), "scheduling an exam");
 		List<ExamSchedule> existing =
 				examScheduleRepository.findByExamIdAndSchoolClassIdAndSubjectId(exam.getId(), schoolClass.getId(), subject.getId());
 		boolean conflicts = section == null ? !existing.isEmpty()
@@ -99,6 +106,8 @@ public class ExaminationService {
 	 */
 	@Transactional
 	public List<MarksEntry> enterMarks(ExamSchedule examSchedule, List<MarkInput> marks) {
+		requireOpen(examSchedule, "entering marks");
+		admissionFeeGate.requireAllowed(marks.stream().map(MarkInput::enrollment).toList(), "enter marks");
 		MarksEntryRegister register = registerFor(examSchedule);
 		if (register.getRegisterStatus() != MarksEntryRegisterStatus.DRAFT) {
 			throw new IllegalStateException(
@@ -122,6 +131,7 @@ public class ExaminationService {
 	/** DRAFT -> SUBMITTED. Creates the register (DRAFT) first if marks were never entered. */
 	@Transactional
 	public MarksEntryRegister submitMarksRegister(ExamSchedule examSchedule) {
+		requireOpen(examSchedule, "submitting a marks register");
 		MarksEntryRegister register = registerFor(examSchedule);
 		register.submit();
 		MarksEntryRegister saved = marksEntryRegisterRepository.save(register);
@@ -132,12 +142,17 @@ public class ExaminationService {
 	/** SUBMITTED -> APPROVED. */
 	@Transactional
 	public MarksEntryRegister approveMarksRegister(ExamSchedule examSchedule) {
+		requireOpen(examSchedule, "approving a marks register");
 		MarksEntryRegister register = marksEntryRegisterRepository.findByExamScheduleId(examSchedule.getId())
 				.orElseThrow(() -> new IllegalStateException("No marks entry register exists yet for schedule " + examSchedule.getId()));
 		register.approve();
 		MarksEntryRegister saved = marksEntryRegisterRepository.save(register);
 		auditLogService.record("MarksEntryRegister", saved.getId(), "APPROVED", MarksEntryRegisterStatus.SUBMITTED, MarksEntryRegisterStatus.APPROVED);
 		return saved;
+	}
+
+	private static void requireOpen(ExamSchedule examSchedule, String action) {
+		AcademicYearGuard.requireOpen(examSchedule.getExam().getAcademicYear(), action);
 	}
 
 	/** EXM-02: a mark outside 0..maxMarks would otherwise flow straight into a published grade. */
@@ -175,6 +190,8 @@ public class ExaminationService {
 	 */
 	@Transactional
 	public MarksEntry correctMarks(MarksEntry marksEntry, Double marksObtained, boolean absent, String remarks) {
+		requireOpen(marksEntry.getExamSchedule(), "correcting marks");
+		admissionFeeGate.requireAllowed(marksEntry.getStudentEnrollment(), "correct marks");
 		if (currentPublishedReportCard(marksEntry).isPresent()) {
 			throw new IllegalStateException(
 					"A report card is already published for this student's exam - use correctMarksAfterPublish() instead");
@@ -189,6 +206,8 @@ public class ExaminationService {
 	 */
 	@Transactional
 	public MarksEntry correctMarksAfterPublish(MarksEntry marksEntry, Double marksObtained, boolean absent, String remarks) {
+		requireOpen(marksEntry.getExamSchedule(), "correcting marks after publication");
+		admissionFeeGate.requireAllowed(marksEntry.getStudentEnrollment(), "correct marks after publication");
 		ReportCard published = currentPublishedReportCard(marksEntry)
 				.orElseThrow(() -> new IllegalStateException("No published report card exists for this student's exam - use correctMarks() instead"));
 		MarksEntry corrected = applyCorrection(marksEntry, marksObtained, absent, remarks, "CORRECTED_AFTER_PUBLISH");
@@ -222,6 +241,9 @@ public class ExaminationService {
 	 */
 	@Transactional
 	public ReportCard publishReportCard(Exam exam, StudentEnrollment studentEnrollment, GradingScale gradingScale) {
+		AcademicYearGuard.requireOpen(exam.getAcademicYear(), "publishing a report card");
+		AcademicYearGuard.requireOpen(studentEnrollment.getAcademicYear(), "publishing a report card");
+		admissionFeeGate.requireAllowed(studentEnrollment, "publish a report card");
 		Optional<ReportCard> existingPublished = reportCardRepository.findByExamIdAndStudentEnrollmentIdAndStatus(
 				exam.getId(), studentEnrollment.getId(), ReportCardStatus.PUBLISHED);
 		if (existingPublished.isPresent() && !existingPublished.get().isStale()) {

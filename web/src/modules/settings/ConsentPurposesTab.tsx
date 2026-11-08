@@ -16,6 +16,7 @@ import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import AddIcon from "@mui/icons-material/Add";
+import { Can } from "../../auth/Can";
 import { ApiError } from "../../api/client";
 import {
 	changeConsentPurposeStatus,
@@ -71,9 +72,11 @@ export function ConsentPurposesTab() {
 					What people can be asked to agree to, e.g. publishing photos or sharing contact details. Deactivating a
 					purpose stops new records but keeps the history.
 				</Typography>
-				<Button size="small" startIcon={<AddIcon />} onClick={() => setDialogOpen(true)}>
-					Add purpose
-				</Button>
+				<Can anyOf={["PRIVACY_MANAGE"]}>
+					<Button size="small" startIcon={<AddIcon />} onClick={() => setDialogOpen(true)}>
+						Add purpose
+					</Button>
+				</Can>
 			</Box>
 			{error && <Alert severity="error">{error}</Alert>}
 			<Table size="small">
@@ -98,9 +101,11 @@ export function ConsentPurposesTab() {
 								<Chip label={purpose.status} size="small" color={purpose.status === "ACTIVE" ? "success" : "default"} />
 							</TableCell>
 							<TableCell align="right">
-								<Button size="small" onClick={() => handleToggle(purpose)}>
-									{purpose.status === "ACTIVE" ? "Deactivate" : "Reactivate"}
-								</Button>
+								<Can anyOf={["PRIVACY_MANAGE"]}>
+									<Button size="small" onClick={() => handleToggle(purpose)}>
+										{purpose.status === "ACTIVE" ? "Deactivate" : "Reactivate"}
+									</Button>
+								</Can>
 							</TableCell>
 						</TableRow>
 					))}

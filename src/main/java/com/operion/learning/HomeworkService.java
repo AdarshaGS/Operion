@@ -18,6 +18,7 @@ import com.operion.academic.Subject;
 import com.operion.academic.SubjectRepository;
 import com.operion.identity.Person;
 import com.operion.identity.PersonRepository;
+import com.operion.student.AdmissionFeeGate;
 import com.operion.student.StudentEnrollment;
 import com.operion.student.StudentEnrollmentRepository;
 import com.operion.student.StudentRepository;
@@ -48,11 +49,13 @@ public class HomeworkService {
 	private final StudentRepository studentRepository;
 	private final StudentEnrollmentRepository enrollmentRepository;
 	private final ClassSubjectRepository classSubjectRepository;
+	private final AdmissionFeeGate admissionFeeGate;
 
 	public HomeworkService(HomeworkRepository homeworkRepository, HomeworkSubmissionRepository submissionRepository,
 			SectionRepository sectionRepository, SubjectRepository subjectRepository, PersonRepository personRepository,
 			StudentRepository studentRepository, StudentEnrollmentRepository enrollmentRepository,
-			ClassSubjectRepository classSubjectRepository) {
+			ClassSubjectRepository classSubjectRepository, AdmissionFeeGate admissionFeeGate) {
+		this.admissionFeeGate = admissionFeeGate;
 		this.classSubjectRepository = classSubjectRepository;
 		this.homeworkRepository = homeworkRepository;
 		this.submissionRepository = submissionRepository;
@@ -134,6 +137,10 @@ public class HomeworkService {
 				.orElseThrow(() -> new IllegalArgumentException("Submission not found: " + submissionId));
 		Homework homework = submission.getHomework();
 		actor.requireWrite(homework.getSection().getId(), homework.getSubject().getId());
+		// Teacher-side only: the child's own submitForChild is deliberately not gated. A student no longer
+		// enrolled has no current enrollment and so no admission-fee standing to check.
+		enrollmentRepository.findByStudentIdAndCurrentTrue(submission.getStudent().getId())
+				.ifPresent(enrollment -> admissionFeeGate.requireAllowed(enrollment, "review homework"));
 		submission.review(blankToNull(feedback), Instant.now());
 		return submission;
 	}

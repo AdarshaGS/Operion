@@ -106,7 +106,7 @@ throwaway database — see `env.ts` / `api/client.ts` for where the target ports
   module: students, academics, attendance (mark → submit → lock), fees (category +
   structure), examinations, communication, library, inventory, purchase (with its
   supplier/item setup), sales (with stock-entry precondition), HR (with its designation
-  precondition), transport, reporting, members (invite issuance), profile, settings
+  precondition), transport, reporting, members (add member with an admin-set password), profile, settings
   (custom role creation with permission checkboxes).
 - `tests/auth/` — login (success + failure), password reset (including the
   non-enumerable-response guarantee), staff-invite claim.
@@ -121,9 +121,9 @@ throwaway database — see `env.ts` / `api/client.ts` for where the target ports
   steps also run `support/scroll.ts`'s full-page-scroll/no-horizontal-overflow check at a
   1440×900 desktop viewport. `institution-owner-flow.spec.ts` is the one spec in the whole
   suite that provisions its own fresh, genuinely-empty organisation (see Architecture) —
-  it's the only place the setup checklist can be shown moving from 0 of 6 to 6 of 6 in
+  it's the only place the setup checklist can be shown moving from 0 of 12 to 8 of 12 in
   real dependency order, driven entirely through real UI, including two concrete
-  regression checks: partial Academic-setup data does *not* flip the checklist early, and
+  regression checks: partial class-and-section data does *not* flip the checklist early, and
   a native-required-field submit is genuinely blocked. See "Known gaps" below for what
   each flow spec deliberately does *not* assert, and why.
 

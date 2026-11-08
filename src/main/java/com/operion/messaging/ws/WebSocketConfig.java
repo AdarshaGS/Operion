@@ -15,7 +15,10 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
  * saves it. Auth happens per-STOMP-frame in StompAuthenticationInterceptor, not at the
  * HTTP handshake - see that class's doc for why. /ws isn't under /api/v1/**, so neither
  * JwtAuthenticationInterceptor nor PermissionInterceptor (both registered only against
- * that prefix in WebConfig) ever run against it.
+ * that prefix in WebConfig) ever run against it. Clients may only CONNECT, SUBSCRIBE,
+ * UNSUBSCRIBE and DISCONNECT: the simple broker also consumes the client inbound channel, so
+ * the interceptor must reject client SEND or it would be broadcast to a thread's subscribers
+ * (see StompAuthenticationInterceptor). The "/app" prefix has no handlers on purpose.
  */
 @Configuration
 @EnableWebSocketMessageBroker

@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
-import InputAdornment from "@mui/material/InputAdornment";
 import LinearProgress from "@mui/material/LinearProgress";
 import MenuItem from "@mui/material/MenuItem";
 import Paper from "@mui/material/Paper";
@@ -21,10 +20,10 @@ import AssignmentIcon from "@mui/icons-material/Assignment";
 import BarChartIcon from "@mui/icons-material/BarChart";
 import EmojiEventsIcon from "@mui/icons-material/EmojiEvents";
 import EventIcon from "@mui/icons-material/Event";
-import SearchIcon from "@mui/icons-material/Search";
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip as RechartsTooltip } from "recharts";
 import type { AcademicYearResponse } from "../../api/academicYears";
 import type { ExamOverviewResponse, ExamOverviewRow, ResultStatus } from "../../api/examOverview";
+import { CompactFilterBar, type ActiveFilter } from "../../components/CompactFilterBar";
 import { SectionCard } from "../../components/DashboardKit";
 import { colors } from "../../theme";
 
@@ -81,6 +80,18 @@ export function ExamsOverviewPanel({ overview, academicYears, academicYearId, on
 		);
 	}, [overview, status, examType, search]);
 
+	const activeFilters: ActiveFilter[] = [
+		...(status ? [{ key: "status", label: `Status: ${RESULT_STYLE[status as ResultStatus]?.label ?? status}`, onDelete: () => { setStatus(""); setPage(0); } }] : []),
+		...(examType ? [{ key: "examType", label: `Type: ${TYPE_LABEL[examType] ?? examType}`, onDelete: () => { setExamType(""); setPage(0); } }] : []),
+	];
+
+	function clearFilters() {
+		setStatus("");
+		setExamType("");
+		setSearch("");
+		setPage(0);
+	}
+
 	const pageRows = filtered.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 	const summary = overview?.resultSummary;
 
@@ -90,14 +101,26 @@ export function ExamsOverviewPanel({ overview, academicYears, academicYearId, on
 				<Stack spacing={2}>
 					<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 2, flexWrap: "wrap" }}>
 						<Typography variant="h6">Examinations</Typography>
-						<Stack direction="row" spacing={1.5} sx={{ flexWrap: "wrap", rowGap: 1.5 }}>
-							<TextField select size="small" label="Academic Year" value={academicYearId ?? ""} onChange={(e) => onAcademicYearChange(Number(e.target.value))} sx={{ minWidth: 150 }}>
-								{academicYears.map((year) => (
-									<MenuItem key={year.id} value={year.id}>
-										{year.name}
-									</MenuItem>
-								))}
-							</TextField>
+						<CompactFilterBar
+							startSlot={
+								<TextField select size="small" label="Academic Year" value={academicYearId ?? ""} onChange={(e) => onAcademicYearChange(Number(e.target.value))} sx={{ minWidth: 150 }}>
+									{academicYears.map((year) => (
+										<MenuItem key={year.id} value={year.id}>
+											{year.name}
+										</MenuItem>
+									))}
+								</TextField>
+							}
+							searchValue={search}
+							onSearchChange={(value) => {
+								setSearch(value);
+								setPage(0);
+							}}
+							searchLabel="Search examinations"
+							searchPlaceholder="Search examinations..."
+							activeFilters={activeFilters}
+							onClearAll={clearFilters}
+						>
 							<TextField
 								select
 								size="small"
@@ -107,7 +130,6 @@ export function ExamsOverviewPanel({ overview, academicYears, academicYearId, on
 									setStatus(e.target.value);
 									setPage(0);
 								}}
-								sx={{ minWidth: 140 }}
 							>
 								<MenuItem value="">All Status</MenuItem>
 								{(Object.keys(RESULT_STYLE) as ResultStatus[]).map((key) => (
@@ -125,7 +147,6 @@ export function ExamsOverviewPanel({ overview, academicYears, academicYearId, on
 									setExamType(e.target.value);
 									setPage(0);
 								}}
-								sx={{ minWidth: 140 }}
 							>
 								<MenuItem value="">All Types</MenuItem>
 								{Object.entries(TYPE_LABEL).map(([key, label]) => (
@@ -134,17 +155,7 @@ export function ExamsOverviewPanel({ overview, academicYears, academicYearId, on
 									</MenuItem>
 								))}
 							</TextField>
-							<TextField
-								size="small"
-								placeholder="Search examinations..."
-								value={search}
-								onChange={(e) => {
-									setSearch(e.target.value);
-									setPage(0);
-								}}
-								slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment> } }}
-							/>
-						</Stack>
+						</CompactFilterBar>
 					</Box>
 
 					<TableContainer>

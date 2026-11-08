@@ -22,10 +22,12 @@ import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
+import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import AddIcon from "@mui/icons-material/Add";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import DeleteIcon from "@mui/icons-material/Delete";
+import { useCan } from "../../auth/useCan";
 import { ApiError } from "../../api/client";
 import {
 	archiveReport,
@@ -51,6 +53,7 @@ function downloadCsv(filename: string, result: ReportResultResponse) {
 export function ReportDetailPage() {
 	const { reportId } = useParams<{ reportId: string }>();
 	const navigate = useNavigate();
+	const canExport = useCan("REPORT_EXPORT");
 
 	const [report, setReport] = useState<SavedReportResponse | null>(null);
 	const [loading, setLoading] = useState(true);
@@ -379,9 +382,13 @@ export function ReportDetailPage() {
 						<Button variant="contained" disabled={running} onClick={handleRun}>
 							Run
 						</Button>
-						<Button variant="outlined" disabled={running} onClick={handleExport}>
-							Export as CSV
-						</Button>
+						<Tooltip title={canExport ? "" : "You don't have permission to export reports"}>
+							<span>
+								<Button variant="outlined" disabled={running || !canExport} onClick={handleExport}>
+									Export as CSV
+								</Button>
+							</span>
+						</Tooltip>
 					</Stack>
 
 					{result && (

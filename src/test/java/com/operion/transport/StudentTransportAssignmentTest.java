@@ -141,7 +141,7 @@ class StudentTransportAssignmentTest {
 	@BeforeEach
 	void setUpStudentService() {
 		studentService = new StudentService(studentRepository, studentEnrollmentRepository, studentDocumentRepository,
-				studentExitRepository, null, null, studentIdGenerator, new AuditLogService(auditLogRepository, new ObjectMapper()),
+				studentExitRepository, sectionRepository, gradeLevelRepository, null, null, studentIdGenerator, new AuditLogService(auditLogRepository, new ObjectMapper()),
 			new CustomFieldService(customFieldDefinitionRepository, new ObjectMapper()));
 	}
 

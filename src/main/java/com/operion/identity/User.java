@@ -36,9 +36,14 @@ public class User extends TenantScopedEntity {
 	@Column
 	private String phone;
 
-	@Setter
 	@Column(name = "password_hash", nullable = false)
 	private String passwordHash;
+
+	/** Bumped on every password change and stamped into each access JWT ("cv" claim); the
+	 * interceptor rejects a token whose version no longer matches, so changing or resetting a
+	 * password cuts off access tokens already in someone's hands, not just future logins. */
+	@Column(name = "credential_version", nullable = false)
+	private long credentialVersion;
 
 	@Setter
 	@Enumerated(EnumType.STRING)
@@ -52,6 +57,14 @@ public class User extends TenantScopedEntity {
 	@Setter
 	@Column(name = "email_verified_at")
 	private Instant emailVerifiedAt;
+
+	/** Every route that replaces the hash (self-service change, reset, invite claim) goes
+	 * through here, so each one invalidates previously issued access tokens without having to
+	 * remember to. */
+	public void setPasswordHash(String passwordHash) {
+		this.passwordHash = passwordHash;
+		this.credentialVersion++;
+	}
 
 	public User(String email, String phone, String passwordHash) {
 		this.email = email;

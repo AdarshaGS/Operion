@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
-import Button from "@mui/material/Button";
 import MenuItem from "@mui/material/MenuItem";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
@@ -14,6 +13,8 @@ import TablePagination from "@mui/material/TablePagination";
 import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
+import { CompactFilterBar, type ActiveFilter } from "../../components/CompactFilterBar";
+import { PanelTitle } from "./PanelTitle";
 import { getAuditLogEntityTypes, getAuditLogs, type AuditLogResponse } from "../../api/auditLogs";
 import { ApiError } from "../../api/client";
 import { listUsers, type UserResponse } from "../../api/users";
@@ -70,19 +71,24 @@ export function AuditLogsPanel({ defaultEntityType = "" }: { defaultEntityType?:
 		setPage(0);
 	}
 
-	const hasFilters = entityType !== "" || actorUserId !== "" || from !== "" || to !== "";
+	const activeFilters: ActiveFilter[] = [
+		...(entityType ? [{ key: "entityType", label: `Entity: ${entityType}`, onDelete: () => { setEntityType(""); setPage(0); } }] : []),
+		...(actorUserId ? [{ key: "actor", label: `Actor: ${actorEmailById.get(Number(actorUserId)) ?? `User #${actorUserId}`}`, onDelete: () => { setActorUserId(""); setPage(0); } }] : []),
+		...(from ? [{ key: "from", label: `From: ${from}`, onDelete: () => { setFrom(""); setPage(0); } }] : []),
+		...(to ? [{ key: "to", label: `To: ${to}`, onDelete: () => { setTo(""); setPage(0); } }] : []),
+	];
 
 	return (
 		<Paper sx={{ p: 3 }}>
 			<Stack spacing={2}>
-				<Typography variant="h6">Audit logs</Typography>
+				<PanelTitle>Audit logs</PanelTitle>
 				<Typography variant="body2" color="text.secondary">
 					Who changed roles, fee records, marks, student data, and settings - read-only.
 				</Typography>
 
 				{error && <Alert severity="error">{error}</Alert>}
 
-				<Stack direction="row" spacing={2} sx={{ flexWrap: "wrap" }}>
+				<CompactFilterBar activeFilters={activeFilters} onClearAll={clearFilters}>
 					<TextField
 						select
 						label="Entity type"
@@ -92,7 +98,6 @@ export function AuditLogsPanel({ defaultEntityType = "" }: { defaultEntityType?:
 							setEntityType(e.target.value);
 							setPage(0);
 						}}
-						sx={{ minWidth: 180 }}
 					>
 						<MenuItem value="">All</MenuItem>
 						{(entityType && !entityTypes.includes(entityType) ? [...entityTypes, entityType] : entityTypes).map((type) => (
@@ -110,7 +115,6 @@ export function AuditLogsPanel({ defaultEntityType = "" }: { defaultEntityType?:
 							setActorUserId(e.target.value);
 							setPage(0);
 						}}
-						sx={{ minWidth: 200 }}
 					>
 						<MenuItem value="">All</MenuItem>
 						{users.map((user) => (
@@ -141,12 +145,7 @@ export function AuditLogsPanel({ defaultEntityType = "" }: { defaultEntityType?:
 						}}
 						slotProps={{ inputLabel: { shrink: true } }}
 					/>
-					{hasFilters && (
-						<Button size="small" onClick={clearFilters} sx={{ alignSelf: "center" }}>
-							Clear filters
-						</Button>
-					)}
-				</Stack>
+				</CompactFilterBar>
 
 				<TableContainer>
 					<Table size="small">

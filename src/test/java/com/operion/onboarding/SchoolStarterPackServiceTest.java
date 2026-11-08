@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -126,12 +127,12 @@ class SchoolStarterPackServiceTest {
 
 	@Test
 	void applyingWithAnswersRecordsEveryModuleAndHandsTheDisabledOnesToTheTemplate() {
-		when(templateService.apply(anySet())).thenReturn(new SchoolTemplateResult());
+		when(templateService.apply(anySet(), isNull())).thenReturn(new SchoolTemplateResult());
 
 		service.apply(Map.of("EXAMS", false, "PROCUREMENT", true));
 
 		verify(templateService).apply(argThat((Set<AppModule> disabled) -> disabled.contains(AppModule.TRANSPORT)
-				&& disabled.contains(AppModule.EXAMINATIONS) && !disabled.contains(AppModule.FEES)));
+				&& disabled.contains(AppModule.EXAMINATIONS) && !disabled.contains(AppModule.FEES)), isNull());
 		assertThat(moduleAccessService.history(organisation.getId())).hasSize(AppModule.values().length)
 				.allMatch(row -> "Set by School Starter Pack".equals(row.getNote()));
 		Set<AppModule> disabled = moduleAccessService.disabledModules(organisation.getId());
@@ -143,7 +144,7 @@ class SchoolStarterPackServiceTest {
 
 	@Test
 	void theChoiceCanOnlyBeMadeOnce() {
-		when(templateService.apply(anySet())).thenReturn(new SchoolTemplateResult());
+		when(templateService.apply(anySet(), isNull())).thenReturn(new SchoolTemplateResult());
 		service.apply(Map.of());
 
 		assertThatThrownBy(() -> service.apply(Map.of("TRANSPORT", true))).isInstanceOf(IllegalStateException.class);
@@ -152,14 +153,14 @@ class SchoolStarterPackServiceTest {
 
 	@Test
 	void applyingWithoutAnswersTouchesNoModuleSetting() {
-		when(templateService.apply(anySet())).thenReturn(new SchoolTemplateResult());
+		when(templateService.apply(anySet(), isNull())).thenReturn(new SchoolTemplateResult());
 		moduleAccessService.setEnabled(organisation.getId(), AppModule.HR, false, "platform");
 
 		service.apply(null);
 
 		verify(templateService).apply(EnumSet.of(AppModule.HR, AppModule.LIBRARY, AppModule.LEARNING, AppModule.TRANSPORT, AppModule.MESSAGING,
 				AppModule.INVENTORY, AppModule.PURCHASE, AppModule.SALES, AppModule.REPORTS, AppModule.PAYROLL, AppModule.COMPLIANCE,
-				AppModule.PERFORMANCE));
+				AppModule.PERFORMANCE), null);
 		assertThat(moduleAccessService.history(organisation.getId())).hasSize(1);
 	}
 
@@ -169,6 +170,6 @@ class SchoolStarterPackServiceTest {
 
 		assertThat(service.needs().canSelectModules()).isFalse();
 		assertThatThrownBy(() -> service.apply(Map.of())).isInstanceOf(IllegalStateException.class);
-		verify(templateService, never()).apply(anySet());
+		verify(templateService, never()).apply(anySet(), isNull());
 	}
 }

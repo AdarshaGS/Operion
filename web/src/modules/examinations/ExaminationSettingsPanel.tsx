@@ -96,6 +96,7 @@ export function ExaminationSettingsPanel() {
             <Switch
               checked={rankingEnabled}
               onChange={(e) => setRankingEnabled(e.target.checked)}
+              disabled={!canManage}
             />
           }
           label="Compute subject-wise and class-wise rank"
@@ -104,6 +105,7 @@ export function ExaminationSettingsPanel() {
         <TextField
           select
           label="Overall pass/fail strategy"
+          disabled={!canManage}
           value={passFailStrategy}
           onChange={(e) =>
             setPassFailStrategy(e.target.value as PassFailStrategy)
@@ -121,6 +123,7 @@ export function ExaminationSettingsPanel() {
           <TextField
             label="Minimum aggregate percentage"
             type="number"
+            disabled={!canManage}
             value={minimumAggregatePercentage}
             onChange={(e) => setMinimumAggregatePercentage(e.target.value)}
             sx={{ maxWidth: 240 }}

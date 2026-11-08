@@ -5,6 +5,7 @@ import java.util.Map;
 import com.operion.common.imports.ImportRowResult;
 import com.operion.common.imports.ImportRowStatus;
 import com.operion.organisation.AcademicYear;
+import com.operion.organisation.AcademicYearGuard;
 import com.operion.organisation.AcademicYearRepository;
 import com.operion.organisation.Campus;
 import com.operion.organisation.CampusRepository;
@@ -49,6 +50,8 @@ public class ClassSectionRowImportService {
 
 		AcademicYear academicYear = academicYearRepository.findByNameIgnoreCase(academicYearLabel)
 				.orElseThrow(() -> new IllegalArgumentException("No academic year named " + academicYearLabel));
+		// Up front, so a dry run reports the closed year too instead of VALID for rows that would then fail.
+		AcademicYearGuard.requireOpen(academicYear, "importing classes and sections");
 		Campus campus = campusRepository.findByNameIgnoreCase(campusName)
 				.orElseThrow(() -> new IllegalArgumentException("No campus named " + campusName));
 

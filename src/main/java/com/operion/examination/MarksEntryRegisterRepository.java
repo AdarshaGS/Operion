@@ -11,6 +11,9 @@ public interface MarksEntryRegisterRepository extends JpaRepository<MarksEntryRe
 
 	Optional<MarksEntryRegister> findByExamScheduleId(Long examScheduleId);
 
+	/** Cheap existence probe for the dashboard setup checklist - has any register reached this status. */
+	boolean existsByRegisterStatus(MarksEntryRegisterStatus registerStatus);
+
 	/** Examinations overview - every marks register in one academic year. */
 	@Query("SELECT r FROM MarksEntryRegister r JOIN FETCH r.examSchedule s WHERE s.exam.academicYear.id = :academicYearId")
 	List<MarksEntryRegister> findForOverview(@Param("academicYearId") Long academicYearId);

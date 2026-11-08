@@ -30,6 +30,7 @@ import { subscribeToThread } from "../../api/messagingSocket";
 import { type PersonResponse, listPersons } from "../../api/persons";
 import { listSchoolClasses, type SchoolClassResponse } from "../../api/schoolClasses";
 import { listSections, type SectionResponse } from "../../api/sections";
+import { useCampusFiltered, useSelectedCampusId } from "../../layout/selectedCampus";
 import { useSchoolClassLabel } from "../../utils/useSchoolClassLabel";
 
 function threadTitle(thread: MessageThreadResponse): string {
@@ -250,6 +251,8 @@ function OpenClassGroupDialog({
 }) {
 	const [classes, setClasses] = useState<SchoolClassResponse[]>([]);
 	const classLabel = useSchoolClassLabel();
+	const selectedCampusId = useSelectedCampusId();
+	const campusClasses = useCampusFiltered(classes);
 	const [sections, setSections] = useState<SectionResponse[]>([]);
 	const [classId, setClassId] = useState("");
 	const [sectionId, setSectionId] = useState("");
@@ -257,6 +260,11 @@ function OpenClassGroupDialog({
 	useEffect(() => {
 		if (open) listSchoolClasses().then(setClasses).catch(() => {});
 	}, [open]);
+
+	// A class picked under another campus is dropped when the campus changes (which also clears its section).
+	useEffect(() => {
+		if (classId && !campusClasses.some((c) => String(c.id) === String(classId))) setClassId("");
+	}, [campusClasses, classId]);
 
 	useEffect(() => {
 		setSectionId("");
@@ -283,8 +291,11 @@ function OpenClassGroupDialog({
 			<DialogTitle>Open a class group</DialogTitle>
 			<DialogContent>
 				<Stack spacing={2} sx={{ mt: 1 }}>
+					{selectedCampusId !== null && classes.length > 0 && campusClasses.length === 0 && (
+						<Alert severity="info">No classes in the selected campus.</Alert>
+					)}
 					<TextField select label="Class" value={classId} onChange={(e) => setClassId(e.target.value)}>
-						{classes.map((schoolClass) => (
+						{campusClasses.map((schoolClass) => (
 							<MenuItem key={schoolClass.id} value={schoolClass.id}>
 								{classLabel(schoolClass)}
 							</MenuItem>

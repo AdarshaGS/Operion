@@ -21,6 +21,7 @@ import TableRow from "@mui/material/TableRow";
 import Tabs from "@mui/material/Tabs";
 import Tab from "@mui/material/Tab";
 import TextField from "@mui/material/TextField";
+import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -58,6 +59,7 @@ function emptyColumn(): DraftColumn {
 export function ReportsPanel() {
 	const navigate = useNavigate();
 	const { session, hasAnyPermission } = useAuth();
+	const canCreateReport = hasAnyPermission(["REPORT_CREATE"]);
 	const [reports, setReports] = useState<SavedReportResponse[]>([]);
 	const [tab, setTab] = useState<"mine" | "shared">("mine");
 	const [error, setError] = useState<string | null>(null);
@@ -142,9 +144,13 @@ export function ReportsPanel() {
 								Seed standard reports
 							</Button>
 						)}
-						<Button size="small" startIcon={<AddIcon />} onClick={openDialog}>
-							Create report
-						</Button>
+						<Tooltip title={canCreateReport ? "" : "You don't have permission to create reports"}>
+							<span>
+								<Button size="small" startIcon={<AddIcon />} onClick={openDialog} disabled={!canCreateReport}>
+									Create report
+								</Button>
+							</span>
+						</Tooltip>
 					</Stack>
 				</Box>
 

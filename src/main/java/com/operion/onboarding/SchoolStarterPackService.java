@@ -84,8 +84,13 @@ public class SchoolStarterPackService {
 	}
 
 	public SchoolTemplateStatus preview() {
+		return preview(null);
+	}
+
+	/** Preview with classes and sections reported against {@code academicYearId} (null: the current year). */
+	public SchoolTemplateStatus preview(Long academicYearId) {
 		Long organisationId = TenantContext.getOrganisationId();
-		return schoolTemplateService.preview(organisationId == null ? Set.of() : moduleAccessService.disabledModules(organisationId));
+		return schoolTemplateService.preview(organisationId == null ? Set.of() : moduleAccessService.disabledModules(organisationId), academicYearId);
 	}
 
 	/**
@@ -95,9 +100,14 @@ public class SchoolStarterPackService {
 	 * settings write can simply be retried.
 	 */
 	public SchoolTemplateResult apply(Map<String, Boolean> answers) {
+		return apply(answers, null);
+	}
+
+	/** As {@link #apply(Map)}, creating classes and sections in {@code academicYearId} (null: the current year). */
+	public SchoolTemplateResult apply(Map<String, Boolean> answers, Long academicYearId) {
 		Long organisationId = TenantContext.getOrganisationId();
 		if (answers == null) {
-			return schoolTemplateService.apply(moduleAccessService.disabledModules(organisationId));
+			return schoolTemplateService.apply(moduleAccessService.disabledModules(organisationId), academicYearId);
 		}
 		if (moduleAccessService.hasHistory(organisationId)) {
 			throw new IllegalStateException("Modules were already configured for this organisation; only the platform owner can change them now");
@@ -106,7 +116,7 @@ public class SchoolStarterPackService {
 		recommend(answers).modules().stream().filter(ModuleChoice::enabled).forEach(choice -> enabled.add(choice.module()));
 		Set<AppModule> disabled = EnumSet.complementOf(enabled);
 
-		SchoolTemplateResult result = schoolTemplateService.apply(disabled);
+		SchoolTemplateResult result = schoolTemplateService.apply(disabled, academicYearId);
 		moduleAccessService.applyInitialSelection(organisationId, enabled, NOTE);
 		return result;
 	}

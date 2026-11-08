@@ -118,9 +118,11 @@ export function SuppliersPanel() {
 										<Chip label={supplier.status} size="small" />
 									</TableCell>
 									<TableCell>
-										<Button size="small" onClick={() => handleToggleStatus(supplier)}>
-											{supplier.status === "ACTIVE" ? "Deactivate" : "Reactivate"}
-										</Button>
+										<Can anyOf={["INVENTORY_SUPPLIER_MANAGE"]}>
+											<Button size="small" onClick={() => handleToggleStatus(supplier)}>
+												{supplier.status === "ACTIVE" ? "Deactivate" : "Reactivate"}
+											</Button>
+										</Can>
 									</TableCell>
 								</TableRow>
 							))}

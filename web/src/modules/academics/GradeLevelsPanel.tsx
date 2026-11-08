@@ -18,6 +18,7 @@ import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import AddIcon from "@mui/icons-material/Add";
+import { Can } from "../../auth/Can";
 import { ApiError } from "../../api/client";
 import {
 	changeGradeLevelStatus,
@@ -136,9 +137,11 @@ export function GradeLevelsPanel() {
 			<Stack spacing={2}>
 				<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
 					<Typography variant="h6">Grade levels</Typography>
-					<Button size="small" startIcon={<AddIcon />} onClick={() => setDialogOpen(true)}>
-						Add grade level
-					</Button>
+					<Can anyOf={["GRADE_LEVEL_MANAGE"]}>
+						<Button size="small" startIcon={<AddIcon />} onClick={() => setDialogOpen(true)}>
+							Add grade level
+						</Button>
+					</Can>
 				</Box>
 
 				{error && <Alert severity="error">{error}</Alert>}
@@ -164,12 +167,14 @@ export function GradeLevelsPanel() {
 										<Chip label={level.status} size="small" />
 									</TableCell>
 									<TableCell>
-										<Button size="small" onClick={() => openEdit(level)}>
-											Edit
-										</Button>
-										<Button size="small" onClick={() => handleToggleStatus(level)}>
-											{level.status === "ACTIVE" ? "Deactivate" : "Reactivate"}
-										</Button>
+										<Can anyOf={["GRADE_LEVEL_MANAGE"]}>
+											<Button size="small" onClick={() => openEdit(level)}>
+												Edit
+											</Button>
+											<Button size="small" onClick={() => handleToggleStatus(level)}>
+												{level.status === "ACTIVE" ? "Deactivate" : "Reactivate"}
+											</Button>
+										</Can>
 									</TableCell>
 								</TableRow>
 							))}

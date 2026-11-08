@@ -36,6 +36,11 @@ public class RazorpayWebhookController {
 		JsonNode paymentEntity = root.path("payload").path("payment").path("entity");
 		String gatewayOrderId = paymentEntity.path("order_id").asString(null);
 		String gatewayPaymentId = paymentEntity.path("id").asString(null);
-		gatewayService.handleWebhook(rawBody, signature, event, gatewayOrderId, gatewayPaymentId);
+		// Razorpay reports the captured amount in paise as an integer; anything else is passed on as
+		// "unknown" so the service refuses to credit it rather than guessing.
+		JsonNode amountNode = paymentEntity.path("amount");
+		Long capturedAmountInPaise = amountNode.isIntegralNumber() && amountNode.canConvertToLong() ? amountNode.longValue() : null;
+		String capturedCurrency = paymentEntity.path("currency").asString(null);
+		gatewayService.handleWebhook(rawBody, signature, event, gatewayOrderId, gatewayPaymentId, capturedAmountInPaise, capturedCurrency);
 	}
 }

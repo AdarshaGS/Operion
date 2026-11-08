@@ -5,6 +5,8 @@ export interface CreateFeeCategoryRequest {
 	name: string;
 	description?: string | null;
 	categoryType: string;
+	/** Optional; the backend defaults it to false. */
+	requiredAtAdmission?: boolean;
 }
 
 export interface FeeCategoryResponse {
@@ -14,6 +16,7 @@ export interface FeeCategoryResponse {
 	description: string | null;
 	status: string;
 	categoryType: string;
+	requiredAtAdmission: boolean;
 }
 
 export function createFeeCategory(request: CreateFeeCategoryRequest): Promise<FeeCategoryResponse> {
@@ -22,4 +25,9 @@ export function createFeeCategory(request: CreateFeeCategoryRequest): Promise<Fe
 
 export function listFeeCategories(): Promise<FeeCategoryResponse[]> {
 	return api.get<FeeCategoryResponse[]>("/api/v1/fees/categories");
+}
+
+/** Flips whether the category's first instalment is invoiced at enrolment. Needs FEE_CATEGORY_MANAGE. */
+export function updateFeeCategoryAdmission(id: number, requiredAtAdmission: boolean): Promise<FeeCategoryResponse> {
+	return api.put<FeeCategoryResponse>(`/api/v1/fees/categories/${id}/admission`, { requiredAtAdmission });
 }

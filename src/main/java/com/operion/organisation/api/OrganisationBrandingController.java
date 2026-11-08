@@ -3,6 +3,7 @@ package com.operion.organisation.api;
 import com.operion.authorization.RequirePermission;
 import com.operion.common.InvalidRequestException;
 import com.operion.common.TenantContext;
+import com.operion.organisation.DocumentNumberFormatter;
 import com.operion.organisation.OrganisationBranding;
 import com.operion.organisation.OrganisationBrandingRepository;
 import com.operion.storage.AssetStorageService;
@@ -39,6 +40,9 @@ public class OrganisationBrandingController {
 	@PutMapping
 	@RequirePermission("ORGANISATION_MANAGE")
 	public OrganisationBrandingResponse update(@Valid @RequestBody UpdateOrganisationBrandingRequest request) {
+		DocumentNumberFormatter.requireValid(request.admissionNumberFormat());
+		DocumentNumberFormatter.requireValid(request.invoiceNumberFormat());
+		DocumentNumberFormatter.requireValid(request.receiptNumberFormat());
 		OrganisationBranding branding = currentBranding();
 		requireStored("logoRef", request.logoRef());
 		requireStored("stampRef", request.stampRef());

@@ -1,13 +1,20 @@
 package com.operion.organisation.api;
 
+import java.time.Duration;
+
 import com.operion.authorization.RequirePermission;
+import com.operion.common.ClientIpResolver;
 import com.operion.common.EnumParam;
+import com.operion.common.SlidingWindowRateLimiter;
 import com.operion.common.TenantContext;
+import com.operion.common.TooManyRequestsException;
 import com.operion.organisation.Organisation;
 import com.operion.organisation.OrganisationService;
 import com.operion.organisation.OrganisationStatus;
 import com.operion.platform.settings.PlatformSettingsService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -33,14 +40,24 @@ public class OrganisationController {
 
 	private final OrganisationService organisationService;
 	private final PlatformSettingsService platformSettingsService;
+	private final ClientIpResolver clientIpResolver;
+	/** Public sign-up creates an organisation, an admin login and a billing subscription per call, so it is limited per
+	 * caller address (SEC-M4). The cap is configurable because automated test runs legitimately provision many. */
+	private final SlidingWindowRateLimiter createLimiter;
 
-	public OrganisationController(OrganisationService organisationService, PlatformSettingsService platformSettingsService) {
+	public OrganisationController(OrganisationService organisationService, PlatformSettingsService platformSettingsService,
+			ClientIpResolver clientIpResolver, @Value("${app.rate-limit.org-create.max-per-hour:10}") int createMaxPerHour) {
 		this.organisationService = organisationService;
 		this.platformSettingsService = platformSettingsService;
+		this.clientIpResolver = clientIpResolver;
+		this.createLimiter = new SlidingWindowRateLimiter(createMaxPerHour, Duration.ofHours(1), 10_000);
 	}
 
 	@PostMapping
-	public OrganisationResponse create(@Valid @RequestBody CreateOrganisationRequest request) {
+	public OrganisationResponse create(@Valid @RequestBody CreateOrganisationRequest request, HttpServletRequest httpRequest) {
+		if (!createLimiter.tryAcquire(clientIpResolver.resolve(httpRequest))) {
+			throw new TooManyRequestsException("Too many organisations created from this address. Please try again later.");
+		}
 		Organisation organisation = organisationService.provision(request.toOrganisation(), request.toProfile(),
 				request.toAdminAccount(), request.toAcademicYearDetails(), request.toPlanSelection());
 		return OrganisationResponse.from(organisation, platformSettingsService.current().getTrialDays());

@@ -84,12 +84,6 @@ export function ExaminationsPage() {
 							Create Examination
 						</Button>
 					</Can>
-					<Button variant="outlined" color="inherit" startIcon={<GradingIcon />} onClick={() => setTab("grading")}>
-						Grading Scales
-					</Button>
-					<Button variant="outlined" color="inherit" startIcon={<SettingsIcon />} onClick={() => setTab("settings")}>
-						Examination Settings
-					</Button>
 				</Stack>
 			</Box>
 

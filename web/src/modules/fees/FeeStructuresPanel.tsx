@@ -1,7 +1,9 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
+import Checkbox from "@mui/material/Checkbox";
+import FormControlLabel from "@mui/material/FormControlLabel";
 import Chip from "@mui/material/Chip";
 import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
@@ -33,6 +35,7 @@ import { createFeeStructure, listFeeStructures, type FeeStructureResponse, type 
 import { listCampuses, type CampusResponse } from "../../api/campuses";
 import { listGradeLevels, type GradeLevelResponse } from "../../api/gradeLevels";
 import { listSchoolClasses, type SchoolClassResponse } from "../../api/schoolClasses";
+import { useCampusFiltered, useSelectedCampusId } from "../../layout/selectedCampus";
 
 const EMPTY_INSTALLMENT: InstallmentEntry = { installmentNumber: 1, dueDate: "", amount: 0 };
 const PAYMENT_FREQUENCIES = ["MONTHLY", "QUARTERLY", "HALF_YEARLY", "ONE_SHOT"];
@@ -58,6 +61,9 @@ export function FeeStructuresPanel() {
 	const [amount, setAmount] = useState("");
 	const [installments, setInstallments] = useState<InstallmentEntry[]>([{ ...EMPTY_INSTALLMENT }]);
 	const [paymentFrequency, setPaymentFrequency] = useState("MONTHLY");
+	// Off = paid at once: one due date, one payment for the full amount. On = split into installments.
+	const [usesInstallments, setUsesInstallments] = useState(false);
+	const [singleDueDate, setSingleDueDate] = useState("");
 	const [oneShotDiscountAmount, setOneShotDiscountAmount] = useState("");
 	const [submitting, setSubmitting] = useState(false);
 
@@ -77,7 +83,15 @@ export function FeeStructuresPanel() {
 		return campus ? `${name} · ${campus}` : name;
 	}
 
-	const yearClasses = classes.filter((c) => String(c.academicYearId) === String(academicYearId));
+	const selectedCampusId = useSelectedCampusId();
+	const yearClasses = useMemo(() => classes.filter((c) => String(c.academicYearId) === String(academicYearId)), [classes, academicYearId]);
+	const campusYearClasses = useCampusFiltered(yearClasses);
+
+	// A class picked under another campus is dropped when the campus changes.
+	useEffect(() => {
+		// The Select hands back the MenuItem's numeric value, so compare as strings.
+		if (schoolClassId && !campusYearClasses.some((c) => String(c.id) === String(schoolClassId))) setSchoolClassId("");
+	}, [campusYearClasses, schoolClassId]);
 
 	function refreshGroup() {
 		if (!academicYearId || !schoolClassId) {
@@ -105,7 +119,9 @@ export function FeeStructuresPanel() {
 	useEffect(refreshStructures, [group]);
 
 	const installmentTotal = installments.reduce((sum, entry) => sum + (Number(entry.amount) || 0), 0);
-	const totalsMatch = installments.length > 0 && Math.abs(installmentTotal - (Number(amount) || 0)) < 0.005;
+	const totalsMatch = usesInstallments
+		? installments.length > 0 && Math.abs(installmentTotal - (Number(amount) || 0)) < 0.005
+		: Number(amount) > 0 && singleDueDate !== "";
 
 	function openGroupDialog() {
 		const year = academicYears.find((y) => String(y.id) === String(academicYearId));
@@ -139,6 +155,8 @@ export function FeeStructuresPanel() {
 		setAmount("");
 		setInstallments([{ ...EMPTY_INSTALLMENT }]);
 		setPaymentFrequency("MONTHLY");
+		setUsesInstallments(false);
+		setSingleDueDate("");
 		setOneShotDiscountAmount("");
 		setDialogOpen(true);
 	}
@@ -164,9 +182,11 @@ export function FeeStructuresPanel() {
 				feeStructureGroupId: group.id,
 				feeCategoryId: Number(feeCategoryId),
 				amount: Number(amount),
-				installments,
-				paymentFrequency,
-				oneShotDiscountAmount: oneShotDiscountAmount ? Number(oneShotDiscountAmount) : null,
+				installments: usesInstallments
+					? installments
+					: [{ installmentNumber: 1, dueDate: singleDueDate, amount: Number(amount) }],
+				paymentFrequency: usesInstallments ? paymentFrequency : "ONE_SHOT",
+				oneShotDiscountAmount: usesInstallments && oneShotDiscountAmount ? Number(oneShotDiscountAmount) : null,
 			});
 			setDialogOpen(false);
 			refreshStructures();
@@ -211,13 +231,17 @@ export function FeeStructuresPanel() {
 						disabled={!academicYearId}
 						sx={{ minWidth: 260 }}
 					>
-						{yearClasses.map((schoolClass) => (
+						{campusYearClasses.map((schoolClass) => (
 							<MenuItem key={schoolClass.id} value={schoolClass.id}>
 								{classLabel(schoolClass)}
 							</MenuItem>
 						))}
 					</TextField>
 				</Box>
+
+				{selectedCampusId !== null && yearClasses.length > 0 && campusYearClasses.length === 0 && (
+					<Alert severity="info">No classes in the selected campus.</Alert>
+				)}
 
 				{error && <Alert severity="error">{error}</Alert>}
 
@@ -308,68 +332,88 @@ export function FeeStructuresPanel() {
 							))}
 						</TextField>
 						<TextField label="Total amount" type="number" value={amount} onChange={(e) => setAmount(e.target.value)} required fullWidth />
-						<Box sx={{ display: "flex", gap: 2 }}>
+						<FormControlLabel
+							control={<Checkbox checked={usesInstallments} onChange={(e) => setUsesInstallments(e.target.checked)} />}
+							label="Pay in installments"
+						/>
+						{!usesInstallments && (
 							<TextField
-								select
-								label="Payment frequency"
-								value={paymentFrequency}
-								onChange={(e) => setPaymentFrequency(e.target.value)}
-								fullWidth
-							>
-								{PAYMENT_FREQUENCIES.map((frequency) => (
-									<MenuItem key={frequency} value={frequency}>
-										{frequency}
-									</MenuItem>
-								))}
-							</TextField>
-							<TextField
-								label="One-shot discount (optional)"
-								type="number"
-								value={oneShotDiscountAmount}
-								onChange={(e) => setOneShotDiscountAmount(e.target.value)}
-								helperText="Flat amount off when paid in full instead of by installment"
+								label="Due date"
+								type="date"
+								value={singleDueDate}
+								onChange={(e) => setSingleDueDate(e.target.value)}
+								required
+								slotProps={{ inputLabel: { shrink: true } }}
+								helperText="The full amount is payable at once on this date"
 								fullWidth
 							/>
-						</Box>
+						)}
+						{usesInstallments && (
+							<>
+								<Box sx={{ display: "flex", gap: 2 }}>
+									<TextField
+										select
+										label="Payment frequency"
+										value={paymentFrequency}
+										onChange={(e) => setPaymentFrequency(e.target.value)}
+										fullWidth
+									>
+										{PAYMENT_FREQUENCIES.map((frequency) => (
+											<MenuItem key={frequency} value={frequency}>
+												{frequency}
+											</MenuItem>
+										))}
+									</TextField>
+									<TextField
+										label="One-shot discount (optional)"
+										type="number"
+										value={oneShotDiscountAmount}
+										onChange={(e) => setOneShotDiscountAmount(e.target.value)}
+										helperText="Flat amount off when paid in full instead of by installment"
+										fullWidth
+									/>
+								</Box>
 
-						<Typography variant="subtitle2">Installments</Typography>
-						{installments.map((installment, index) => (
-							<Box key={index} sx={{ display: "flex", gap: 1, alignItems: "center" }}>
-								<TextField
-									label="#"
-									type="number"
-									value={installment.installmentNumber}
-									onChange={(e) => updateInstallment(index, { installmentNumber: Number(e.target.value) })}
-									sx={{ width: 70 }}
-								/>
-								<TextField
-									label="Due date"
-									type="date"
-									value={installment.dueDate}
-									onChange={(e) => updateInstallment(index, { dueDate: e.target.value })}
-									slotProps={{ inputLabel: { shrink: true } }}
-									sx={{ flex: 1 }}
-								/>
-								<TextField
-									label="Amount"
-									type="number"
-									value={installment.amount}
-									onChange={(e) => updateInstallment(index, { amount: Number(e.target.value) })}
-									sx={{ flex: 1 }}
-								/>
-								<IconButton onClick={() => removeInstallment(index)} disabled={installments.length === 1}>
-									<DeleteIcon fontSize="small" />
-								</IconButton>
-							</Box>
-						))}
-						<Button size="small" startIcon={<AddIcon />} onClick={addInstallment} sx={{ alignSelf: "flex-start" }}>
-							Add installment
-						</Button>
+								<Typography variant="subtitle2">Installments</Typography>
+								{installments.map((installment, index) => (
+									<Box key={index} sx={{ display: "flex", gap: 1, alignItems: "center" }}>
+										<TextField
+											label="#"
+											type="number"
+											value={installment.installmentNumber}
+											onChange={(e) => updateInstallment(index, { installmentNumber: Number(e.target.value) })}
+											sx={{ width: 70 }}
+										/>
+										<TextField
+											label="Due date"
+											type="date"
+											value={installment.dueDate}
+											onChange={(e) => updateInstallment(index, { dueDate: e.target.value })}
+											slotProps={{ inputLabel: { shrink: true } }}
+											sx={{ flex: 1 }}
+										/>
+										<TextField
+											label="Amount"
+											type="number"
+											value={installment.amount}
+											onChange={(e) => updateInstallment(index, { amount: Number(e.target.value) })}
+											sx={{ flex: 1 }}
+										/>
+										<IconButton onClick={() => removeInstallment(index)} disabled={installments.length === 1}>
+											<DeleteIcon fontSize="small" />
+										</IconButton>
+									</Box>
+								))}
+								<Button size="small" startIcon={<AddIcon />} onClick={addInstallment} sx={{ alignSelf: "flex-start" }}>
+									Add installment
+								</Button>
 
-						{!totalsMatch && (
-							<Alert severity="warning">
-								Installments total {installmentTotal}, must equal the structure amount ({amount || 0}).
-							</Alert>
+								{!totalsMatch && (
+									<Alert severity="warning">
+										Installments total {installmentTotal}, must equal the structure amount ({amount || 0}).
+									</Alert>
+								)}
+							</>
 						)}
 					</Stack>
 				</DialogContent>

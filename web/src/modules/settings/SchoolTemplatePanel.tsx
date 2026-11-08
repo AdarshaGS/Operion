@@ -21,6 +21,7 @@ import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
+import { PanelTitle } from "./PanelTitle";
 import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
@@ -38,6 +39,7 @@ import {
 	type StarterPackNeeds,
 } from "../../api/schoolTemplate";
 import { useAuth } from "../../auth/AuthContext";
+import { useCan } from "../../auth/useCan";
 import { StarterPackDialog } from "./StarterPackDialog";
 import {
 	createSchoolTemplateItem,
@@ -123,6 +125,8 @@ const EMPTY_FORM = {
 };
 
 function TemplateCategorySection({ config, onChanged }: { config: CategoryConfig; onChanged?: () => void }) {
+	// Every write to the template catalog (add, edit, remove, include/exclude) is ORGANISATION_MANAGE on the backend.
+	const canEdit = useCan("ORGANISATION_MANAGE");
 	const [items, setItems] = useState<SchoolTemplateItemResponse[]>([]);
 	const [permissions, setPermissions] = useState<PermissionResponse[]>([]);
 	const [error, setError] = useState<string | null>(null);
@@ -367,9 +371,11 @@ function TemplateCategorySection({ config, onChanged }: { config: CategoryConfig
 						<Typography variant="caption" color="text.secondary">
 							Tick what your school needs - unticked rows are kept here but skipped when you apply.{config.hint ? ` ${config.hint}` : ""}
 						</Typography>
-						<Button size="small" startIcon={<AddIcon />} onClick={openCreate}>
-							Add
-						</Button>
+						<Can anyOf={["ORGANISATION_MANAGE"]}>
+							<Button size="small" startIcon={<AddIcon />} onClick={openCreate}>
+								Add
+							</Button>
+						</Can>
 					</Box>
 					{formOpen && editingId == null && editor}
 					<TableContainer>
@@ -381,7 +387,7 @@ function TemplateCategorySection({ config, onChanged }: { config: CategoryConfig
 											size="small"
 											checked={items.length > 0 && includedCount === items.length}
 											indeterminate={includedCount > 0 && includedCount < items.length}
-											disabled={items.length === 0}
+											disabled={items.length === 0 || !canEdit}
 											onChange={(e) => handleToggleAll(e.target.checked)}
 											slotProps={{ input: { "aria-label": `Include all ${config.label.toLowerCase()}` } }}
 										/>
@@ -399,6 +405,7 @@ function TemplateCategorySection({ config, onChanged }: { config: CategoryConfig
 												<Checkbox
 													size="small"
 													checked={item.included}
+													disabled={!canEdit}
 													onChange={() => handleToggleIncluded(item)}
 													slotProps={{ input: { "aria-label": `${item.included ? "Exclude" : "Include"} ${item.name}` } }}
 												/>
@@ -406,12 +413,14 @@ function TemplateCategorySection({ config, onChanged }: { config: CategoryConfig
 											<TableCell>{item.name}</TableCell>
 											{config.extraColumn && <TableCell>{config.extraColumn(item)}</TableCell>}
 											<TableCell align="right">
-												<IconButton size="small" onClick={() => openEdit(item)} aria-label={`Edit ${item.name}`}>
-													<EditIcon fontSize="small" />
-												</IconButton>
-												<IconButton size="small" onClick={() => handleDelete(item)} aria-label={`Remove ${item.name}`}>
-													<DeleteIcon fontSize="small" />
-												</IconButton>
+												<Can anyOf={["ORGANISATION_MANAGE"]}>
+													<IconButton size="small" onClick={() => openEdit(item)} aria-label={`Edit ${item.name}`}>
+														<EditIcon fontSize="small" />
+													</IconButton>
+													<IconButton size="small" onClick={() => handleDelete(item)} aria-label={`Remove ${item.name}`}>
+														<DeleteIcon fontSize="small" />
+													</IconButton>
+												</Can>
 											</TableCell>
 										</TableRow>
 										{formOpen && editingId === item.id && (
@@ -511,7 +520,7 @@ export function SchoolTemplatePanel() {
 			<Stack spacing={2}>
 				<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 1 }}>
 					<Box>
-						<Typography variant="h6">School setup template</Typography>
+						<PanelTitle>School setup template</PanelTitle>
 						<Typography variant="body2" color="text.secondary">
 							Your own editable catalog of grades, departments, designations, roles, fee categories, inventory
 							categories, items, asset types, leave types, subjects, and grading scale bands (a class is created for each ticked grade that also has a ticked class, with every ticked section added to each class) - add, edit, or remove anything below, then apply to create the

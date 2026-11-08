@@ -3,6 +3,7 @@ package com.operion.timetable.api;
 import java.util.Comparator;
 import java.util.List;
 
+import com.operion.common.DownloadFilenames;
 import com.operion.academic.Section;
 import com.operion.academic.SectionRepository;
 import com.operion.authorization.RequirePermission;
@@ -88,7 +89,7 @@ public class TimetableExportController {
 	}
 
 	private static ResponseEntity<String> download(String csv, String fileName) {
-		return ResponseEntity.ok().header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + fileName + ".csv\"")
+		return ResponseEntity.ok().header(HttpHeaders.CONTENT_DISPOSITION, DownloadFilenames.attachment(fileName, "csv"))
 				.contentType(MediaType.parseMediaType("text/csv")).body(csv);
 	}
 

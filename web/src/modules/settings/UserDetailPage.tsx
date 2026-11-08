@@ -29,6 +29,7 @@ import EditIcon from "@mui/icons-material/Edit";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import RemoveCircleIcon from "@mui/icons-material/RemoveCircle";
 import { Can } from "../../auth/Can";
+import { useCan } from "../../auth/useCan";
 import { MemberStatusChip } from "../../components/MemberStatusChip";
 import { getAuditLogs, type AuditLogResponse } from "../../api/auditLogs";
 import { ApiError } from "../../api/client";
@@ -77,6 +78,7 @@ export function UserDetailPage() {
 	const navigate = useNavigate();
 	const location = useLocation();
 	const [searchParams, setSearchParams] = useSearchParams();
+	const canManageMembers = useCan("MEMBERSHIP_MANAGE");
 	// Reachable from both /members/:userId and /settings/users/:userId - back goes to
 	// whichever list the caller entered from, not always Settings.
 	const fromMembers = location.pathname.startsWith("/members");
@@ -123,7 +125,10 @@ export function UserDetailPage() {
 
 	useEffect(() => {
 		if (searchParams.get("action") === "grant") {
-			setDialogOpen(true);
+			// The grant dialog is behind MEMBERSHIP_MANAGE; a hand-typed ?action=grant must not open it for anyone else.
+			if (canManageMembers) {
+				setDialogOpen(true);
+			}
 			const next = new URLSearchParams(searchParams);
 			next.delete("action");
 			setSearchParams(next, { replace: true });

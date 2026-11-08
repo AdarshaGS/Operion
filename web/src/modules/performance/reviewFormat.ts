@@ -28,10 +28,6 @@ export const NO_FILTERS: StaffFilters = { search: "", department: "", designatio
 /** Sentinel for "staff with no department / designation recorded", so they can be filtered like any other value. */
 export const NOT_SET = "__not_set__";
 
-export function hasFilters(filters: StaffFilters): boolean {
-	return filters.search.trim() !== "" || filters.department !== "" || filters.designation !== "" || filters.status !== "";
-}
-
 /** Case-insensitive match on name or employee ID, plus exact department / designation / status. */
 export function filterStaff(rows: StaffRow[], filters: StaffFilters): StaffRow[] {
 	const needle = filters.search.trim().toLowerCase();

@@ -17,6 +17,7 @@ import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
+import { Can } from "../../auth/Can";
 import { DialogErrorAlert } from "../../components/DialogErrorAlert";
 import { ApiError } from "../../api/client";
 import { loadErrorMessage } from "./loadError";
@@ -128,12 +129,14 @@ export function JobApplicationsPanel({ onHired }: { onHired?: () => void }) {
 										<TableCell>{application.specialization ?? "—"}</TableCell>
 										<TableCell>{application.yearsExperience ?? "—"}</TableCell>
 										<TableCell>
-											<Button size="small" onClick={() => openHireDialog(application)}>
-												Approve
-											</Button>
-											<Button size="small" color="error" onClick={() => handleReject(application.id)}>
-												Reject
-											</Button>
+											<Can anyOf={["HR_RECRUITMENT_MANAGE"]}>
+												<Button size="small" onClick={() => openHireDialog(application)}>
+													Approve
+												</Button>
+												<Button size="small" color="error" onClick={() => handleReject(application.id)}>
+													Reject
+												</Button>
+											</Can>
 										</TableCell>
 									</TableRow>
 								))}

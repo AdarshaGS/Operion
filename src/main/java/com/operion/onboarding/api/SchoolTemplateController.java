@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
@@ -27,8 +28,8 @@ public class SchoolTemplateController {
 	}
 
 	@GetMapping("/preview")
-	public SchoolTemplatePreviewResponse preview() {
-		return SchoolTemplatePreviewResponse.from(starterPackService.preview());
+	public SchoolTemplatePreviewResponse preview(@RequestParam(required = false) Long academicYearId) {
+		return SchoolTemplatePreviewResponse.from(starterPackService.preview(academicYearId));
 	}
 
 	@GetMapping("/needs")
@@ -42,11 +43,13 @@ public class SchoolTemplateController {
 		return StarterPackRecommendationResponse.from(starterPackService.recommend(answersOf(request)));
 	}
 
-	/** Body optional: with answers, also records the recommended modules (first time only); without, applies for the modules already on. */
+	/** Body optional: with answers, also records the recommended modules (first time only); without, applies for the modules already on.
+	 * Optional academicYearId query param: create the classes and sections in that (open) year instead of the current one. */
 	@PostMapping("/apply")
 	@RequirePermission("ORGANISATION_MANAGE")
-	public SchoolTemplateApplyResponse apply(@RequestBody(required = false) StarterPackAnswersRequest request) {
-		return SchoolTemplateApplyResponse.from(starterPackService.apply(request == null ? null : answersOf(request)));
+	public SchoolTemplateApplyResponse apply(@RequestBody(required = false) StarterPackAnswersRequest request,
+			@RequestParam(required = false) Long academicYearId) {
+		return SchoolTemplateApplyResponse.from(starterPackService.apply(request == null ? null : answersOf(request), academicYearId));
 	}
 
 	private Map<String, Boolean> answersOf(StarterPackAnswersRequest request) {

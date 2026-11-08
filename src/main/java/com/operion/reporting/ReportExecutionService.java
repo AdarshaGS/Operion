@@ -5,6 +5,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.sql.SQLTimeoutException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -15,6 +16,8 @@ import java.util.regex.Pattern;
 import javax.sql.DataSource;
 
 import com.operion.audit.AuditLogService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
@@ -29,6 +32,7 @@ import org.springframework.stereotype.Service;
 @Service
 public class ReportExecutionService {
 
+	private static final Logger log = LoggerFactory.getLogger(ReportExecutionService.class);
 	private static final int ROW_LIMIT = 5000;
 	private static final int QUERY_TIMEOUT_SECONDS = 10;
 	private static final Pattern NAMED_PARAMETER = Pattern.compile(":([a-zA-Z_][a-zA-Z0-9_]*)");
@@ -48,6 +52,9 @@ public class ReportExecutionService {
 	}
 
 	public ExecutionResult run(SavedReport report, Map<String, Object> parameterValues, boolean export) {
+		if (parameterValues == null) {
+			parameterValues = Map.of();
+		}
 		SqlGuard.assertSingleSelect(report.getSqlQuery());
 		validateParameterNames(report, parameterValues);
 
@@ -76,7 +83,12 @@ public class ReportExecutionService {
 					Map.of("parameters", parameterValues, "rowCount", result.rows().size()));
 			return result;
 		} catch (SQLException e) {
-			throw new ReportExecutionException("Report query failed: " + e.getMessage(), e);
+			// The driver's message carries table/column names, SQL fragments and sometimes host details - log it, don't return it.
+			log.warn("Report {} failed (SQLState {}, vendor code {})", report.getId(), e.getSQLState(), e.getErrorCode(), e);
+			String clientMessage = e instanceof SQLTimeoutException
+					? "Report query timed out - narrow the filters or simplify the query"
+					: "Report query failed - check the SQL and the parameter values";
+			throw new ReportExecutionException(clientMessage, e);
 		}
 	}
 

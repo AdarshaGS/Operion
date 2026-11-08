@@ -21,12 +21,15 @@ import Typography from "@mui/material/Typography";
 import AddIcon from "@mui/icons-material/Add";
 import { type CampusResponse, listCampuses } from "../../api/campuses";
 import { ApiError } from "../../api/client";
+import { Can } from "../../auth/Can";
+import { useCan } from "../../auth/useCan";
 import { changeVehicleStatus, createVehicle, listVehicles, type VehicleResponse } from "../../api/vehicles";
 
 const VEHICLE_TYPES = ["BUS", "VAN", "CAR", "OTHER"];
 const VEHICLE_STATUSES = ["ACTIVE", "MAINTENANCE", "INACTIVE", "RETIRED"];
 
 export function VehiclesPanel() {
+	const canManageVehicles = useCan("TRANSPORT_VEHICLE_MANAGE");
 	const navigate = useNavigate();
 	const [vehicles, setVehicles] = useState<VehicleResponse[]>([]);
 	const [campuses, setCampuses] = useState<CampusResponse[]>([]);
@@ -86,9 +89,11 @@ export function VehiclesPanel() {
 			<Stack spacing={2}>
 				<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
 					<Typography variant="h6">Vehicles</Typography>
-					<Button size="small" startIcon={<AddIcon />} onClick={() => setDialogOpen(true)}>
-						Add vehicle
-					</Button>
+					<Can anyOf={["TRANSPORT_VEHICLE_MANAGE"]}>
+						<Button size="small" startIcon={<AddIcon />} onClick={() => setDialogOpen(true)}>
+							Add vehicle
+						</Button>
+					</Can>
 				</Box>
 
 				{error && <Alert severity="error">{error}</Alert>}
@@ -125,6 +130,8 @@ export function VehiclesPanel() {
 												size="small"
 												value={vehicle.status}
 												onChange={(e) => handleStatusChange(vehicle.id, e.target.value)}
+												disabled={!canManageVehicles}
+												title={canManageVehicles ? undefined : "You don't have permission to change vehicle status"}
 												sx={{ minWidth: 140 }}
 											>
 												{VEHICLE_STATUSES.map((status) => (

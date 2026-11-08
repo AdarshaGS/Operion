@@ -1,8 +1,9 @@
 import type { Page } from "@playwright/test";
 
-/** Structure Setup wizard: Organisation profile -> Business settings -> Academic year ->
- * Campuses / locations (optional) -> Review and finish. Linear - a step's tab is disabled
- * until every required step before it is complete, and Save/Continue advance. */
+/** Structure Setup wizard: Organisation profile -> Business settings -> Campuses / locations
+ * (optional) -> Review and finish. Linear - a step's tab is disabled until every required step
+ * before it is complete, and Save/Continue advance. Academic years are not part of the wizard;
+ * they are managed on /settings/academic-years (see AcademicYearsPage). */
 export class StructureSetupPage {
 	constructor(private readonly page: Page) {}
 
@@ -10,7 +11,7 @@ export class StructureSetupPage {
 		await this.page.goto("/setup/structure");
 	}
 
-	async goToStep(label: "Organisation profile" | "Business settings" | "Academic year" | "Campuses / locations") {
+	async goToStep(label: "Organisation profile" | "Business settings" | "Campuses / locations") {
 		// MUI's Stepper/StepButton exposes these as role="tab", not "button".
 		await this.page.getByRole("tab", { name: new RegExp(label) }).click();
 	}
@@ -23,7 +24,7 @@ export class StructureSetupPage {
 		await this.page.getByRole("tab", { name: "Review and finish" }).click();
 	}
 
-	/** Contact name + email are what the wizard (and DashboardController.isStructureConfigured)
+	/** Contact name + email are what the wizard (and DashboardController.isInstitutionProfileConfigured)
 	 * require; saving advances to Business settings. */
 	async fillOrganisationProfile(input: { contactName: string; contactEmail: string }) {
 		await this.page.getByLabel("Contact name").fill(input.contactName);
@@ -34,22 +35,6 @@ export class StructureSetupPage {
 	/** Timezone defaults at org creation - saving as-is confirms it and advances. */
 	async saveBusinessSettings() {
 		await this.page.getByRole("button", { name: "Save" }).click();
-	}
-
-	async addAcademicYear(input: { name: string; startDate: string; endDate: string }) {
-		await this.page.getByRole("button", { name: "Add academic year" }).click();
-		await this.page.getByLabel("Name").fill(input.name);
-		await this.page.getByLabel("Start date").fill(input.startDate);
-		await this.page.getByLabel("End date").fill(input.endDate);
-		await this.page.getByRole("button", { name: "Add", exact: true }).click();
-	}
-
-	async markYearCurrent(name: string) {
-		await this.yearRow(name).getByRole("button", { name: "Mark current" }).click();
-	}
-
-	yearRow(name: string) {
-		return this.page.getByRole("row").filter({ hasText: name });
 	}
 
 	async continue() {

@@ -16,7 +16,6 @@ import com.operion.organisation.OrganisationRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 /**
@@ -36,7 +35,6 @@ public class EmailVerificationService {
 	private final EmailVerificationTokenRepository emailVerificationTokenRepository;
 	private final UserRepository userRepository;
 	private final OrganisationRepository organisationRepository;
-	private final PasswordEncoder passwordEncoder;
 	private final EmailDeliveryService emailDeliveryService;
 	/** Raw tokens reach the log only on local/automation stacks without a mail provider (SEC-M2). */
 	private final boolean logRawTokens;
@@ -44,13 +42,12 @@ public class EmailVerificationService {
 	private final SecureRandom secureRandom = new SecureRandom();
 
 	public EmailVerificationService(EmailVerificationTokenRepository emailVerificationTokenRepository, UserRepository userRepository,
-			OrganisationRepository organisationRepository, PasswordEncoder passwordEncoder, EmailDeliveryService emailDeliveryService,
+			OrganisationRepository organisationRepository, EmailDeliveryService emailDeliveryService,
 			@Value("${app.frontend.base-url:http://localhost:5173}") String frontendBaseUrl,
 			@Value("${app.dev.log-auth-tokens:false}") boolean logRawTokens) {
 		this.emailVerificationTokenRepository = emailVerificationTokenRepository;
 		this.userRepository = userRepository;
 		this.organisationRepository = organisationRepository;
-		this.passwordEncoder = passwordEncoder;
 		this.emailDeliveryService = emailDeliveryService;
 		this.frontendBaseUrl = frontendBaseUrl;
 		this.logRawTokens = logRawTokens;
@@ -61,7 +58,7 @@ public class EmailVerificationService {
 	public void issue(Long userId) {
 		String rawToken = generateToken();
 		EmailVerificationToken token = emailVerificationTokenRepository
-				.save(new EmailVerificationToken(userId, passwordEncoder.encode(rawToken), Instant.now().plus(VERIFICATION_TOKEN_VALIDITY)));
+				.save(new EmailVerificationToken(userId, TokenHasher.sha256Hex(rawToken), Instant.now().plus(VERIFICATION_TOKEN_VALIDITY)));
 		// organisationSlug isn't passed in - only TenantContext's organisationId is
 		// available to an admin-authenticated caller like UserController.create() - so it's
 		// looked up here purely for the link, same shape as PasswordResetService's.
@@ -97,18 +94,16 @@ public class EmailVerificationService {
 		Organisation organisation = organisationRepository.findBySlug(organisationSlug).orElseThrow(() -> invalid);
 		TenantContext.set(organisation.getId(), null);
 		try {
-			EmailVerificationToken token = emailVerificationTokenRepository.findByConsumedFalse().stream()
-					.filter(candidate -> passwordEncoder.matches(rawToken, candidate.getTokenHash()))
-					.findFirst()
-					.filter(EmailVerificationToken::isValid)
+			EmailVerificationToken token = emailVerificationTokenRepository.findByTokenHash(TokenHasher.sha256Hex(rawToken))
 					.orElseThrow(() -> invalid);
+			// Atomic single-use gate - see PasswordResetTokenRepository.consumeIfValid.
+			if (emailVerificationTokenRepository.consumeIfValid(token.getId(), Instant.now()) != 1) {
+				throw invalid;
+			}
 
 			User user = userRepository.findById(token.getUserId()).orElseThrow(() -> invalid);
 			user.setEmailVerifiedAt(Instant.now());
 			userRepository.save(user);
-
-			token.consume();
-			emailVerificationTokenRepository.save(token);
 		} finally {
 			TenantContext.clear();
 		}

@@ -1,10 +1,13 @@
 package com.operion.student.api;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 
 import com.operion.academic.GradeLevelRepository;
 import com.operion.academic.GradeLevelStatus;
+import com.operion.common.ClientIpResolver;
+import com.operion.common.SlidingWindowRateLimiter;
 import com.operion.common.TenantContext;
 import com.operion.common.TooManyRequestsException;
 import com.operion.organisation.Organisation;
@@ -42,17 +45,24 @@ public class PublicAdmissionInquiryController {
 	private final GradeLevelRepository gradeLevelRepository;
 	private final ApplicantInquiryService inquiryService;
 	private final InquiryRateLimiter rateLimiter;
+	private final ClientIpResolver clientIpResolver;
+	/** Per caller address only (no slug in the key), so rotating through made-up slugs cannot dodge it. */
+	private final SlidingWindowRateLimiter lookupLimiter = new SlidingWindowRateLimiter(120, Duration.ofMinutes(10), 10_000);
 
 	public PublicAdmissionInquiryController(OrganisationRepository organisationRepository, GradeLevelRepository gradeLevelRepository,
-			ApplicantInquiryService inquiryService, InquiryRateLimiter rateLimiter) {
+			ApplicantInquiryService inquiryService, InquiryRateLimiter rateLimiter, ClientIpResolver clientIpResolver) {
 		this.organisationRepository = organisationRepository;
 		this.gradeLevelRepository = gradeLevelRepository;
 		this.inquiryService = inquiryService;
 		this.rateLimiter = rateLimiter;
+		this.clientIpResolver = clientIpResolver;
 	}
 
 	@GetMapping("/form-options")
-	public FormOptionsResponse formOptions(@PathVariable String slug) {
+	public FormOptionsResponse formOptions(@PathVariable String slug, HttpServletRequest httpRequest) {
+		if (!lookupLimiter.tryAcquire(clientIpResolver.resolve(httpRequest))) {
+			throw new TooManyRequestsException("Too many requests. Please try again later.");
+		}
 		Organisation organisation = resolve(slug);
 		TenantContext.set(organisation.getId(), null);
 		List<GradeOption> grades = gradeLevelRepository.findByStatusOrderBySequenceOrderAsc(GradeLevelStatus.ACTIVE).stream()
@@ -64,7 +74,8 @@ public class PublicAdmissionInquiryController {
 	@ResponseStatus(HttpStatus.CREATED)
 	public Map<String, Long> submit(@PathVariable String slug, @Valid @RequestBody SubmitAdmissionInquiryRequest request,
 			HttpServletRequest httpRequest) {
-		if (!rateLimiter.tryAcquire(httpRequest.getRemoteAddr() + "|" + slug)) {
+		String clientIp = clientIpResolver.resolve(httpRequest);
+		if (!lookupLimiter.tryAcquire(clientIp) || !rateLimiter.tryAcquire(clientIp + "|" + slug)) {
 			throw new TooManyRequestsException("Too many inquiries submitted. Please try again later.");
 		}
 		if (request.website() != null && !request.website().isBlank()) {
@@ -80,6 +91,6 @@ public class PublicAdmissionInquiryController {
 
 	private Organisation resolve(String slug) {
 		return organisationRepository.findBySlug(slug)
-				.orElseThrow(() -> new IllegalArgumentException("No organisation with slug " + slug));
+				.orElseThrow(() -> new IllegalArgumentException("No such organisation"));
 	}
 }

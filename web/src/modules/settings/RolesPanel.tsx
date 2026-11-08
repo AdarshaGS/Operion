@@ -28,6 +28,7 @@ import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
+import { PanelTitle } from "./PanelTitle";
 import AddIcon from "@mui/icons-material/Add";
 import UnfoldLessIcon from "@mui/icons-material/UnfoldLess";
 import UnfoldMoreIcon from "@mui/icons-material/UnfoldMore";
@@ -244,7 +245,7 @@ export function RolesPanel() {
 		<Paper sx={{ p: 3 }}>
 			<Stack spacing={2}>
 				<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-					<Typography variant="h6">Roles</Typography>
+					<PanelTitle>Roles</PanelTitle>
 					<Can anyOf={["ROLE_MANAGE"]}>
 						<Button size="small" startIcon={<AddIcon />} onClick={() => { setDialogError(null); setCreateOpen(true); }}>
 							Add role

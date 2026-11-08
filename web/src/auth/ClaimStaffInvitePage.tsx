@@ -11,6 +11,7 @@ import { ApiError } from "../api/client";
 import { Wordmark } from "../branding/Wordmark";
 import { colors } from "../theme";
 import { useAuth } from "./AuthContext";
+import { useUrlToken } from "./useUrlToken";
 
 /** Public, unauthenticated - same trust tier as ClaimInvitePage. Reached via the one-time
  * link an admin hands a new hire after UserController.invite() issues one - see
@@ -19,9 +20,11 @@ export function ClaimStaffInvitePage() {
 	const { isAuthenticated, claimStaffInvite } = useAuth();
 	const navigate = useNavigate();
 	const [searchParams] = useSearchParams();
+	// Token is read once, then removed from the address bar - see useUrlToken.
+	const urlToken = useUrlToken();
 
 	const [organisationSlug, setOrganisationSlug] = useState(searchParams.get("org") ?? "");
-	const [token, setToken] = useState(searchParams.get("token") ?? "");
+	const [token, setToken] = useState(urlToken);
 	const [password, setPassword] = useState("");
 	const [confirmPassword, setConfirmPassword] = useState("");
 	const [error, setError] = useState<string | null>(null);

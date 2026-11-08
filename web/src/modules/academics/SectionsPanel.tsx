@@ -19,6 +19,7 @@ import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import AddIcon from "@mui/icons-material/Add";
+import { Can } from "../../auth/Can";
 import { ApiError } from "../../api/client";
 import { changeSectionStatus, createSection, listSections, updateSection, type SectionResponse } from "../../api/sections";
 
@@ -124,9 +125,11 @@ export function SectionsPanel({
 			<Stack spacing={2}>
 				<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
 					<Typography variant="h6">{title}</Typography>
-					<Button size="small" startIcon={<AddIcon />} onClick={() => setDialogOpen(true)}>
-						Add section
-					</Button>
+					<Can anyOf={["CLASS_MANAGE"]}>
+						<Button size="small" startIcon={<AddIcon />} onClick={() => setDialogOpen(true)}>
+							Add section
+						</Button>
+					</Can>
 				</Box>
 
 				{error && <Alert severity="error">{error}</Alert>}
@@ -170,12 +173,14 @@ export function SectionsPanel({
 											<Chip label={section.status} size="small" />
 										</TableCell>
 										<TableCell onClick={(e) => e.stopPropagation()}>
-											<Button size="small" onClick={() => openEdit(section)}>
-												Edit
-											</Button>
-											<Button size="small" onClick={() => handleToggleStatus(section)}>
-												{section.status === "ACTIVE" ? "Deactivate" : "Reactivate"}
-											</Button>
+											<Can anyOf={["CLASS_MANAGE"]}>
+												<Button size="small" onClick={() => openEdit(section)}>
+													Edit
+												</Button>
+												<Button size="small" onClick={() => handleToggleStatus(section)}>
+													{section.status === "ACTIVE" ? "Deactivate" : "Reactivate"}
+												</Button>
+											</Can>
 										</TableCell>
 									</TableRow>
 								))}

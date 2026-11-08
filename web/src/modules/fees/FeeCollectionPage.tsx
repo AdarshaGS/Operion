@@ -6,7 +6,6 @@ import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Checkbox from "@mui/material/Checkbox";
 import Chip from "@mui/material/Chip";
-import InputAdornment from "@mui/material/InputAdornment";
 import LinearProgress from "@mui/material/LinearProgress";
 import MenuItem from "@mui/material/MenuItem";
 import Paper from "@mui/material/Paper";
@@ -27,13 +26,13 @@ import NotificationsActiveIcon from "@mui/icons-material/NotificationsActive";
 import PaymentsIcon from "@mui/icons-material/Payments";
 import PriorityHighIcon from "@mui/icons-material/PriorityHigh";
 import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
-import SearchIcon from "@mui/icons-material/Search";
 import SettingsIcon from "@mui/icons-material/Settings";
 import { Bar, BarChart, CartesianGrid, Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip as RechartsTooltip, XAxis, YAxis } from "recharts";
 import { listAcademicYears } from "../../api/academicYears";
 import { ApiError } from "../../api/client";
 import { getFeeOverview, type FeeLedgerRow, type FeeOverviewResponse, type LedgerStatus } from "../../api/feeOverview";
 import { Can } from "../../auth/Can";
+import { CompactFilterBar, type ActiveFilter } from "../../components/CompactFilterBar";
 import { KpiTile, SectionCard } from "../../components/DashboardKit";
 import { downloadCsvFile, toCsv } from "../../utils/csv";
 import { colors } from "../../theme";
@@ -143,7 +142,12 @@ export function FeeCollectionPage() {
 	useEffect(() => setPage(0), [search, classLabel, status, dueFrom, dueTo]);
 
 	const pageRows = filtered.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
-	const hasFilters = Boolean(search || classLabel || status || dueFrom || dueTo);
+	const activeFilters: ActiveFilter[] = [
+		...(classLabel ? [{ key: "class", label: `Class: ${classLabel}`, onDelete: () => setClassLabel("") }] : []),
+		...(status ? [{ key: "status", label: `Status: ${STATUS_STYLE[status as LedgerStatus]?.label ?? status}`, onDelete: () => setStatus("") }] : []),
+		...(dueFrom ? [{ key: "dueFrom", label: `Due from: ${dueFrom}`, onDelete: () => setDueFrom("") }] : []),
+		...(dueTo ? [{ key: "dueTo", label: `Due to: ${dueTo}`, onDelete: () => setDueTo("") }] : []),
+	];
 	const typeTotal = (overview?.byType ?? []).reduce((sum, item) => sum + item.amount, 0);
 
 	function clearFilters() {
@@ -198,12 +202,12 @@ export function FeeCollectionPage() {
 							Collect Fee
 						</Button>
 					</Can>
-					<Can anyOf={["FEE_STRUCTURE_MANAGE"]}>
+					<Can anyOf={["FEE_STRUCTURE_MANAGE", "FEE_CATEGORY_MANAGE"]}>
 						<Button variant="outlined" color="inherit" startIcon={<SettingsIcon />} onClick={() => navigate("/fees/setup")}>
 							Fee Structure
 						</Button>
 					</Can>
-					<Can anyOf={["FEE_REMINDER_SEND"]}>
+					<Can anyOf={["FEE_REMINDER_SEND", "FEE_INVOICE_MANAGE"]}>
 						<Button variant="outlined" color="inherit" startIcon={<NotificationsActiveIcon />} onClick={() => navigate("/fees/demand")}>
 							Overdue &amp; Reminders
 						</Button>
@@ -232,16 +236,15 @@ export function FeeCollectionPage() {
 						</Typography>
 					</Box>
 
-					<Stack direction="row" spacing={1.5} sx={{ flexWrap: "wrap", rowGap: 1.5 }}>
-						<TextField
-							size="small"
-							placeholder="Search by student name or admission no..."
-							value={search}
-							onChange={(e) => setSearch(e.target.value)}
-							sx={{ flex: "1 1 260px", minWidth: 240 }}
-							slotProps={{ input: { startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment> } }}
-						/>
-						<TextField select size="small" label="Class" value={classLabel} onChange={(e) => setClassLabel(e.target.value)} sx={{ minWidth: 140 }}>
+					<CompactFilterBar
+						searchValue={search}
+						onSearchChange={setSearch}
+						searchLabel="Search students"
+						searchPlaceholder="Student name or admission no."
+						activeFilters={activeFilters}
+						onClearAll={clearFilters}
+					>
+						<TextField select size="small" label="Class" value={classLabel} onChange={(e) => setClassLabel(e.target.value)}>
 							<MenuItem value="">All Classes</MenuItem>
 							{classOptions.map((label) => (
 								<MenuItem key={label} value={label}>
@@ -249,7 +252,7 @@ export function FeeCollectionPage() {
 								</MenuItem>
 							))}
 						</TextField>
-						<TextField select size="small" label="Status" value={status} onChange={(e) => setStatus(e.target.value)} sx={{ minWidth: 140 }}>
+						<TextField select size="small" label="Status" value={status} onChange={(e) => setStatus(e.target.value)}>
 							<MenuItem value="">All Status</MenuItem>
 							{(Object.keys(STATUS_STYLE) as LedgerStatus[]).map((key) => (
 								<MenuItem key={key} value={key}>
@@ -259,10 +262,7 @@ export function FeeCollectionPage() {
 						</TextField>
 						<TextField size="small" type="date" label="Due from" value={dueFrom} onChange={(e) => setDueFrom(e.target.value)} slotProps={{ inputLabel: { shrink: true } }} />
 						<TextField size="small" type="date" label="Due to" value={dueTo} onChange={(e) => setDueTo(e.target.value)} slotProps={{ inputLabel: { shrink: true } }} />
-						<Button color="inherit" variant="outlined" onClick={clearFilters} disabled={!hasFilters}>
-							Clear
-						</Button>
-					</Stack>
+					</CompactFilterBar>
 
 					<TableContainer>
 						<Table size="small">

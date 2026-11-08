@@ -12,6 +12,8 @@ import com.operion.common.TenantContext;
 import com.operion.examination.ExaminationService.BandInput;
 import com.operion.organisation.Organisation;
 import com.operion.organisation.OrganisationRepository;
+import com.operion.modules.ModuleAccessService;
+import com.operion.student.AdmissionFeeGate;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -31,9 +33,11 @@ import tools.jackson.databind.ObjectMapper;
  * StudentAttendanceLifecycleTest for why (no ObjectMapper bean in this DataJpaTest slice).
  */
 @DataJpaTest
-@Import({ MultiTenancyConfig.class, JpaConfig.class })
+@Import({ MultiTenancyConfig.class, JpaConfig.class, AdmissionFeeGate.class, ModuleAccessService.class })
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class GradingScaleTest {
+
+	@Autowired private AdmissionFeeGate admissionFeeGate;
 
 	private ExaminationService examinationService;
 
@@ -71,7 +75,7 @@ class GradingScaleTest {
 	void setUpExaminationService() {
 		examinationService = new ExaminationService(examRepository, examScheduleRepository, gradingScaleRepository,
 				gradingScaleBandRepository, marksEntryRepository, marksEntryRegisterRepository, reportCardRepository,
-				examinationSettingsRepository, new AuditLogService(auditLogRepository, new ObjectMapper()));
+				examinationSettingsRepository, new AuditLogService(auditLogRepository, new ObjectMapper()), admissionFeeGate);
 	}
 
 	@AfterEach

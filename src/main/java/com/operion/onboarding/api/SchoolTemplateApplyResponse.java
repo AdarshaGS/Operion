@@ -5,7 +5,7 @@ import java.util.List;
 import com.operion.onboarding.SchoolTemplateResult;
 
 public record SchoolTemplateApplyResponse(
-		List<String> gradesCreated, List<String> gradesSkipped,
+		List<String> gradesCreated, List<String> gradesSkipped, List<String> gradesReordered,
 		List<String> departmentsCreated, List<String> departmentsSkipped,
 		List<String> designationsCreated, List<String> designationsSkipped,
 		List<String> rolesCreated, List<String> rolesSkipped,
@@ -22,7 +22,7 @@ public record SchoolTemplateApplyResponse(
 
 	public static SchoolTemplateApplyResponse from(SchoolTemplateResult result) {
 		return new SchoolTemplateApplyResponse(
-				result.getGradesCreated(), result.getGradesSkipped(),
+				result.getGradesCreated(), result.getGradesSkipped(), result.getGradesReordered(),
 				result.getDepartmentsCreated(), result.getDepartmentsSkipped(),
 				result.getDesignationsCreated(), result.getDesignationsSkipped(),
 				result.getRolesCreated(), result.getRolesSkipped(),

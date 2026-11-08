@@ -147,8 +147,11 @@ test("appraisal cycle: a reviewer rates and sets a goal, and the teacher sees on
 	// Back on the dashboard the teacher is reviewed, and insights reflect the rating and the goal.
 	await page.getByRole("link", { name: "Back to Performance" }).click();
 	await expect(staffRow.getByText("Reviewed", { exact: true })).toBeVisible();
+	// Review status lives in the Filters popover; close it again so it does not cover the table.
+	await page.getByRole("button", { name: /^Filters/ }).click();
 	await page.getByLabel("Review status").click();
 	await page.getByRole("option", { name: "Pending" }).click();
+	await page.keyboard.press("Escape");
 	await expect(page.getByText("No staff match these filters.")).toBeVisible();
 	await page.getByRole("button", { name: "Clear filters" }).first().click();
 	await page.getByRole("tab", { name: "Insights" }).click();

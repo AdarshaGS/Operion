@@ -106,7 +106,7 @@ class IdCardTemplateServiceTest {
 		person = personRepository.save(person);
 
 		StudentService studentService = new StudentService(studentRepository, studentEnrollmentRepository, studentDocumentRepository,
-				studentExitRepository, null, null, studentIdGenerator, new AuditLogService(auditLogRepository, new ObjectMapper()),
+				studentExitRepository, sectionRepository, gradeLevelRepository, null, null, studentIdGenerator, new AuditLogService(auditLogRepository, new ObjectMapper()),
 			new CustomFieldService(customFieldDefinitionRepository, new ObjectMapper()));
 		Student student = studentService.admit(
 				person, "ADM-001", LocalDate.of(2025, 5, 1), null, null, null, null, "O+", null, null, null, null, null, null);

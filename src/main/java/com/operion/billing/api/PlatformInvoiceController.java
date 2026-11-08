@@ -21,7 +21,7 @@ public class PlatformInvoiceController {
 	@PostMapping("/api/v1/platform/organisations/{organisationId}/invoices/generate")
 	public PlatformInvoiceResponse generate(@PathVariable Long organisationId, @RequestBody GenerateInvoiceRequest request) {
 		return PlatformInvoiceResponse.from(
-				billingService.generateInvoice(organisationId, request.periodStart(), request.periodEnd(), request.dueDate()));
+				billingService.generateInvoice(organisationId, request.periodStart(), request.periodEnd(), request.dueDate(), request.amount()));
 	}
 
 	@GetMapping("/api/v1/platform/organisations/{organisationId}/invoices")

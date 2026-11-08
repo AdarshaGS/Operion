@@ -9,4 +9,6 @@ public interface StaffInviteRepository extends JpaRepository<StaffInvite, Long> 
 	List<StaffInvite> findByStatus(StaffInviteStatus status);
 
 	List<StaffInvite> findByUserIdAndStatus(Long userId, StaffInviteStatus status);
+
+	boolean existsByUserId(Long userId);
 }

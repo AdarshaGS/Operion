@@ -10,6 +10,8 @@ import java.util.List;
 import com.operion.authorization.AuthorizationDeniedException;
 import com.operion.common.JpaConfig;
 import com.operion.common.MultiTenancyConfig;
+import com.operion.modules.ModuleAccessService;
+import com.operion.student.AdmissionFeeGate;
 import com.operion.examination.Exam;
 import com.operion.examination.ExamRepository;
 import com.operion.examination.ExamSchedule;
@@ -25,7 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 /** Upload, on-screen marking, release and guardian visibility of scanned answer sheets (#230). */
 @DataJpaTest
-@Import({ MultiTenancyConfig.class, JpaConfig.class, AnswerSheetService.class })
+@Import({ MultiTenancyConfig.class, JpaConfig.class, AnswerSheetService.class, AdmissionFeeGate.class, ModuleAccessService.class })
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class AnswerSheetServiceTest extends LearningTestBase {
 

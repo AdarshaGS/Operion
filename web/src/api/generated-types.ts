@@ -2536,6 +2536,7 @@ export interface components {
             academicYearId?: number;
             /** Format: int64 */
             campusId?: number;
+            campusName?: string;
             /** Format: int64 */
             gradeLevelId?: number;
             displayName?: string;

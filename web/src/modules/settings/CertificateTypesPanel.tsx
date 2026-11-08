@@ -23,6 +23,8 @@ import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import AddIcon from "@mui/icons-material/Add";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import { Can } from "../../auth/Can";
+import { useCan } from "../../auth/useCan";
 import { ApiError } from "../../api/client";
 import {
 	createCertificateType,
@@ -65,6 +67,8 @@ function toForm(type: CertificateTypeResponse): UpdateCertificateTypeRequest {
 
 /** Settings > Certificate types: the school's own certificate wording and rules (presets are copied in by School setup). */
 export function CertificateTypesPanel() {
+	// Create and update are CERTIFICATE_TYPE_MANAGE; the list is also open to view/request holders, who get a read-only form.
+	const canManage = useCan("CERTIFICATE_TYPE_MANAGE");
 	const [types, setTypes] = useState<CertificateTypeResponse[]>([]);
 	const [selectedId, setSelectedId] = useState<number | null>(null);
 	const [form, setForm] = useState<UpdateCertificateTypeRequest | null>(null);
@@ -154,9 +158,11 @@ export function CertificateTypesPanel() {
 								No certificate types yet. Apply School setup, or add one.
 							</Typography>
 						)}
-						<Button startIcon={<AddIcon />} size="small" onClick={() => setAddOpen(true)} sx={{ m: 1 }}>
-							Add type
-						</Button>
+						<Can anyOf={["CERTIFICATE_TYPE_MANAGE"]}>
+							<Button startIcon={<AddIcon />} size="small" onClick={() => setAddOpen(true)} sx={{ m: 1 }}>
+								Add type
+							</Button>
+						</Can>
 					</Paper>
 				</Grid>
 				<Grid size={{ xs: 12, md: 9 }}>
@@ -170,13 +176,14 @@ export function CertificateTypesPanel() {
 								{saved && <Alert severity="success">Saved. Certificates already issued keep the wording they were issued with.</Alert>}
 								<Grid container spacing={2}>
 									<Grid size={{ xs: 12, sm: 6 }}>
-										<TextField label="Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required fullWidth />
+										<TextField disabled={!canManage} label="Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required fullWidth />
 									</Grid>
 									<Grid size={{ xs: 12, sm: 6 }}>
-										<TextField label="Printed title" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required fullWidth />
+										<TextField disabled={!canManage} label="Printed title" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required fullWidth />
 									</Grid>
 									<Grid size={{ xs: 12, sm: 6 }}>
 										<TextField
+											disabled={!canManage}
 											label="Number format"
 											helperText="{SEQ:4} = zero-padded counter, {YYYY} = year, {AY} = academic year"
 											value={form.numberFormat}
@@ -186,7 +193,7 @@ export function CertificateTypesPanel() {
 										/>
 									</Grid>
 									<Grid size={{ xs: 12, sm: 6 }}>
-										<TextField select label="Page size" value={form.pageSize} onChange={(e) => setForm({ ...form, pageSize: e.target.value })} fullWidth>
+										<TextField select disabled={!canManage} label="Page size" value={form.pageSize} onChange={(e) => setForm({ ...form, pageSize: e.target.value })} fullWidth>
 											{["A4", "A5", "Letter"].map((size) => (
 												<MenuItem key={size} value={size}>
 													{size}
@@ -196,6 +203,7 @@ export function CertificateTypesPanel() {
 									</Grid>
 								</Grid>
 								<TextField
+									disabled={!canManage}
 									label="Particulars (optional table)"
 									helperText='One row per line: "Label | value". Values can use {{tokens}}.'
 									value={form.particularsTemplate ?? ""}
@@ -206,6 +214,7 @@ export function CertificateTypesPanel() {
 									slotProps={{ htmlInput: { style: { fontFamily: "monospace", fontSize: 13 } } }}
 								/>
 								<TextField
+									disabled={!canManage}
 									label="Wording"
 									helperText="Plain text; leave a blank line between paragraphs. Use {{tokens}} for student details."
 									value={form.bodyTemplate}
@@ -216,6 +225,7 @@ export function CertificateTypesPanel() {
 									fullWidth
 								/>
 								<TextField
+									disabled={!canManage}
 									label="Fields typed in per request (optional)"
 									helperText='One per line: "key | Label", then use {{manual.key}} in the wording.'
 									value={form.manualFields ?? ""}
@@ -246,7 +256,7 @@ export function CertificateTypesPanel() {
 									{FLAGS.map((flag) => (
 										<Grid key={flag.key} size={{ xs: 12, sm: 6 }}>
 											<FormControlLabel
-												control={<Switch checked={form[flag.key]} onChange={(e) => setForm({ ...form, [flag.key]: e.target.checked })} />}
+												control={<Switch checked={form[flag.key]} disabled={!canManage} onChange={(e) => setForm({ ...form, [flag.key]: e.target.checked })} />}
 												label={
 													<Box>
 														<Typography variant="body2">{flag.label}</Typography>
@@ -259,11 +269,13 @@ export function CertificateTypesPanel() {
 										</Grid>
 									))}
 								</Grid>
-								<Box>
-									<Button type="submit" variant="contained" disabled={saving}>
-										Save
-									</Button>
-								</Box>
+								<Can anyOf={["CERTIFICATE_TYPE_MANAGE"]}>
+									<Box>
+										<Button type="submit" variant="contained" disabled={saving}>
+											Save
+										</Button>
+									</Box>
+								</Can>
 							</Stack>
 						</Paper>
 					)}

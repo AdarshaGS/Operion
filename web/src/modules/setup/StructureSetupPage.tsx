@@ -8,20 +8,20 @@ import Stack from "@mui/material/Stack";
 import Step from "@mui/material/Step";
 import StepButton from "@mui/material/StepButton";
 import Stepper from "@mui/material/Stepper";
+import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import RadioButtonUncheckedIcon from "@mui/icons-material/RadioButtonUnchecked";
-import { listAcademicYears } from "../../api/academicYears";
+import { useCan } from "../../auth/useCan";
 import { listCampuses } from "../../api/campuses";
 import { getOrganisationProfile } from "../../api/organisationProfile";
 import { getOrganisationSettings } from "../../api/organisationSettings";
+import { completeSetupStep, getCompletedSetupSteps } from "../../api/setupSteps";
 import { colors } from "../../theme";
-import { AcademicYearsPanel } from "../settings/AcademicYearsPanel";
 import { BusinessSettingsPanel } from "../settings/BusinessSettingsPanel";
 import { CampusesPanel } from "../settings/CampusesPanel";
 import { OrganisationProfilePanel } from "../settings/OrganisationProfilePanel";
-
-type StepKey = "profile" | "business" | "academicYear" | "campuses";
+import { decideResume, type StepKey } from "./structureSetupResume";
 
 interface Step {
 	key: StepKey;
@@ -36,23 +36,13 @@ interface Step {
 	formId?: string;
 }
 
-/** Minimal onboarding - just enough to establish the school. Fees, departments and
+/** Minimal onboarding - just enough to establish the school. Academic years are managed on their own
+ * (Settings > Academic years, the dashboard's "Academic year creation" step). Fees, departments and
  * designations are deliberately not here: they're part of the school setup template (Academic setup),
  * and the Dashboard's setup card points to what comes next. */
 const STEPS: Step[] = [
 	{ key: "profile", label: "Organisation profile", optional: false, formId: "setup-profile-form", render: (onSaved) => <OrganisationProfilePanel onSaved={onSaved} formId="setup-profile-form" /> },
 	{ key: "business", label: "Business settings", optional: false, formId: "setup-business-form", render: (onSaved) => <BusinessSettingsPanel onSaved={onSaved} formId="setup-business-form" /> },
-	{
-		key: "academicYear",
-		label: "Academic year",
-		optional: false,
-		render: () => (
-			<Stack spacing={2}>
-				<Alert severity="info">Add your academic year, then use "Mark current" on it to continue.</Alert>
-				<AcademicYearsPanel />
-			</Stack>
-		),
-	},
 	// Optional: a "Main Campus" is created at provisioning; add more only if the school has them.
 	{ key: "campuses", label: "Campuses / locations", optional: true, render: () => <CampusesPanel /> },
 ];
@@ -60,12 +50,11 @@ const STEPS: Step[] = [
 interface ReviewStatus {
 	profileComplete: boolean;
 	businessConfigured: boolean;
-	currentAcademicYear: boolean;
 	activeCampusCount: number;
 }
 
 /** What "done" means for each required step, and what to tell the user when it isn't.
- * Mirrors DashboardController.isStructureConfigured on the backend. */
+ * Mirrors DashboardController.isInstitutionProfileConfigured on the backend. */
 const REQUIREMENTS: Partial<Record<StepKey, { label: string; done: (status: ReviewStatus) => boolean; message: string }>> = {
 	profile: {
 		label: "Organisation profile (primary contact name and email)",
@@ -73,11 +62,6 @@ const REQUIREMENTS: Partial<Record<StepKey, { label: string; done: (status: Revi
 		message: "Add the primary contact name and email, then save.",
 	},
 	business: { label: "Business settings (timezone)", done: (s) => s.businessConfigured, message: "Choose a timezone, then save." },
-	academicYear: {
-		label: "A current academic year",
-		done: (s) => s.currentAcademicYear,
-		message: 'Add an academic year and mark it as current to continue.',
-	},
 };
 
 function requiredDone(status: ReviewStatus): boolean {
@@ -85,16 +69,14 @@ function requiredDone(status: ReviewStatus): boolean {
 }
 
 async function loadStatus(): Promise<ReviewStatus> {
-	const [profile, settings, years, campuses] = await Promise.all([
+	const [profile, settings, campuses] = await Promise.all([
 		getOrganisationProfile(),
 		getOrganisationSettings(),
-		listAcademicYears(),
 		listCampuses(),
 	]);
 	return {
 		profileComplete: Boolean(profile.primaryContactName?.trim() && profile.primaryContactEmail?.trim()),
 		businessConfigured: Boolean(settings.timezone),
-		currentAcademicYear: years.some((year) => year.current && year.status !== "CLOSED"),
 		activeCampusCount: campuses.filter((campus) => campus.status === "ACTIVE").length,
 	};
 }
@@ -157,6 +139,8 @@ function ReviewStep({ status }: { status: ReviewStatus | null }) {
  * "Structure Setup workflow"). */
 export function StructureSetupPage() {
 	const navigate = useNavigate();
+	// Every save in this wizard (profile, settings, campuses, step progress) needs ORGANISATION_MANAGE.
+	const canManageOrganisation = useCan("ORGANISATION_MANAGE");
 	const [activeStep, setActiveStep] = useState(0);
 	const [reviewStatus, setReviewStatus] = useState<ReviewStatus | null>(null);
 	const [completed, setCompleted] = useState<Set<StepKey>>(new Set());
@@ -192,23 +176,26 @@ export function StructureSetupPage() {
 			}
 		}
 		setCompleted((prev) => new Set(prev).add(step.key));
+		// Remember it on the server so the wizard resumes in the right place from any browser. Best effort:
+		// the wizard advances regardless, and the next visit just falls back to what the saved data shows.
+		completeSetupStep(step.key).catch(() => undefined);
 		goTo(activeStep + 1);
 	}
 
-	// Resume a returning user: only the unbroken run of already-done required steps from the
-	// start counts as complete (so a defaulted timezone never ticks a step ahead of an
-	// unfinished one), and the wizard opens on the first step still to do.
+	// Resume a returning user. A required step is done while its data requirement is met (so a defaulted
+	// timezone never ticks a step ahead of an unfinished one); an optional step (Campuses) is done only
+	// once the user continued past it, which the server remembers. Opens on the first step not done.
 	useEffect(() => {
-		loadStatus()
-			.then((status) => {
-				const done = new Set<StepKey>();
-				for (const step of STEPS) {
-					const requirement = REQUIREMENTS[step.key];
-					if (!requirement || !requirement.done(status)) break;
-					done.add(step.key);
-				}
-				setCompleted(done);
-				setActiveStep(done.size);
+		Promise.all([loadStatus(), getCompletedSetupSteps().then((response) => response.completedSteps).catch((): string[] => [])])
+			.then(([status, savedOnServer]) => {
+				const satisfied = new Set(STEPS.filter((step) => REQUIREMENTS[step.key]?.done(status)).map((step) => step.key));
+				const decision = decideResume(
+					STEPS.map((step) => ({ key: step.key, required: Boolean(REQUIREMENTS[step.key]) })),
+					satisfied,
+					savedOnServer,
+				);
+				setCompleted(decision.completed);
+				setActiveStep(decision.openIndex);
 			})
 			.catch(() => undefined);
 	}, []);
@@ -227,7 +214,7 @@ export function StructureSetupPage() {
 					Structure setup
 				</Typography>
 				<Typography variant="body1" sx={{ color: colors.inkSoft, mt: 0.5 }}>
-					Establish your school: profile, business settings and the current academic year. Everything else can be configured later.
+					Establish your school: profile and business settings. Academic years, and everything else, can be configured later.
 				</Typography>
 			</Box>
 
@@ -271,16 +258,21 @@ export function StructureSetupPage() {
 					<Button disabled={activeStep === 0} onClick={() => goTo(activeStep - 1)}>
 						Back
 					</Button>
-					{!isReviewStep &&
-						(STEPS[activeStep].formId ? (
-							<Button variant="contained" type="submit" form={STEPS[activeStep].formId} disabled={checking}>
-								Save and continue
-							</Button>
-						) : (
-							<Button variant="contained" onClick={advance} disabled={checking}>
-								Continue
-							</Button>
-						))}
+					{!isReviewStep && (
+						<Tooltip title={canManageOrganisation ? "" : "You don't have permission to change organisation setup"}>
+							<span>
+								{STEPS[activeStep].formId ? (
+									<Button variant="contained" type="submit" form={STEPS[activeStep].formId} disabled={checking || !canManageOrganisation}>
+										Save and continue
+									</Button>
+								) : (
+									<Button variant="contained" onClick={advance} disabled={checking || !canManageOrganisation}>
+										Continue
+									</Button>
+								)}
+							</span>
+						</Tooltip>
+					)}
 				</Stack>
 			</Stack>
 		</Stack>

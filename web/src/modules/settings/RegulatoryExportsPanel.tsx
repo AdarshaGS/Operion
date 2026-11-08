@@ -24,6 +24,7 @@ import AddIcon from "@mui/icons-material/Add";
 import ArrowDownwardIcon from "@mui/icons-material/ArrowDownward";
 import ArrowUpwardIcon from "@mui/icons-material/ArrowUpward";
 import DeleteOutlinedIcon from "@mui/icons-material/DeleteOutlined";
+import { Can } from "../../auth/Can";
 import { ApiError } from "../../api/client";
 import {
 	changeRegulatoryExportStatus,
@@ -92,9 +93,11 @@ export function RegulatoryExportsPanel() {
 			<Stack spacing={2}>
 				<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
 					<Typography variant="h6">Regulatory export layouts</Typography>
-					<Button size="small" startIcon={<AddIcon />} onClick={() => setCreateOpen(true)}>
-						New layout
-					</Button>
+					<Can anyOf={["REGULATORY_EXPORT_MANAGE"]}>
+						<Button size="small" startIcon={<AddIcon />} onClick={() => setCreateOpen(true)}>
+							New layout
+						</Button>
+					</Can>
 				</Box>
 				<Typography variant="body2" color="text.secondary">
 					Define how student or staff records map onto an external reporting layout, then download it as CSV. Only
@@ -128,19 +131,21 @@ export function RegulatoryExportsPanel() {
 										<Chip label={schema.status} size="small" color={schema.status === "ACTIVE" ? "success" : "default"} />
 									</TableCell>
 									<TableCell align="right">
-										<Button size="small" onClick={() => setEditing(schema)}>
-											Columns
-										</Button>
-										<Button
-											size="small"
-											disabled={schema.status !== "ACTIVE" || schema.fields.length === 0}
-											onClick={() => handleDownload(schema)}
-										>
-											Download CSV
-										</Button>
-										<Button size="small" onClick={() => handleToggleStatus(schema)}>
-											{schema.status === "ACTIVE" ? "Deactivate" : "Reactivate"}
-										</Button>
+										<Can anyOf={["REGULATORY_EXPORT_MANAGE"]}>
+											<Button size="small" onClick={() => setEditing(schema)}>
+												Columns
+											</Button>
+											<Button
+												size="small"
+												disabled={schema.status !== "ACTIVE" || schema.fields.length === 0}
+												onClick={() => handleDownload(schema)}
+											>
+												Download CSV
+											</Button>
+											<Button size="small" onClick={() => handleToggleStatus(schema)}>
+												{schema.status === "ACTIVE" ? "Deactivate" : "Reactivate"}
+											</Button>
+										</Can>
 									</TableCell>
 								</TableRow>
 							))}

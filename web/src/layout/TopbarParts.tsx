@@ -149,7 +149,10 @@ export function GlobalSearch({ placeholder = "Search students, staff, classes, a
 			onInputChange={(_, value, reason) => setInput(reason === "reset" ? "" : value)}
 			onChange={(_, value) => go(value)}
 			slotProps={{ paper: { sx: { mt: 0.75 } } }}
-			sx={{ maxWidth: 560, flexGrow: 1, minWidth: 0 }}
+			// maxWidth caps the search, so on wide windows there is spare room in the bar; mr:auto parks that gap
+			// right after the search (flex-grow is resolved first, auto margins take only what's left) so the
+			// trailing chips, bell and avatar stay packed against the right edge.
+			sx={{ maxWidth: 560, flexGrow: 1, minWidth: 0, mr: "auto" }}
 			renderOption={(props, option) => {
 				const { key, ...rest } = props as typeof props & { key: string };
 				return (

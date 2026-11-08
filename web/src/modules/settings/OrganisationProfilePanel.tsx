@@ -6,6 +6,9 @@ import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
+import { PanelTitle } from "./PanelTitle";
+import { Can } from "../../auth/Can";
+import { useCan } from "../../auth/useCan";
 import { ApiError } from "../../api/client";
 import { getOrganisationProfile, updateOrganisationProfile } from "../../api/organisationProfile";
 
@@ -21,6 +24,8 @@ interface OrganisationProfilePanelProps {
 }
 
 export function OrganisationProfilePanel({ onSaved, formId }: OrganisationProfilePanelProps = {}) {
+	// Saving needs ORGANISATION_MANAGE; everyone else gets a read-only view of the same values.
+	const canEdit = useCan("ORGANISATION_MANAGE");
 	const [name, setName] = useState("");
 	const [legalName, setLegalName] = useState("");
 	const [logoUrl, setLogoUrl] = useState("");
@@ -101,42 +106,43 @@ export function OrganisationProfilePanel({ onSaved, formId }: OrganisationProfil
 	return (
 		<Paper component="form" id={formId} onSubmit={handleSubmit} sx={{ p: 3 }}>
 			<Stack spacing={2}>
-				<Typography variant="h6">Organisation profile</Typography>
+				<PanelTitle>Organisation profile</PanelTitle>
 
 				{error && <Alert severity="error">{error}</Alert>}
 				{saved && <Alert severity="success">Profile updated</Alert>}
 
 				<Box sx={{ display: "flex", gap: 2 }}>
-					<TextField label="Organisation name" value={name} onChange={(e) => setName(e.target.value)} required fullWidth />
-					<TextField label="Legal name" value={legalName} onChange={(e) => setLegalName(e.target.value)} fullWidth />
+					<TextField label="Organisation name" value={name} onChange={(e) => setName(e.target.value)} required disabled={!canEdit} fullWidth />
+					<TextField label="Legal name" value={legalName} onChange={(e) => setLegalName(e.target.value)} disabled={!canEdit} fullWidth />
 				</Box>
-				<TextField label="Logo URL" value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)} fullWidth />
+				<TextField label="Logo URL" value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)} disabled={!canEdit} fullWidth />
 
 				<Typography variant="subtitle2" sx={{ mt: 1 }}>
 					Primary contact
 				</Typography>
 				<Box sx={{ display: "flex", gap: 2 }}>
-					<TextField label="Contact name" value={primaryContactName} onChange={(e) => setPrimaryContactName(e.target.value)} fullWidth />
+					<TextField label="Contact name" value={primaryContactName} onChange={(e) => setPrimaryContactName(e.target.value)} disabled={!canEdit} fullWidth />
 					<TextField
 						label="Contact email"
 						type="email"
 						value={primaryContactEmail}
 						onChange={(e) => setPrimaryContactEmail(e.target.value)}
+						disabled={!canEdit}
 						fullWidth
 					/>
-					<TextField label="Contact phone" value={primaryContactPhone} onChange={(e) => setPrimaryContactPhone(e.target.value)} fullWidth />
+					<TextField label="Contact phone" value={primaryContactPhone} onChange={(e) => setPrimaryContactPhone(e.target.value)} disabled={!canEdit} fullWidth />
 				</Box>
 
 				<Typography variant="subtitle2" sx={{ mt: 1 }}>
 					Address
 				</Typography>
-				<TextField label="Address line 1" value={addressLine1} onChange={(e) => setAddressLine1(e.target.value)} fullWidth />
-				<TextField label="Address line 2" value={addressLine2} onChange={(e) => setAddressLine2(e.target.value)} fullWidth />
+				<TextField label="Address line 1" value={addressLine1} onChange={(e) => setAddressLine1(e.target.value)} disabled={!canEdit} fullWidth />
+				<TextField label="Address line 2" value={addressLine2} onChange={(e) => setAddressLine2(e.target.value)} disabled={!canEdit} fullWidth />
 				<Box sx={{ display: "flex", gap: 2 }}>
-					<TextField label="City" value={city} onChange={(e) => setCity(e.target.value)} fullWidth />
-					<TextField label="State" value={state} onChange={(e) => setState(e.target.value)} fullWidth />
-					<TextField label="Country" value={country} onChange={(e) => setCountry(e.target.value)} fullWidth />
-					<TextField label="Pincode" value={pincode} onChange={(e) => setPincode(e.target.value)} fullWidth />
+					<TextField label="City" value={city} onChange={(e) => setCity(e.target.value)} disabled={!canEdit} fullWidth />
+					<TextField label="State" value={state} onChange={(e) => setState(e.target.value)} disabled={!canEdit} fullWidth />
+					<TextField label="Country" value={country} onChange={(e) => setCountry(e.target.value)} disabled={!canEdit} fullWidth />
+					<TextField label="Pincode" value={pincode} onChange={(e) => setPincode(e.target.value)} disabled={!canEdit} fullWidth />
 				</Box>
 
 				<TextField
@@ -144,14 +150,17 @@ export function OrganisationProfilePanel({ onSaved, formId }: OrganisationProfil
 					placeholder="GSTIN, PAN, or equivalent"
 					value={taxIdentifier}
 					onChange={(e) => setTaxIdentifier(e.target.value)}
+					disabled={!canEdit}
 					fullWidth
 				/>
 
-				<Box sx={{ display: "flex", justifyContent: "flex-end" }}>
-					<Button type="submit" variant="contained" disabled={submitting}>
-						{submitting ? "Saving..." : "Save"}
-					</Button>
-				</Box>
+				<Can anyOf={["ORGANISATION_MANAGE"]}>
+					<Box sx={{ display: "flex", justifyContent: "flex-end" }}>
+						<Button type="submit" variant="contained" disabled={submitting}>
+							{submitting ? "Saving..." : "Save"}
+						</Button>
+					</Box>
+				</Can>
 			</Stack>
 		</Paper>
 	);

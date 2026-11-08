@@ -3,6 +3,7 @@ package com.operion.identity.auth;
 import com.operion.authorization.MembershipStatus;
 import com.operion.authorization.OrganisationMembershipRepository;
 import com.operion.common.TenantContext;
+import com.operion.common.TooManyRequestsException;
 import com.operion.identity.User;
 import com.operion.identity.UserRepository;
 import com.operion.identity.UserStatus;
@@ -25,6 +26,9 @@ public class AuthenticationService {
 	private final JwtService jwtService;
 	private final RefreshTokenService refreshTokenService;
 	private final LoginAttemptService loginAttemptService;
+	/** A real hash (same encoder, so same cost) of a throwaway value, matched against when no user
+	 * resolves, so "unknown email" costs the same bcrypt work as "wrong password". */
+	private final String dummyPasswordHash;
 
 	public AuthenticationService(OrganisationRepository organisationRepository, UserRepository userRepository,
 			OrganisationMembershipRepository membershipRepository, PasswordEncoder passwordEncoder, JwtService jwtService,
@@ -36,12 +40,13 @@ public class AuthenticationService {
 		this.jwtService = jwtService;
 		this.refreshTokenService = refreshTokenService;
 		this.loginAttemptService = loginAttemptService;
+		this.dummyPasswordHash = passwordEncoder.encode("operion-dummy-password-for-timing-parity");
 	}
 
 	public LoginResult login(String organisationSlug, String email, String rawPassword) {
 		// Deliberately the same error for "no such org", "no such user", "wrong password",
-		// "inactive status" and "no membership" - distinguishing them lets an attacker
-		// enumerate valid slugs/emails/account states. Same reasoning covers the lockout
+		// "missing password", "inactive status" and "no membership" - distinguishing them lets an
+		// attacker enumerate valid slugs/emails/account states. Same reasoning covers the lockout
 		// check below: it fails closed with this exact message too, rather than a distinct
 		// "too many attempts" response that would itself leak "this email exists".
 		AuthenticationFailedException failure = new AuthenticationFailedException("Invalid organisation, email or password");
@@ -51,45 +56,68 @@ public class AuthenticationService {
 			return failure;
 		});
 
-		if (loginAttemptService.isLocked(organisation.getId(), email)) {
-			log.warn("Login rejected (too many recent failures): org={} email={}", organisationSlug, email);
-			throw failure;
+		if (!organisation.isOpenForSignIn()) {
+			throw logFailure(failure, organisation, email, null);
 		}
 
 		// Users, memberships and refresh tokens are tenant-scoped (@TenantId) - identities
 		// are per school - so login has to resolve *which* tenant before it can look the
 		// user up at all. TenantContext stays set for the whole rest of this method, or
 		// these calls silently filter to "no tenant".
-		if (!organisation.isOpenForSignIn()) {
-			throw logFailure(failure, organisation, email);
-		}
 		TenantContext.set(organisation.getId(), null);
 		try {
-			User user = userRepository.findByEmail(email).orElseThrow(() -> logFailure(failure, organisation, email));
+			User user = userRepository.findByEmail(email).orElse(null);
 
-			if (!passwordEncoder.matches(rawPassword, user.getPasswordHash())) {
-				throw logFailure(failure, organisation, email);
+			// Lockout is keyed on the *resolved* user when there is one: the database matches emails
+			// accent- and case-insensitively, so keying on the typed string would let "jose@x" and
+			// "jos\u00e9@x" (one account) each have their own counter. With no user, the key is the
+			// accent-stripped email instead. See LoginAttemptService.
+			boolean locked = user != null ? loginAttemptService.isLockedForUser(organisation.getId(), user.getId())
+					: loginAttemptService.isLocked(organisation.getId(), email);
+			if (locked) {
+				log.warn("Login rejected (too many recent failures): org={} email={}", organisationSlug, email);
+				throw failure;
+			}
+
+			// Exactly one bcrypt comparison on every path, whatever went wrong: an unknown email is
+			// matched against a dummy hash, and a missing password is matched as "" and then
+			// discarded - so neither timing nor status distinguishes them from a wrong password.
+			boolean passwordMatches = passwordMatches(rawPassword, user != null ? user.getPasswordHash() : dummyPasswordHash);
+			if (user == null || !passwordMatches) {
+				throw logFailure(failure, organisation, email, user);
 			}
 
 			if (user.getStatus() != UserStatus.ACTIVE) {
-				throw logFailure(failure, organisation, email);
+				throw logFailure(failure, organisation, email, user);
 			}
 
 			TenantContext.set(organisation.getId(), user.getId());
 			boolean hasActiveMembership = membershipRepository.findByUserId(user.getId()).stream()
 					.anyMatch(membership -> membership.getStatus() == MembershipStatus.ACTIVE);
 			if (!hasActiveMembership) {
-				throw logFailure(failure, organisation, email);
+				throw logFailure(failure, organisation, email, user);
 			}
 
-			JwtService.IssuedToken issued = jwtService.issue(user.getId(), organisation.getId());
+			JwtService.IssuedToken issued = jwtService.issue(user.getId(), organisation.getId(), user.getCredentialVersion());
 			RefreshTokenService.IssuedRefreshToken refresh = refreshTokenService.issue(user.getId());
-			loginAttemptService.recordSuccess(organisation.getId(), email);
+			loginAttemptService.recordSuccessForUser(organisation.getId(), user.getId());
 			log.info("Login succeeded: org={} userId={}", organisationSlug, user.getId());
 			return new LoginResult(issued.token(), issued.expiresAt(), refresh.rawToken(), refresh.expiresAt(), user.getId(),
 					organisation.getId());
 		} finally {
 			TenantContext.clear();
+		}
+	}
+
+	/** Always performs the bcrypt comparison. A null password is compared as "" (the result is
+	 * discarded) rather than letting the encoder throw, and an encoder rejection of the input
+	 * (bcrypt refuses over-long passwords) counts as a mismatch, not a 500/404. */
+	private boolean passwordMatches(String rawPassword, String hash) {
+		try {
+			boolean matches = passwordEncoder.matches(rawPassword == null ? "" : rawPassword, hash);
+			return rawPassword != null && matches;
+		} catch (IllegalArgumentException ex) {
+			return false;
 		}
 	}
 
@@ -108,12 +136,25 @@ public class AuthenticationService {
 	 * exactly the bug this codebase's own ApiExceptionHandler javadoc warns never to cause
 	 * ("never issues one for a business rule"). */
 	public void changePassword(Long userId, String currentPassword, String newPassword) {
-		User user = userRepository.findById(userId).orElseThrow(() -> new IllegalArgumentException("No user with id " + userId));
-		if (!passwordEncoder.matches(currentPassword, user.getPasswordHash())) {
-			throw new IllegalStateException("Current password is incorrect");
+		// Keyed per user (and, in the controller, per IP): a stolen access token must not be a free
+		// oracle for the account's current password. Throttled callers get 429, which - unlike the
+		// login path - leaks nothing, since the caller is already authenticated as this user.
+		Long organisationId = TenantContext.getOrganisationId();
+		if (loginAttemptService.isPasswordChangeLocked(organisationId, userId)) {
+			throw new TooManyRequestsException("Too many incorrect password attempts. Try again later.");
 		}
+		User user = userRepository.findById(userId).orElseThrow(() -> new IllegalArgumentException("No user with id " + userId));
+		if (!passwordMatches(currentPassword, user.getPasswordHash())) {
+			loginAttemptService.recordPasswordChangeFailure(organisationId, userId);
+			throw new WrongCurrentPasswordException();
+		}
+		loginAttemptService.recordPasswordChangeSuccess(organisationId, userId);
+		// setPasswordHash bumps credentialVersion, which cuts off every access token issued before this
+		// point (JwtAuthenticationInterceptor); the refresh tokens are revoked here so they cannot mint
+		// new ones. The caller's own session goes with them - they sign in again with the new password.
 		user.setPasswordHash(passwordEncoder.encode(newPassword));
 		userRepository.save(user);
+		refreshTokenService.revokeAllForUser(userId);
 	}
 
 	/**
@@ -145,7 +186,7 @@ public class AuthenticationService {
 				throw invalid;
 			}
 
-			JwtService.IssuedToken issued = jwtService.issue(user.getId(), organisation.getId());
+			JwtService.IssuedToken issued = jwtService.issue(user.getId(), organisation.getId(), user.getCredentialVersion());
 			RefreshTokenService.IssuedRefreshToken refresh = refreshTokenService.issue(user.getId());
 			log.info("Token refreshed: org={} userId={}", organisationSlug, user.getId());
 			return new LoginResult(issued.token(), issued.expiresAt(), refresh.rawToken(), refresh.expiresAt(), user.getId(),
@@ -159,9 +200,14 @@ public class AuthenticationService {
 	 * above), but internal logs can - and should - be more specific, so a real security
 	 * review can tell a brute-force attempt on one org apart from a mistyped email. Logs
 	 * the org slug and email, never the password. */
-	private AuthenticationFailedException logFailure(AuthenticationFailedException failure, Organisation organisation, String email) {
+	private AuthenticationFailedException logFailure(AuthenticationFailedException failure, Organisation organisation, String email,
+			User resolvedUser) {
 		log.warn("Login failed: org={} email={}", organisation.getSlug(), email);
-		loginAttemptService.recordFailure(organisation.getId(), email);
+		if (resolvedUser != null) {
+			loginAttemptService.recordFailureForUser(organisation.getId(), resolvedUser.getId());
+		} else {
+			loginAttemptService.recordFailure(organisation.getId(), email);
+		}
 		return failure;
 	}
 }

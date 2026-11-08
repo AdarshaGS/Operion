@@ -3,6 +3,7 @@ package com.operion.finance;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Collection;
 import java.util.Optional;
 
 import jakarta.persistence.LockModeType;
@@ -63,4 +64,22 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
 			+ "JOIN FETCH e.section sec JOIN FETCH sec.schoolClass JOIN FETCH a.feeStructure fs JOIN FETCH fs.feeCategory "
 			+ "WHERE (:academicYearId IS NULL OR i.academicYear.id = :academicYearId)")
 	List<Invoice> findForOverview(@Param("academicYearId") Long academicYearId);
+
+	/** Admission invoices of one enrollment, locking reads in id order - the clearance recalculation must see the
+	 * latest committed amounts of every sibling invoice, which a plain read under REPEATABLE READ would not. */
+	@Lock(LockModeType.PESSIMISTIC_WRITE)
+	@Query("SELECT i FROM Invoice i WHERE i.studentFeeAssignment.studentEnrollment.id = :studentEnrollmentId "
+			+ "AND i.admissionInvoice = true ORDER BY i.id")
+	List<Invoice> findAdmissionInvoicesForUpdate(@Param("studentEnrollmentId") Long studentEnrollmentId);
+
+	/** Plain-read form of the above, for the clearance read endpoint. */
+	@Query("SELECT i FROM Invoice i WHERE i.studentFeeAssignment.studentEnrollment.id = :studentEnrollmentId "
+			+ "AND i.admissionInvoice = true ORDER BY i.id")
+	List<Invoice> findAdmissionInvoices(@Param("studentEnrollmentId") Long studentEnrollmentId);
+
+	/** Which enrollments the admission invoices among the given ids belong to - read first so the enrollments can be
+	 * locked before the invoices (ids never change, so a plain read is safe). */
+	@Query("SELECT DISTINCT i.studentFeeAssignment.studentEnrollment.id FROM Invoice i "
+			+ "WHERE i.id IN :invoiceIds AND i.admissionInvoice = true")
+	List<Long> findAdmissionEnrollmentIdsByInvoiceIds(@Param("invoiceIds") Collection<Long> invoiceIds);
 }

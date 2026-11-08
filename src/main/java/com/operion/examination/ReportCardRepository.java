@@ -22,4 +22,11 @@ public interface ReportCardRepository extends JpaRepository<ReportCard, Long> {
 	/** Examinations overview - the report cards currently in force for one academic year's exams. */
 	@Query("SELECT r FROM ReportCard r JOIN FETCH r.exam e WHERE e.academicYear.id = :academicYearId AND r.status = :status")
 	List<ReportCard> findForOverview(@Param("academicYearId") Long academicYearId, @Param("status") ReportCardStatus status);
+
+	/** Year-end promotion preview - (student enrollment id, passed) of every PUBLISHED FINAL-type report card of the
+	 * academic year's exams, oldest first so a caller keeping the last row per enrollment gets the latest one. */
+	@Query("SELECT r.studentEnrollment.id, r.passed FROM ReportCard r "
+			+ "WHERE r.exam.academicYear.id = :academicYearId AND r.exam.examType = com.operion.examination.ExamType.FINAL "
+			+ "AND r.status = com.operion.examination.ReportCardStatus.PUBLISHED ORDER BY r.id ASC")
+	List<Object[]> findPublishedFinalResultsForYear(@Param("academicYearId") Long academicYearId);
 }

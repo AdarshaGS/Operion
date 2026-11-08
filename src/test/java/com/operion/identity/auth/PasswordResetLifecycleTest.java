@@ -47,9 +47,12 @@ class PasswordResetLifecycleTest {
 	@Autowired
 	private EmailOutboxRepository emailOutboxRepository;
 
+	@Autowired
+	private RefreshTokenRepository refreshTokenRepository;
+
 	private PasswordResetService passwordResetService() {
 		return new PasswordResetService(passwordResetTokenRepository, userRepository, organisationRepository, ENCODER,
-				new EmailDeliveryService(List.of(), emailOutboxRepository), "http://localhost:5173", false);
+				new RefreshTokenService(refreshTokenRepository, ENCODER), new EmailDeliveryService(List.of(), emailOutboxRepository), "http://localhost:5173", false);
 	}
 
 	private Organisation newOrg(String slugPrefix) {
@@ -71,7 +74,7 @@ class PasswordResetLifecycleTest {
 		passwordResetService().requestReset(organisation.getSlug(), "reset-me@pw-reset.test");
 
 		TenantContext.set(organisation.getId(), null);
-		var tokens = passwordResetTokenRepository.findByConsumedFalse();
+		var tokens = passwordResetTokenRepository.findAll();
 		assertThat(tokens).hasSize(1);
 		assertThat(tokens.get(0).getTokenHash()).doesNotContain("reset-me");
 	}
@@ -96,7 +99,7 @@ class PasswordResetLifecycleTest {
 		passwordResetService().requestReset(organisation.getSlug(), "nobody@pw-reset.test");
 
 		TenantContext.set(organisation.getId(), null);
-		assertThat(passwordResetTokenRepository.findByConsumedFalse()).isEmpty();
+		assertThat(passwordResetTokenRepository.findAll()).isEmpty();
 	}
 
 	@Test
@@ -112,7 +115,7 @@ class PasswordResetLifecycleTest {
 		User user = userRepository.save(new User("confirm-me@pw-reset.test", null, ENCODER.encode("OldPass123!")));
 		String rawToken = "raw-reset-token";
 		PasswordResetToken token = passwordResetTokenRepository
-				.save(new PasswordResetToken(user.getId(), ENCODER.encode(rawToken), Instant.now().plusSeconds(3600)));
+				.save(new PasswordResetToken(user.getId(), TokenHasher.sha256Hex(rawToken), Instant.now().plusSeconds(3600)));
 		TenantContext.clear();
 
 		passwordResetService().confirmReset(organisation.getSlug(), rawToken, "NewPass123!");
@@ -128,7 +131,7 @@ class PasswordResetLifecycleTest {
 		Organisation organisation = newOrg("wrong-token");
 		TenantContext.set(organisation.getId(), null);
 		User user = userRepository.save(new User("wrong-token@pw-reset.test", null, ENCODER.encode("OldPass123!")));
-		passwordResetTokenRepository.save(new PasswordResetToken(user.getId(), ENCODER.encode("real-token"), Instant.now().plusSeconds(3600)));
+		passwordResetTokenRepository.save(new PasswordResetToken(user.getId(), TokenHasher.sha256Hex("real-token"), Instant.now().plusSeconds(3600)));
 		TenantContext.clear();
 
 		assertThatThrownBy(() -> passwordResetService().confirmReset(organisation.getSlug(), "not-the-real-token", "NewPass123!"))
@@ -141,7 +144,7 @@ class PasswordResetLifecycleTest {
 		TenantContext.set(organisation.getId(), null);
 		User user = userRepository.save(new User("expired@pw-reset.test", null, ENCODER.encode("OldPass123!")));
 		String rawToken = "expired-raw-token";
-		passwordResetTokenRepository.save(new PasswordResetToken(user.getId(), ENCODER.encode(rawToken), Instant.now().minusSeconds(60)));
+		passwordResetTokenRepository.save(new PasswordResetToken(user.getId(), TokenHasher.sha256Hex(rawToken), Instant.now().minusSeconds(60)));
 		TenantContext.clear();
 
 		assertThatThrownBy(() -> passwordResetService().confirmReset(organisation.getSlug(), rawToken, "NewPass123!"))
@@ -154,7 +157,7 @@ class PasswordResetLifecycleTest {
 		TenantContext.set(organisation.getId(), null);
 		User user = userRepository.save(new User("double-confirm@pw-reset.test", null, ENCODER.encode("OldPass123!")));
 		String rawToken = "double-confirm-token";
-		passwordResetTokenRepository.save(new PasswordResetToken(user.getId(), ENCODER.encode(rawToken), Instant.now().plusSeconds(3600)));
+		passwordResetTokenRepository.save(new PasswordResetToken(user.getId(), TokenHasher.sha256Hex(rawToken), Instant.now().plusSeconds(3600)));
 		TenantContext.clear();
 
 		passwordResetService().confirmReset(organisation.getSlug(), rawToken, "FirstNewPass1!");

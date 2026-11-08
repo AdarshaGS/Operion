@@ -43,6 +43,12 @@ export default defineConfig({
 		// data-driven per role) - tests/tenant/** assumes full write access and is owner-only
 		// by default. A spec that is specifically about one limited role's scoped behavior
 		// belongs in tests/rbac/ (see api-enforcement.spec.ts) rather than tests/tenant/.
+		// API-only specs (no browser, no storageState): they drive the backend directly through
+		// Playwright's `request` fixture, provisioning their own orgs where isolation matters.
+		{
+			name: "api",
+			testMatch: ["api/**"],
+		},
 		{
 			name: "allFunctionsAdmin",
 			testMatch: ["rbac/**"],

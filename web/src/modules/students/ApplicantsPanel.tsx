@@ -27,6 +27,8 @@ import {
 	type ApplicantResponse,
 } from "../../api/applicants";
 import { ApiError } from "../../api/client";
+import { Can } from "../../auth/Can";
+import { useCan } from "../../auth/useCan";
 import { createPerson, GENDER_OPTIONS, listPersons, type PersonResponse } from "../../api/persons";
 
 const INQUIRY_FORM = { firstName: "", lastName: "", dateOfBirth: "", gender: "", phone: "", email: "", inquiryDate: "", source: "", notes: "" };
@@ -47,6 +49,8 @@ const CONVERT_FORM = {
  * as a Student (no name/DOB/gender re-entry); rejecting just closes the inquiry. */
 export function ApplicantsPanel() {
 	const navigate = useNavigate();
+	// Inquiry, convert and reject all need STUDENT_MANAGE; the whole actions column is dropped without it.
+	const canManage = useCan("STUDENT_MANAGE");
 	const [applicants, setApplicants] = useState<ApplicantResponse[]>([]);
 	const [personsById, setPersonsById] = useState<Map<number, PersonResponse>>(new Map());
 	const [error, setError] = useState<string | null>(null);
@@ -149,9 +153,11 @@ export function ApplicantsPanel() {
 			<Stack spacing={2}>
 				<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
 					<Typography variant="h6">Applicants</Typography>
-					<Button size="small" startIcon={<AddIcon />} onClick={() => setInquiryOpen(true)}>
-						Record inquiry
-					</Button>
+					<Can anyOf={["STUDENT_MANAGE"]}>
+						<Button size="small" startIcon={<AddIcon />} onClick={() => setInquiryOpen(true)}>
+							Record inquiry
+						</Button>
+					</Can>
 				</Box>
 
 				{error && <Alert severity="error">{error}</Alert>}
@@ -166,7 +172,7 @@ export function ApplicantsPanel() {
 									<TableCell>Applicant</TableCell>
 									<TableCell>Inquiry date</TableCell>
 									<TableCell>Source</TableCell>
-									<TableCell />
+									{canManage && <TableCell />}
 								</TableRow>
 							</TableHead>
 							<TableBody>
@@ -175,14 +181,16 @@ export function ApplicantsPanel() {
 										<TableCell>{personLabel(applicant.personId)}</TableCell>
 										<TableCell>{applicant.inquiryDate}</TableCell>
 										<TableCell>{applicant.source ?? "—"}</TableCell>
-										<TableCell>
-											<Button size="small" onClick={() => setConvertTarget(applicant)}>
-												Convert to student
-											</Button>
-											<Button size="small" color="error" onClick={() => handleReject(applicant.id)}>
-												Reject
-											</Button>
-										</TableCell>
+										{canManage && (
+											<TableCell>
+												<Button size="small" onClick={() => setConvertTarget(applicant)}>
+													Convert to student
+												</Button>
+												<Button size="small" color="error" onClick={() => handleReject(applicant.id)}>
+													Reject
+												</Button>
+											</TableCell>
+										)}
 									</TableRow>
 								))}
 							</TableBody>

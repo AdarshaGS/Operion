@@ -101,7 +101,7 @@ class StudentSearchTest {
 
 	private Fixture setUpOrg(String slug) {
 		studentService = new StudentService(studentRepository, studentEnrollmentRepository, studentDocumentRepository,
-				studentExitRepository, null, null, studentIdGenerator, new AuditLogService(auditLogRepository, new ObjectMapper()),
+				studentExitRepository, sectionRepository, gradeLevelRepository, null, null, studentIdGenerator, new AuditLogService(auditLogRepository, new ObjectMapper()),
 			new CustomFieldService(customFieldDefinitionRepository, new ObjectMapper()));
 
 		Organisation organisation = organisationRepository.save(new Organisation("Test School", "Test School Trust", slug));

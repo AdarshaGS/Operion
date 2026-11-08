@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.operion.common.InvalidRequestException;
+import com.operion.organisation.DocumentNumberFormatter;
 
 /**
  * A school's certificate types. New types start from a preset (copied, then independent) or from a short generic
@@ -101,6 +102,7 @@ public class CertificateTypeService {
 		if (details.numberFormat() == null || !details.numberFormat().contains("{SEQ")) {
 			throw new InvalidRequestException("The number format must contain {SEQ} or {SEQ:n} so every certificate gets a unique number");
 		}
+		DocumentNumberFormatter.requireValid(details.numberFormat());
 		if (!PAGE_SIZES.contains(details.pageSize())) {
 			throw new InvalidRequestException("Page size must be A4, A5 or Letter");
 		}

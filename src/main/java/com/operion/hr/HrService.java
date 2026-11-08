@@ -272,13 +272,14 @@ public class HrService {
 		return saved;
 	}
 
-	/** Public/unauthenticated entry point - resolves the org from its slug and sets
+	/** Returns true when a new application was stored, false when the email had already applied (callers must not
+	 * surface that difference to the public). Public/unauthenticated entry point - resolves the org from its slug and sets
 	 * TenantContext itself, same bootstrap shape as PortalInviteService.claim() and
 	 * PasswordResetService, since there is no bearer token yet to carry tenant context. */
-	public JobApplication submitJobApplication(String organisationSlug, String applicantName, String email, String specialization,
+	public boolean submitJobApplication(String organisationSlug, String applicantName, String email, String specialization,
 			Integer yearsExperience) {
 		Organisation organisation = organisationRepository.findBySlug(organisationSlug)
-				.orElseThrow(() -> new IllegalArgumentException("No organisation with slug " + organisationSlug));
+				.orElseThrow(() -> new IllegalArgumentException("No such organisation"));
 		// Deliberately not @Transactional: the tenant identifier resolves once per Hibernate session,
 		// so TenantContext must be set before the transaction that saves the row opens.
 		TenantContext.set(organisation.getId(), null);
@@ -292,9 +293,12 @@ public class HrService {
 			throw new InvalidRequestException("Years of experience cannot be negative");
 		}
 		if (jobApplicationRepository.existsByEmailIgnoreCase(email.trim())) {
-			throw new IllegalStateException("An application from " + email.trim() + " has already been submitted");
+			// Deduplicated server-side but reported exactly like a fresh submission: this endpoint is public, and a
+			// distinct "already applied" answer would let anyone probe whether a given email has applied here.
+			return false;
 		}
-		return jobApplicationRepository.save(new JobApplication(applicantName.trim(), email.trim(), specialization, yearsExperience));
+		jobApplicationRepository.save(new JobApplication(applicantName.trim(), email.trim(), specialization, yearsExperience));
+		return true;
 	}
 
 	public JobApplication approveJobApplication(JobApplication jobApplication, Long decidedBy) {

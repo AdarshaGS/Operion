@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import Alert from "@mui/material/Alert";
 import { Can } from "../../auth/Can";
+import { useCan } from "../../auth/useCan";
 import { DialogErrorAlert } from "../../components/DialogErrorAlert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -48,6 +49,8 @@ function todayIso(): string {
 export function PurchaseOrderDetailPage() {
 	const { orderId } = useParams<{ orderId: string }>();
 	const navigate = useNavigate();
+	// The line-item action column only holds "Return", which needs PURCHASE_MANAGE.
+	const canManage = useCan("PURCHASE_MANAGE");
 
 	const [order, setOrder] = useState<PurchaseOrderDetailResponse | null>(null);
 	const [suppliers, setSuppliers] = useState<SupplierResponse[]>([]);
@@ -253,7 +256,7 @@ export function PurchaseOrderDetailPage() {
 									<TableCell>Unit cost</TableCell>
 									<TableCell>Received</TableCell>
 									<TableCell>Returned</TableCell>
-									<TableCell></TableCell>
+									{canManage && <TableCell></TableCell>}
 								</TableRow>
 							</TableHead>
 							<TableBody>
@@ -264,15 +267,15 @@ export function PurchaseOrderDetailPage() {
 										<TableCell>{line.unitCost}</TableCell>
 										<TableCell>{line.quantityReceived}</TableCell>
 										<TableCell>{line.quantityReturned}</TableCell>
-										<TableCell>
-											{line.quantityReceived - line.quantityReturned > 0 && (
-												<Can anyOf={["PURCHASE_MANAGE"]}>
+										{canManage && (
+											<TableCell>
+												{line.quantityReceived - line.quantityReturned > 0 && (
 													<Button size="small" onClick={() => openReturnDialog(line)}>
 														Return
 													</Button>
-												</Can>
-											)}
-										</TableCell>
+												)}
+											</TableCell>
+										)}
 									</TableRow>
 								))}
 							</TableBody>

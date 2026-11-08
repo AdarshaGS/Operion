@@ -69,6 +69,19 @@ public class Invoice extends TenantScopedEntity {
 	@Column(name = "overdue_reminder_sent_at")
 	private Instant overdueReminderSentAt;
 
+	/** True for the invoices raised at enrolment that gate the student's admission-fee clearance
+	 * (see AdmissionFeeService). Set once at creation, so a fee assigned to the student later never
+	 * retroactively becomes part of the admission requirement. */
+	@Column(name = "admission_invoice", nullable = false)
+	private boolean admissionInvoice;
+
+	public Invoice(AcademicYear academicYear, StudentFeeAssignment studentFeeAssignment,
+			FeeStructureInstallment feeStructureInstallment, String invoiceNumber, BigDecimal totalAmount, LocalDate dueDate,
+			boolean admissionInvoice) {
+		this(academicYear, studentFeeAssignment, feeStructureInstallment, invoiceNumber, totalAmount, dueDate);
+		this.admissionInvoice = admissionInvoice;
+	}
+
 	public Invoice(AcademicYear academicYear, StudentFeeAssignment studentFeeAssignment,
 			FeeStructureInstallment feeStructureInstallment, String invoiceNumber, BigDecimal totalAmount, LocalDate dueDate) {
 		this.academicYear = academicYear;

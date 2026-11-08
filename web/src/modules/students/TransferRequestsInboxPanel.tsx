@@ -13,6 +13,7 @@ import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
 import { ApiError } from "../../api/client";
+import { useCan } from "../../auth/useCan";
 import { listCampuses, type CampusResponse } from "../../api/campuses";
 import { listPersons, type PersonResponse } from "../../api/persons";
 import { listStudents, type StudentResponse } from "../../api/students";
@@ -22,16 +23,24 @@ import { approveTransferRequest, listTransferRequests, rejectTransferRequest, ty
  * LeaveRequestsInboxPanel, backed by GET /api/v1/transfer-requests?status=PENDING. */
 export function TransferRequestsInboxPanel() {
 	const navigate = useNavigate();
+	// Approve/reject both need STUDENT_TRANSFER_MANAGE; the actions column is dropped without it.
+	const canManageTransfers = useCan("STUDENT_TRANSFER_MANAGE");
 	const [requests, setRequests] = useState<TransferRequestResponse[]>([]);
 	const [studentsById, setStudentsById] = useState<Map<number, StudentResponse>>(new Map());
 	const [personsById, setPersonsById] = useState<Map<number, PersonResponse>>(new Map());
 	const [campusesById, setCampusesById] = useState<Map<number, CampusResponse>>(new Map());
 	const [error, setError] = useState<string | null>(null);
+	// False until the first load settles, so an empty card never flashes while loading.
+	const [loaded, setLoaded] = useState(false);
 
 	function refresh() {
 		listTransferRequests({ status: "PENDING" })
-			.then(setRequests)
-			.catch((err) => setError(err instanceof ApiError ? err.message : "Failed to load pending transfer requests"));
+			.then((rows) => {
+				setRequests(rows);
+				setError(null);
+			})
+			.catch((err) => setError(err instanceof ApiError ? err.message : "Failed to load pending transfer requests"))
+			.finally(() => setLoaded(true));
 	}
 
 	useEffect(refresh, []);
@@ -72,6 +81,9 @@ export function TransferRequestsInboxPanel() {
 		}
 	}
 
+	// Nothing to show: hide the panel entirely (errors and pending rows still render it).
+	if (!loaded || (!error && requests.length === 0)) return null;
+
 	return (
 		<Paper sx={{ p: 3 }}>
 			<Stack spacing={2}>
@@ -80,8 +92,6 @@ export function TransferRequestsInboxPanel() {
 				</Box>
 
 				{error && <Alert severity="error">{error}</Alert>}
-
-				{requests.length === 0 && <Alert severity="info">No pending transfer requests.</Alert>}
 
 				{requests.length > 0 && (
 					<TableContainer>
@@ -92,7 +102,7 @@ export function TransferRequestsInboxPanel() {
 									<TableCell>From</TableCell>
 									<TableCell>To</TableCell>
 									<TableCell>Reason</TableCell>
-									<TableCell />
+									{canManageTransfers && <TableCell />}
 								</TableRow>
 							</TableHead>
 							<TableBody>
@@ -107,14 +117,16 @@ export function TransferRequestsInboxPanel() {
 										<TableCell>{campusesById.get(request.fromCampusId)?.name ?? `#${request.fromCampusId}`}</TableCell>
 										<TableCell>{campusesById.get(request.toCampusId)?.name ?? `#${request.toCampusId}`}</TableCell>
 										<TableCell>{request.reason ?? "—"}</TableCell>
-										<TableCell onClick={(e) => e.stopPropagation()}>
-											<Button size="small" onClick={() => handleApprove(request.id)}>
-												Approve
-											</Button>
-											<Button size="small" color="error" onClick={() => handleReject(request.id)}>
-												Reject
-											</Button>
-										</TableCell>
+										{canManageTransfers && (
+											<TableCell onClick={(e) => e.stopPropagation()}>
+												<Button size="small" onClick={() => handleApprove(request.id)}>
+													Approve
+												</Button>
+												<Button size="small" color="error" onClick={() => handleReject(request.id)}>
+													Reject
+												</Button>
+											</TableCell>
+										)}
 									</TableRow>
 								))}
 							</TableBody>

@@ -6,6 +6,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import java.time.LocalDate;
 import java.util.Map;
 
+import com.operion.academic.GradeLevelRepository;
+import com.operion.academic.SectionRepository;
 import com.operion.audit.AuditLogRepository;
 import com.operion.audit.AuditLogService;
 import com.operion.common.JpaConfig;
@@ -61,6 +63,12 @@ class CustomFieldServiceTest {
 	private StudentExitRepository studentExitRepository;
 
 	@Autowired
+	private SectionRepository sectionRepository;
+
+	@Autowired
+	private GradeLevelRepository gradeLevelRepository;
+
+	@Autowired
 	private StudentIdGenerator studentIdGenerator;
 
 	@Autowired
@@ -76,7 +84,7 @@ class CustomFieldServiceTest {
 	void setUp() {
 		customFieldService = new CustomFieldService(customFieldDefinitionRepository, new ObjectMapper());
 		studentService = new StudentService(studentRepository, studentEnrollmentRepository, studentDocumentRepository,
-				studentExitRepository, null, null, studentIdGenerator,
+				studentExitRepository, sectionRepository, gradeLevelRepository, null, null, studentIdGenerator,
 				new AuditLogService(auditLogRepository, new ObjectMapper()), customFieldService);
 	}
 

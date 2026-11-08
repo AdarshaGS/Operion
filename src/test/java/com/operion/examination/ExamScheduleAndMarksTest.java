@@ -39,6 +39,8 @@ import com.operion.student.StudentExitRepository;
 import com.operion.student.StudentIdGenerator;
 import com.operion.student.StudentRepository;
 import com.operion.student.StudentService;
+import com.operion.modules.ModuleAccessService;
+import com.operion.student.AdmissionFeeGate;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -56,9 +58,11 @@ import tools.jackson.databind.ObjectMapper;
  * pattern.
  */
 @DataJpaTest
-@Import({ MultiTenancyConfig.class, JpaConfig.class, StudentIdGenerator.class })
+@Import({ MultiTenancyConfig.class, JpaConfig.class, StudentIdGenerator.class, AdmissionFeeGate.class, ModuleAccessService.class })
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class ExamScheduleAndMarksTest {
+
+	@Autowired private AdmissionFeeGate admissionFeeGate;
 
 	private ExaminationService examinationService;
 
@@ -137,9 +141,9 @@ class ExamScheduleAndMarksTest {
 	void setUpExaminationService() {
 		examinationService = new ExaminationService(examRepository, examScheduleRepository, gradingScaleRepository,
 				gradingScaleBandRepository, marksEntryRepository, marksEntryRegisterRepository, reportCardRepository,
-				examinationSettingsRepository, new AuditLogService(auditLogRepository, new ObjectMapper()));
+				examinationSettingsRepository, new AuditLogService(auditLogRepository, new ObjectMapper()), admissionFeeGate);
 		studentService = new StudentService(studentRepository, studentEnrollmentRepository, studentDocumentRepository,
-			studentExitRepository, null, null, studentIdGenerator, new AuditLogService(auditLogRepository, new ObjectMapper()),
+			studentExitRepository, sectionRepository, gradeLevelRepository, null, null, studentIdGenerator, new AuditLogService(auditLogRepository, new ObjectMapper()),
 			new CustomFieldService(customFieldDefinitionRepository, new ObjectMapper()));
 	}
 

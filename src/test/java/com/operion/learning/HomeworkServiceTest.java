@@ -9,6 +9,8 @@ import com.operion.authorization.AuthorizationDeniedException;
 import com.operion.common.InvalidRequestException;
 import com.operion.common.JpaConfig;
 import com.operion.common.MultiTenancyConfig;
+import com.operion.modules.ModuleAccessService;
+import com.operion.student.AdmissionFeeGate;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
@@ -18,7 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 /** Homework assignment scope, submission/late/review rules and tracking (#226). */
 @DataJpaTest
-@Import({ MultiTenancyConfig.class, JpaConfig.class, HomeworkService.class })
+@Import({ MultiTenancyConfig.class, JpaConfig.class, HomeworkService.class, AdmissionFeeGate.class, ModuleAccessService.class })
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class HomeworkServiceTest extends LearningTestBase {
 

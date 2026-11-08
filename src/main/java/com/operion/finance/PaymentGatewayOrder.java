@@ -20,7 +20,8 @@ import lombok.NoArgsConstructor;
  * link, same trust model as any real payment link e.g. Stripe/Razorpay Payment Links),
  * not stored hashed like PortalInvite's token since the blast radius of a leaked link is
  * "someone else can pay this one fixed invoice," not an identity compromise. gatewayOrderId
- * and amount are null until initiateCheckout actually creates the order with the gateway -
+ * (the LATEST Razorpay order - every earlier one stays resolvable through
+ * PaymentGatewayAttempt) and amount are null until initiateCheckout actually creates the order with the gateway -
  * amount is the outstanding balance at that exact moment, not snapshotted at link-creation
  * time, so a partial payment made through another channel in between is reflected
  * correctly. One invoice per link for v1 - PaymentAllocation already supports one payment
@@ -53,6 +54,11 @@ public class PaymentGatewayOrder extends TenantScopedEntity {
 	@Column(precision = 10, scale = 2)
 	private BigDecimal amount;
 
+	/** Nullable - the Razorpay payment id that settled this link, recorded when the webhook credits it.
+	 * Unique at the database level: the last-resort guard against crediting one gateway payment twice. */
+	@Column(name = "gateway_payment_id", length = 100)
+	private String gatewayPaymentId;
+
 	@Enumerated(EnumType.STRING)
 	@Column(nullable = false, length = 20)
 	private PaymentGatewayOrderStatus status;
@@ -73,11 +79,12 @@ public class PaymentGatewayOrder extends TenantScopedEntity {
 	}
 
 	/** Idempotency guard - a gateway webhook can be delivered more than once for the same event. */
-	public void markPaid(Payment payment) {
+	public void markPaid(Payment payment, String gatewayPaymentId) {
 		if (status == PaymentGatewayOrderStatus.PAID) {
 			throw new IllegalStateException("Payment gateway order " + getId() + " is already PAID");
 		}
 		this.payment = payment;
+		this.gatewayPaymentId = gatewayPaymentId;
 		this.status = PaymentGatewayOrderStatus.PAID;
 	}
 }

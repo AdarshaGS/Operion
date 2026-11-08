@@ -116,6 +116,7 @@ export function OrganisationDetailPage() {
 	const [periodStart, setPeriodStart] = useState(todayIso());
 	const [periodEnd, setPeriodEnd] = useState(todayIso());
 	const [dueDate, setDueDate] = useState(todayIso());
+	const [invoiceAmount, setInvoiceAmount] = useState("");
 
 	const [submitting, setSubmitting] = useState(false);
 
@@ -166,6 +167,8 @@ export function OrganisationDetailPage() {
 	}
 
 	const activeSubscription = subscriptions.find((s) => s.status === "ACTIVE") ?? null;
+	// The active plan is shown once, in the "Current plan" banner; the table lists only the others.
+	const pastSubscriptions = subscriptions.filter((s) => s !== activeSubscription);
 
 	async function handleSubscribe(event: FormEvent) {
 		event.preventDefault();
@@ -186,8 +189,10 @@ export function OrganisationDetailPage() {
 		event.preventDefault();
 		setSubmitting(true);
 		try {
-			await generateInvoice(orgId, { periodStart, periodEnd, dueDate });
+			const amount = invoiceAmount.trim() === "" ? undefined : Number(invoiceAmount);
+			await generateInvoice(orgId, { periodStart, periodEnd, dueDate, amount });
 			setInvoiceDialogOpen(false);
+			setInvoiceAmount("");
 			refresh();
 		} catch (err) {
 			setError(err instanceof PlatformApiError ? err.message : "Failed to generate invoice");
@@ -282,7 +287,12 @@ export function OrganisationDetailPage() {
 						</Box>
 					)}
 
-					{subscriptions.length > 0 && (
+					{pastSubscriptions.length > 0 && (
+						<Typography variant="overline" sx={{ color: colors.inkSoft }}>
+							Previous subscriptions
+						</Typography>
+					)}
+					{pastSubscriptions.length > 0 && (
 						<TableContainer>
 							<Table size="small">
 								<TableHead>
@@ -295,7 +305,7 @@ export function OrganisationDetailPage() {
 									</TableRow>
 								</TableHead>
 								<TableBody>
-									{subscriptions.map((sub) => (
+									{pastSubscriptions.map((sub) => (
 										<TableRow key={sub.id}>
 											<TableCell>{planName(sub.planId)}</TableCell>
 											<TableCell>{currency(sub.pricePerStudentPerYear)}</TableCell>
@@ -486,6 +496,19 @@ export function OrganisationDetailPage() {
 							onChange={(e) => setDueDate(e.target.value)}
 							required
 							slotProps={{ inputLabel: { shrink: true } }}
+							fullWidth
+						/>
+						<TextField
+							label="Amount (optional)"
+							type="number"
+							value={invoiceAmount}
+							onChange={(e) => setInvoiceAmount(e.target.value)}
+							slotProps={{ htmlInput: { min: 0.01, step: "0.01" } }}
+							helperText={
+								activeSubscription
+									? `Leave blank to bill ${currency(activeSubscription.pricePerStudentPerYear)} × the organisation's active students. Enter an amount to bill a fixed figure instead.`
+									: undefined
+							}
 							fullWidth
 						/>
 					</Stack>

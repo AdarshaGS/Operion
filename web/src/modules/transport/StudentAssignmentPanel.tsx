@@ -11,6 +11,7 @@ import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import { ApiError } from "../../api/client";
+import { Can } from "../../auth/Can";
 import { listStudentEnrollments } from "../../api/enrollments";
 import { type PersonResponse, listPersons } from "../../api/persons";
 import { listRouteStops, listRoutes, type RouteResponse, type RouteStopResponse } from "../../api/transportRoutes";
@@ -189,77 +190,81 @@ export function StudentAssignmentPanel() {
 							{assignment.effectiveTo ? ` until ${assignment.effectiveTo}` : ""}
 						</Typography>
 						<Chip label={assignment.status} size="small" />
-						<Button size="small" color="error" onClick={handleEnd} disabled={submitting}>
-							End assignment
-						</Button>
+						<Can anyOf={["TRANSPORT_ASSIGNMENT_MANAGE"]}>
+							<Button size="small" color="error" onClick={handleEnd} disabled={submitting}>
+								End assignment
+							</Button>
+						</Can>
 					</Box>
 				)}
 
-				{enrollmentId && (!assignment || assignment.status !== "ACTIVE") && (
-					<Stack spacing={2} component="form" onSubmit={handleAssign} sx={{ maxWidth: 400 }}>
-						<TextField select label="Route" value={routeId} onChange={(e) => setRouteId(e.target.value)} required fullWidth>
-							{routes.map((route) => (
-								<MenuItem key={route.id} value={route.id}>
-									{route.name}
-								</MenuItem>
-							))}
-						</TextField>
-						<TextField
-							select
-							label="Stop"
-							value={routeStopId}
-							onChange={(e) => setRouteStopId(e.target.value)}
-							required
-							disabled={!routeId}
-							fullWidth
-						>
-							{stops.map((stop) => (
-								<MenuItem key={stop.id} value={stop.id}>
-									{stop.stopName}
-								</MenuItem>
-							))}
-						</TextField>
-						<Box sx={{ display: "flex", gap: 2 }}>
-							<FormControlLabel control={<Checkbox checked={usesPickup} onChange={(e) => setUsesPickup(e.target.checked)} />} label="Pickup" />
-							<FormControlLabel control={<Checkbox checked={usesDrop} onChange={(e) => setUsesDrop(e.target.checked)} />} label="Drop" />
-						</Box>
-						<TextField
-							select
-							label="Transport fee (optional)"
-							value={feeStructureId}
-							onChange={(e) => setFeeStructureId(e.target.value)}
-							fullWidth
-							helperText={
-								transportFeeStructures.filter((s) => categoryType(s.feeCategoryId) === "TRANSPORT").length === 0
-									? "No Transport fee structure set up for this student's class yet"
-									: undefined
-							}
-						>
-							<MenuItem value="">None</MenuItem>
-							{transportFeeStructures
-								.filter((s) => categoryType(s.feeCategoryId) === "TRANSPORT")
-								.map((structure) => (
-									<MenuItem key={structure.id} value={structure.id}>
-										{`Fee structure #${structure.id} — ₹${structure.amount}`}
+				<Can anyOf={["TRANSPORT_ASSIGNMENT_MANAGE"]}>
+					{enrollmentId && (!assignment || assignment.status !== "ACTIVE") && (
+						<Stack spacing={2} component="form" onSubmit={handleAssign} sx={{ maxWidth: 400 }}>
+							<TextField select label="Route" value={routeId} onChange={(e) => setRouteId(e.target.value)} required fullWidth>
+								{routes.map((route) => (
+									<MenuItem key={route.id} value={route.id}>
+										{route.name}
 									</MenuItem>
 								))}
-						</TextField>
-						<TextField
-							label="Effective from"
-							type="date"
-							value={effectiveFrom}
-							onChange={(e) => setEffectiveFrom(e.target.value)}
-							required
-							slotProps={{ inputLabel: { shrink: true } }}
-							fullWidth
-						/>
-						<Box>
-							<Button type="submit" variant="contained" disabled={submitting || !routeStopId}>
-								Assign
-							</Button>
-						</Box>
-					</Stack>
-				)}
+							</TextField>
+							<TextField
+								select
+								label="Stop"
+								value={routeStopId}
+								onChange={(e) => setRouteStopId(e.target.value)}
+								required
+								disabled={!routeId}
+								fullWidth
+							>
+								{stops.map((stop) => (
+									<MenuItem key={stop.id} value={stop.id}>
+										{stop.stopName}
+									</MenuItem>
+								))}
+							</TextField>
+							<Box sx={{ display: "flex", gap: 2 }}>
+								<FormControlLabel control={<Checkbox checked={usesPickup} onChange={(e) => setUsesPickup(e.target.checked)} />} label="Pickup" />
+								<FormControlLabel control={<Checkbox checked={usesDrop} onChange={(e) => setUsesDrop(e.target.checked)} />} label="Drop" />
+							</Box>
+							<TextField
+								select
+								label="Transport fee (optional)"
+								value={feeStructureId}
+								onChange={(e) => setFeeStructureId(e.target.value)}
+								fullWidth
+								helperText={
+									transportFeeStructures.filter((s) => categoryType(s.feeCategoryId) === "TRANSPORT").length === 0
+										? "No Transport fee structure set up for this student's class yet"
+										: undefined
+								}
+							>
+								<MenuItem value="">None</MenuItem>
+								{transportFeeStructures
+									.filter((s) => categoryType(s.feeCategoryId) === "TRANSPORT")
+									.map((structure) => (
+										<MenuItem key={structure.id} value={structure.id}>
+											{`Fee structure #${structure.id} — ₹${structure.amount}`}
+										</MenuItem>
+									))}
+							</TextField>
+							<TextField
+								label="Effective from"
+								type="date"
+								value={effectiveFrom}
+								onChange={(e) => setEffectiveFrom(e.target.value)}
+								required
+								slotProps={{ inputLabel: { shrink: true } }}
+								fullWidth
+							/>
+							<Box>
+								<Button type="submit" variant="contained" disabled={submitting || !routeStopId}>
+									Assign
+								</Button>
+							</Box>
+						</Stack>
+					)}
+				</Can>
 			</Stack>
 		</Paper>
 	);

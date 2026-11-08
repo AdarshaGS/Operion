@@ -1,7 +1,4 @@
-import { api, ApiError, type PageResponse } from "./client";
-import { getSession } from "./tokenStore";
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8080";
+import { api, apiFetch, ApiError, type PageResponse } from "./client";
 
 export interface CreateStudentRequest {
 	personId: number;
@@ -121,17 +118,10 @@ export const STUDENT_IMPORT_TEMPLATE_HEADERS = [
 /** Separate from api/client.ts's request() - a file upload needs a multipart body with
  * a browser-generated boundary, same reasoning as uploadAsset() in api/assets.ts. */
 export async function importStudents(file: File): Promise<StudentImportRowResult[]> {
-	const session = getSession();
-	const headers = new Headers();
-	headers.set("ngrok-skip-browser-warning", "true");
-	if (session) {
-		headers.set("Authorization", `Bearer ${session.token}`);
-	}
-
 	const formData = new FormData();
 	formData.append("file", file);
 
-	const response = await fetch(`${API_BASE_URL}/api/v1/students/import`, { method: "POST", headers, body: formData });
+	const response = await apiFetch("/api/v1/students/import", { method: "POST", body: formData });
 	if (!response.ok) {
 		const body = await response.json().catch(() => null);
 		throw new ApiError(response.status, body?.error ?? `Import failed with status ${response.status}`);
@@ -168,6 +158,8 @@ export interface StudentSearchFilters {
 	status?: string | null;
 	schoolClassId?: number | null;
 	sectionId?: number | null;
+	/** The top-bar campus (a campus id); null/absent = all campuses. */
+	campusId?: number | null;
 	admissionDateFrom?: string | null;
 	admissionDateTo?: string | null;
 	page?: number;
@@ -180,6 +172,7 @@ function buildSearchQuery(filters: StudentSearchFilters): string {
 	if (filters.status) params.set("status", filters.status);
 	if (filters.schoolClassId != null) params.set("schoolClassId", String(filters.schoolClassId));
 	if (filters.sectionId != null) params.set("sectionId", String(filters.sectionId));
+	if (filters.campusId != null) params.set("campusId", String(filters.campusId));
 	if (filters.admissionDateFrom) params.set("admissionDateFrom", filters.admissionDateFrom);
 	if (filters.admissionDateTo) params.set("admissionDateTo", filters.admissionDateTo);
 	if (filters.page != null) params.set("page", String(filters.page));

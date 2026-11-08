@@ -28,6 +28,7 @@ import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip as Rec
 import { ApiError } from "../../api/client";
 import { getAttendanceOverview, type AttendanceActivity, type AttendanceClassRow, type AttendanceOverviewResponse } from "../../api/attendanceOverview";
 import { Can } from "../../auth/Can";
+import { CompactFilterBar, type ActiveFilter } from "../../components/CompactFilterBar";
 import { KpiTile, SectionCard } from "../../components/DashboardKit";
 import { colors } from "../../theme";
 
@@ -96,7 +97,11 @@ export function AttendanceOverviewPanel({ onOpenRegister, onMarkAttendance }: Pr
 		[overview, classId, sectionName, status],
 	);
 	const pageRows = filtered.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
-	const hasFilters = Boolean(classId || sectionName || status || date !== todayIso());
+	const activeFilters: ActiveFilter[] = [
+		...(classId ? [{ key: "class", label: `Class: ${classOptions.find(([id]) => String(id) === classId)?.[1] ?? classId}`, onDelete: () => { setClassId(""); setPage(0); } }] : []),
+		...(sectionName ? [{ key: "section", label: `Section: ${sectionName}`, onDelete: () => { setSectionName(""); setPage(0); } }] : []),
+		...(status ? [{ key: "status", label: `Status: ${status === "RECORDED" ? "Recorded" : "Pending"}`, onDelete: () => { setStatus(""); setPage(0); } }] : []),
+	];
 	const chartData = (overview?.classes ?? []).filter((row) => row.marked > 0).map((row) => ({ label: row.classLabel, rate: row.ratePercent }));
 
 	function clearFilters() {
@@ -132,7 +137,7 @@ export function AttendanceOverviewPanel({ onOpenRegister, onMarkAttendance }: Pr
 							<Typography variant="body2" sx={{ color: colors.inkSoft }}>
 								{filtered.length === 0 ? "No classes" : `Showing ${page * rowsPerPage + 1}–${Math.min((page + 1) * rowsPerPage, filtered.length)} of ${filtered.length} classes`}
 							</Typography>
-							<Can anyOf={["ATTENDANCE_MARK"]}>
+							<Can anyOf={["ATTENDANCE_MARK", "ATTENDANCE_MARK_ANY_SECTION"]}>
 								<Button variant="contained" startIcon={<EventAvailableIcon />} onClick={onMarkAttendance}>
 									Mark Attendance
 								</Button>
@@ -140,19 +145,24 @@ export function AttendanceOverviewPanel({ onOpenRegister, onMarkAttendance }: Pr
 						</Stack>
 					</Box>
 
-					<Stack direction="row" spacing={1.5} sx={{ flexWrap: "wrap", rowGap: 1.5 }}>
-						<TextField
-							size="small"
-							type="date"
-							label="Date"
-							value={date}
-							onChange={(e) => {
-								if (e.target.value) setDate(e.target.value);
-								setPage(0);
-							}}
-							slotProps={{ inputLabel: { shrink: true } }}
-						/>
-						<TextField select size="small" label="Class" value={classId} onChange={(e) => { setClassId(e.target.value); setPage(0); }} sx={{ minWidth: 150 }}>
+					<CompactFilterBar
+						startSlot={
+							<TextField
+								size="small"
+								type="date"
+								label="Date"
+								value={date}
+								onChange={(e) => {
+									if (e.target.value) setDate(e.target.value);
+									setPage(0);
+								}}
+								slotProps={{ inputLabel: { shrink: true } }}
+							/>
+						}
+						activeFilters={activeFilters}
+						onClearAll={clearFilters}
+					>
+						<TextField select size="small" label="Class" value={classId} onChange={(e) => { setClassId(e.target.value); setPage(0); }}>
 							<MenuItem value="">All Classes</MenuItem>
 							{classOptions.map(([id, name]) => (
 								<MenuItem key={id} value={id}>
@@ -160,7 +170,7 @@ export function AttendanceOverviewPanel({ onOpenRegister, onMarkAttendance }: Pr
 								</MenuItem>
 							))}
 						</TextField>
-						<TextField select size="small" label="Section" value={sectionName} onChange={(e) => { setSectionName(e.target.value); setPage(0); }} sx={{ minWidth: 150 }}>
+						<TextField select size="small" label="Section" value={sectionName} onChange={(e) => { setSectionName(e.target.value); setPage(0); }}>
 							<MenuItem value="">All Sections</MenuItem>
 							{sectionOptions.map((name) => (
 								<MenuItem key={name} value={name}>
@@ -168,15 +178,12 @@ export function AttendanceOverviewPanel({ onOpenRegister, onMarkAttendance }: Pr
 								</MenuItem>
 							))}
 						</TextField>
-						<TextField select size="small" label="Status" value={status} onChange={(e) => { setStatus(e.target.value); setPage(0); }} sx={{ minWidth: 150 }}>
+						<TextField select size="small" label="Status" value={status} onChange={(e) => { setStatus(e.target.value); setPage(0); }}>
 							<MenuItem value="">All Status</MenuItem>
 							<MenuItem value="RECORDED">Recorded</MenuItem>
 							<MenuItem value="PENDING">Pending</MenuItem>
 						</TextField>
-						<Button color="inherit" variant="outlined" onClick={clearFilters} disabled={!hasFilters}>
-							Clear
-						</Button>
-					</Stack>
+					</CompactFilterBar>
 
 					<TableContainer>
 						<Table size="small">

@@ -21,6 +21,8 @@ import com.operion.examination.ExamType;
 import com.operion.examination.MarksEntry;
 import com.operion.examination.MarksEntryRepository;
 import com.operion.learning.LeaderboardService.Track;
+import com.operion.modules.ModuleAccessService;
+import com.operion.student.AdmissionFeeGate;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
@@ -30,7 +32,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 /** Separate student tracks, reward granting rules and the activity-based teacher board (#231). */
 @DataJpaTest
-@Import({ MultiTenancyConfig.class, JpaConfig.class, LeaderboardService.class, QuizService.class, HomeworkService.class })
+@Import({ MultiTenancyConfig.class, JpaConfig.class, LeaderboardService.class, QuizService.class, HomeworkService.class, AdmissionFeeGate.class, ModuleAccessService.class })
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class LeaderboardServiceTest extends LearningTestBase {
 

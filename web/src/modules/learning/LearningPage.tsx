@@ -6,6 +6,7 @@ import Stack from "@mui/material/Stack";
 import Tab from "@mui/material/Tab";
 import Tabs from "@mui/material/Tabs";
 import { getMyScorecard } from "../../api/performance";
+import { useAuth } from "../../auth/AuthContext";
 import { MyPerformancePanel } from "../performance/MyPerformancePanel";
 import { AnswerSheetsPanel } from "./AnswerSheetsPanel";
 import { HomeworkPanel } from "./HomeworkPanel";
@@ -22,15 +23,20 @@ type LearningTab = "homework" | "quizzes" | "materials" | "lesson-plans" | "answ
 export function LearningPage() {
 	const [tab, setTab] = useState<LearningTab>("homework");
 	const { scope, error } = useLearningScope();
+	const { isModuleEnabled } = useAuth();
 	// Teachers see this tab only when their organisation has switched teacher self-view on; any refusal just hides it.
 	const [hasMyPerformance, setHasMyPerformance] = useState(false);
 
 	useEffect(() => {
+		if (!isModuleEnabled("PERFORMANCE")) {
+			setHasMyPerformance(false);
+			return;
+		}
 		const today = new Date().toISOString().slice(0, 10);
 		getMyScorecard(today, today)
 			.then(() => setHasMyPerformance(true))
 			.catch(() => setHasMyPerformance(false));
-	}, []);
+	}, [isModuleEnabled]);
 
 	function handleChange(_event: SyntheticEvent, value: LearningTab) {
 		setTab(value);
@@ -60,7 +66,7 @@ export function LearningPage() {
 			{tab === "quizzes" && <QuizzesPanel scope={scope} />}
 			{tab === "materials" && <MaterialsPanel scope={scope} />}
 			{tab === "lesson-plans" && <LessonPlansPanel scope={scope} />}
-			{tab === "answer-sheets" && <AnswerSheetsPanel />}
+			{tab === "answer-sheets" && <AnswerSheetsPanel scope={scope} />}
 			{tab === "leaderboards" && <LeaderboardPanel scope={scope} />}
 			{tab === "my-performance" && hasMyPerformance && <MyPerformancePanel />}
 		</Stack>

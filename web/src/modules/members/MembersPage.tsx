@@ -2,14 +2,10 @@ import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import { UsersPanel } from "../settings/UsersPanel";
 
-interface MembersPageProps {
-	autoOpenInvite?: boolean;
-}
-
 /** First-class /members landing page (dashboard onboarding + quick-action target) - same
  * UsersPanel that /settings/users renders, so member data is stored and managed in one
  * place with two entry points rather than a duplicate page. */
-export function MembersPage({ autoOpenInvite = false }: MembersPageProps) {
+export function MembersPage() {
 	return (
 		<Stack spacing={3}>
 			<Stack spacing={0.5}>
@@ -20,7 +16,7 @@ export function MembersPage({ autoOpenInvite = false }: MembersPageProps) {
 					Manage who can access this organisation and what they can access.
 				</Typography>
 			</Stack>
-			<UsersPanel autoOpenInvite={autoOpenInvite} />
+			<UsersPanel />
 		</Stack>
 	);
 }

@@ -1,6 +1,7 @@
 package com.operion.common.api;
 
 import java.util.Map;
+import java.util.regex.Pattern;
 
 import com.operion.backup.BackupFailedException;
 import com.operion.authorization.AuthorizationDeniedException;
@@ -11,13 +12,16 @@ import com.operion.common.WebhookVerificationException;
 import com.operion.identity.auth.AuthenticationFailedException;
 import com.operion.platform.auth.PlatformAuthenticationFailedException;
 import com.operion.reporting.ReportExecutionException;
+import com.operion.student.AdmissionFeePendingException;
 import com.operion.storage.AssetStorageException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -70,6 +74,12 @@ class ApiExceptionHandler {
 		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", "Malformed or invalid request body"));
 	}
 
+	/** A verb the endpoint does not offer (e.g. POST/DELETE on a read-only list) is a 405, not a server error. */
+	@ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+	ResponseEntity<Map<String, String>> methodNotSupported(HttpRequestMethodNotSupportedException ex) {
+		return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED).body(Map.of("error", "Method " + ex.getMethod() + " is not supported for this endpoint"));
+	}
+
 	/** An unknown path (e.g. a stale client calling a removed endpoint) is a 404, not a logged server error. */
 	@ExceptionHandler(NoResourceFoundException.class)
 	ResponseEntity<Map<String, String>> noSuchResource(NoResourceFoundException ex) {
@@ -94,7 +104,7 @@ class ApiExceptionHandler {
 
 	@ExceptionHandler(IllegalArgumentException.class)
 	ResponseEntity<Map<String, String>> notFound(IllegalArgumentException ex) {
-		return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", ex.getMessage()));
+		return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", clientMessage(ex)));
 	}
 
 	@ExceptionHandler(InvalidRequestException.class)
@@ -107,9 +117,17 @@ class ApiExceptionHandler {
 		return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(Map.of("error", ex.getMessage()));
 	}
 
+	/** An academic write for a student whose admission fee is unpaid, in an organisation that blocks it. Same {error}
+	 * shape as the rest, plus a stable code and the offending enrollment ids so the client can drop those rows and retry. */
+	@ExceptionHandler(AdmissionFeePendingException.class)
+	ResponseEntity<Map<String, Object>> admissionFeePending(AdmissionFeePendingException ex) {
+		return ResponseEntity.status(HttpStatus.CONFLICT)
+				.body(Map.of("error", ex.getMessage(), "code", "ADMISSION_FEE_PENDING", "enrollmentIds", ex.getEnrollmentIds()));
+	}
+
 	@ExceptionHandler(IllegalStateException.class)
 	ResponseEntity<Map<String, String>> conflict(IllegalStateException ex) {
-		return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error", ex.getMessage()));
+		return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error", clientMessage(ex)));
 	}
 
 	/** A DB-level unique constraint firing (e.g. a duplicate code/name within an org) is
@@ -119,6 +137,14 @@ class ApiExceptionHandler {
 	@ExceptionHandler(DataIntegrityViolationException.class)
 	ResponseEntity<Map<String, String>> dataIntegrityConflict(DataIntegrityViolationException ex) {
 		return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error", "This record conflicts with an existing one"));
+	}
+
+	/** A lock wait timeout or deadlock the database resolved by rolling this request back (CannotAcquireLockException is
+	 * a subtype). Nothing was committed, so the caller can simply retry - a 409, not a server fault. */
+	@ExceptionHandler(PessimisticLockingFailureException.class)
+	ResponseEntity<Map<String, String>> lockContention(PessimisticLockingFailureException ex) {
+		log.warn("Request rolled back by database lock contention", ex);
+		return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error", "The system is busy, please retry"));
 	}
 
 	@ExceptionHandler(AuthenticationFailedException.class)
@@ -151,10 +177,13 @@ class ApiExceptionHandler {
 		return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("error", ex.getMessage()));
 	}
 
-	/** The backup itself failed (mysqldump missing or refused, disk full) - the server's problem, not the caller's. */
+	/** The backup itself failed (mysqldump missing or refused, disk full) - the server's problem, not the caller's.
+	 * The exception message names paths, the mysqldump command and its stderr (and a database URL), so it goes to
+	 * the log and the System Health backup status, never to the HTTP client. */
 	@ExceptionHandler(BackupFailedException.class)
 	ResponseEntity<Map<String, String>> backupFailed(BackupFailedException ex) {
-		return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", ex.getMessage()));
+		log.error("Backup failed", ex);
+		return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "The backup failed - see the server log for details"));
 	}
 
 	@ExceptionHandler(AssetStorageException.class)
@@ -177,5 +206,27 @@ class ApiExceptionHandler {
 	ResponseEntity<Map<String, String>> unexpected(Exception ex) {
 		log.error("Unhandled exception", ex);
 		return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", "An unexpected error occurred"));
+	}
+
+	/** Framework/JDK wording that only appears when a raw exception message was never written for a user:
+	 * Enum.valueOf ("No enum constant com.operion...."), Long.parseLong ("For input string: ...") or a class name. */
+	private static final Pattern INTERNAL_DETAIL = Pattern.compile(
+			"No enum constant|For input string|\\b(?:com\\.operion|java|javax|jakarta|org\\.springframework|org\\.hibernate|org\\.apache)\\.[A-Za-z_]");
+
+	/**
+	 * IllegalArgumentException/IllegalStateException carry both messages the application wrote for users ("No student with
+	 * id 7") and raw JDK/framework ones that name internal classes. The former pass through; the latter are replaced by a
+	 * generic line and logged. A null message would also make {@code Map.of} throw, hence the blank check.
+	 */
+	static String clientMessage(RuntimeException ex) {
+		String message = ex.getMessage();
+		if (message == null || message.isBlank()) {
+			return "The request could not be processed";
+		}
+		if (ex instanceof NumberFormatException || INTERNAL_DETAIL.matcher(message).find()) {
+			log.warn("Internal detail kept out of an API error message", ex);
+			return "A value in the request is invalid";
+		}
+		return message;
 	}
 }

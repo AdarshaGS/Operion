@@ -23,6 +23,7 @@ import Typography from "@mui/material/Typography";
 import AddIcon from "@mui/icons-material/Add";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { ApiError } from "../../api/client";
+import { Can } from "../../auth/Can";
 import { getDriverProfile, upsertDriverProfile, type DriverProfileResponse } from "../../api/driverProfiles";
 import { listPersons, type PersonResponse } from "../../api/persons";
 import { listVehicleRoster, type RouteRosterEntryResponse } from "../../api/transportAssignments";
@@ -220,16 +221,18 @@ export function VehicleDetailPage() {
 				<Stack spacing={2}>
 					<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
 						<Typography variant="h6">Crew</Typography>
-						<Button
-							size="small"
-							onClick={() => {
-								setCrewDriverPersonId(vehicle?.driverPersonId ? String(vehicle.driverPersonId) : "");
-								setCrewAttendantPersonId(vehicle?.attendantPersonId ? String(vehicle.attendantPersonId) : "");
-								setCrewDialogOpen(true);
-							}}
-						>
-							Reassign crew
-						</Button>
+						<Can anyOf={["TRANSPORT_VEHICLE_MANAGE"]}>
+							<Button
+								size="small"
+								onClick={() => {
+									setCrewDriverPersonId(vehicle?.driverPersonId ? String(vehicle.driverPersonId) : "");
+									setCrewAttendantPersonId(vehicle?.attendantPersonId ? String(vehicle.attendantPersonId) : "");
+									setCrewDialogOpen(true);
+								}}
+							>
+								Reassign crew
+							</Button>
+						</Can>
 					</Box>
 
 					<Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
@@ -237,9 +240,11 @@ export function VehicleDetailPage() {
 						<Typography>{personName(vehicle?.driverPersonId ?? null)}</Typography>
 						{licenceChip(driverProfile)}
 						{vehicle?.driverPersonId && (
-							<Button size="small" onClick={() => openLicenceDialog(vehicle.driverPersonId!, driverProfile)}>
-								Edit licence
-							</Button>
+							<Can anyOf={["TRANSPORT_VEHICLE_MANAGE"]}>
+								<Button size="small" onClick={() => openLicenceDialog(vehicle.driverPersonId!, driverProfile)}>
+									Edit licence
+								</Button>
+							</Can>
 						)}
 					</Box>
 					<Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
@@ -247,9 +252,11 @@ export function VehicleDetailPage() {
 						<Typography>{personName(vehicle?.attendantPersonId ?? null)}</Typography>
 						{licenceChip(attendantProfile)}
 						{vehicle?.attendantPersonId && (
-							<Button size="small" onClick={() => openLicenceDialog(vehicle.attendantPersonId!, attendantProfile)}>
-								Edit licence
-							</Button>
+							<Can anyOf={["TRANSPORT_VEHICLE_MANAGE"]}>
+								<Button size="small" onClick={() => openLicenceDialog(vehicle.attendantPersonId!, attendantProfile)}>
+									Edit licence
+								</Button>
+							</Can>
 						)}
 					</Box>
 				</Stack>
@@ -298,9 +305,11 @@ export function VehicleDetailPage() {
 				<Stack spacing={2}>
 					<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
 						<Typography variant="h6">Documents</Typography>
-						<Button size="small" startIcon={<AddIcon />} onClick={() => setDocumentDialogOpen(true)}>
-							Add document
-						</Button>
+						<Can anyOf={["TRANSPORT_VEHICLE_MANAGE"]}>
+							<Button size="small" startIcon={<AddIcon />} onClick={() => setDocumentDialogOpen(true)}>
+								Add document
+							</Button>
+						</Can>
 					</Box>
 
 					{documents.length === 0 && <Alert severity="info">No documents on file.</Alert>}
@@ -328,14 +337,14 @@ export function VehicleDetailPage() {
 											</TableCell>
 											<TableCell>
 												{doc.verificationStatus === "PENDING" && (
-													<>
+													<Can anyOf={["TRANSPORT_VEHICLE_MANAGE"]}>
 														<Button size="small" onClick={() => handleVerifyDocument(doc.id, "VERIFIED")}>
 															Verify
 														</Button>
 														<Button size="small" color="error" onClick={() => handleVerifyDocument(doc.id, "REJECTED")}>
 															Reject
 														</Button>
-													</>
+													</Can>
 												)}
 											</TableCell>
 										</TableRow>

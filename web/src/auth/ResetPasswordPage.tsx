@@ -11,15 +11,18 @@ import { confirmPasswordReset } from "../api/auth";
 import { ApiError } from "../api/client";
 import { Wordmark } from "../branding/Wordmark";
 import { colors } from "../theme";
+import { useUrlToken } from "./useUrlToken";
 
 /** Public, unauthenticated. Reached via the link ForgotPasswordPage's request triggers -
  * see PasswordResetService.confirmReset(). */
 export function ResetPasswordPage() {
 	const navigate = useNavigate();
 	const [searchParams] = useSearchParams();
+	// Token is read once, then removed from the address bar - see useUrlToken.
+	const urlToken = useUrlToken();
 
 	const [organisationSlug, setOrganisationSlug] = useState(searchParams.get("org") ?? "");
-	const [token, setToken] = useState(searchParams.get("token") ?? "");
+	const [token, setToken] = useState(urlToken);
 	const [newPassword, setNewPassword] = useState("");
 	const [confirmNewPassword, setConfirmNewPassword] = useState("");
 	const [error, setError] = useState<string | null>(null);

@@ -1,7 +1,4 @@
-import { api, ApiError } from "./client";
-import { getSession } from "./tokenStore";
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8080";
+import { api, apiFetch, ApiError } from "./client";
 
 export type SlotType = "TEACHING" | "BREAK" | "SPECIAL";
 
@@ -378,10 +375,7 @@ export function getChildTimetable(studentId: number, date?: string): Promise<Por
 // CSV export
 
 async function downloadCsv(path: string, fallbackName: string): Promise<void> {
-	const session = getSession();
-	const headers = new Headers({ "ngrok-skip-browser-warning": "true" });
-	if (session) headers.set("Authorization", `Bearer ${session.token}`);
-	const response = await fetch(`${API_BASE_URL}${path}`, { headers });
+	const response = await apiFetch(path);
 	if (!response.ok) {
 		const body = await response.json().catch(() => null);
 		throw new ApiError(response.status, body?.error ?? `Export failed with status ${response.status}`);

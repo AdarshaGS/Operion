@@ -23,9 +23,9 @@ import Typography from "@mui/material/Typography";
 import AddIcon from "@mui/icons-material/Add";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { Can } from "../../auth/Can";
+import { ModuleEnabled } from "../../auth/ModuleEnabled";
 import { useAuth } from "../../auth/AuthContext";
 import { MemberStatusChip } from "../../components/MemberStatusChip";
-import { StaffInviteDialog } from "../../components/StaffInviteDialog";
 import { TeacherTimetablePanel } from "../academics/TeacherTimetablePanel";
 import { TeacherUnavailabilityPanel } from "../academics/TeacherUnavailabilityPanel";
 import { SalaryStructurePanel } from "../payroll/SalaryStructurePanel";
@@ -69,7 +69,7 @@ import {
 	type StaffExitResponse,
 	type StaffProfileResponse,
 } from "../../api/staffProfiles";
-import { inviteUser, type StaffInviteResponse } from "../../api/users";
+import { createUser } from "../../api/users";
 
 /** ON_LEAVE is deliberately excluded - it's derived automatically by StaffLeaveStatusScheduler
  * from approved leave requests, never a manually-set target (see StaffProfileStatus's own doc). */
@@ -125,7 +125,7 @@ export function StaffDetailPage() {
 	const [grantCampusId, setGrantCampusId] = useState<number | "">("");
 	const [grantDepartmentId, setGrantDepartmentId] = useState<number | "">("");
 	const [grantSubmitting, setGrantSubmitting] = useState(false);
-	const [issuedInvite, setIssuedInvite] = useState<StaffInviteResponse | null>(null);
+	const [grantPassword, setGrantPassword] = useState("");
 
 	const [documentDialogOpen, setDocumentDialogOpen] = useState(false);
 	const [documentType, setDocumentType] = useState("");
@@ -215,19 +215,19 @@ export function StaffDetailPage() {
 		setGrantSubmitting(true);
 		setDialogError(null);
 		try {
-			const invite = await inviteUser({ email: person.email ?? "", phone: person.phone });
+			const user = await createUser({ email: person.email ?? "", phone: person.phone, password: grantPassword });
 			await grantMembership({
-				userId: invite.userId,
+				userId: user.id,
 				personId: person.id,
 				roleId: grantRoleId,
 				campusId: grantCampusId === "" ? null : grantCampusId,
 				departmentId: grantDepartmentId === "" ? null : grantDepartmentId,
 			});
+			setGrantPassword("");
 			setGrantRoleId("");
 			setGrantCampusId("");
 			setGrantDepartmentId("");
 			setGrantDialogOpen(false);
-			setIssuedInvite(invite);
 			refreshLoginAccess(person.id);
 		} catch (err) {
 			setDialogError(err instanceof ApiError ? err.message : "Failed to grant login access");
@@ -793,18 +793,26 @@ export function StaffDetailPage() {
 				</Stack>
 			</Paper>
 
-			{person && <BorrowerLoanHistoryPanel personId={person.id} />}
-
 			{person && (
-				<Can anyOf={["TIMETABLE_VIEW"]}>
-					<TeacherTimetablePanel personId={person.id} />
-					<TeacherUnavailabilityPanel personId={person.id} />
-				</Can>
+				<ModuleEnabled module="LIBRARY">
+					<BorrowerLoanHistoryPanel personId={person.id} />
+				</ModuleEnabled>
 			)}
 
-			<Can anyOf={["PAYROLL_VIEW"]}>
-				<SalaryStructurePanel staffProfileId={Number(staffProfileId)} />
-			</Can>
+			{person && (
+				<ModuleEnabled module="ACADEMICS">
+					<Can anyOf={["TIMETABLE_VIEW"]}>
+						<TeacherTimetablePanel personId={person.id} />
+						<TeacherUnavailabilityPanel personId={person.id} />
+					</Can>
+				</ModuleEnabled>
+			)}
+
+			<ModuleEnabled module="PAYROLL">
+				<Can anyOf={["PAYROLL_VIEW"]}>
+					<SalaryStructurePanel staffProfileId={Number(staffProfileId)} />
+				</Can>
+			</ModuleEnabled>
 
 			<Dialog
 				open={documentDialogOpen}
@@ -958,6 +966,16 @@ export function StaffDetailPage() {
 					<Stack spacing={2} sx={{ mt: 1 }}>
 						<TextField label="Email" value={person?.email ?? ""} fullWidth disabled />
 						<TextField
+							label="Password"
+							type="password"
+							value={grantPassword}
+							onChange={(e) => setGrantPassword(e.target.value)}
+							required
+							helperText="At least 8 characters. Share it with the member - they sign in with it."
+							slotProps={{ htmlInput: { minLength: 8, autoComplete: "new-password" } }}
+							fullWidth
+						/>
+						<TextField
 							select
 							label="Role"
 							value={grantRoleId}
@@ -1108,8 +1126,6 @@ export function StaffDetailPage() {
 					</Button>
 				</DialogActions>
 			</Dialog>
-
-			<StaffInviteDialog invite={issuedInvite} onClose={() => setIssuedInvite(null)} />
 		</Stack>
 	);
 }

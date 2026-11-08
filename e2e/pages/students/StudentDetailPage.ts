@@ -35,9 +35,9 @@ export class StudentDetailPage {
 	}
 
 	enrolledBanner() {
-		// Scoped to the success Alert (role="alert") and anchored on "Enrolled -" (with the
-		// dash) so this doesn't collide with the enroll dialog's "Enrolled date" field label,
-		// which can still be in the DOM mid-close when this is checked.
-		return this.page.getByRole("alert").filter({ hasText: "Enrolled -" });
+		// The green tick beside the student name (role="img", aria-label "Enrolled - roll no. X,
+		// since Y"). Anchored on "Enrolled -" (with the dash) so this doesn't collide with the
+		// enroll dialog's "Enrolled date" field label, which can still be in the DOM mid-close.
+		return this.page.getByRole("img", { name: /^Enrolled -/ });
 	}
 }

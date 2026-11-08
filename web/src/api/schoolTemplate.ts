@@ -49,14 +49,19 @@ export interface SchoolTemplateApplyResponse {
 	subjectsSkipped: string[];
 	certificateTypesCreated: string[];
 	certificateTypesSkipped: string[];
-	/** Why no classes could be created (no current academic year / no active campus); null otherwise. */
+	/** Why no classes could be created (no academic year to put them in / no active campus); null otherwise. */
 	classesNote: string | null;
 	gradingScaleCreated: boolean;
 	gradingScaleAlreadyExists: boolean;
 }
 
-export function getSchoolTemplatePreview(): Promise<SchoolTemplatePreviewResponse> {
-	return api.get<SchoolTemplatePreviewResponse>("/api/v1/organisations/settings/school-template/preview");
+/** Without an academic year the classes/sections are reported against the current year; with one, against that (open) year. */
+export function getSchoolTemplatePreview(academicYearId?: number): Promise<SchoolTemplatePreviewResponse> {
+	return api.get<SchoolTemplatePreviewResponse>(`/api/v1/organisations/settings/school-template/preview${yearQuery(academicYearId)}`);
+}
+
+function yearQuery(academicYearId?: number): string {
+	return academicYearId === undefined ? "" : `?academicYearId=${academicYearId}`;
 }
 
 export interface StarterPackQuestion {
@@ -92,7 +97,11 @@ export function recommendStarterPack(answers: StarterPackAnswers): Promise<{ mod
 	return api.post<{ modules: StarterPackModule[] }>("/api/v1/organisations/settings/school-template/recommend", { answers });
 }
 
-/** With answers (first time only) the recommended modules are recorded too; without, only the template is applied. */
-export function applySchoolTemplate(answers?: StarterPackAnswers): Promise<SchoolTemplateApplyResponse> {
-	return api.post<SchoolTemplateApplyResponse>("/api/v1/organisations/settings/school-template/apply", answers ? { answers } : undefined);
+/** With answers (first time only) the recommended modules are recorded too; without, only the template is applied.
+ * With an academic year, its classes and sections are created in that (open) year instead of the current one. */
+export function applySchoolTemplate(answers?: StarterPackAnswers, academicYearId?: number): Promise<SchoolTemplateApplyResponse> {
+	return api.post<SchoolTemplateApplyResponse>(
+		`/api/v1/organisations/settings/school-template/apply${yearQuery(academicYearId)}`,
+		answers ? { answers } : undefined,
+	);
 }

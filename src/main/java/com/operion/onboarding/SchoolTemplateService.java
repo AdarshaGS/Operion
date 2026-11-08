@@ -1,6 +1,7 @@
 package com.operion.onboarding;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -42,6 +43,7 @@ import com.operion.inventory.ItemCategoryRepository;
 import com.operion.inventory.ItemRepository;
 import com.operion.modules.AppModule;
 import com.operion.organisation.AcademicYear;
+import com.operion.organisation.AcademicYearGuard;
 import com.operion.organisation.AcademicYearRepository;
 import com.operion.organisation.Campus;
 import com.operion.organisation.CampusRepository;
@@ -134,6 +136,16 @@ public class SchoolTemplateService {
 
 	/** Rows the admin marked not required, and items belonging to a module in {@code disabled}, are left out of the status, matching what {@link #apply(Set)} would do. */
 	public SchoolTemplateStatus preview(Set<AppModule> disabled) {
+		return preview(disabled, null);
+	}
+
+	/**
+	 * Same as {@link #preview(Set)}, but the year-scoped categories (classes and sections) are reported against
+	 * {@code academicYearId} instead of the current year; null means the current year. An explicit year must exist
+	 * and still be open - the same rule {@link #apply(Set, Long)} enforces.
+	 */
+	public SchoolTemplateStatus preview(Set<AppModule> disabled, Long academicYearId) {
+		AcademicYear year = targetYear(academicYearId);
 		Set<String> existingGrades = normalizedNames(gradeLevelRepository.findAll().stream().map(GradeLevel::getName));
 		Set<String> existingDepartments = normalizedNames(departmentRepository.findAll().stream().map(Department::getName));
 		Set<String> existingDesignations = normalizedNames(designationRepository.findAll().stream().map(Designation::getName));
@@ -157,8 +169,8 @@ public class SchoolTemplateService {
 				itemStatuses(SchoolTemplateItemCategory.ITEM, existingItems, disabled),
 				itemStatuses(SchoolTemplateItemCategory.ASSET_TYPE, existingItems, disabled),
 				itemStatuses(SchoolTemplateItemCategory.LEAVE_TYPE, existingLeaveTypes, disabled),
-				classStatuses(disabled),
-				sectionStatuses(disabled),
+				classStatuses(year, disabled),
+				sectionStatuses(year, disabled),
 				subjectStatuses(disabled),
 				certificateTypeStatuses(disabled),
 				!gradingScaleRepository.findAll().isEmpty());
@@ -171,9 +183,22 @@ public class SchoolTemplateService {
 	/** Same additive, skip-if-exists apply, except items tied to a module in {@code disabled} are not created. */
 	@Transactional
 	public SchoolTemplateResult apply(Set<AppModule> disabled) {
+		return apply(disabled, null);
+	}
+
+	/**
+	 * Same additive apply, but classes and sections are created in {@code academicYearId} instead of the current
+	 * year; null means the current year (the original behaviour). This is how a newly created year gets its classes
+	 * and sections, so year-end promotion has real targets. An explicit year must exist and be open; it is checked
+	 * before anything is written. Everything that is not year-scoped (grades, subjects, departments, ...) is
+	 * unaffected by the year.
+	 */
+	@Transactional
+	public SchoolTemplateResult apply(Set<AppModule> disabled, Long academicYearId) {
+		AcademicYear year = targetYear(academicYearId);
 		SchoolTemplateResult result = new SchoolTemplateResult();
 		applyGrades(result, disabled);
-		applyClasses(result, disabled);
+		applyClasses(result, year, disabled);
 		applySubjects(result, disabled);
 		applyDepartments(result, disabled);
 		applyDesignations(result, disabled);
@@ -188,24 +213,178 @@ public class SchoolTemplateService {
 		return result;
 	}
 
-	/** Sequence order is always assigned as (current max + 1) at apply-time, in template
-	 * order - never the item's own stored sequenceOrder - so a newly-created grade can
-	 * never collide with grade_levels' UNIQUE (organisation_id, sequence_order) constraint
-	 * against a grade the org already created by hand with an overlapping number. */
-	private void applyGrades(SchoolTemplateResult result, Set<AppModule> disabled) {
-		List<GradeLevel> existingGrades = gradeLevelRepository.findAll();
-		Set<String> existingNames = normalizedNames(existingGrades.stream().map(GradeLevel::getName));
-		int nextSequenceOrder = existingGrades.stream().mapToInt(GradeLevel::getSequenceOrder).max().orElse(-1) + 1;
+	/** The year classes and sections go into: the current year (possibly none) when no id is given, else that year,
+	 * which must exist for this organisation (tenant-scoped lookup) and be open. */
+	private AcademicYear targetYear(Long academicYearId) {
+		if (academicYearId == null) {
+			return academicYearRepository.findByCurrentTrue().orElse(null);
+		}
+		AcademicYear year = academicYearRepository.findById(academicYearId)
+				.orElseThrow(() -> new IllegalArgumentException("Academic year " + academicYearId + " not found"));
+		AcademicYearGuard.requireOpen(year, "adding classes and sections from the school template");
+		return year;
+	}
 
-		for (SchoolTemplateItem item : items(SchoolTemplateItemCategory.GRADE, disabled)) {
-			if (existingNames.contains(normalize(item.getName()))) {
-				result.getGradesSkipped().add(item.getName());
+	/**
+	 * Creates the template's missing grades and puts the org's grades in the template's canonical order, so student
+	 * promotion (which proposes the next grade by sequence_order) walks LKG, UKG, Grade 1 ... Grade 10 even when the
+	 * org had already created some grades by hand. The ordering rule:
+	 * <ul>
+	 * <li>The included GRADE template rows, in template order, define the canonical order. An existing grade whose name
+	 * matches a template row (case-insensitive) takes that row's place; a template grade the org lacks is created right
+	 * after its nearest template predecessor (at the start if it has none), so it lands next to the grades it sits
+	 * between.</li>
+	 * <li>An existing grade that matches no template row (a custom grade such as "Pre-Nursery" or "Std 11") keeps its
+	 * relative order among the custom grades and: stays at the very start if no matched grade precedes it; stays
+	 * immediately after the matched grade that precedes it when a matched grade also follows it; and goes after every
+	 * template grade (including newly created ones) when no matched grade follows it. If the org has no matched grade
+	 * at all, customs stay first and the new template grades follow them.</li>
+	 * <li>sequence_order values are only rewritten when needed: if the existing grades are already in final order and
+	 * the new grades fit in the gaps (or after the last grade), existing rows are not touched. Otherwise the whole list
+	 * is renumbered 0..n-1 in final order. grade_levels has UNIQUE (organisation_id, sequence_order), so renumbered rows
+	 * are first parked in a range above every value in use, flushed, then moved to their final values, flushed, and only
+	 * then are the new grades inserted - no step ever violates the constraint. Only sequence_order changes; id, name and
+	 * stage never do. Renumbered rows are reported in {@code gradesReordered}.</li>
+	 * </ul>
+	 * The item's own stored sequenceOrder is never used (an org's hand-made numbers would collide with it).
+	 */
+	private void applyGrades(SchoolTemplateResult result, Set<AppModule> disabled) {
+		List<GradeLevel> existingGrades = gradeLevelRepository.findAll().stream()
+				.sorted(Comparator.comparingInt(GradeLevel::getSequenceOrder)).toList();
+		List<SchoolTemplateItem> templateItems = items(SchoolTemplateItemCategory.GRADE, disabled);
+		List<GradeSlot> ordered = canonicalGradeOrder(existingGrades, templateItems);
+		int[] targets = gradeTargets(ordered);
+
+		List<GradeLevel> moved = new ArrayList<>();
+		List<Integer> movedTargets = new ArrayList<>();
+		int highestInUse = -1;
+		for (int i = 0; i < ordered.size(); i++) {
+			highestInUse = Math.max(highestInUse, targets[i]);
+			GradeLevel existing = ordered.get(i).existing();
+			if (existing != null) {
+				highestInUse = Math.max(highestInUse, existing.getSequenceOrder());
+				if (existing.getSequenceOrder() != targets[i]) {
+					moved.add(existing);
+					movedTargets.add(targets[i]);
+				}
+			}
+		}
+		if (!moved.isEmpty()) {
+			int parked = highestInUse + 1;
+			for (int i = 0; i < moved.size(); i++) {
+				academicService.updateGradeLevel(moved.get(i), null, parked + i, null);
+			}
+			gradeLevelRepository.flush();
+			for (int i = 0; i < moved.size(); i++) {
+				academicService.updateGradeLevel(moved.get(i), null, movedTargets.get(i), null);
+			}
+			gradeLevelRepository.flush();
+			moved.forEach(grade -> result.getGradesReordered().add(grade.getName()));
+		}
+
+		for (int i = 0; i < ordered.size(); i++) {
+			GradeSlot slot = ordered.get(i);
+			if (slot.item() == null) {
 				continue;
 			}
-			academicService.createGradeLevel(item.getName(), nextSequenceOrder, item.getStage());
-			nextSequenceOrder++;
-			result.getGradesCreated().add(item.getName());
+			if (slot.existing() == null) {
+				academicService.createGradeLevel(slot.item().getName(), targets[i], slot.item().getStage());
+				result.getGradesCreated().add(slot.item().getName());
+			} else {
+				result.getGradesSkipped().add(slot.item().getName());
+			}
 		}
+	}
+
+	/** One position in the final grade order: {@code item} is the template row (null for a custom grade), {@code existing}
+	 * the org's grade for it (null when it still has to be created). */
+	private record GradeSlot(GradeLevel existing, SchoolTemplateItem item) {
+	}
+
+	/** The final order described on {@link #applyGrades}; {@code existingGrades} must be sorted by sequence_order. */
+	private List<GradeSlot> canonicalGradeOrder(List<GradeLevel> existingGrades, List<SchoolTemplateItem> templateItems) {
+		Set<String> templateNames = normalizedNames(templateItems.stream().map(SchoolTemplateItem::getName));
+		Map<String, GradeLevel> matched = new HashMap<>();
+		List<GradeLevel> customs = new ArrayList<>();
+		for (GradeLevel grade : existingGrades) {
+			String key = normalize(grade.getName());
+			if (templateNames.contains(key) && !matched.containsKey(key)) {
+				matched.put(key, grade);
+			} else {
+				customs.add(grade);
+			}
+		}
+
+		List<GradeLevel> leading = new ArrayList<>();
+		List<GradeLevel> trailing = new ArrayList<>();
+		Map<String, List<GradeLevel>> after = new HashMap<>();
+		String previousMatched = null;
+		int lastMatchedIndex = -1;
+		for (int i = 0; i < existingGrades.size(); i++) {
+			if (matched.get(normalize(existingGrades.get(i).getName())) == existingGrades.get(i)) {
+				lastMatchedIndex = i;
+			}
+		}
+		for (int i = 0; i < existingGrades.size(); i++) {
+			GradeLevel grade = existingGrades.get(i);
+			if (matched.get(normalize(grade.getName())) == grade) {
+				previousMatched = normalize(grade.getName());
+			} else if (previousMatched == null) {
+				leading.add(grade);
+			} else if (i > lastMatchedIndex) {
+				trailing.add(grade);
+			} else {
+				after.computeIfAbsent(previousMatched, key -> new ArrayList<>()).add(grade);
+			}
+		}
+
+		List<GradeSlot> ordered = new ArrayList<>();
+		Set<String> placed = new java.util.HashSet<>();
+		leading.forEach(grade -> ordered.add(new GradeSlot(grade, null)));
+		for (SchoolTemplateItem item : templateItems) {
+			String key = normalize(item.getName());
+			if (!placed.add(key)) {
+				continue;
+			}
+			GradeLevel existing = matched.get(key);
+			ordered.add(new GradeSlot(existing, item));
+			after.getOrDefault(key, List.of()).forEach(grade -> ordered.add(new GradeSlot(grade, null)));
+		}
+		trailing.forEach(grade -> ordered.add(new GradeSlot(grade, null)));
+		return ordered;
+	}
+
+	/** Target sequence_order per slot: keeps the existing values (new grades take the free integers between their
+	 * neighbours, or follow the last one) when the existing grades are already in order and everything fits; otherwise
+	 * the plain position 0..n-1. */
+	private int[] gradeTargets(List<GradeSlot> ordered) {
+		int[] targets = new int[ordered.size()];
+		int low = -1;
+		int runStart = 0;
+		for (int i = 0; i <= ordered.size(); i++) {
+			boolean atEnd = i == ordered.size();
+			if (!atEnd && ordered.get(i).existing() == null) {
+				continue;
+			}
+			int runLength = i - runStart;
+			int current = atEnd ? Integer.MAX_VALUE : ordered.get(i).existing().getSequenceOrder();
+			if (current <= low || (!atEnd && current - low - 1 < runLength)) {
+				int[] positions = new int[ordered.size()];
+				for (int p = 0; p < positions.length; p++) {
+					positions[p] = p;
+				}
+				return positions;
+			}
+			for (int p = 0; p < runLength; p++) {
+				targets[runStart + p] = low + 1 + p;
+			}
+			if (!atEnd) {
+				targets[i] = current;
+				low = current;
+			}
+			runStart = i + 1;
+		}
+		return targets;
 	}
 
 	/** Skips on a name OR code collision (code is optional on a subject, so only compared when the row has one). */
@@ -337,14 +516,13 @@ public class SchoolTemplateService {
 
 	/** A class is a grade in one academic year at one campus, and sections hang off classes - so without these
 	 * the grades alone leave nothing to add a section to. Creates one per CLASS row, per active campus, in
-	 * the current academic year, but only for a grade that is itself ticked in the GRADE list - an unselected grade
+	 * the target academic year (the current one unless an explicit year is given), but only for a grade that is itself ticked in the GRADE list - an unselected grade
 	 * gets no class and so no sections; never touches other years (use the year rollover for those). Runs right after
 	 * applyGrades so grades created in the same apply are found. */
-	private void applyClasses(SchoolTemplateResult result, Set<AppModule> disabled) {
+	private void applyClasses(SchoolTemplateResult result, AcademicYear year, Set<AppModule> disabled) {
 		if (disabled.contains(AppModule.ACADEMICS)) {
 			return;
 		}
-		AcademicYear year = academicYearRepository.findByCurrentTrue().orElse(null);
 		List<Campus> campuses = activeCampuses();
 		if (year == null || campuses.isEmpty()) {
 			result.setClassesNote(year == null
@@ -397,13 +575,12 @@ public class SchoolTemplateService {
 		return multiCampus ? grade + " (" + schoolClass.getCampus().getName() + ")" : grade;
 	}
 
-	/** One entry per SECTION row; "already exists" means every class the template covers in the current year has it
+	/** One entry per SECTION row; "already exists" means every class the template covers in the target year has it
 	 * (and at least one class exists - a section with no class to sit in is not done). */
-	private List<SchoolTemplateCategoryStatus> sectionStatuses(Set<AppModule> disabled) {
+	private List<SchoolTemplateCategoryStatus> sectionStatuses(AcademicYear year, Set<AppModule> disabled) {
 		if (disabled.contains(AppModule.ACADEMICS)) {
 			return List.of();
 		}
-		AcademicYear year = academicYearRepository.findByCurrentTrue().orElse(null);
 		List<Campus> campuses = activeCampuses();
 		Map<String, GradeLevel> gradesByName = gradesByName();
 		List<SchoolClass> classes = new ArrayList<>();
@@ -427,12 +604,11 @@ public class SchoolTemplateService {
 						sectionRepository.findBySchoolClassIdAndNameIgnoreCase(schoolClass.getId(), section.getName()).isPresent()))).toList();
 	}
 
-	/** One entry per included grade; "already exists" means every active campus has that grade's class in the current year. */
-	private List<SchoolTemplateCategoryStatus> classStatuses(Set<AppModule> disabled) {
+	/** One entry per included grade; "already exists" means every active campus has that grade's class in the target year. */
+	private List<SchoolTemplateCategoryStatus> classStatuses(AcademicYear year, Set<AppModule> disabled) {
 		if (disabled.contains(AppModule.ACADEMICS)) {
 			return List.of();
 		}
-		AcademicYear year = academicYearRepository.findByCurrentTrue().orElse(null);
 		List<Campus> campuses = activeCampuses();
 		Map<String, GradeLevel> gradesByName = gradesByName();
 		return classRows(disabled).stream().map(item -> {

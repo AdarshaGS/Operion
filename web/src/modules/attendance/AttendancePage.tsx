@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
@@ -50,6 +50,7 @@ import { useAuth } from "../../auth/AuthContext";
 import { colors } from "../../theme";
 import { AttendanceOverviewPanel, type RegisterTarget } from "./AttendanceOverviewPanel";
 import { StaffAttendancePanel } from "./StaffAttendancePanel";
+import { useCampusFiltered, useSelectedCampusId } from "../../layout/selectedCampus";
 import { useSchoolClassLabel } from "../../utils/useSchoolClassLabel";
 
 const STATUS_OPTIONS = ["PRESENT", "ABSENT", "LATE", "HALF_DAY", "LEAVE"];
@@ -124,10 +125,18 @@ function ClassRegisterPanel({ preset, onShowOverview }: { preset: RegisterTarget
 
 	const [classes, setClasses] = useState<SchoolClassResponse[]>([]);
 	const classLabel = useSchoolClassLabel();
+	const selectedCampusId = useSelectedCampusId();
+	const campusClasses = useCampusFiltered(classes);
 	const [sections, setSections] = useState<SectionResponse[]>([]);
 	const [classId, setClassId] = useState("");
 	const [sectionId, setSectionId] = useState("");
 	const [date, setDate] = useState(todayIso());
+	// The picker lists the selected campus's classes. A register opened from the overview may belong to another
+	// campus; that class stays listed while it is the open one, so the picker never shows a blank value.
+	const pickerClasses = useMemo(() => {
+		const picked = classes.find((c) => String(c.id) === classId);
+		return picked && !campusClasses.includes(picked) ? [...campusClasses, picked] : campusClasses;
+	}, [classes, campusClasses, classId]);
 	const canMark = !!sectionId && canMarkSection(sectionId);
 
 	// Kept in state (not just local to handleLoad) so both the fresh-marking table and
@@ -151,6 +160,17 @@ function ClassRegisterPanel({ preset, onShowOverview }: { preset: RegisterTarget
 	useEffect(() => {
 		listSchoolClasses().then(setClasses).catch(() => {});
 	}, []);
+
+	// Switching campus drops a class (and its open register) that belongs to another campus, like the Academics pickers.
+	useEffect(() => {
+		const picked = classes.find((c) => String(c.id) === classId);
+		if (!picked || selectedCampusId === null || picked.campusId === selectedCampusId) return;
+		setClassId("");
+		setLoaded(false);
+		setRegister(null);
+		setDraftRows(null);
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [selectedCampusId]);
 
 	// A section picked on the overview: remembered here until its class's sections have loaded, then selected and loaded.
 	const pendingPreset = useRef<RegisterTarget | null>(null);
@@ -331,7 +351,7 @@ function ClassRegisterPanel({ preset, onShowOverview }: { preset: RegisterTarget
 					<Typography variant="h6">Class register</Typography>
 					<Box sx={{ display: "flex", gap: 2, alignItems: "flex-start" }}>
 						<TextField select label="Class" value={classId} onChange={(e) => setClassId(e.target.value)} sx={{ minWidth: 200 }}>
-							{classes.map((schoolClass) => (
+							{pickerClasses.map((schoolClass) => (
 								<MenuItem key={schoolClass.id} value={schoolClass.id}>
 									{classLabel(schoolClass)}
 								</MenuItem>
@@ -378,6 +398,9 @@ function ClassRegisterPanel({ preset, onShowOverview }: { preset: RegisterTarget
 							Load
 						</Button>
 					</Box>
+					{selectedCampusId !== null && classes.length > 0 && campusClasses.length === 0 && (
+						<Alert severity="info">No classes in the selected campus.</Alert>
+					)}
 				</Stack>
 			</Paper>
 

@@ -11,6 +11,7 @@ import java.util.Locale;
 import java.util.Map;
 
 import com.operion.common.CsvUtil;
+import org.apache.poi.openxml4j.util.ZipSecureFile;
 import org.apache.poi.ss.usermodel.DataFormatter;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
@@ -25,7 +26,40 @@ import org.springframework.web.multipart.MultipartFile;
  */
 public final class ImportFileParser {
 
+	/** Limits every import path shares (this class is the only place that opens an upload). Defaults apply without a
+	 * Spring context (unit tests); {@link ImportLimitsConfig} overrides them from app.imports.* properties at startup. */
+	private static volatile long maxFileBytes = 5L * 1024 * 1024;
+	private static volatile int maxDataRows = 10_000;
+	private static volatile int maxColumns = 200;
+	private static volatile long maxXlsxEntryBytes = 30L * 1024 * 1024;
+	private static volatile double minInflateRatio = 0.01;
+
+	static {
+		applyZipLimits();
+	}
+
 	private ImportFileParser() {
+	}
+
+	/** Called once at startup by {@link ImportLimitsConfig}. */
+	static void configure(long maxFileBytes, int maxDataRows, int maxColumns, long maxXlsxEntryBytes, double minInflateRatio) {
+		ImportFileParser.maxFileBytes = maxFileBytes;
+		ImportFileParser.maxDataRows = maxDataRows;
+		ImportFileParser.maxColumns = maxColumns;
+		ImportFileParser.maxXlsxEntryBytes = maxXlsxEntryBytes;
+		ImportFileParser.minInflateRatio = minInflateRatio;
+		applyZipLimits();
+	}
+
+	/**
+	 * Zip-bomb protection for .xlsx (a zip of XML): POI refuses an entry that inflates by more than 1/minInflateRatio
+	 * (default 100x) or past maxXlsxEntryBytes, instead of expanding it into memory. These are JVM-wide POI settings,
+	 * which is fine because nothing else in the application opens a workbook.
+	 */
+	private static void applyZipLimits() {
+		ZipSecureFile.setMinInflateRatio(minInflateRatio);
+		ZipSecureFile.setMaxEntrySize(maxXlsxEntryBytes);
+		ZipSecureFile.setMaxTextSize(maxXlsxEntryBytes);
 	}
 
 	public static List<Map<String, String>> parse(MultipartFile file) {
@@ -38,6 +72,9 @@ public final class ImportFileParser {
 		if (file == null || file.isEmpty()) {
 			throw new ImportFileException("No file uploaded - attach a .csv or .xlsx file");
 		}
+		if (file.getSize() > maxFileBytes) {
+			throw new ImportFileException("The file is too large - the limit is " + (maxFileBytes / (1024 * 1024)) + " MB. Split it into smaller files");
+		}
 		String filename = file.getOriginalFilename();
 		String lowerName = filename == null ? "" : filename.toLowerCase(Locale.ROOT);
 		try {
@@ -47,6 +84,8 @@ public final class ImportFileParser {
 			if (lowerName.endsWith(".csv") || filename == null) {
 				return readCsvRows(file);
 			}
+		} catch (ImportFileException e) {
+			throw e;
 		} catch (IOException e) {
 			throw new ImportFileException("Could not read uploaded file - is it a valid " + (lowerName.endsWith(".xlsx") ? ".xlsx workbook" : ".csv file") + "?", e);
 		} catch (RuntimeException e) {
@@ -86,6 +125,7 @@ public final class ImportFileParser {
 					line = line.substring(1);
 				}
 				if (!line.isBlank() || !rows.isEmpty()) {
+					requireRowCapacity(rows.size());
 					rows.add(CsvUtil.parseLine(line));
 				}
 			}
@@ -99,6 +139,10 @@ public final class ImportFileParser {
 		try (XSSFWorkbook workbook = new XSSFWorkbook(file.getInputStream())) {
 			Sheet sheet = workbook.getSheetAt(0);
 			for (Row row : sheet) {
+				requireRowCapacity(rows.size());
+				if (row.getLastCellNum() > maxColumns) {
+					throw new ImportFileException("The file has too many columns - the limit is " + maxColumns);
+				}
 				List<String> values = new ArrayList<>();
 				for (int col = 0; col < row.getLastCellNum(); col++) {
 					var cell = row.getCell(col);
@@ -108,5 +152,12 @@ public final class ImportFileParser {
 			}
 		}
 		return rows;
+	}
+
+	/** rows already holds the header, so the (maxDataRows + 1)th row after it is the first one over the limit. */
+	private static void requireRowCapacity(int rowsSoFar) {
+		if (rowsSoFar > maxDataRows) {
+			throw new ImportFileException("The file has too many rows - the limit is " + maxDataRows + " rows per import. Split it into smaller files");
+		}
 	}
 }

@@ -1,5 +1,8 @@
 package com.operion.certificate.api;
 
+import java.time.Duration;
+
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -7,7 +10,10 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.operion.certificate.CertificateService;
 import com.operion.certificate.CertificateService.VerificationResult;
+import com.operion.common.ClientIpResolver;
+import com.operion.common.SlidingWindowRateLimiter;
 import com.operion.common.TenantContext;
+import com.operion.common.TooManyRequestsException;
 import com.operion.organisation.OrganisationRepository;
 
 /**
@@ -21,14 +27,22 @@ public class PublicCertificateVerificationController {
 
 	private final OrganisationRepository organisationRepository;
 	private final CertificateService certificateService;
+	private final ClientIpResolver clientIpResolver;
+	/** Generous for a person scanning a few certificates, tight for anyone guessing tokens. */
+	private final SlidingWindowRateLimiter limiter = new SlidingWindowRateLimiter(60, Duration.ofMinutes(10), 10_000);
 
-	public PublicCertificateVerificationController(OrganisationRepository organisationRepository, CertificateService certificateService) {
+	public PublicCertificateVerificationController(OrganisationRepository organisationRepository, CertificateService certificateService,
+			ClientIpResolver clientIpResolver) {
 		this.organisationRepository = organisationRepository;
 		this.certificateService = certificateService;
+		this.clientIpResolver = clientIpResolver;
 	}
 
 	@GetMapping("/{token}")
-	public VerificationResult verify(@PathVariable String slug, @PathVariable String token) {
+	public VerificationResult verify(@PathVariable String slug, @PathVariable String token, HttpServletRequest httpRequest) {
+		if (!limiter.tryAcquire(clientIpResolver.resolve(httpRequest))) {
+			throw new TooManyRequestsException("Too many requests. Please try again later.");
+		}
 		Long organisationId = organisationRepository.findBySlug(slug)
 				.orElseThrow(() -> new IllegalArgumentException("No such certificate")).getId();
 		TenantContext.set(organisationId, null);

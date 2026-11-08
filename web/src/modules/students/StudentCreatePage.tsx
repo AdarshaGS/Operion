@@ -9,11 +9,14 @@ import MenuItem from "@mui/material/MenuItem";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
+import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import { getAcademicSetupStatus } from "../../api/academicSetupStatus";
 import { CustomFieldsFormSection } from "../../components/CustomFieldsFormSection";
 import { listAcademicYears, type AcademicYearResponse } from "../../api/academicYears";
 import { useAuth } from "../../auth/AuthContext";
+import { Can } from "../../auth/Can";
+import { useCan } from "../../auth/useCan";
 import { ApiError } from "../../api/client";
 import { createEnrollment } from "../../api/enrollments";
 import { createOrGetGuardian } from "../../api/guardians";
@@ -22,7 +25,9 @@ import { listSchoolClasses, type SchoolClassResponse } from "../../api/schoolCla
 import { listSections, type SectionResponse } from "../../api/sections";
 import { admitStudent } from "../../api/students";
 import { GUARDIAN_RELATIONSHIP_TYPES, linkGuardian, type GuardianRelationshipType } from "../../api/studentGuardians";
+import { useCampusFiltered, useSelectedCampusId } from "../../layout/selectedCampus";
 import { useSchoolClassLabel } from "../../utils/useSchoolClassLabel";
+import { AdmissionFeePreview } from "./AdmissionFeePreview";
 
 const ACADEMIC_SETUP_REQUIRED_MESSAGE = "Complete Academic Setup before adding a student.";
 
@@ -98,12 +103,19 @@ export function StudentCreatePage() {
 function StudentCreateForm() {
 	const navigate = useNavigate();
 	const classLabel = useSchoolClassLabel();
+	const selectedCampusId = useSelectedCampusId();
+	// Admitting writes the student (STUDENT_MANAGE) then enrols them in the chosen section (STUDENT_ENROLLMENT_MANAGE);
+	// without both the submit would admit the student and then 403 on the enrolment.
+	const canManageStudents = useCan("STUDENT_MANAGE");
+	const canManageEnrollments = useCan("STUDENT_ENROLLMENT_MANAGE");
+	const canAdmit = canManageStudents && canManageEnrollments;
 	const [form, setForm] = useState<FormState>(EMPTY_FORM);
 	const [error, setError] = useState<string | null>(null);
 	const [submitting, setSubmitting] = useState(false);
 	const [checkingPrerequisite, setCheckingPrerequisite] = useState(true);
 	const [academicYears, setAcademicYears] = useState<AcademicYearResponse[]>([]);
 	const [schoolClasses, setSchoolClasses] = useState<SchoolClassResponse[]>([]);
+	const campusClasses = useCampusFiltered(schoolClasses);
 	const [sections, setSections] = useState<SectionResponse[]>([]);
 	const [customFields, setCustomFields] = useState<Record<string, unknown>>({});
 
@@ -132,6 +144,13 @@ function StudentCreateForm() {
 		listSchoolClasses(Number(form.academicYearId)).then(setSchoolClasses).catch(() => {});
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [form.academicYearId]);
+
+	// A class picked under another campus is dropped when the campus changes (which also clears its section).
+	useEffect(() => {
+		if (form.schoolClassId && !campusClasses.some((c) => String(c.id) === String(form.schoolClassId))) {
+			setForm((prev) => ({ ...prev, schoolClassId: "", sectionId: "" }));
+		}
+	}, [campusClasses, form.schoolClassId]);
 
 	useEffect(() => {
 		setForm((prev) => ({ ...prev, sectionId: "" }));
@@ -246,42 +265,45 @@ function StudentCreateForm() {
 					</Box>
 					<TextField label="Home address" value={form.address} onChange={set("address")} multiline rows={2} fullWidth />
 
-					<Divider />
-					<Typography variant="subtitle1">Primary guardian</Typography>
-					<Box sx={{ display: "flex", gap: 2 }}>
-						<TextField label="Guardian first name" value={form.guardianFirstName} onChange={set("guardianFirstName")} fullWidth />
-						<TextField label="Guardian last name" value={form.guardianLastName} onChange={set("guardianLastName")} fullWidth />
-						<TextField
-							select
-							label="Guardian gender"
-							value={form.guardianGender}
-							onChange={set("guardianGender")}
-							required={Boolean(form.guardianFirstName || form.guardianLastName)}
-							fullWidth
-						>
-							{GENDER_OPTIONS.map((option) => (
-								<MenuItem key={option} value={option}>
-									{option}
-								</MenuItem>
-							))}
-						</TextField>
-					</Box>
-					<Box sx={{ display: "flex", gap: 2 }}>
-						<TextField label="Guardian mobile" value={form.guardianPhone} onChange={set("guardianPhone")} fullWidth />
-						<TextField
-							select
-							label="Relationship"
-							value={form.guardianRelationshipType}
-							onChange={set("guardianRelationshipType")}
-							fullWidth
-						>
-							{GUARDIAN_RELATIONSHIP_TYPES.map((type) => (
-								<MenuItem key={type} value={type}>
-									{type.replaceAll("_", " ")}
-								</MenuItem>
-							))}
-						</TextField>
-					</Box>
+					<Can anyOf={["GUARDIAN_MANAGE"]}>
+						<Divider />
+						<Typography variant="subtitle1">Primary guardian</Typography>
+						<Box sx={{ display: "flex", gap: 2 }}>
+							<TextField label="Guardian first name" value={form.guardianFirstName} onChange={set("guardianFirstName")} fullWidth />
+							<TextField label="Guardian last name" value={form.guardianLastName} onChange={set("guardianLastName")} fullWidth />
+							<TextField
+								select
+								label="Guardian gender"
+								value={form.guardianGender}
+								onChange={set("guardianGender")}
+								required={Boolean(form.guardianFirstName || form.guardianLastName)}
+								fullWidth
+							>
+								{GENDER_OPTIONS.map((option) => (
+									<MenuItem key={option} value={option}>
+										{option}
+									</MenuItem>
+								))}
+							</TextField>
+						</Box>
+						<Box sx={{ display: "flex", gap: 2 }}>
+							<TextField label="Guardian mobile" value={form.guardianPhone} onChange={set("guardianPhone")} fullWidth />
+							<TextField
+								select
+								label="Relationship"
+								value={form.guardianRelationshipType}
+								onChange={set("guardianRelationshipType")}
+								fullWidth
+							>
+								{GUARDIAN_RELATIONSHIP_TYPES.map((type) => (
+									<MenuItem key={type} value={type}>
+										{type.replaceAll("_", " ")}
+									</MenuItem>
+								))}
+							</TextField>
+						</Box>
+
+					</Can>
 
 					<Divider />
 					<Typography variant="subtitle1">Admission details</Typography>
@@ -320,7 +342,7 @@ function StudentCreateForm() {
 							fullWidth
 							disabled={!form.academicYearId}
 						>
-							{schoolClasses.map((schoolClass) => (
+							{campusClasses.map((schoolClass) => (
 								<MenuItem key={schoolClass.id} value={schoolClass.id}>
 									{classLabel(schoolClass)}
 								</MenuItem>
@@ -343,6 +365,10 @@ function StudentCreateForm() {
 						</TextField>
 						<TextField label="Roll number" type="number" value={form.rollNumber} onChange={set("rollNumber")} fullWidth />
 					</Box>
+					{selectedCampusId !== null && schoolClasses.length > 0 && campusClasses.length === 0 && (
+						<Alert severity="info">No classes in the selected campus.</Alert>
+					)}
+					<AdmissionFeePreview academicYearId={form.academicYearId} sectionId={form.sectionId} />
 					<TextField label="Previous school" value={form.previousSchool} onChange={set("previousSchool")} fullWidth />
 					<Box sx={{ display: "flex", gap: 2 }}>
 						<TextField label="Blood group" value={form.bloodGroup} onChange={set("bloodGroup")} fullWidth />
@@ -378,9 +404,13 @@ function StudentCreateForm() {
 
 					<Box sx={{ display: "flex", gap: 2, justifyContent: "flex-end" }}>
 						<Button onClick={() => navigate("/students")}>Cancel</Button>
-						<Button type="submit" variant="contained" disabled={submitting}>
-							{submitting ? "Admitting..." : "Admit student"}
-						</Button>
+						<Tooltip title={canAdmit ? "" : "You don't have permission to admit and enrol students"}>
+							<span>
+								<Button type="submit" variant="contained" disabled={submitting || !canAdmit}>
+									{submitting ? "Admitting..." : "Admit student"}
+								</Button>
+							</span>
+						</Tooltip>
 					</Box>
 				</Stack>
 			</Paper>

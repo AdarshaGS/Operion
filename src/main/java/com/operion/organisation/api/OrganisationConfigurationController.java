@@ -43,6 +43,7 @@ public class OrganisationConfigurationController {
 		if (request.timezone() != null && !java.time.ZoneId.getAvailableZoneIds().contains(request.timezone())) {
 			throw new InvalidRequestException("Unknown timezone " + request.timezone());
 		}
+		requireIsoCurrency(request.defaultCurrency());
 		OrganisationConfiguration configuration = currentConfiguration();
 		OrganisationConfigurationResponse before = OrganisationConfigurationResponse.from(configuration);
 		configuration.setTimezone(request.timezone());
@@ -54,6 +55,19 @@ public class OrganisationConfigurationController {
 		OrganisationConfigurationResponse after = OrganisationConfigurationResponse.from(configurationRepository.save(configuration));
 		auditLogService.record("OrganisationConfiguration", configuration.getOrganisationId(), "SETTINGS_UPDATED", before, after);
 		return after;
+	}
+
+	/** Null/blank is left to whatever the column does today; anything else must be a real ISO 4217 code. */
+	private static void requireIsoCurrency(String code) {
+		if (code == null || code.isBlank()) {
+			return;
+		}
+		try {
+			java.util.Currency.getInstance(code);
+		}
+		catch (IllegalArgumentException ex) {
+			throw new InvalidRequestException("Unknown currency code " + code + "; use an ISO 4217 code such as INR or USD");
+		}
 	}
 
 	private OrganisationConfiguration currentConfiguration() {

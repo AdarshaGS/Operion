@@ -15,6 +15,7 @@ import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
+import { Can } from "../../auth/Can";
 import { ApiError } from "../../api/client";
 import {
 	getConsentHistory,
@@ -92,12 +93,14 @@ export function ConsentRecordsTab() {
 									</TableCell>
 									<TableCell>{item.since ? new Date(item.since).toLocaleString() : "-"}</TableCell>
 									<TableCell align="right">
-										<Button size="small" disabled={item.state === "GRANTED"} onClick={() => setRecording({ purpose: item, granted: true })}>
-											Record consent
-										</Button>
-										<Button size="small" disabled={item.state !== "GRANTED"} onClick={() => setRecording({ purpose: item, granted: false })}>
-											Record withdrawal
-										</Button>
+										<Can anyOf={["PRIVACY_MANAGE"]}>
+											<Button size="small" disabled={item.state === "GRANTED"} onClick={() => setRecording({ purpose: item, granted: true })}>
+												Record consent
+											</Button>
+											<Button size="small" disabled={item.state !== "GRANTED"} onClick={() => setRecording({ purpose: item, granted: false })}>
+												Record withdrawal
+											</Button>
+										</Can>
 									</TableCell>
 								</TableRow>
 							))}

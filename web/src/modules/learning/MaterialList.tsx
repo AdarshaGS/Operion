@@ -4,6 +4,7 @@ import Stack from "@mui/material/Stack";
 import Typography from "@mui/material/Typography";
 import { resolveAssetUrl } from "../../api/assets";
 import type { MaterialResponse } from "../../api/learning";
+import { safeHref } from "../../utils/safeUrl";
 
 /** The open/download affordance for one material, shared by the teacher table and the guardian list. */
 export function MaterialAction({ material }: { material: MaterialResponse }) {
@@ -15,8 +16,18 @@ export function MaterialAction({ material }: { material: MaterialResponse }) {
 		);
 	}
 	if (material.kind === "LINK" && material.url) {
+		// The URL is free text a teacher typed - only http(s) becomes a clickable link; anything else
+		// (javascript:, data:, ...) is shown as plain text so it can never execute on click.
+		const href = safeHref(material.url);
+		if (!href) {
+			return (
+				<Typography variant="body2" color="text.secondary" sx={{ wordBreak: "break-all" }}>
+					{material.url}
+				</Typography>
+			);
+		}
 		return (
-			<Link href={material.url} target="_blank" rel="noreferrer">
+			<Link href={href} target="_blank" rel="noreferrer">
 				Open link
 			</Link>
 		);

@@ -92,6 +92,7 @@ public class StudentController {
 	public PageResponse<StudentListRowResponse> search(@RequestParam(required = false) String search,
 			@RequestParam(required = false) StudentStatus status, @RequestParam(required = false) Long schoolClassId,
 			@RequestParam(required = false) Long sectionId,
+			@RequestParam(required = false) Long campusId,
 			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate admissionDateFrom,
 			@RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate admissionDateTo,
 			@PageableDefault(size = 25, sort = "admissionDate", direction = Sort.Direction.DESC) Pageable pageable) {
@@ -101,7 +102,7 @@ public class StudentController {
 		String likeSearch = search != null && !search.isBlank() ? "%" + search.toLowerCase() + "%" : null;
 
 		Page<Student> page = studentRepository.search(
-				likeSearch, status, schoolClassId, sectionId, admissionDateFrom, admissionDateTo, withQuerySort(pageable));
+				likeSearch, status, schoolClassId, sectionId, campusId, admissionDateFrom, admissionDateTo, withQuerySort(pageable));
 
 		List<Long> studentIds = page.getContent().stream().map(Student::getId).toList();
 		Map<Long, StudentEnrollment> currentEnrollmentByStudentId = studentEnrollmentRepository

@@ -23,6 +23,7 @@ import Typography from "@mui/material/Typography";
 import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
 import { Can } from "../../auth/Can";
+import { useCan } from "../../auth/useCan";
 import { ApiError } from "../../api/client";
 import { listAcademicYears, type AcademicYearResponse } from "../../api/academicYears";
 import { listCampuses, type CampusResponse } from "../../api/campuses";
@@ -55,6 +56,8 @@ const EMPTY_ENTRY_FORM: EntryFormState = { date: "", label: "", type: "HOLIDAY",
  * (see #143). Entries are scoped to one academic year at a time, mirroring how the rest
  * of Academics (classes, etc.) resets per year. */
 export function WorkingCalendarPanel() {
+	// Timings save is ACADEMIC_CONFIGURATION_MANAGE (the calendar entries below use WORKING_CALENDAR_MANAGE).
+	const canEditTimings = useCan("ACADEMIC_CONFIGURATION_MANAGE");
 	const [academicYears, setAcademicYears] = useState<AcademicYearResponse[]>([]);
 	const [campuses, setCampuses] = useState<CampusResponse[]>([]);
 	const [academicYearId, setAcademicYearId] = useState<number | "">("");
@@ -176,6 +179,7 @@ export function WorkingCalendarPanel() {
 							type="time"
 							value={schoolStartTime}
 							onChange={(e) => setSchoolStartTime(e.target.value)}
+							disabled={!canEditTimings}
 							slotProps={{ inputLabel: { shrink: true } }}
 							fullWidth
 						/>
@@ -184,6 +188,7 @@ export function WorkingCalendarPanel() {
 							type="time"
 							value={schoolEndTime}
 							onChange={(e) => setSchoolEndTime(e.target.value)}
+							disabled={!canEditTimings}
 							slotProps={{ inputLabel: { shrink: true } }}
 							fullWidth
 						/>

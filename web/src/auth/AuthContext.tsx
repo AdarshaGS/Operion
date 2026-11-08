@@ -8,7 +8,14 @@ import {
 } from "../api/auth";
 import { getPortalIdentity, type PortalIdentity } from "../api/portal";
 import { moduleForPath } from "./modules";
-import { clearSession, getSession, onSessionCleared, setSession, type StoredSession } from "../api/tokenStore";
+import {
+	clearSession,
+	getSession,
+	onSessionChangedElsewhere,
+	onSessionCleared,
+	setSession,
+	type StoredSession,
+} from "../api/tokenStore";
 
 export interface Profile {
 	personId: number | null;
@@ -45,16 +52,21 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }) {
 	const [session, setSessionState] = useState<StoredSession | null>(() => getSession());
 	const [permissions, setPermissions] = useState<Set<string>>(new Set());
+	const [isOwner, setIsOwner] = useState(false);
 	const [disabledModules, setDisabledModules] = useState<Set<string>>(new Set());
 	const [permissionsLoaded, setPermissionsLoaded] = useState(false);
 	const [profile, setProfile] = useState<Profile | null>(null);
 	const [portalIdentity, setPortalIdentity] = useState<PortalIdentity | null>(null);
 
 	useEffect(() => onSessionCleared(() => setSessionState(null)), []);
+	// Another tab logged out (token removed), or signed in as someone else: follow it, so this tab
+	// neither keeps showing a session whose token is gone nor mixes one user's UI with another's token.
+	useEffect(() => onSessionChangedElsewhere((stored) => setSessionState((current) => (current?.token === stored?.token ? current : stored))), []);
 
 	useEffect(() => {
 		if (!session) {
 			setPermissions(new Set());
+			setIsOwner(false);
 			setDisabledModules(new Set());
 			setProfile(null);
 			setPortalIdentity(null);
@@ -65,6 +77,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 		Promise.all([meRequest(), getPortalIdentity()])
 			.then(([response, identity]) => {
 				setPermissions(new Set(response.permissions));
+				setIsOwner(response.owner === true);
 				setDisabledModules(new Set(response.disabledModules ?? []));
 				setProfile({
 					personId: response.personId,
@@ -123,8 +136,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 		setSessionState(null);
 	}, []);
 
-	const hasPermission = useCallback((code: string) => permissions.has(code), [permissions]);
-	const hasAnyPermission = useCallback((codes: string[]) => codes.some((code) => permissions.has(code)), [permissions]);
+	// Mirrors the backend's PermissionChecker: the Owner membership and an ALL_FUNCTIONS grant
+	// both bypass the granular check, so neither needs every catalog code enumerated onto the role.
+	const holdsEverything = isOwner || permissions.has("ALL_FUNCTIONS");
+	const hasPermission = useCallback((code: string) => holdsEverything || permissions.has(code), [holdsEverything, permissions]);
+	const hasAnyPermission = useCallback(
+		(codes: string[]) => holdsEverything || codes.some((code) => permissions.has(code)),
+		[holdsEverything, permissions],
+	);
 	const isModuleEnabled = useCallback((code: string) => !disabledModules.has(code), [disabledModules]);
 	const isPathEnabled = useCallback(
 		(path: string) => {

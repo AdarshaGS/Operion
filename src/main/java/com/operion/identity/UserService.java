@@ -1,5 +1,6 @@
 package com.operion.identity;
 
+import java.util.List;
 import java.util.Map;
 
 import com.operion.audit.AuditLogService;
@@ -7,6 +8,9 @@ import com.operion.authorization.AuthorizationDeniedException;
 import com.operion.authorization.MembershipStatus;
 import com.operion.authorization.OrganisationMembershipRepository;
 import com.operion.authorization.PermissionChecker;
+import com.operion.identity.auth.StaffInvite;
+import com.operion.identity.auth.StaffInviteRepository;
+import com.operion.identity.auth.StaffInviteStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,10 +21,12 @@ public class UserService {
 	private final AuditLogService auditLogService;
 	private final OrganisationMembershipRepository membershipRepository;
 	private final PermissionChecker permissionChecker;
+	private final StaffInviteRepository staffInviteRepository;
 
 	public UserService(UserRepository userRepository, AuditLogService auditLogService,
-			OrganisationMembershipRepository membershipRepository) {
+			OrganisationMembershipRepository membershipRepository, StaffInviteRepository staffInviteRepository) {
 		this.userRepository = userRepository;
+		this.staffInviteRepository = staffInviteRepository;
 		this.auditLogService = auditLogService;
 		this.membershipRepository = membershipRepository;
 		this.permissionChecker = new PermissionChecker(membershipRepository);
@@ -38,6 +44,13 @@ public class UserService {
 		UserStatus previous = user.getStatus();
 		user.setStatus(status);
 		user = userRepository.save(user);
+		if (status != UserStatus.PENDING) {
+			// An outstanding claim link must not outlive the account state it was issued for - disabling (or
+			// otherwise taking the account out of PENDING) kills any invite still waiting to be claimed.
+			List<StaffInvite> pending = staffInviteRepository.findByUserIdAndStatus(userId, StaffInviteStatus.PENDING);
+			pending.forEach(StaffInvite::revoke);
+			staffInviteRepository.saveAll(pending);
+		}
 		auditLogService.record("User", user.getId(), "STATUS_CHANGE", previous, status);
 		return user;
 	}

@@ -13,6 +13,8 @@ public class SchoolTemplateResult {
 
 	private final List<String> gradesCreated = new ArrayList<>();
 	private final List<String> gradesSkipped = new ArrayList<>();
+	/** Existing grades whose sequence_order was changed so the grades follow the template's order (name only; nothing else about them changes). */
+	private final List<String> gradesReordered = new ArrayList<>();
 	private final List<String> departmentsCreated = new ArrayList<>();
 	private final List<String> departmentsSkipped = new ArrayList<>();
 	private final List<String> designationsCreated = new ArrayList<>();
