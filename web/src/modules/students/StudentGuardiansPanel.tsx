@@ -287,7 +287,7 @@ export function StudentGuardiansPanel({ studentId }: { studentId: number }) {
 														<EditIcon fontSize="small" />
 													</IconButton>
 												</Tooltip>
-												<Tooltip title="Grant portal access">
+												<Tooltip title="Give portal access">
 													<IconButton size="small" onClick={() => handleGrantPortalAccess(link.guardianId)}>
 														<KeyIcon fontSize="small" />
 													</IconButton>

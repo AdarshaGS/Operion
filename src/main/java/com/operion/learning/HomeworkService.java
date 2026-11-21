@@ -22,6 +22,7 @@ import com.operion.student.AdmissionFeeGate;
 import com.operion.student.StudentEnrollment;
 import com.operion.student.StudentEnrollmentRepository;
 import com.operion.student.StudentRepository;
+import com.operion.academic.AcademicStructureYearGuard;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -82,6 +83,7 @@ public class HomeworkService {
 				.orElseThrow(() -> new IllegalArgumentException("Section not found: " + sectionId));
 		Subject subject = subjectRepository.findById(subjectId)
 				.orElseThrow(() -> new IllegalArgumentException("Subject not found: " + subjectId));
+		AcademicStructureYearGuard.requireOpen(section, "assigning homework");
 		boolean onClass = classSubjectRepository.findBySchoolClassId(section.getSchoolClass().getId()).stream()
 				.anyMatch(cs -> cs.getStatus() == ClassSubjectStatus.ACTIVE && cs.getSubject().getId().equals(subjectId));
 		if (!onClass) {
@@ -137,6 +139,7 @@ public class HomeworkService {
 				.orElseThrow(() -> new IllegalArgumentException("Submission not found: " + submissionId));
 		Homework homework = submission.getHomework();
 		actor.requireWrite(homework.getSection().getId(), homework.getSubject().getId());
+		AcademicStructureYearGuard.requireOpen(homework.getSection(), "reviewing homework");
 		// Teacher-side only: the child's own submitForChild is deliberately not gated. A student no longer
 		// enrolled has no current enrollment and so no admission-fee standing to check.
 		enrollmentRepository.findByStudentIdAndCurrentTrue(submission.getStudent().getId())
@@ -172,6 +175,7 @@ public class HomeworkService {
 		if (homework.getStatus() != HomeworkStatus.ACTIVE) {
 			throw new IllegalStateException("This homework has been cancelled");
 		}
+		AcademicStructureYearGuard.requireOpen(homework.getSection(), "submitting homework");
 		if ((text == null || text.isBlank()) && (attachmentRef == null || attachmentRef.isBlank())) {
 			throw new InvalidRequestException("Provide an answer or an attachment");
 		}
@@ -192,6 +196,7 @@ public class HomeworkService {
 		Homework homework = homeworkRepository.findById(homeworkId)
 				.orElseThrow(() -> new IllegalArgumentException("Homework not found: " + homeworkId));
 		actor.requireWrite(homework.getSection().getId(), homework.getSubject().getId());
+		AcademicStructureYearGuard.requireOpen(homework.getSection(), "changing homework");
 		return homework;
 	}
 

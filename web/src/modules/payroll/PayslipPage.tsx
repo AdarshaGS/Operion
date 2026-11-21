@@ -30,9 +30,20 @@ export function PayslipPage() {
 	const [error, setError] = useState<string | null>(null);
 
 	useEffect(() => {
+		// A different payslip id must not keep showing the previous payslip (or its error) while loading.
+		let cancelled = false;
+		setPayslip(null);
+		setError(null);
 		getPayslip(Number(payslipId))
-			.then(setPayslip)
-			.catch((err) => setError(err instanceof ApiError ? err.message : "Failed to load payslip"));
+			.then((loaded) => {
+				if (!cancelled) setPayslip(loaded);
+			})
+			.catch((err) => {
+				if (!cancelled) setError(err instanceof ApiError ? err.message : "Failed to load payslip");
+			});
+		return () => {
+			cancelled = true;
+		};
 	}, [payslipId]);
 
 	async function handleAdd(event: FormEvent) {

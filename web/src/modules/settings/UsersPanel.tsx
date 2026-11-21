@@ -18,6 +18,7 @@ import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
+import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import AddIcon from "@mui/icons-material/Add";
 import BlockIcon from "@mui/icons-material/Block";
@@ -53,6 +54,11 @@ interface MemberRow {
 	memberStatus: "INVITED" | "ACTIVE" | "INACTIVE";
 	lastLoginAt: string | null;
 	memberships: MembershipResponse[];
+	/** Same person on every row, so any row answers it. */
+	hasStaffProfile: boolean;
+	isOwner: boolean;
+	/** Every role this person holds is a portal (parent/student) role. */
+	portalOnly: boolean;
 }
 
 function groupMembers(memberships: MembershipResponse[]): MemberRow[] {
@@ -78,6 +84,9 @@ function groupMembers(memberships: MembershipResponse[]): MemberRow[] {
 			memberStatus,
 			lastLoginAt: first.lastLoginAt,
 			memberships: rows,
+			hasStaffProfile: first.hasStaffProfile,
+			isOwner: rows.some((row) => row.owner),
+			portalOnly: rows.every((row) => row.rolePortal),
 		};
 	});
 }
@@ -90,9 +99,9 @@ function formatLastActivity(row: MemberRow): string {
 export function UsersPanel() {
 	const navigate = useNavigate();
 	const location = useLocation();
-	// Reachable from both /members and /settings/users - drill-down stays under
+	// Reachable from both /members and /settings/members - drill-down stays under
 	// whichever URL the caller entered from, rather than always landing on one.
-	const detailBasePath = location.pathname.startsWith("/members") ? "/members" : "/settings/users";
+	const detailBasePath = location.pathname.startsWith("/members") ? "/members" : "/settings/members";
 	const [memberships, setMemberships] = useState<MembershipResponse[]>([]);
 	const [roles, setRoles] = useState<RoleResponse[]>([]);
 	const [campuses, setCampuses] = useState<CampusResponse[]>([]);
@@ -153,7 +162,7 @@ export function UsersPanel() {
 			? [
 					{
 						key: "campus",
-						label: `Campus: ${campusFilter === "org-wide" ? "Org-wide" : (campuses.find((c) => String(c.id) === campusFilter)?.name ?? campusFilter)}`,
+						label: `Campus: ${campusFilter === "org-wide" ? "All campuses" : (campuses.find((c) => String(c.id) === campusFilter)?.name ?? campusFilter)}`,
 						onDelete: () => setCampusFilter(""),
 					},
 				]
@@ -169,7 +178,7 @@ export function UsersPanel() {
 		const campusIds = new Set(row.memberships.map((m) => m.campusId));
 		if (campusIds.size > 1) return "Multiple campuses";
 		const [only] = campusIds;
-		if (only === null || only === undefined) return "Org-wide";
+		if (only === null || only === undefined) return "All campuses";
 		return campuses.find((c) => c.id === only)?.name ?? String(only);
 	}
 
@@ -252,7 +261,7 @@ export function UsersPanel() {
 						</TextField>
 						<TextField select size="small" label="Campus" value={campusFilter} onChange={(e) => setCampusFilter(e.target.value)}>
 							<MenuItem value="">All campuses</MenuItem>
-							<MenuItem value="org-wide">Org-wide</MenuItem>
+							<MenuItem value="org-wide">All campuses</MenuItem>
 							{campuses.map((campus) => (
 								<MenuItem key={campus.id} value={String(campus.id)}>
 									{campus.name}
@@ -306,6 +315,16 @@ export function UsersPanel() {
 													<Typography variant="caption" color="text.secondary">
 														{row.memberId}
 													</Typography>
+												)}
+												{!row.hasStaffProfile && row.isOwner && (
+													<Tooltip title="The organisation Owner is not expected to have an HR staff profile.">
+														<Chip label="No HR profile" size="small" variant="outlined" sx={{ ml: row.memberId ? 1 : 0 }} />
+													</Tooltip>
+												)}
+												{!row.hasStaffProfile && !row.isOwner && !row.portalOnly && (
+													<Tooltip title="This person can sign in but has no HR staff profile, so they will not appear in HR, payroll or leave. Add one from the HR module if they are staff.">
+														<Chip label="No HR profile" size="small" color="warning" variant="outlined" sx={{ ml: row.memberId ? 1 : 0 }} />
+													</Tooltip>
 												)}
 											</TableCell>
 											<TableCell>

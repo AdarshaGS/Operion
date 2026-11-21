@@ -1,6 +1,6 @@
 import type { Page } from "@playwright/test";
 
-/** Structure Setup wizard: Organisation profile -> Business settings -> Campuses / locations
+/** Structure Setup wizard: Organisation profile -> Business settings -> Campuses
  * (optional) -> Review and finish. Linear - a step's tab is disabled until every required step
  * before it is complete, and Save/Continue advance. Academic years are not part of the wizard;
  * they are managed on /settings/academic-years (see AcademicYearsPage). */
@@ -11,7 +11,7 @@ export class StructureSetupPage {
 		await this.page.goto("/setup/structure");
 	}
 
-	async goToStep(label: "Organisation profile" | "Business settings" | "Campuses / locations") {
+	async goToStep(label: "Organisation profile" | "Business settings" | "Campuses") {
 		// MUI's Stepper/StepButton exposes these as role="tab", not "button".
 		await this.page.getByRole("tab", { name: new RegExp(label) }).click();
 	}

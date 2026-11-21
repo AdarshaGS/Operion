@@ -103,7 +103,7 @@ export function SupportTicketsPage() {
 						Support
 					</Typography>
 					<Typography variant="h4" component="h1">
-						Support / Issues
+						Support / issues
 					</Typography>
 				</Stack>
 				<Button variant="contained" startIcon={<AddIcon />} onClick={() => setDialogOpen(true)} disabled={organisations.length === 0}>

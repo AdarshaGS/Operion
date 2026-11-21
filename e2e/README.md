@@ -16,8 +16,8 @@ client only for one-time test-data seeding.
   (the floor), `guardian` (via the real claim-invite flow), and `platformAdmin` (the
   separate auth plane).
 - **`global-setup.ts`** runs once per `npx playwright test` invocation: provisions one
-  fresh, uniquely-slugged organisation via the public `POST /api/v1/organisations`
-  endpoint, seeds a minimal academic structure (campus/year/grade/class/section, an
+  fresh, uniquely-slugged organisation via the platform-admin `POST /api/v1/platform/organisations`
+  endpoint (organisation creation is not public), seeds a minimal academic structure (campus/year/grade/class/section, an
   enrolled student, a subject, and a teacher assignment), creates each role fixture's Role
   + membership, and writes a Playwright `storageState` file per role directly from each
   login response — no UI login roundtrip needed, since the session is just `localStorage`

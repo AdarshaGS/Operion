@@ -121,4 +121,23 @@ class GuardianImportServiceTest {
 		assertThat(secondResults.get(0).status()).isEqualTo(ImportRowStatus.DUPLICATE);
 		assertThat(studentGuardianRepository.findByStudentId(student.getId())).hasSize(1);
 	}
+	@Test
+	void severalRowsMarkedPrimaryForOneStudentLeaveExactlyOnePrimary() {
+		Organisation organisation = organisationRepository.save(new Organisation("Test School", "Test Trust", "iso-guardian-multi-primary"));
+		TenantContext.set(organisation.getId(), null);
+		Student student = seedStudent("ADM-300");
+
+		List<ImportRowResult> results = guardianImportService.importFile(csv(HEADER,
+				"ADM-300,Vikram,Shah,vikram@example.com,9876500001,Engineer,FATHER,true,true,true,true,1",
+				"ADM-300,Anita,Shah,anita@example.com,9876500002,Doctor,MOTHER,true,true,true,true,2",
+				"ADM-300,Mohan,Shah,mohan@example.com,9876500003,Retired,GRANDPARENT,true,false,true,true,3"), false);
+
+		assertThat(results).extracting(ImportRowResult::status).containsOnly(ImportRowStatus.IMPORTED);
+		List<StudentGuardian> links = studentGuardianRepository.findByStudentId(student.getId());
+		assertThat(links).hasSize(3);
+		// The last row marked primary wins; the earlier ones are demoted rather than rejected.
+		assertThat(links).filteredOn(StudentGuardian::isPrimaryGuardian).hasSize(1)
+				.first().extracting(l -> l.getGuardian().getPerson().getFirstName()).isEqualTo("Mohan");
+		assertThat(links).filteredOn(l -> l.getPrimaryMarker() != null).hasSize(1);
+	}
 }

@@ -20,6 +20,7 @@ import com.operion.identity.PersonRepository;
 import com.operion.student.StudentEnrollment;
 import com.operion.student.StudentEnrollmentRepository;
 import com.operion.student.StudentRepository;
+import com.operion.academic.AcademicStructureYearGuard;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -99,6 +100,7 @@ public class QuizService {
 				.orElseThrow(() -> new IllegalArgumentException("Section not found: " + sectionId));
 		Subject subject = subjectRepository.findById(subjectId)
 				.orElseThrow(() -> new IllegalArgumentException("Subject not found: " + subjectId));
+		AcademicStructureYearGuard.requireOpen(section, "creating a quiz");
 		return quizRepository.save(new Quiz(section, subject, title.trim(), blankToNull(instructions), opensAt, closesAt,
 				personRepository.findById(actor.personId()).orElseThrow()));
 	}
@@ -272,6 +274,7 @@ public class QuizService {
 	public QuizAttempt submitAttempt(ChildAccessService.OwnChild child, Long quizId, Map<Long, Long> answers, Instant now) {
 		StudentEnrollment enrollment = child.enrollment();
 		Quiz quiz = requireOwnPublished(enrollment, quizId);
+		AcademicStructureYearGuard.requireOpen(quiz.getSection(), "attempting a quiz");
 		if (quiz.availability(now) != Quiz.Availability.OPEN) {
 			throw new IllegalStateException("This quiz is not open right now");
 		}
@@ -341,6 +344,7 @@ public class QuizService {
 	private Quiz requireDraft(LearningActor actor, Long quizId) {
 		Quiz quiz = find(quizId);
 		actor.requireWrite(quiz.getSection().getId(), quiz.getSubject().getId());
+		AcademicStructureYearGuard.requireOpen(quiz.getSection(), "changing a quiz");
 		if (!quiz.isDraft()) {
 			throw new IllegalStateException("A published quiz can no longer be changed");
 		}

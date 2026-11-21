@@ -113,7 +113,7 @@ export function FeeStructuresPanel() {
 		}
 		listFeeStructures(group.id)
 			.then(setStructures)
-			.catch((err) => setError(err instanceof ApiError ? err.message : "Failed to load fee structure components"));
+			.catch((err) => setError(err instanceof ApiError ? err.message : "Failed to load fee structure lines"));
 	}
 
 	useEffect(refreshStructures, [group]);
@@ -191,7 +191,7 @@ export function FeeStructuresPanel() {
 			setDialogOpen(false);
 			refreshStructures();
 		} catch (err) {
-			setError(err instanceof ApiError ? err.message : "Failed to add fee component");
+			setError(err instanceof ApiError ? err.message : "Failed to add fee category line");
 		} finally {
 			setSubmitting(false);
 		}
@@ -263,7 +263,7 @@ export function FeeStructuresPanel() {
 						<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
 							<Typography variant="subtitle1">{group.name}</Typography>
 							<Button startIcon={<AddIcon />} onClick={openDialog}>
-								Add component
+								Add fee category line
 							</Button>
 						</Box>
 
@@ -321,7 +321,7 @@ export function FeeStructuresPanel() {
 			</Dialog>
 
 			<Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} component="form" onSubmit={handleSubmit} fullWidth maxWidth="sm">
-				<DialogTitle>Add fee component</DialogTitle>
+				<DialogTitle>Add fee category line</DialogTitle>
 				<DialogContent>
 					<Stack spacing={2} sx={{ mt: 1 }}>
 						<TextField select label="Fee category" value={feeCategoryId} onChange={(e) => setFeeCategoryId(e.target.value)} required fullWidth>

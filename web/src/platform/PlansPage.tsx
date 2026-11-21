@@ -73,7 +73,7 @@ export function PlansPage() {
 		<Stack spacing={2}>
 			<Stack spacing={0.5}>
 				<Typography variant="overline" color="text.secondary">
-					Billing catalog
+					Billing catalogue
 				</Typography>
 				<Typography variant="h4" component="h1">
 					Plans

@@ -145,7 +145,7 @@ export function MemberPlacementFields({ value, onChange, campuses, departments }
 	return (
 		<>
 			<Box sx={{ display: "flex", gap: 2 }}>
-				<TextField label="Member ID (optional)" value={value.memberId} onChange={(e) => set("memberId", e.target.value)} fullWidth />
+				<TextField label="Staff ID (optional)" value={value.memberId} onChange={(e) => set("memberId", e.target.value)} fullWidth />
 				<TextField
 					label="Joining date (optional)"
 					type="date"
@@ -158,12 +158,12 @@ export function MemberPlacementFields({ value, onChange, campuses, departments }
 			<Box sx={{ display: "flex", gap: 2 }}>
 				<TextField
 					select
-					label="Campus (optional — org-wide if left blank)"
+					label="Campus (optional — all campuses if left blank)"
 					value={value.campusId}
 					onChange={(e) => set("campusId", e.target.value === "" ? "" : Number(e.target.value))}
 					fullWidth
 				>
-					<MenuItem value="">Org-wide</MenuItem>
+					<MenuItem value="">All campuses</MenuItem>
 					{campuses.map((campus) => (
 						<MenuItem key={campus.id} value={campus.id}>
 							{campus.name}

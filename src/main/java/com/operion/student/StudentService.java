@@ -242,7 +242,9 @@ public class StudentService {
 
 		StudentEnrollmentStatus previousStatus = current.getEnrollmentStatus();
 		current.close(repeated ? StudentEnrollmentStatus.REPEATED : StudentEnrollmentStatus.PROMOTED, promotionDate);
-		studentEnrollmentRepository.save(current);
+		// Flush now: Hibernate runs a flush's INSERTs before its UPDATEs, so without this the new current row would be
+		// written while the old one still holds the student's one-current slot (uq_student_enrollments_student_current).
+		studentEnrollmentRepository.saveAndFlush(current);
 		StudentEnrollment enrollment = studentEnrollmentRepository
 				.save(new StudentEnrollment(student, newAcademicYear, newSection, resolvedRollNumber, promotionDate));
 		auditLogService.record("StudentEnrollment", enrollment.getId(), "STUDENT_PROMOTED", previousStatus, current.getEnrollmentStatus());
@@ -292,17 +294,27 @@ public class StudentService {
 	/** Mid-year section move only - mutates the current row in place, per the class-level note on StudentEnrollment. */
 	@Transactional
 	public StudentEnrollment reassignSection(Student student, Section newSection) {
+		// Lock the target section before any other read (same reason as promote): the capacity count and the next
+		// roll number below must see the outcome of any placement that is racing us into the same section.
+		Section lockedSection = lockSection(newSection);
 		StudentEnrollment current = studentEnrollmentRepository.findByStudentIdAndCurrentTrue(student.getId())
 				.orElseThrow(() -> new IllegalStateException("Student " + student.getId() + " has no current enrollment"));
 		AcademicYearGuard.requireOpen(current.getAcademicYear(), "moving a student to another section");
 		if (!newSection.getSchoolClass().getId().equals(current.getSection().getSchoolClass().getId())) {
 			throw new InvalidRequestException("A section can only be reassigned within the student's current class");
 		}
-		if (!newSection.getId().equals(current.getSection().getId())) {
-			assertCapacityAvailable(newSection);
+		boolean sectionChanges = !newSection.getId().equals(current.getSection().getId());
+		if (sectionChanges) {
+			assertCapacityAvailable(lockedSection);
 		}
 		Long previousSectionId = current.getSection().getId();
-		current.reassignSection(newSection);
+		// Roll numbers are unique per section, so a moved student takes the next free one there (their old number may
+		// be in use in the new section). A student who has no roll number keeps none; a same-section "move" keeps theirs.
+		Integer rollNumber = current.getRollNumber();
+		if (sectionChanges && rollNumber != null) {
+			rollNumber = nextRollNumber(lockedSection, current.getAcademicYear());
+		}
+		current.reassignSection(newSection, rollNumber);
 		StudentEnrollment saved = studentEnrollmentRepository.save(current);
 		auditLogService.record("StudentEnrollment", saved.getId(), "STUDENT_SECTION_REASSIGNED", previousSectionId, newSection.getId());
 		return saved;

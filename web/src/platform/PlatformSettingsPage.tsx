@@ -52,7 +52,7 @@ export function PlatformSettingsPage() {
 					Settings
 				</Typography>
 				<Typography variant="h4" component="h1">
-					Platform Settings
+					Platform settings
 				</Typography>
 			</Stack>
 

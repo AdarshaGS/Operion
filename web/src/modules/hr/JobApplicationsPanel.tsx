@@ -166,9 +166,9 @@ export function JobApplicationsPanel({ onHired }: { onHired?: () => void }) {
 							))}
 						</TextField>
 						<TextField label="Date of joining" type="date" value={dateOfJoining} onChange={(e) => setDateOfJoining(e.target.value)} required fullWidth slotProps={{ inputLabel: { shrink: true } }} />
-						<TextField label="Employee code" value={employeeCode} onChange={(e) => setEmployeeCode(e.target.value)} required fullWidth />
+						<TextField label="Staff ID" value={employeeCode} onChange={(e) => setEmployeeCode(e.target.value)} required fullWidth />
 						<TextField select label="Campus" value={campusId} onChange={(e) => setCampusId(e.target.value === "" ? "" : Number(e.target.value))} fullWidth>
-							<MenuItem value="">Org-wide</MenuItem>
+							<MenuItem value="">All campuses</MenuItem>
 							{campuses.map((c) => (
 								<MenuItem key={c.id} value={c.id}>
 									{c.name}

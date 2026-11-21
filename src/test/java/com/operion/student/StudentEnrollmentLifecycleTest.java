@@ -36,6 +36,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.AdditionalAnswers;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.context.annotation.Import;
@@ -345,8 +346,8 @@ class StudentEnrollmentLifecycleTest {
 		PromotionWorld w = promotionWorld("promote-target-year-taken-school");
 		Student student = admitAndEnroll("ADM-P-12", w.ay1(), w.from5A(), 1);
 		// A closed (withdrawn) enrollment in the target year already exists for the student.
-		StudentEnrollment inTarget = studentEnrollmentRepository.save(
-				new StudentEnrollment(student, w.ay2(), w.to5A(), 1, LocalDate.of(2026, 6, 1)));
+		// Closed before it is saved: a second current enrollment would trip the one-current-per-student key.
+		StudentEnrollment inTarget = new StudentEnrollment(student, w.ay2(), w.to5A(), 1, LocalDate.of(2026, 6, 1));
 		inTarget.close(StudentEnrollmentStatus.WITHDRAWN, LocalDate.of(2026, 7, 1));
 		studentEnrollmentRepository.save(inTarget);
 
@@ -436,6 +437,98 @@ class StudentEnrollmentLifecycleTest {
 		assertThat(studentEnrollmentRepository.existsBySectionIdAndRollNumber(sectionId, 3)).isFalse();
 		assertThat(studentEnrollmentRepository.findMaxRollNumber(sectionId, w.ay1().getId())).isNull();
 		assertThat(studentEnrollmentRepository.findByStudentIdAndAcademicYearId(student.getId(), w.ay1().getId())).isEmpty();
+	}
+
+	/** A second section in the same class as the world's from5A, for mid-year moves. */
+	private Section secondSectionInSameClass(PromotionWorld w, String name) {
+		return sectionRepository.save(new Section(w.from5A().getSchoolClass(), name, 40, null));
+	}
+
+	@Test
+	void movingIntoASectionWhereTheRollIsTakenSucceedsWithTheNextFreeRoll() {
+		PromotionWorld w = promotionWorld("reassign-roll-taken-school");
+		Section sectionB = secondSectionInSameClass(w, "B");
+		Student mover = admitAndEnroll("ADM-R-1", w.ay1(), w.from5A(), 1);
+		admitAndEnroll("ADM-R-2", w.ay1(), sectionB, 1);
+		admitAndEnroll("ADM-R-3", w.ay1(), sectionB, 2);
+
+		StudentEnrollment moved = studentService.reassignSection(mover, sectionB);
+
+		// Roll 1 is already someone else's in B, so the mover takes the next free one rather than clashing.
+		assertThat(moved.getRollNumber()).isEqualTo(3);
+		StudentEnrollment reloaded = studentEnrollmentRepository.findByStudentIdAndCurrentTrue(mover.getId()).orElseThrow();
+		assertThat(reloaded.getSection().getId()).isEqualTo(sectionB.getId());
+		assertThat(reloaded.getRollNumber()).isEqualTo(3);
+		// ...and the roll the mover left behind in A is free again.
+		assertThat(studentEnrollmentRepository.existsBySectionIdAndRollNumber(w.from5A().getId(), 1)).isFalse();
+	}
+
+	@Test
+	void movingIntoAnEmptySectionStartsTheRollsAtOneAndAStudentWithoutARollKeepsNone() {
+		PromotionWorld w = promotionWorld("reassign-roll-empty-school");
+		Section sectionB = secondSectionInSameClass(w, "B");
+		Section sectionC = secondSectionInSameClass(w, "C");
+		Student numbered = admitAndEnroll("ADM-R-4", w.ay1(), w.from5A(), 9);
+		Student unnumbered = admitAndEnroll("ADM-R-5", w.ay1(), w.from5A(), null);
+
+		assertThat(studentService.reassignSection(numbered, sectionB).getRollNumber()).isEqualTo(1);
+		assertThat(studentService.reassignSection(unnumbered, sectionC).getRollNumber()).isNull();
+	}
+
+	@Test
+	void reassigningToTheSameSectionKeepsTheRoll() {
+		PromotionWorld w = promotionWorld("reassign-same-section-school");
+		Student student = admitAndEnroll("ADM-R-6", w.ay1(), w.from5A(), 5);
+
+		assertThat(studentService.reassignSection(student, w.from5A()).getRollNumber()).isEqualTo(5);
+		assertStillEnrolledIn(student, w.from5A(), 5);
+	}
+
+	@Test
+	void theDatabaseRefusesTwoStudentsWithTheSameRollInOneSection() {
+		PromotionWorld w = promotionWorld("roll-unique-school");
+		admitAndEnroll("ADM-R-7", w.ay1(), w.from5A(), 1);
+		Student other = studentService.admit(personRepository.save(new Person("Other", "Test")), "ADM-R-8", LocalDate.of(2025, 5, 1),
+				null, null, null, null, null, null, null, null, null, null, null);
+
+		assertThatThrownBy(() -> studentEnrollmentRepository.saveAndFlush(
+				new StudentEnrollment(other, w.ay1(), w.from5A(), 1, LocalDate.of(2025, 6, 1))))
+				.isInstanceOf(DataIntegrityViolationException.class);
+	}
+
+	@Test
+	void theDatabaseRefusesASecondCurrentEnrollmentForTheSameStudent() {
+		PromotionWorld w = promotionWorld("one-current-enrollment-school");
+		Student student = admitAndEnroll("ADM-C-1", w.ay1(), w.from5A(), 1);
+
+		// Bypasses StudentService's own check: only the unique key stands in the way.
+		assertThatThrownBy(() -> studentEnrollmentRepository.saveAndFlush(
+				new StudentEnrollment(student, w.ay2(), w.to5A(), 1, LocalDate.of(2026, 6, 1))))
+				.isInstanceOf(DataIntegrityViolationException.class);
+	}
+
+	@Test
+	void theCurrentMarkerFollowsPromoteExitAndReEnrol() {
+		PromotionWorld w = promotionWorld("current-marker-school");
+		Student student = admitAndEnroll("ADM-C-2", w.ay1(), w.from5A(), 1);
+		StudentEnrollment first = studentEnrollmentRepository.findByStudentIdAndCurrentTrue(student.getId()).orElseThrow();
+		assertThat(first.getCurrentMarker()).isTrue();
+
+		StudentEnrollment promoted = studentService.promote(student, w.ay2(), w.to7A(), null, LocalDate.of(2026, 4, 30), false);
+
+		assertThat(studentEnrollmentRepository.findById(first.getId()).orElseThrow().getCurrentMarker()).isNull();
+		assertThat(promoted.getCurrentMarker()).isTrue();
+
+		studentService.recordExit(student, StudentExitType.WITHDRAWAL, LocalDate.of(2026, 8, 1), "Relocation", null, null);
+		assertThat(studentEnrollmentRepository.findById(promoted.getId()).orElseThrow().getCurrentMarker()).isNull();
+
+		// Re-enrolling in the same year revives the closed row (student + year is unique) and takes the marker back.
+		StudentEnrollment reEnrolled = studentService.enroll(student, w.ay2(), w.to7A(), 2, LocalDate.of(2026, 9, 1));
+		assertThat(reEnrolled.getId()).isEqualTo(promoted.getId());
+		assertThat(reEnrolled.isCurrent()).isTrue();
+		assertThat(studentEnrollmentRepository.findById(promoted.getId()).orElseThrow().getCurrentMarker()).isTrue();
+		assertThat(studentEnrollmentRepository.findByStudentId(student.getId())).extracting(StudentEnrollment::getCurrentMarker)
+				.containsExactlyInAnyOrder(null, true);
 	}
 
 	@Test

@@ -48,12 +48,12 @@ interface Step {
  * SetupChecklist.java). Every step opens its screen with router state marking the Dashboard as the origin,
  * so that screen's Back control returns here (see useBackTarget). */
 const ALL_STEPS: Step[] = [
-	{ key: "institutionProfileConfigured", label: "Institution setup", description: "School profile and settings in one place", path: "/setup/structure", ctaLabel: "Set up school", group: "foundation" },
+	{ key: "institutionProfileConfigured", label: "Organisation profile", description: "School profile and settings in one place", path: "/setup/structure", ctaLabel: "Set up school", group: "foundation" },
 	{ key: "academicYearSet", label: "Academic year creation", description: "A clear container for the year", path: "/settings/academic-years", ctaLabel: "Create year", group: "foundation" },
-	{ key: "membersAdded", label: "Team members & roles", description: "Teachers and staff who run attendance and marks", path: "/members", ctaLabel: "Invite members", group: "foundation" },
-	{ key: "classesAndSectionsCreated", label: "Class & section creation", description: "The structure everything follows", path: "/academics/setup", ctaLabel: "Create classes", group: "academic" },
+	{ key: "membersAdded", label: "Members & roles", description: "Teachers and staff who run attendance and marks", path: "/members", ctaLabel: "Invite members", group: "foundation" },
+	{ key: "classesAndSectionsCreated", label: "Classes & sections", description: "The structure everything follows", path: "/academics/setup", ctaLabel: "Create classes", group: "academic" },
 	{ key: "subjectsMapped", label: "Subject configuration", description: "Subjects mapped to classes", path: "/academics", ctaLabel: "Map subjects", group: "academic" },
-	{ key: "feesConfigured", label: "Fee structure configuration", description: "Fees defined once, applied consistently", path: "/fees/setup", ctaLabel: "Set up fees", group: "academic" },
+	{ key: "feesConfigured", label: "Fee structures", description: "Fees defined once, applied consistently", path: "/fees/setup", ctaLabel: "Set up fees", group: "academic" },
 	{ key: "admissionsCompleted", label: "Student admissions", description: "Enquiries become admitted students", path: "/admissions", ctaLabel: "Open admissions", group: "academic" },
 	{ key: "studentRecordsExist", label: "Student record management", description: "One record: profile, guardians, documents", path: "/students", ctaLabel: "Add students", group: "academic" },
 	{ key: "attendanceStarted", label: "Attendance management", description: "Daily registers, locked and correctable", path: "/attendance", ctaLabel: "Mark attendance", group: "operations" },

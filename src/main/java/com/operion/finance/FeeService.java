@@ -12,6 +12,7 @@ import com.operion.audit.AuditLogService;
 import com.operion.common.InvalidRequestException;
 import com.operion.common.TenantContext;
 import com.operion.organisation.AcademicYear;
+import com.operion.organisation.AcademicYearGuard;
 import com.operion.organisation.DocumentNumberFormatter;
 import com.operion.organisation.OrganisationBranding;
 import com.operion.organisation.OrganisationBrandingRepository;
@@ -104,6 +105,7 @@ public class FeeService {
 	/** The named "one fee structure, several components" setup - see FeeStructureGroup. */
 	@Transactional
 	public FeeStructureGroup createFeeStructureGroup(String name, AcademicYear academicYear, SchoolClass schoolClass) {
+		AcademicYearGuard.requireOpen(academicYear, "creating a fee structure group");
 		return feeStructureGroupRepository.save(new FeeStructureGroup(name, academicYear, schoolClass));
 	}
 
@@ -117,6 +119,7 @@ public class FeeService {
 	@Transactional
 	public FeeStructure createFeeStructure(FeeStructureGroup feeStructureGroup, FeeCategory feeCategory, BigDecimal amount,
 			List<InstallmentInput> installments, PaymentFrequency paymentFrequency, BigDecimal oneShotDiscountAmount) {
+		AcademicYearGuard.requireOpen(feeStructureGroup.getAcademicYear(), "creating a fee structure");
 		if (amount == null || amount.signum() <= 0) {
 			throw new InvalidRequestException("A fee structure amount must be greater than zero");
 		}
@@ -159,6 +162,8 @@ public class FeeService {
 			BigDecimal discountAmount, String discountReason, Long approvedBy, PaymentFrequency paymentFrequency,
 			String proofFileReference, String proofFileName) {
 		FeeStructureGroup feeStructureGroup = feeStructure.getFeeStructureGroup();
+		AcademicYearGuard.requireOpen(feeStructureGroup.getAcademicYear(), "assigning a fee");
+		AcademicYearGuard.requireOpen(studentEnrollment.getAcademicYear(), "assigning a fee");
 		if (!studentEnrollment.getAcademicYear().getId().equals(feeStructureGroup.getAcademicYear().getId())) {
 			throw new InvalidRequestException("Enrollment and fee structure are for different academic years");
 		}
@@ -194,6 +199,7 @@ public class FeeService {
 	@Transactional
 	public StudentFeeAssignment reviseAssignment(StudentFeeAssignment assignment, BigDecimal discountAmount, String discountReason,
 			Long approvedBy, PaymentFrequency paymentFrequency, String proofFileReference, String proofFileName) {
+		AcademicYearGuard.requireOpen(assignment.getStudentEnrollment().getAcademicYear(), "revising a fee assignment");
 		PaymentFrequency frequency = paymentFrequency != null ? paymentFrequency : assignment.getPaymentFrequency();
 		String proofRef = proofFileReference != null ? proofFileReference : assignment.getProofFileReference();
 		String proofName = proofFileReference != null ? proofFileName : assignment.getProofFileName();
@@ -222,6 +228,7 @@ public class FeeService {
 	/** {@code admissionInvoice} flags the invoice as part of the student's admission-fee requirement - see AdmissionFeeService. */
 	@Transactional
 	public Invoice generateInvoice(StudentFeeAssignment assignment, FeeStructureInstallment installment, boolean admissionInvoice) {
+		AcademicYearGuard.requireOpen(assignment.getStudentEnrollment().getAcademicYear(), "generating an invoice");
 		if (assignment.getStatus() != StudentFeeAssignmentStatus.ACTIVE) {
 			throw new IllegalStateException("Fee assignment " + assignment.getId() + " is not ACTIVE, cannot invoice");
 		}

@@ -44,7 +44,7 @@ const STEPS: Step[] = [
 	{ key: "profile", label: "Organisation profile", optional: false, formId: "setup-profile-form", render: (onSaved) => <OrganisationProfilePanel onSaved={onSaved} formId="setup-profile-form" /> },
 	{ key: "business", label: "Business settings", optional: false, formId: "setup-business-form", render: (onSaved) => <BusinessSettingsPanel onSaved={onSaved} formId="setup-business-form" /> },
 	// Optional: a "Main Campus" is created at provisioning; add more only if the school has them.
-	{ key: "campuses", label: "Campuses / locations", optional: true, render: () => <CampusesPanel /> },
+	{ key: "campuses", label: "Campuses", optional: true, render: () => <CampusesPanel /> },
 ];
 
 interface ReviewStatus {

@@ -27,7 +27,7 @@ const PAIN_ROWS = [
 ];
 
 const TRUST_ITEMS = [
-	{ stat: "11 modules", detail: "one login, one tenant" },
+	{ stat: "11 modules", detail: "one login, one organisation" },
 	{ stat: "Multi-campus", detail: "multi-year by design" },
 	{ stat: "Every record", detail: "has a paper trail" },
 	{ stat: "₹100–₹200", detail: "per student, per year" },
@@ -59,7 +59,7 @@ export function MarketingPage() {
 							</Link>
 						))}
 						<Link component={RouterLink} to="/login" underline="none" color={colors.inkSoft} sx={{ fontSize: "0.88rem" }}>
-							Log in
+							Sign in
 						</Link>
 					</Stack>
 					<Box sx={{ flexGrow: { xs: 1, sm: 0 } }} />

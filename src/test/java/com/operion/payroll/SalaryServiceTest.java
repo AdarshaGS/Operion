@@ -9,6 +9,7 @@ import java.util.List;
 
 import com.operion.audit.AuditLogRepository;
 import com.operion.audit.AuditLogService;
+import com.operion.common.InvalidRequestException;
 import com.operion.common.JpaConfig;
 import com.operion.common.MultiTenancyConfig;
 import com.operion.common.TenantContext;
@@ -26,9 +27,13 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
+import org.springframework.aop.framework.ProxyFactory;
 import org.springframework.context.annotation.Import;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.annotation.AnnotationTransactionAttributeSource;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.interceptor.TransactionInterceptor;
 import tools.jackson.databind.ObjectMapper;
 
 /** Component catalog rules (#222) and effective-dated salary structures (#221). */
@@ -45,6 +50,7 @@ class SalaryServiceTest {
 	@Autowired private PersonRepository personRepository;
 	@Autowired private DesignationRepository designationRepository;
 	@Autowired private StaffProfileRepository staffProfileRepository;
+	@Autowired private PlatformTransactionManager transactionManager;
 
 	private SalaryService salaryService;
 	private StaffProfile staff;
@@ -54,13 +60,23 @@ class SalaryServiceTest {
 		Organisation organisation = organisationRepository.save(
 				new Organisation("Test School", "Test School Trust", "pr-" + System.nanoTime()));
 		TenantContext.set(organisation.getId(), null);
-		salaryService = new SalaryService(componentRepository, structureRepository, lineRepository,
-				new AuditLogService(auditLogRepository, new ObjectMapper()));
+		salaryService = transactional(new SalaryService(componentRepository, structureRepository, lineRepository,
+				new AuditLogService(auditLogRepository, new ObjectMapper())));
 
 		Person person = personRepository.save(new Person("Asha", "Rao"));
 		Designation designation = designationRepository.save(new Designation("Teacher"));
 		staff = staffProfileRepository.save(new StaffProfile(person, null, "EMP-1", designation, null,
 				LocalDate.of(2025, 6, 1), EmploymentType.PERMANENT));
+	}
+
+	/** Wrapped the way Spring does in the running app, so a refused call rolls back what it had saved. */
+	private <T> T transactional(T service) {
+		ProxyFactory proxyFactory = new ProxyFactory(service);
+		proxyFactory.setProxyTargetClass(true);
+		proxyFactory.addAdvice(new TransactionInterceptor(transactionManager, new AnnotationTransactionAttributeSource()));
+		@SuppressWarnings("unchecked")
+		T proxy = (T) proxyFactory.getProxy();
+		return proxy;
 	}
 
 	@AfterEach
@@ -114,5 +130,40 @@ class SalaryServiceTest {
 		assertThatThrownBy(() -> salaryService.createStructure(staff, LocalDate.of(2025, 6, 1), BigDecimal.valueOf(1000),
 				List.of(new SalaryService.LineInput(bonus, BigDecimal.valueOf(101)))))
 				.isInstanceOf(com.operion.common.InvalidRequestException.class);
+	}
+
+	@Test
+	void basicMustBePositiveAndMoneyAmountsAreLimitedToTwoDecimals() {
+		LocalDate from = LocalDate.of(2025, 6, 1);
+		assertThatThrownBy(() -> salaryService.createStructure(staff, from, BigDecimal.ZERO, List.of()))
+				.isInstanceOf(InvalidRequestException.class).hasMessageContaining("greater than zero");
+		assertThatThrownBy(() -> salaryService.createStructure(staff, from, new BigDecimal("100.005"), List.of()))
+				.isInstanceOf(InvalidRequestException.class).hasMessageContaining("2 decimal places");
+
+		SalaryComponent housing = salaryService.createComponent("Housing", ComponentType.EARNING, CalculationBasis.FLAT);
+		assertThatThrownBy(() -> salaryService.createStructure(staff, from, BigDecimal.valueOf(1000),
+				List.of(new SalaryService.LineInput(housing, new BigDecimal("50.001")))))
+				.isInstanceOf(InvalidRequestException.class).hasMessageContaining("2 decimal places");
+		assertThat(structureRepository.findAll()).isEmpty();
+
+		// Trailing zeros are not extra precision.
+		salaryService.createStructure(staff, from, new BigDecimal("1000.500"),
+				List.of(new SalaryService.LineInput(housing, new BigDecimal("50.100"))));
+		assertThat(structureRepository.findAll()).hasSize(1);
+	}
+
+	@Test
+	void percentageLinesKeepUpToFourDecimals() {
+		SalaryComponent fund = salaryService.createComponent("Fund", ComponentType.DEDUCTION, CalculationBasis.PERCENT_OF_BASIC);
+		LocalDate from = LocalDate.of(2025, 6, 1);
+
+		assertThatThrownBy(() -> salaryService.createStructure(staff, from, BigDecimal.valueOf(1000),
+				List.of(new SalaryService.LineInput(fund, new BigDecimal("33.33333")))))
+				.isInstanceOf(InvalidRequestException.class).hasMessageContaining("4 decimal places");
+
+		salaryService.createStructure(staff, from, BigDecimal.valueOf(1000),
+				List.of(new SalaryService.LineInput(fund, new BigDecimal("33.3333"))));
+		assertThat(lineRepository.findAll()).extracting(SalaryStructureLine::getValue)
+				.containsExactly(new BigDecimal("33.3333"));
 	}
 }

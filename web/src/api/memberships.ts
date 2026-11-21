@@ -30,6 +30,12 @@ export interface MembershipResponse {
 	memberId: string | null;
 	joiningDate: string | null;
 	lastLoginAt: string | null;
+	/** True when this person also has an HR staff profile (any status). */
+	hasStaffProfile: boolean;
+	/** The org Owner - legitimately has no HR profile. */
+	owner: boolean;
+	/** Holds a portal role (parent/student) - legitimately has no HR profile. */
+	rolePortal: boolean;
 }
 
 export function listMemberships(): Promise<MembershipResponse[]> {

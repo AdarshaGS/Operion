@@ -9,6 +9,9 @@ export interface StoredSession {
 	expiresAt: string;
 	userId: number;
 	organisationId: number;
+	/** The slug the user typed to sign in (or claim an invite), kept so links built in the app can carry `org=` (e.g. a staff
+	 * invite's claim link). Absent for sessions stored before this was recorded. Not a secret - it is in every invite email. */
+	organisationSlug?: string;
 }
 
 const STORAGE_KEY = "operion.session";

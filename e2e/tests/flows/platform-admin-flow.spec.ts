@@ -100,7 +100,7 @@ test("Platform Admin: manages plans, provisions a tenant, changes its status, an
 	});
 
 	await test.step("Generate and settle an invoice against the entitlement", async () => {
-		await detail.generateInvoice({ periodStart: "2026-06-01", periodEnd: "2026-06-30", dueDate: "2026-07-05" });
+		await detail.generateInvoice({ periodStart: "2026-06-01", periodEnd: "2026-06-30", dueDate: "2026-07-05", amount: "2000" });
 		await expect(detail.invoiceRow("2026-06-01")).toBeVisible();
 		await expect(detail.invoiceRow("2026-06-01")).toContainText("ISSUED");
 

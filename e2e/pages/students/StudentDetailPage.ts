@@ -22,7 +22,7 @@ export class StudentDetailPage {
 	/** Moves Student.status ADMITTED -> ACTIVE (see Student.java) - the only UI path to
 	 * that transition, added alongside this suite (StudentDetailPage.tsx's EnrollDialog). */
 	async enroll(input: { academicYearName: string; className: string; sectionName: string; rollNumber?: number; enrolledDate: string }) {
-		await this.page.getByRole("button", { name: "Enroll student" }).click();
+		await this.page.getByRole("button", { name: "Enrol student" }).click();
 		await this.page.getByRole("combobox", { name: "Academic year" }).click();
 		await this.page.getByRole("option", { name: input.academicYearName }).click();
 		await this.page.getByRole("combobox", { name: "Class" }).click();
@@ -31,13 +31,13 @@ export class StudentDetailPage {
 		await this.page.getByRole("option", { name: input.sectionName, exact: true }).click();
 		if (input.rollNumber) await this.page.getByLabel("Roll number").fill(String(input.rollNumber));
 		await this.page.getByLabel("Enrolled date").fill(input.enrolledDate);
-		await this.page.getByRole("button", { name: "Enroll", exact: true }).click();
+		await this.page.getByRole("button", { name: "Enrol", exact: true }).click();
 	}
 
 	enrolledBanner() {
-		// The green tick beside the student name (role="img", aria-label "Enrolled - roll no. X,
-		// since Y"). Anchored on "Enrolled -" (with the dash) so this doesn't collide with the
+		// The green tick beside the student name (role="img", aria-label "Enrolled — roll number X,
+		// since Y"). Anchored on "Enrolled —" (with the dash) so this doesn't collide with the
 		// enroll dialog's "Enrolled date" field label, which can still be in the DOM mid-close.
-		return this.page.getByRole("img", { name: /^Enrolled -/ });
+		return this.page.getByRole("img", { name: /^Enrolled —/ });
 	}
 }

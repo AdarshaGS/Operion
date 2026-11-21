@@ -101,7 +101,7 @@ public class LeaveRequest extends TenantScopedEntity {
 		this.status = LeaveRequestStatus.CANCELLED;
 	}
 
-	private void requirePending() {
+	public void requirePending() {
 		if (status != LeaveRequestStatus.PENDING) {
 			throw new IllegalStateException("Only a pending leave request can be decided, was " + status);
 		}

@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import Alert from "@mui/material/Alert";
+import Autocomplete from "@mui/material/Autocomplete";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
@@ -20,6 +21,7 @@ import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import AddIcon from "@mui/icons-material/Add";
 import { ApiError } from "../../api/client";
+import { listSubjects } from "../../api/subjects";
 import {
 	createPeriod,
 	createPeriodTemplate,
@@ -50,6 +52,18 @@ function addMinutes(time: string, minutes: number): string {
 	return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
 }
 
+/** Whole minutes from "09:00" to "09:45"; never negative. */
+function minutesBetween(start: string, end: string): number {
+	const [sh, sm] = start.split(":").map(Number);
+	const [eh, em] = end.split(":").map(Number);
+	return Math.max(eh * 60 + em - (sh * 60 + sm), 0);
+}
+
+/** Class periods default to this length when the school hasn't configured a standard one. */
+const DEFAULT_PERIOD_MINUTES = 40;
+/** Length offered for a break or special slot whose end would otherwise not follow its start. */
+const DEFAULT_BREAK_MINUTES = 15;
+
 /** The org's school-day structure - ordered periods, breaks and special slots. Configured, not
  * hardcoded: every school defines its own number of periods and times, and can keep alternative
  * school days (templates) for class groups that run to a different clock. */
@@ -57,14 +71,20 @@ export function PeriodsPanel() {
 	const [templates, setTemplates] = useState<PeriodTemplateResponse[]>([]);
 	const [templateId, setTemplateId] = useState<number | null>(null); // null is the default school day
 	const [gapMinutes, setGapMinutes] = useState(0);
+	const [periodMinutes, setPeriodMinutes] = useState<number | null>(null);
 	const [templateDialog, setTemplateDialog] = useState<"new" | "rename" | null>(null);
 	const [templateName, setTemplateName] = useState("");
 	const [periods, setPeriods] = useState<PeriodResponse[]>([]);
 	const [error, setError] = useState<string | null>(null);
 	const [submitting, setSubmitting] = useState(false);
+	// Active subject names, offered as the period label; a break or assembly can still be typed freely.
+	const [subjectNames, setSubjectNames] = useState<string[]>([]);
 
 	const [dialogOpen, setDialogOpen] = useState(false);
 	const [editing, setEditing] = useState<PeriodResponse | null>(null);
+	const [duplicating, setDuplicating] = useState(false);
+	// Once the user types an End time, changing Start or Kind no longer recomputes it.
+	const [endTouched, setEndTouched] = useState(false);
 	const [ordinal, setOrdinal] = useState("");
 	const [label, setLabel] = useState("");
 	const [startTime, setStartTime] = useState("09:00");
@@ -79,6 +99,12 @@ export function PeriodsPanel() {
 	}
 
 	useEffect(refresh, [templateId]);
+
+	useEffect(() => {
+		listSubjects()
+			.then((subjects) => setSubjectNames(subjects.filter((subject) => subject.status === "ACTIVE").map((subject) => subject.name)))
+			.catch(() => {});
+	}, []);
 
 	const selectedTemplate = templates.find((t) => t.id === templateId) ?? null;
 
@@ -110,22 +136,72 @@ export function PeriodsPanel() {
 		}
 	}
 
+	const classPeriodMinutes = periodMinutes ?? DEFAULT_PERIOD_MINUTES;
+
+	function nextOrdinal(): string {
+		return String(periods.length === 0 ? 1 : Math.max(...periods.map((p) => p.ordinal)) + 1);
+	}
+
+	/** Start where the last slot ended, plus the minimum gap when that slot is a class period. */
+	function nextStart(): string {
+		const last = periods[periods.length - 1];
+		return last ? addMinutes(last.endTime.slice(0, 5), last.slotType === "TEACHING" ? gapMinutes : 0) : "09:00";
+	}
+
 	function openCreate() {
 		setEditing(null);
-		setOrdinal(String(periods.length === 0 ? 1 : Math.max(...periods.map((p) => p.ordinal)) + 1));
+		setDuplicating(false);
+		setEndTouched(false);
+		setOrdinal(nextOrdinal());
 		setLabel("");
 		setSlotType("TEACHING");
-		// Default the next slot to start where the previous one ended, plus the minimum gap when both are class periods.
-		const last = periods[periods.length - 1];
-		const start = last ? addMinutes(last.endTime.slice(0, 5), last.slotType === "TEACHING" ? gapMinutes : 0) : "09:00";
+		const start = nextStart();
 		setStartTime(start);
-		setEndTime(start);
+		setEndTime(addMinutes(start, classPeriodMinutes));
 		setError(null);
 		setDialogOpen(true);
 	}
 
+	/** Opens the Add dialog prefilled from an existing period (same label, kind and duration), placed after the last one.
+	 * Nothing is saved until the user submits. */
+	function openDuplicate(source: PeriodResponse) {
+		const duration = minutesBetween(source.startTime.slice(0, 5), source.endTime.slice(0, 5));
+		setEditing(null);
+		setDuplicating(true);
+		setEndTouched(true);
+		setOrdinal(nextOrdinal());
+		setLabel(source.label);
+		setSlotType(source.slotType);
+		const start = nextStart();
+		setStartTime(start);
+		setEndTime(addMinutes(start, duration > 0 ? duration : classPeriodMinutes));
+		setError(null);
+		setDialogOpen(true);
+	}
+
+	function handleStartChange(value: string) {
+		setStartTime(value);
+		if (editing || endTouched || !value) return;
+		if (slotType === "TEACHING") {
+			setEndTime(addMinutes(value, classPeriodMinutes));
+		} else if (endTime <= value) {
+			setEndTime(addMinutes(value, DEFAULT_BREAK_MINUTES));
+		}
+	}
+
+	function handleKindChange(kind: SlotType) {
+		setSlotType(kind);
+		if (editing || endTouched || !startTime) return;
+		if (kind === "TEACHING") {
+			setEndTime(addMinutes(startTime, classPeriodMinutes));
+		} else if (endTime <= startTime) {
+			setEndTime(addMinutes(startTime, DEFAULT_BREAK_MINUTES));
+		}
+	}
+
 	function openEdit(period: PeriodResponse) {
 		setEditing(period);
+		setDuplicating(false);
 		setOrdinal(String(period.ordinal));
 		setLabel(period.label);
 		setStartTime(period.startTime.slice(0, 5));
@@ -177,7 +253,12 @@ export function PeriodsPanel() {
 					</Can>
 				</Box>
 
-				<TimetableRulesCard onChanged={(settings) => setGapMinutes(settings.gapMinutes)} />
+				<TimetableRulesCard
+					onChanged={(settings) => {
+						setGapMinutes(settings.gapMinutes);
+						setPeriodMinutes(settings.periodMinutes);
+					}}
+				/>
 
 				<Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap" }}>
 					<TextField
@@ -236,6 +317,7 @@ export function PeriodsPanel() {
 									<TableCell>Label</TableCell>
 									<TableCell>Start</TableCell>
 									<TableCell>End</TableCell>
+									<TableCell>Length</TableCell>
 									<TableCell>Kind</TableCell>
 									<TableCell />
 								</TableRow>
@@ -247,6 +329,9 @@ export function PeriodsPanel() {
 										<TableCell>{period.label}</TableCell>
 										<TableCell sx={{ fontVariantNumeric: "tabular-nums" }}>{period.startTime.slice(0, 5)}</TableCell>
 										<TableCell sx={{ fontVariantNumeric: "tabular-nums" }}>{period.endTime.slice(0, 5)}</TableCell>
+										<TableCell sx={{ fontVariantNumeric: "tabular-nums" }}>
+											{minutesBetween(period.startTime.slice(0, 5), period.endTime.slice(0, 5))} min
+										</TableCell>
 										<TableCell>
 											<Chip label={KIND_CHIPS[period.slotType]} size="small" />
 										</TableCell>
@@ -254,6 +339,9 @@ export function PeriodsPanel() {
 											<Can anyOf={["TIMETABLE_MANAGE"]}>
 												<Button size="small" onClick={() => openEdit(period)}>
 													Edit
+												</Button>
+												<Button size="small" onClick={() => openDuplicate(period)}>
+													Duplicate
 												</Button>
 												<Button size="small" color="error" onClick={() => handleDelete(period.id)}>
 													Delete
@@ -285,7 +373,7 @@ export function PeriodsPanel() {
 			</Dialog>
 
 			<Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} component="form" onSubmit={handleSubmit} fullWidth maxWidth="xs">
-				<DialogTitle>{editing ? "Edit period" : "Add period"}</DialogTitle>
+				<DialogTitle>{editing ? "Edit period" : duplicating ? "Duplicate period" : "Add period"}</DialogTitle>
 				<DialogContent>
 					<Stack spacing={2} sx={{ mt: 1 }}>
 						{error && <Alert severity="error">{error}</Alert>}
@@ -298,13 +386,21 @@ export function PeriodsPanel() {
 							required
 							fullWidth
 						/>
-						<TextField label="Label" value={label} onChange={(e) => setLabel(e.target.value)} required fullWidth />
+						<Autocomplete
+							freeSolo
+							options={subjectNames}
+							inputValue={label}
+							onInputChange={(_, value) => setLabel(value)}
+							renderInput={(params) => (
+								<TextField {...params} label="Label" required helperText="Pick a subject, or type a name such as Lunch break" />
+							)}
+						/>
 						<Stack direction="row" spacing={2}>
 							<TextField
 								label="Start"
 								type="time"
 								value={startTime}
-								onChange={(e) => setStartTime(e.target.value)}
+								onChange={(e) => handleStartChange(e.target.value)}
 								required
 								slotProps={{ inputLabel: { shrink: true } }}
 								fullWidth
@@ -313,7 +409,10 @@ export function PeriodsPanel() {
 								label="End"
 								type="time"
 								value={endTime}
-								onChange={(e) => setEndTime(e.target.value)}
+								onChange={(e) => {
+									setEndTime(e.target.value);
+									setEndTouched(true);
+								}}
 								required
 								slotProps={{ inputLabel: { shrink: true } }}
 								fullWidth
@@ -323,7 +422,7 @@ export function PeriodsPanel() {
 							select
 							label="Kind"
 							value={slotType}
-							onChange={(e) => setSlotType(e.target.value as SlotType)}
+							onChange={(e) => handleKindChange(e.target.value as SlotType)}
 							helperText={gapMinutes > 0 ? `Class periods must start at least ${gapMinutes} minute${gapMinutes === 1 ? "" : "s"} after the one before` : undefined}
 							fullWidth
 						>

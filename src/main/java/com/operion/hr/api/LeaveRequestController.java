@@ -18,6 +18,7 @@ import com.operion.hr.StaffProfile;
 import com.operion.hr.StaffProfileRepository;
 import com.operion.organisation.AcademicYear;
 import com.operion.organisation.AcademicYearRepository;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -51,7 +52,7 @@ public class LeaveRequestController {
 
 	@PostMapping
 	@RequirePermission("HR_LEAVE_MANAGE")
-	public LeaveRequestResponse raise(@RequestBody RaiseLeaveRequestRequest request) {
+	public LeaveRequestResponse raise(@Valid @RequestBody RaiseLeaveRequestRequest request) {
 		if (request.staffProfileId() == null || request.leaveTypeId() == null || request.academicYearId() == null) {
 			throw new InvalidRequestException("staffProfileId, leaveTypeId and academicYearId are required");
 		}

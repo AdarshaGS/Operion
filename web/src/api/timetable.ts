@@ -102,6 +102,8 @@ export interface TimetableSettingsResponse {
 	gapMinutes: number;
 	maxTeacherPeriodsPerDay: number | null;
 	maxTeacherPeriodsPerWeek: number | null;
+	/** Standard class period length in minutes (5-240); null when not configured. */
+	periodMinutes: number | null;
 }
 
 export interface UpdateTimetableSettingsRequest {
@@ -109,6 +111,8 @@ export interface UpdateTimetableSettingsRequest {
 	/** null or 0 clears the limit. */
 	maxTeacherPeriodsPerDay: number | null;
 	maxTeacherPeriodsPerWeek: number | null;
+	/** null clears the standard class period length. */
+	periodMinutes: number | null;
 }
 
 export function getTimetableSettings(): Promise<TimetableSettingsResponse> {
@@ -331,6 +335,41 @@ export function listSubstitutionNeeds(teacherPersonId: number, from: string, to:
 	return api.get<SubstitutionNeedResponse[]>(
 		`/api/v1/timetable/substitutions/needs?teacherPersonId=${teacherPersonId}&from=${from}&to=${to}`,
 	);
+}
+
+/** A slot approved leave leaves without its teacher: a need plus the leave behind it and the slot's campus. */
+export interface UncoveredSlotResponse extends SubstitutionNeedResponse {
+	leaveRequestId: number;
+	absentTeacherPersonId: number;
+	absentTeacherName: string;
+	campusId: number | null;
+}
+
+/** to is required and at most 62 days after from; uncoveredOnly drops slots that already have cover. */
+export function listUncoveredSlots(params: { from: string; to: string; campusId?: number | null; uncoveredOnly?: boolean }): Promise<UncoveredSlotResponse[]> {
+	const query = new URLSearchParams({ from: params.from, to: params.to });
+	if (params.campusId) query.set("campusId", String(params.campusId));
+	if (params.uncoveredOnly) query.set("uncoveredOnly", "true");
+	return api.get<UncoveredSlotResponse[]>(`/api/v1/timetable/substitutions/uncovered?${query.toString()}`);
+}
+
+/** The cover the auto-suggester would propose for one uncovered slot; proposed is null (with reasonIfNone) when nobody is free. */
+export interface CoverSuggestionResponse {
+	entryId: number;
+	date: string;
+	periodLabel: string;
+	sectionName: string;
+	subjectName: string;
+	absentTeacherName: string;
+	proposed: SubstitutionCandidate | null;
+	reasonIfNone: string | null;
+}
+
+/** Read-only: nothing is assigned. to is required and at most 14 days after from. */
+export function listCoverSuggestions(params: { from: string; to: string; campusId?: number | null }): Promise<CoverSuggestionResponse[]> {
+	const query = new URLSearchParams({ from: params.from, to: params.to });
+	if (params.campusId) query.set("campusId", String(params.campusId));
+	return api.get<CoverSuggestionResponse[]>(`/api/v1/timetable/substitutions/suggestions?${query.toString()}`);
 }
 
 export function assignSubstitution(request: {

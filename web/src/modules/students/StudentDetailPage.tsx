@@ -16,6 +16,7 @@ import MenuItem from "@mui/material/MenuItem";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
+import IconButton from "@mui/material/IconButton";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
@@ -123,7 +124,7 @@ function EnrollDialog({ open, onClose, onEnrolled, studentId }: EnrollDialogProp
 			});
 			onEnrolled();
 		} catch (err) {
-			setError(err instanceof ApiError ? err.message : "Failed to enroll student");
+			setError(err instanceof ApiError ? err.message : "Failed to enrol student");
 		} finally {
 			setSubmitting(false);
 		}
@@ -131,7 +132,7 @@ function EnrollDialog({ open, onClose, onEnrolled, studentId }: EnrollDialogProp
 
 	return (
 		<Dialog open={open} onClose={onClose} component="form" onSubmit={handleSubmit} fullWidth maxWidth="xs">
-			<DialogTitle>Enroll student</DialogTitle>
+			<DialogTitle>Enrol student</DialogTitle>
 			<DialogContent>
 				<Stack spacing={2} sx={{ mt: 1 }}>
 					{error && <Alert severity="error">{error}</Alert>}
@@ -191,7 +192,7 @@ function EnrollDialog({ open, onClose, onEnrolled, studentId }: EnrollDialogProp
 			<DialogActions>
 				<Button onClick={onClose}>Cancel</Button>
 				<Button type="submit" variant="contained" disabled={submitting || !sectionId}>
-					Enroll
+					Enrol
 				</Button>
 			</DialogActions>
 		</Dialog>
@@ -483,19 +484,18 @@ export function StudentDetailPage() {
 
 	const currentEnrollment = enrollments.find((enrollment) => enrollment.current) ?? null;
 	const enrolledText = currentEnrollment
-		? `Enrolled - roll no. ${currentEnrollment.rollNumber ?? "—"}, since ${currentEnrollment.enrolledDate}`
+		? `Enrolled — roll number ${currentEnrollment.rollNumber ?? "—"}, since ${currentEnrollment.enrolledDate}`
 		: "";
 
 	return (
 		<Stack spacing={2}>
-			<Box>
-				<Button startIcon={<ArrowBackIcon />} onClick={() => navigate("/students")}>
-					Back to students
-				</Button>
-			</Box>
-
 			<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
 				<Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+					<Tooltip title="Back to students">
+						<IconButton onClick={() => navigate("/students")} aria-label="Back to students" sx={{ ml: -1 }}>
+							<ArrowBackIcon />
+						</IconButton>
+					</Tooltip>
 					<Typography variant="h4" component="h1">
 						{person ? `${person.firstName} ${person.lastName}` : `Student #${student.id}`}
 					</Typography>
@@ -507,8 +507,8 @@ export function StudentDetailPage() {
 						</Tooltip>
 					) : (
 						student.status === "ADMITTED" && (
-							<Tooltip title="Admitted - not enrolled yet">
-								<Box component="span" role="img" aria-label="Admitted - not enrolled yet" tabIndex={0} sx={{ display: "inline-flex" }}>
+							<Tooltip title="Admitted — not enrolled yet">
+								<Box component="span" role="img" aria-label="Admitted — not enrolled yet" tabIndex={0} sx={{ display: "inline-flex" }}>
 									<HourglassEmptyIcon color="warning" />
 								</Box>
 							</Tooltip>
@@ -525,7 +525,7 @@ export function StudentDetailPage() {
 					{student.status === "ADMITTED" && (
 						<Can anyOf={["STUDENT_ENROLLMENT_MANAGE"]}>
 							<Button size="small" variant="contained" onClick={() => setEnrollDialogOpen(true)}>
-								Enroll student
+								Enrol student
 							</Button>
 						</Can>
 					)}

@@ -1,5 +1,6 @@
 package com.operion.authorization;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 
@@ -10,6 +11,23 @@ import org.springframework.data.repository.query.Param;
 public interface OrganisationMembershipRepository extends JpaRepository<OrganisationMembership, Long> {
 
 	List<OrganisationMembership> findByUserId(Long userId);
+
+	List<OrganisationMembership> findByPersonId(Long personId);
+
+	/** One query for a whole page of people (e.g. the staff roster's access status). Every association on the
+	 * membership is fetched with the rows (person, campus and department are eager {@code @ManyToOne}s, so
+	 * leaving them out costs one extra select per distinct value) - building a response per row triggers no
+	 * further selects. */
+	@Query("""
+			SELECT m FROM OrganisationMembership m
+			JOIN FETCH m.user
+			JOIN FETCH m.role
+			JOIN FETCH m.person
+			LEFT JOIN FETCH m.campus
+			LEFT JOIN FETCH m.department
+			WHERE m.person.id IN :personIds
+			""")
+	List<OrganisationMembership> findByPersonIdIn(@Param("personIds") Collection<Long> personIds);
 
 	List<OrganisationMembership> findByStatus(MembershipStatus status);
 

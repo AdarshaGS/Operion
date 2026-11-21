@@ -12,14 +12,16 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 /**
  * Ties a StudentEnrollment (not the bare Student - same history-per-year convention as
- * Attendance/Fees) to a route+stop. One ACTIVE row per enrollment is enforced in
- * TransportService, same pattern as StudentEnrollment.is_current /
+ * Attendance/Fees) to a route+stop. One ACTIVE row per enrollment is checked in
+ * TransportService and backed by the uq_student_transport_assignments_enrollment_active
+ * key over active_marker, same pattern as StudentEnrollment.is_current /
  * StudentGuardian.is_primary_guardian. Route/stop changes end this row and insert a new
  * one (same insert-only pattern as TeacherAssignment reassignment) so the prior
  * route/stop stays queryable as its own historical record. studentFeeAssignment is
@@ -30,7 +32,8 @@ import lombok.NoArgsConstructor;
  */
 @Getter
 @Entity
-@Table(name = "student_transport_assignments")
+@Table(name = "student_transport_assignments", uniqueConstraints = {
+		@UniqueConstraint(name = "uq_student_transport_assignments_enrollment_active", columnNames = { "student_enrollment_id", "active_marker" }) })
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class StudentTransportAssignment extends TenantScopedEntity {
 
@@ -56,6 +59,10 @@ public class StudentTransportAssignment extends TenantScopedEntity {
 	@Column(nullable = false, length = 20)
 	private TransportAssignmentStatus status;
 
+	/** TRUE while status is ACTIVE, else NULL, so a unique key can allow at most one active assignment per enrollment. Kept in step by every mutator below. */
+	@Column(name = "active_marker")
+	private Boolean activeMarker;
+
 	@Column(name = "effective_from", nullable = false)
 	private LocalDate effectiveFrom;
 
@@ -79,6 +86,7 @@ public class StudentTransportAssignment extends TenantScopedEntity {
 		this.usesPickup = usesPickup;
 		this.usesDrop = usesDrop;
 		this.status = TransportAssignmentStatus.ACTIVE;
+		this.activeMarker = true;
 		this.effectiveFrom = effectiveFrom;
 	}
 
@@ -98,6 +106,7 @@ public class StudentTransportAssignment extends TenantScopedEntity {
 			throw new IllegalStateException("Assignment is already ended");
 		}
 		this.status = TransportAssignmentStatus.ENDED;
+		this.activeMarker = null;
 		this.effectiveTo = effectiveTo;
 	}
 

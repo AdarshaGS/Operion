@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import Alert from "@mui/material/Alert";
-import Box from "@mui/material/Box";
-import Button from "@mui/material/Button";
+import IconButton from "@mui/material/IconButton";
 import Stack from "@mui/material/Stack";
+import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { ApiError } from "../../api/client";
@@ -38,15 +38,16 @@ export function SchoolClassSectionsPage() {
 
 	return (
 		<Stack spacing={2}>
-			<Box>
-				<Button startIcon={<ArrowBackIcon />} onClick={() => navigate("/academics")}>
-					Back to academics
-				</Button>
-			</Box>
-
-			<Typography variant="h4" component="h1">
-				{schoolClass ? classLabel(schoolClass) : `Class #${classId}`}
-			</Typography>
+			<Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+				<Tooltip title="Back to academics">
+					<IconButton onClick={() => navigate("/academics")} aria-label="Back to academics" sx={{ ml: -1 }}>
+						<ArrowBackIcon />
+					</IconButton>
+				</Tooltip>
+				<Typography variant="h4" component="h1">
+					{schoolClass ? classLabel(schoolClass) : `Class #${classId}`}
+				</Typography>
+			</Stack>
 
 			{error && <Alert severity="error">{error}</Alert>}
 

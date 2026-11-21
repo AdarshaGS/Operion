@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import Alert from "@mui/material/Alert";
 import Autocomplete from "@mui/material/Autocomplete";
 import Box from "@mui/material/Box";
@@ -80,9 +80,11 @@ interface Props {
 	studentEnrollmentId: number;
 	academicYearId: number;
 	schoolClassId: number;
+	/** Opens the Assign fee dialog as soon as this class/year's fee structures have loaded (used by the student page's "Assign fee" shortcut). */
+	openAssignOnLoad?: boolean;
 }
 
-export function StudentFeesPanel({ studentEnrollmentId, academicYearId, schoolClassId }: Props) {
+export function StudentFeesPanel({ studentEnrollmentId, academicYearId, schoolClassId, openAssignOnLoad }: Props) {
 	const { hasAnyPermission } = useAuth();
 	const [assignments, setAssignments] = useState<StudentFeeAssignmentResponse[]>([]);
 	const [invoices, setInvoices] = useState<InvoiceResponse[]>([]);
@@ -162,6 +164,14 @@ export function StudentFeesPanel({ studentEnrollmentId, academicYearId, schoolCl
 		listFeeCategories().then(setCategories).catch(() => {});
 		listFeeApprovers().then(setFeeApprovers).catch(() => {});
 	}, [academicYearId, schoolClassId]);
+
+	const autoOpenedAssign = useRef(false);
+	useEffect(() => {
+		if (openAssignOnLoad && !autoOpenedAssign.current && feeStructures.length > 0) {
+			autoOpenedAssign.current = true;
+			setAssignDialogOpen(true);
+		}
+	}, [openAssignOnLoad, feeStructures]);
 
 	useEffect(() => {
 		setDialogError(null);

@@ -27,7 +27,7 @@ import { listSections, type SectionResponse } from "../../api/sections";
 import { searchStudents, type StudentListRowResponse } from "../../api/students";
 import { TransferRequestsInboxPanel } from "./TransferRequestsInboxPanel";
 
-const PAGE_SIZE = 25;
+const PAGE_SIZE = 20;
 const STUDENT_STATUSES = ["ADMITTED", "ACTIVE", "TRANSFERRED_OUT", "GRADUATED", "WITHDRAWN", "ALUMNI"];
 
 export function StudentListPage() {
@@ -186,7 +186,7 @@ export function StudentListPage() {
 					>
 						<MenuItem value="">All</MenuItem>
 						{schoolClasses.map((schoolClass) => (
-							<MenuItem key={schoolClass.id} value={schoolClass.id}>
+							<MenuItem key={schoolClass.id} value={String(schoolClass.id)}>
 								{classLabel(schoolClass)}
 							</MenuItem>
 						))}
@@ -201,7 +201,7 @@ export function StudentListPage() {
 					>
 						<MenuItem value="">All</MenuItem>
 						{sections.map((section) => (
-							<MenuItem key={section.id} value={section.id}>
+							<MenuItem key={section.id} value={String(section.id)}>
 								{section.name}
 							</MenuItem>
 						))}
@@ -250,7 +250,7 @@ export function StudentListPage() {
 							<TableRow>
 								<TableCell>Admission #</TableCell>
 								<TableCell>Name</TableCell>
-								<TableCell>Class / section</TableCell>
+								<TableCell>Class &amp; section</TableCell>
 								<TableCell>Guardian contact</TableCell>
 								<TableCell>Admission date</TableCell>
 								<TableCell>Status</TableCell>
@@ -279,14 +279,17 @@ export function StudentListPage() {
 							))}
 						</TableBody>
 					</Table>
-					<TablePagination
-						component="div"
-						count={totalElements}
-						page={page}
-						onPageChange={(_, newPage) => setPage(newPage)}
-						rowsPerPage={PAGE_SIZE}
-						rowsPerPageOptions={[PAGE_SIZE]}
-					/>
+					{/* A single page of results needs no pager. */}
+					{totalElements > PAGE_SIZE && (
+						<TablePagination
+							component="div"
+							count={totalElements}
+							page={page}
+							onPageChange={(_, newPage) => setPage(newPage)}
+							rowsPerPage={PAGE_SIZE}
+							rowsPerPageOptions={[PAGE_SIZE]}
+						/>
+					)}
 				</TableContainer>
 			)}
 

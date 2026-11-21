@@ -77,11 +77,11 @@ beforeEach(() => {
 });
 
 describe("ApplicantsPanel", () => {
-	it("shows record-inquiry, convert and reject with STUDENT_MANAGE", async () => {
+	it("shows record-enquiry, convert and reject with STUDENT_MANAGE", async () => {
 		grant("STUDENT_MANAGE");
 		renderInRouter(<ApplicantsPanel />);
 
-		expect(screen.getByRole("button", { name: /record inquiry/i })).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: /record enquiry/i })).toBeInTheDocument();
 		expect(await screen.findByRole("button", { name: /convert to student/i })).toBeInTheDocument();
 		expect(screen.getByRole("button", { name: /^reject$/i })).toBeInTheDocument();
 	});
@@ -91,7 +91,7 @@ describe("ApplicantsPanel", () => {
 		renderInRouter(<ApplicantsPanel />);
 
 		expect(await screen.findByText("Walk-in")).toBeInTheDocument();
-		expect(screen.queryByRole("button", { name: /record inquiry/i })).not.toBeInTheDocument();
+		expect(screen.queryByRole("button", { name: /record enquiry/i })).not.toBeInTheDocument();
 		expect(screen.queryByRole("button", { name: /convert to student/i })).not.toBeInTheDocument();
 		expect(screen.queryByRole("button", { name: /^reject$/i })).not.toBeInTheDocument();
 	});

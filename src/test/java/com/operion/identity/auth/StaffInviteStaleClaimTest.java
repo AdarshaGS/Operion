@@ -7,12 +7,18 @@ import java.util.List;
 
 import com.operion.audit.AuditLogRepository;
 import com.operion.audit.AuditLogService;
+import com.operion.authorization.MembershipStatus;
+import com.operion.authorization.OrganisationMembership;
 import com.operion.authorization.OrganisationMembershipRepository;
+import com.operion.authorization.Role;
+import com.operion.authorization.RoleRepository;
 import com.operion.common.JpaConfig;
 import com.operion.common.MultiTenancyConfig;
 import com.operion.common.TenantContext;
 import com.operion.email.EmailDeliveryService;
 import com.operion.email.EmailOutboxRepository;
+import com.operion.identity.Person;
+import com.operion.identity.PersonRepository;
 import com.operion.identity.User;
 import com.operion.identity.UserRepository;
 import com.operion.identity.UserService;
@@ -53,9 +59,13 @@ class StaffInviteStaleClaimTest {
 	private OrganisationMembershipRepository membershipRepository;
 	@Autowired
 	private AuditLogRepository auditLogRepository;
+	@Autowired
+	private PersonRepository personRepository;
+	@Autowired
+	private RoleRepository roleRepository;
 
 	private StaffInviteService staffInviteService() {
-		return new StaffInviteService(staffInviteRepository, userRepository, organisationRepository, ENCODER,
+		return new StaffInviteService(staffInviteRepository, userRepository, membershipRepository, organisationRepository, ENCODER,
 				new JwtService(TEST_SECRET, 480), new RefreshTokenService(refreshTokenRepository, ENCODER),
 				new EmailDeliveryService(List.of(), emailOutboxRepository), "http://localhost:5173");
 	}
@@ -166,5 +176,74 @@ class StaffInviteStaleClaimTest {
 		User user = userRepository.findByEmail("normal@stale-invite.test").orElseThrow();
 		assertThat(user.getStatus()).isEqualTo(UserStatus.ACTIVE);
 		assertThat(ENCODER.matches("MyOwnPass123!", user.getPasswordHash())).isTrue();
+	}
+
+	private OrganisationMembership membershipFor(Long userId, MembershipStatus status) {
+		User user = userRepository.findById(userId).orElseThrow();
+		Person person = personRepository.save(new Person("Invited", "Person"));
+		Role role = roleRepository.save(new Role("Teacher " + System.nanoTime(), "teaches", false));
+		OrganisationMembership membership = new OrganisationMembership(user, person, role, null);
+		membership.setStatus(status);
+		return membershipRepository.save(membership);
+	}
+
+	@Test
+	void aLoginWhoseOnlyMembershipsWereRevokedCannotBeClaimedAndTheInviteIsBurned() {
+		Organisation organisation = newOrg("revoked-memberships");
+		TenantContext.set(organisation.getId(), null);
+		StaffInviteService.IssuedInvite issued = staffInviteService().issue("left@stale-invite.test", null);
+		membershipFor(issued.userId(), MembershipStatus.INACTIVE);
+		TenantContext.clear();
+
+		assertThatThrownBy(() -> staffInviteService().claim(organisation.getSlug(), issued.rawToken(), "MyOwnPass123!"))
+				.isInstanceOf(AuthenticationFailedException.class).hasMessage("Invalid or expired invite");
+
+		TenantContext.set(organisation.getId(), null);
+		User reloaded = userRepository.findById(issued.userId()).orElseThrow();
+		assertThat(reloaded.getStatus()).isEqualTo(UserStatus.PENDING);
+		assertThat(ENCODER.matches("MyOwnPass123!", reloaded.getPasswordHash())).isFalse();
+		assertThat(staffInviteRepository.findById(issued.inviteId()).orElseThrow().getStatus()).isEqualTo(StaffInviteStatus.REVOKED);
+		assertThat(refreshTokenRepository.findByUserIdAndRevokedFalse(issued.userId())).isEmpty();
+	}
+
+	@Test
+	void aLoginWithAnActiveMembershipStillClaims() {
+		Organisation organisation = newOrg("active-membership");
+		TenantContext.set(organisation.getId(), null);
+		StaffInviteService.IssuedInvite issued = staffInviteService().issue("keeps@stale-invite.test", null);
+		membershipFor(issued.userId(), MembershipStatus.INACTIVE);
+		membershipFor(issued.userId(), MembershipStatus.ACTIVE);
+		TenantContext.clear();
+
+		LoginResult result = staffInviteService().claim(organisation.getSlug(), issued.rawToken(), "MyOwnPass123!");
+
+		assertThat(result.token()).isNotBlank();
+		TenantContext.set(organisation.getId(), null);
+		assertThat(userRepository.findById(issued.userId()).orElseThrow().getStatus()).isEqualTo(UserStatus.ACTIVE);
+	}
+
+	@Test
+	void withdrawingAnUnclaimedLoginRevokesEveryPendingInviteAndDisablesThePendingUser() {
+		Organisation organisation = newOrg("withdraw");
+		TenantContext.set(organisation.getId(), null);
+		StaffInviteService.IssuedInvite first = staffInviteService().issue("withdrawn@stale-invite.test", null);
+		StaffInviteService.IssuedInvite second = staffInviteService().reissue(first.userId());
+
+		staffInviteService().withdrawUnclaimed(first.userId());
+
+		assertThat(staffInviteRepository.findByUserIdAndStatus(first.userId(), StaffInviteStatus.PENDING)).isEmpty();
+		assertThat(staffInviteRepository.findById(second.inviteId()).orElseThrow().getStatus()).isEqualTo(StaffInviteStatus.REVOKED);
+		assertThat(userRepository.findById(first.userId()).orElseThrow().getStatus()).isEqualTo(UserStatus.DISABLED);
+	}
+
+	@Test
+	void withdrawingAnAlreadyActiveLoginLeavesItActive() {
+		Organisation organisation = newOrg("withdraw-active");
+		TenantContext.set(organisation.getId(), null);
+		User existing = userRepository.save(new User("claimed@stale-invite.test", null, ENCODER.encode("TheirRealPass1!")));
+
+		staffInviteService().withdrawUnclaimed(existing.getId());
+
+		assertThat(userRepository.findById(existing.getId()).orElseThrow().getStatus()).isEqualTo(UserStatus.ACTIVE);
 	}
 }

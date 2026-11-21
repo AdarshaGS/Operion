@@ -1,6 +1,7 @@
 package com.operion.hr.api;
 
 import com.operion.authorization.RequirePermission;
+import com.operion.common.InvalidRequestException;
 import com.operion.hr.HrService;
 import com.operion.hr.LeaveBalance;
 import com.operion.hr.LeaveBalanceRepository;
@@ -41,6 +42,12 @@ public class LeaveBalanceController {
 	@PostMapping
 	@RequirePermission("HR_LEAVE_MANAGE")
 	public LeaveBalanceResponse allocate(@RequestBody AllocateLeaveBalanceRequest request) {
+		if (request.staffProfileId() == null || request.leaveTypeId() == null || request.academicYearId() == null) {
+			throw new InvalidRequestException("staffProfileId, leaveTypeId and academicYearId are required");
+		}
+		if (request.allocatedDays() == null) {
+			throw new InvalidRequestException("allocatedDays is required");
+		}
 		StaffProfile staffProfile = findStaffProfile(request.staffProfileId());
 		LeaveType leaveType = findLeaveType(request.leaveTypeId());
 		AcademicYear academicYear = findAcademicYear(request.academicYearId());

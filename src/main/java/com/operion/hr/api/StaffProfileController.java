@@ -4,12 +4,17 @@ import com.operion.common.EnumParam;
 import com.operion.common.TenantContext;
 import com.operion.common.InvalidRequestException;
 import java.util.List;
+import java.util.Map;
 
+import jakarta.validation.Valid;
+
+import com.operion.authorization.PermissionChecker;
 import com.operion.authorization.RequirePermission;
 import com.operion.common.imports.ImportRowResult;
 import com.operion.hr.DocumentVerificationStatus;
 import com.operion.hr.EmploymentType;
 import com.operion.hr.HrService;
+import com.operion.hr.StaffAccessService;
 import com.operion.hr.StaffAssignmentRepository;
 import com.operion.hr.StaffBankDetailRepository;
 import com.operion.hr.StaffDocument;
@@ -22,6 +27,8 @@ import com.operion.hr.StaffProfile;
 import com.operion.hr.StaffProfileRepository;
 import com.operion.hr.StaffProfileStatus;
 import com.operion.identity.Person;
+import com.operion.identity.api.StaffInviteResponse;
+import com.operion.identity.auth.StaffInviteService;
 import com.operion.identity.PersonRepository;
 import com.operion.organisation.Campus;
 import com.operion.organisation.CampusRepository;
@@ -54,12 +61,21 @@ public class StaffProfileController {
 	private final DesignationRepository designationRepository;
 	private final DepartmentRepository departmentRepository;
 	private final StaffImportService staffImportService;
+	private final StaffAccessService staffAccessService;
+	private final PermissionChecker permissionChecker;
+
+	/** Who may see whether a staff member can sign in, and which role their login holds - the same people who may list memberships. */
+	private static final List<String> ACCESS_DETAIL_CODES = List.of("MEMBERSHIP_VIEW", "MEMBERSHIP_MANAGE");
+
+	/** Who may see (and so edit) a staff member's full bank account number; payroll viewers without it get the masked form. */
+	private static final List<String> FULL_BANK_DETAIL_CODES = List.of("HR_STAFF_MANAGE");
 
 	public StaffProfileController(HrService hrService, StaffProfileRepository staffProfileRepository,
 			StaffDocumentRepository staffDocumentRepository, StaffAssignmentRepository staffAssignmentRepository,
 			StaffExitRepository staffExitRepository, StaffBankDetailRepository staffBankDetailRepository,
 			PersonRepository personRepository, CampusRepository campusRepository, DesignationRepository designationRepository,
-			DepartmentRepository departmentRepository, StaffImportService staffImportService) {
+			DepartmentRepository departmentRepository, StaffImportService staffImportService, StaffAccessService staffAccessService,
+			PermissionChecker permissionChecker) {
 		this.hrService = hrService;
 		this.staffProfileRepository = staffProfileRepository;
 		this.staffDocumentRepository = staffDocumentRepository;
@@ -71,11 +87,13 @@ public class StaffProfileController {
 		this.designationRepository = designationRepository;
 		this.departmentRepository = departmentRepository;
 		this.staffImportService = staffImportService;
+		this.staffAccessService = staffAccessService;
+		this.permissionChecker = permissionChecker;
 	}
 
 	@PostMapping
 	@RequirePermission("HR_STAFF_MANAGE")
-	public StaffProfileResponse create(@RequestBody CreateStaffProfileRequest request) {
+	public StaffProfileResponse create(@Valid @RequestBody CreateStaffProfileRequest request) {
 		EmploymentType employmentType = EnumParam.parse(EmploymentType.class, request.employmentType());
 		requireField(request.personId(), "personId");
 		requireField(request.designationId(), "designationId");
@@ -91,13 +109,24 @@ public class StaffProfileController {
 				.orElseThrow(() -> new IllegalArgumentException("No designation with id " + request.designationId()));
 		Department department = request.departmentId() == null ? null : departmentRepository.findById(request.departmentId())
 				.orElseThrow(() -> new IllegalArgumentException("No department with id " + request.departmentId()));
-		StaffProfile staffProfile = hrService.createStaffProfile(person, campus, request.employeeCode(), designation,
-				department, request.dateOfJoining(), employmentType);
-		if (request.reportingManagerId() != null) {
-			staffProfile.setReportingManager(findStaffProfile(request.reportingManagerId()));
-			staffProfile = staffProfileRepository.save(staffProfile);
+		if (request.access() != null) {
+			// Staff profile and login are created in one transaction - neither survives without the other.
+			StaffAccessService.AccessResult result = staffAccessService.createStaffWithAccess(person, campus, request.employeeCode(),
+					designation, department, request.dateOfJoining(), employmentType, request.reportingManagerId(), request.access(),
+					TenantContext.getActorId());
+			return accessResponse(result);
 		}
-		return StaffProfileResponse.from(staffProfile);
+		// The reporting manager is resolved inside the same transaction as the profile insert, so an unknown id writes nothing.
+		return respond(hrService.createStaffProfile(person, campus, request.employeeCode(), designation, department,
+				request.dateOfJoining(), employmentType, request.reportingManagerId()));
+	}
+
+	/** Optional login for an existing staff member: needs HR_STAFF_MANAGE (method gate) AND MEMBERSHIP_MANAGE (checked by
+	 * the service). 409 if they already have access or have left. Returns the claim token in {@code invite}. */
+	@PostMapping("/{id}/access")
+	@RequirePermission("HR_STAFF_MANAGE")
+	public StaffProfileResponse giveAccess(@PathVariable Long id, @Valid @RequestBody StaffAccessRequest request) {
+		return accessResponse(staffAccessService.giveAccess(findStaffProfile(id), request, TenantContext.getActorId()));
 	}
 
 	@PostMapping("/{id}/transfer")
@@ -112,7 +141,7 @@ public class StaffProfileController {
 				.orElseThrow(() -> new IllegalArgumentException("No designation with id " + request.designationId()));
 		Department department = request.departmentId() == null ? null : departmentRepository.findById(request.departmentId())
 				.orElseThrow(() -> new IllegalArgumentException("No department with id " + request.departmentId()));
-		return StaffProfileResponse.from(hrService.transfer(staffProfile, campus, department, designation, request.effectiveDate()));
+		return respond(hrService.transfer(staffProfile, campus, department, designation, request.effectiveDate()));
 	}
 
 	@GetMapping("/{id}/assignments")
@@ -124,12 +153,12 @@ public class StaffProfileController {
 
 	@PostMapping("/{id}/exit")
 	@RequirePermission("HR_STAFF_MANAGE")
-	public StaffExitResponse recordExit(@PathVariable Long id, @RequestBody RecordStaffExitRequest request) {
+	public StaffExitResponse recordExit(@PathVariable Long id, @Valid @RequestBody RecordStaffExitRequest request) {
 		StaffProfile staffProfile = findStaffProfile(id);
 		StaffExitType exitType = EnumParam.parse(StaffExitType.class, request.exitType());
 		requireField(request.exitDate(), "exitDate");
-		return StaffExitResponse.from(hrService.recordExit(staffProfile, exitType,
-				request.exitDate(), request.reason(), request.initiatedBy()));
+		return StaffExitResponse.from(staffAccessService.recordExit(staffProfile, exitType,
+				request.exitDate(), request.reason(), TenantContext.getActorId()));
 	}
 
 	@GetMapping("/{id}/exits")
@@ -140,15 +169,16 @@ public class StaffProfileController {
 	@GetMapping("/{id}/bank-details")
 	@RequirePermission("HR_PAYROLL_VIEW")
 	public StaffBankDetailResponse getBankDetails(@PathVariable Long id) {
-		return staffBankDetailRepository.findByStaffProfileId(id).map(StaffBankDetailResponse::from).orElse(null);
+		boolean full = seesFullBankDetails();
+		return staffBankDetailRepository.findByStaffProfileId(id).map(detail -> StaffBankDetailResponse.from(detail, full)).orElse(null);
 	}
 
 	@PostMapping("/{id}/bank-details")
 	@RequirePermission("HR_PAYROLL_VIEW")
-	public StaffBankDetailResponse upsertBankDetails(@PathVariable Long id, @RequestBody UpsertStaffBankDetailsRequest request) {
+	public StaffBankDetailResponse upsertBankDetails(@PathVariable Long id, @Valid @RequestBody UpsertStaffBankDetailsRequest request) {
 		StaffProfile staffProfile = findStaffProfile(id);
 		return StaffBankDetailResponse.from(hrService.upsertBankDetails(staffProfile, request.bankAccountHolderName(),
-				request.bankAccountNumber(), request.bankName(), request.bankBranchCode(), request.taxIdentifier()));
+				request.bankAccountNumber(), request.bankName(), request.bankBranchCode(), request.taxIdentifier()), seesFullBankDetails());
 	}
 
 	@GetMapping
@@ -158,25 +188,36 @@ public class StaffProfileController {
 		// RESIGNED/TERMINATED stay excluded from this default roster view; get(id) below is
 		// the way to look up one specific profile regardless of status (e.g. StaffDetailPage
 		// after an exit is recorded).
-		List<StaffProfile> profiles = campusId != null ? staffProfileRepository.findByCampusId(campusId)
-				: staffProfileRepository.findByStatusIn(List.of(StaffProfileStatus.ACTIVE, StaffProfileStatus.ON_LEAVE));
-		return profiles.stream().map(StaffProfileResponse::from).toList();
+		List<StaffProfileStatus> onRoster = List.of(StaffProfileStatus.ACTIVE, StaffProfileStatus.ON_LEAVE);
+		List<StaffProfile> profiles = campusId != null ? staffProfileRepository.findByCampusIdAndStatusIn(campusId, onRoster)
+				: staffProfileRepository.findByStatusIn(onRoster);
+		boolean detail = seesAccessDetail();
+		if (!detail) {
+			// Not theirs to see: no membership lookup at all, and the access block is omitted from every row.
+			return profiles.stream().map(profile -> StaffProfileResponse.from(profile, null)).toList();
+		}
+		// One membership query for the whole roster, not one per row.
+		Map<Long, StaffAccessSummary> access = staffAccessService.summariseAll(
+				profiles.stream().map(profile -> profile.getPerson().getId()).collect(java.util.stream.Collectors.toSet()));
+		return profiles.stream()
+				.map(profile -> StaffProfileResponse.from(profile, access.getOrDefault(profile.getPerson().getId(), StaffAccessSummary.NONE)))
+				.toList();
 	}
 
 	@GetMapping("/{id}")
 	public StaffProfileResponse get(@PathVariable Long id) {
-		return StaffProfileResponse.from(findStaffProfile(id));
+		return respond(findStaffProfile(id));
 	}
 
 	@PostMapping("/{id}/status")
 	@RequirePermission("HR_STAFF_MANAGE")
 	public StaffProfileResponse changeStatus(@PathVariable Long id, @RequestBody ChangeStaffStatusRequest request) {
-		return StaffProfileResponse.from(hrService.changeStaffStatus(findStaffProfile(id), EnumParam.parse(StaffProfileStatus.class, request.status())));
+		return respond(hrService.changeStaffStatus(findStaffProfile(id), EnumParam.parse(StaffProfileStatus.class, request.status())));
 	}
 
 	@PostMapping("/{id}/documents")
 	@RequirePermission("HR_STAFF_MANAGE")
-	public StaffDocumentResponse addDocument(@PathVariable Long id, @RequestBody AddStaffDocumentRequest request) {
+	public StaffDocumentResponse addDocument(@PathVariable Long id, @Valid @RequestBody AddStaffDocumentRequest request) {
 		StaffProfile staffProfile = findStaffProfile(id);
 		for (String[] field : new String[][] {{"documentType", request.documentType()}, {"fileReference", request.fileReference()}, {"fileName", request.fileName()}}) {
 			if (field[1] == null || field[1].isBlank()) {
@@ -219,6 +260,27 @@ public class StaffProfileController {
 	@GetMapping("/export")
 	public List<StaffExportResponse> export() {
 		return staffProfileRepository.findAll().stream().map(StaffExportResponse::from).toList();
+	}
+
+	/** {@code access} is null (omitted) for callers who hold neither MEMBERSHIP_VIEW nor MEMBERSHIP_MANAGE. */
+	private StaffProfileResponse respond(StaffProfile staffProfile) {
+		StaffAccessSummary access = seesAccessDetail() ? staffAccessService.summarise(staffProfile.getPerson().getId()) : null;
+		return StaffProfileResponse.from(staffProfile, access);
+	}
+
+	/** Response for the calls that just issued a login - the caller holds MEMBERSHIP_MANAGE, so detail is theirs to see. */
+	private StaffProfileResponse accessResponse(StaffAccessService.AccessResult result) {
+		StaffInviteService.IssuedInvite invite = result.invite();
+		return StaffProfileResponse.from(result.staffProfile(), staffAccessService.summarise(result.staffProfile().getPerson().getId()),
+				new StaffInviteResponse(invite.userId(), invite.inviteId(), invite.rawToken(), invite.expiresAt(), invite.emailSent()));
+	}
+
+	private boolean seesAccessDetail() {
+		return permissionChecker.holdsAny(TenantContext.getActorId(), ACCESS_DETAIL_CODES);
+	}
+
+	private boolean seesFullBankDetails() {
+		return permissionChecker.holdsAny(TenantContext.getActorId(), FULL_BANK_DETAIL_CODES);
 	}
 
 	private static void requireField(Object value, String field) {

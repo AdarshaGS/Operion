@@ -103,7 +103,7 @@ beforeEach(() => {
 describe("StudentDetailPage records and enrolment indicator", () => {
 	it("shows a tick with the enrolment details instead of the old Enrolled banner", async () => {
 		renderPage();
-		const tick = await screen.findByRole("img", { name: "Enrolled - roll no. 12, since 2025-06-01" });
+		const tick = await screen.findByRole("img", { name: "Enrolled — roll number 12, since 2025-06-01" });
 		expect(tick).toBeInTheDocument();
 		expect(screen.queryByRole("alert")).not.toBeInTheDocument();
 		expect(screen.getByText("ACTIVE")).toBeInTheDocument();
@@ -113,7 +113,7 @@ describe("StudentDetailPage records and enrolment indicator", () => {
 		vi.mocked(getStudent).mockResolvedValue({ id: 7, personId: 70, status: "ADMITTED" } as Awaited<ReturnType<typeof getStudent>>);
 		vi.mocked(listStudentEnrollments).mockResolvedValue([]);
 		renderPage();
-		expect(await screen.findByRole("img", { name: "Admitted - not enrolled yet" })).toBeInTheDocument();
+		expect(await screen.findByRole("img", { name: "Admitted — not enrolled yet" })).toBeInTheDocument();
 		expect(screen.queryByRole("img", { name: /^Enrolled/ })).not.toBeInTheDocument();
 	});
 
@@ -156,7 +156,7 @@ describe("StudentDetailPage records and enrolment indicator", () => {
 	it("shows an empty state when the student has no enrollments", async () => {
 		vi.mocked(listStudentEnrollments).mockResolvedValue([]);
 		renderPage("/students/7?records=history");
-		expect(await screen.findByText("No enrollment history yet.")).toBeInTheDocument();
+		expect(await screen.findByText("No enrolment history yet.")).toBeInTheDocument();
 	});
 
 	it("removes the records param on close without mounting the Documents panel while the drawer slides out", async () => {

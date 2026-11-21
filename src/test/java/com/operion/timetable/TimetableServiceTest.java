@@ -7,6 +7,7 @@ import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalTime;
 
+import com.operion.calendar.WorkingDayService;
 import com.operion.common.InvalidRequestException;
 import com.operion.academic.AcademicService;
 import com.operion.academic.ClassSubject;
@@ -31,6 +32,8 @@ import com.operion.organisation.Campus;
 import com.operion.organisation.CampusRepository;
 import com.operion.organisation.Organisation;
 import com.operion.organisation.OrganisationRepository;
+import com.operion.timetable.api.TimetableSettingsController;
+import com.operion.timetable.api.UpdateTimetableSettingsRequest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -42,7 +45,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 /** Period rules and the two clash rules from #212 (section double-booking, teacher double-booking). */
 @DataJpaTest
-@Import({ MultiTenancyConfig.class, JpaConfig.class, TimetableService.class, TimetableGenerator.class, SubstitutionService.class, AcademicService.class, TimetablePortalService.class })
+@Import({ MultiTenancyConfig.class, JpaConfig.class, TimetableService.class, TimetableGenerator.class, SubstitutionService.class, WorkingDayService.class, AcademicService.class, TimetablePortalService.class })
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class TimetableServiceTest {
 
@@ -167,6 +170,33 @@ class TimetableServiceTest {
 		settings.setMaxTeacherPeriodsPerDay(perDay);
 		settings.setMaxTeacherPeriodsPerWeek(perWeek);
 		settingsRepository.save(settings);
+	}
+
+	@Test
+	void standardPeriodLengthIsSavedReadBackAndCanBeCleared() {
+		TimetableSettingsController controller = new TimetableSettingsController(settingsRepository);
+		assertThat(controller.get().periodMinutes()).isNull();
+
+		assertThat(controller.update(new UpdateTimetableSettingsRequest(0, null, null, 40)).periodMinutes()).isEqualTo(40);
+		assertThat(controller.get().periodMinutes()).isEqualTo(40);
+		assertThat(timetableService.settings().getPeriodMinutes()).isEqualTo(40);
+
+		assertThat(controller.update(new UpdateTimetableSettingsRequest(0, null, null, null)).periodMinutes()).isNull();
+		assertThat(controller.get().periodMinutes()).isNull();
+	}
+
+	@Test
+	void standardPeriodLengthAcceptsTheBoundariesAndRejectsOutOfRangeValues() {
+		TimetableSettingsController controller = new TimetableSettingsController(settingsRepository);
+		assertThat(controller.update(new UpdateTimetableSettingsRequest(0, null, null, 5)).periodMinutes()).isEqualTo(5);
+		assertThat(controller.update(new UpdateTimetableSettingsRequest(0, null, null, 240)).periodMinutes()).isEqualTo(240);
+
+		for (int invalid : new int[] { 4, 0, -10, 241 }) {
+			assertThatThrownBy(() -> controller.update(new UpdateTimetableSettingsRequest(0, null, null, invalid)))
+					.isInstanceOf(InvalidRequestException.class).hasMessageContaining("between 5 and 240");
+		}
+		// A rejected update leaves the last good value in place.
+		assertThat(controller.get().periodMinutes()).isEqualTo(240);
 	}
 
 	@Test

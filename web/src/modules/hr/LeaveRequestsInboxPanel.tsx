@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
@@ -20,6 +20,7 @@ import { listLeaveTypes, type LeaveTypeResponse } from "../../api/leaveTypes";
 import { listPersons, type PersonResponse } from "../../api/persons";
 import { listStaffProfiles, type StaffProfileResponse } from "../../api/staffProfiles";
 import { UpcomingDaysOff } from "../../components/UpcomingDaysOff";
+import { LeaveCoverPanel } from "./LeaveCoverPanel";
 
 /** Org-wide "pending approvals" inbox - the natural core-flow entry point for HR, backed by
  * the new staffProfileId-less GET /api/v1/hr/leave-requests?status=PENDING added for this. */
@@ -30,6 +31,15 @@ export function LeaveRequestsInboxPanel() {
 	const [personsById, setPersonsById] = useState<Map<number, PersonResponse>>(new Map());
 	const [leaveTypesById, setLeaveTypesById] = useState<Map<number, LeaveTypeResponse>>(new Map());
 	const [error, setError] = useState<string | null>(null);
+	const [coverOpen, setCoverOpen] = useState<Set<number>>(new Set());
+
+	function toggleCover(id: number) {
+		setCoverOpen((open) => {
+			const next = new Set(open);
+			if (!next.delete(id)) next.add(id);
+			return next;
+		});
+	}
 
 	function refresh() {
 		listLeaveRequests({ status: "PENDING" })
@@ -102,30 +112,42 @@ export function LeaveRequestsInboxPanel() {
 								</TableRow>
 							</TableHead>
 							<TableBody>
-								{requests.map((request) => (
-									<TableRow
-										key={request.id}
-										hover
-										sx={{ cursor: "pointer" }}
-										onClick={() => navigate(`/hr/staff/${request.staffProfileId}`)}
-									>
-										<TableCell>{staffLabel(request.staffProfileId)}</TableCell>
-										<TableCell>{leaveTypesById.get(request.leaveTypeId)?.name ?? `#${request.leaveTypeId}`}</TableCell>
-										<TableCell>{request.startDate}</TableCell>
-										<TableCell>{request.endDate}</TableCell>
-										<TableCell>{request.numberOfDays}</TableCell>
-										<TableCell onClick={(e) => e.stopPropagation()}>
-											<Can anyOf={["HR_LEAVE_MANAGE"]}>
-												<Button size="small" onClick={() => handleApprove(request.id)}>
-													Approve
-												</Button>
-												<Button size="small" color="error" onClick={() => handleReject(request.id)}>
-													Reject
-												</Button>
-											</Can>
-										</TableCell>
-									</TableRow>
-								))}
+									{requests.map((request) => (
+										<Fragment key={request.id}>
+											<TableRow hover sx={{ cursor: "pointer" }} onClick={() => navigate(`/hr/staff/${request.staffProfileId}`)}>
+												<TableCell>{staffLabel(request.staffProfileId)}</TableCell>
+												<TableCell>{leaveTypesById.get(request.leaveTypeId)?.name ?? `#${request.leaveTypeId}`}</TableCell>
+												<TableCell>{request.startDate}</TableCell>
+												<TableCell>{request.endDate}</TableCell>
+												<TableCell>{request.numberOfDays}</TableCell>
+												<TableCell onClick={(e) => e.stopPropagation()}>
+													<Button size="small" aria-expanded={coverOpen.has(request.id)} onClick={() => toggleCover(request.id)}>
+														{coverOpen.has(request.id) ? "Hide cover" : "Timetable cover"}
+													</Button>
+													<Can anyOf={["HR_LEAVE_MANAGE"]}>
+														<Button size="small" onClick={() => handleApprove(request.id)}>
+															Approve
+														</Button>
+														<Button size="small" color="error" onClick={() => handleReject(request.id)}>
+															Reject
+														</Button>
+													</Can>
+												</TableCell>
+											</TableRow>
+											{coverOpen.has(request.id) && (
+												<TableRow>
+													<TableCell colSpan={6}>
+														<LeaveCoverPanel
+															personId={staffById.get(request.staffProfileId)?.personId ?? null}
+															startDate={request.startDate}
+															endDate={request.endDate}
+															numberOfDays={request.numberOfDays}
+														/>
+													</TableCell>
+												</TableRow>
+											)}
+										</Fragment>
+									))}
 							</TableBody>
 						</Table>
 					</TableContainer>

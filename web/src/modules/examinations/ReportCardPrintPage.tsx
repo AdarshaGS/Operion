@@ -6,12 +6,14 @@ import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
 import CircularProgress from "@mui/material/CircularProgress";
 import Paper from "@mui/material/Paper";
+import IconButton from "@mui/material/IconButton";
 import Stack from "@mui/material/Stack";
 import Table from "@mui/material/Table";
 import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
+import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import PrintIcon from "@mui/icons-material/Print";
@@ -79,9 +81,11 @@ export function ReportCardPrintPage() {
         className="no-print"
         sx={{ display: "flex", justifyContent: "space-between" }}
       >
-        <Button startIcon={<ArrowBackIcon />} onClick={() => navigate(-1)}>
-          Back
-        </Button>
+        <Tooltip title="Back">
+          <IconButton onClick={() => navigate(-1)} aria-label="Back" sx={{ ml: -1 }}>
+            <ArrowBackIcon />
+          </IconButton>
+        </Tooltip>
         <Stack direction="row" spacing={1}>
           <Button
             variant="outlined"

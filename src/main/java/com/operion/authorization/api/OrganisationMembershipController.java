@@ -1,8 +1,11 @@
 package com.operion.authorization.api;
 
 import java.util.List;
+import java.util.Set;
 
+import com.operion.authorization.HrProfileLookup;
 import com.operion.authorization.MembershipService;
+import com.operion.authorization.OrganisationMembership;
 import com.operion.authorization.OrganisationMembershipRepository;
 import com.operion.authorization.RequirePermission;
 import com.operion.common.TenantContext;
@@ -22,26 +25,37 @@ public class OrganisationMembershipController {
 
 	private final MembershipService membershipService;
 	private final OrganisationMembershipRepository membershipRepository;
+	private final HrProfileLookup hrProfileLookup;
 
-	public OrganisationMembershipController(MembershipService membershipService, OrganisationMembershipRepository membershipRepository) {
+	public OrganisationMembershipController(MembershipService membershipService, OrganisationMembershipRepository membershipRepository,
+			HrProfileLookup hrProfileLookup) {
 		this.membershipService = membershipService;
 		this.membershipRepository = membershipRepository;
+		this.hrProfileLookup = hrProfileLookup;
 	}
 
 	@GetMapping
 	@RequirePermission("MEMBERSHIP_VIEW")
 	public List<MembershipResponse> list() {
-		return membershipRepository.findAll().stream().map(MembershipResponse::from).toList();
+		// One query for every person with an HR profile, then a set lookup per row - not a query per member.
+		Set<Long> withProfile = hrProfileLookup.personIdsWithProfile();
+		return membershipRepository.findAll().stream()
+				.map(membership -> MembershipResponse.from(membership, withProfile.contains(membership.getPerson().getId())))
+				.toList();
 	}
 
 	@PostMapping
 	public MembershipResponse grant(@RequestBody GrantMembershipRequest request) {
-		return MembershipResponse.from(membershipService.grant(request.userId(), request.personId(), request.roleId(), request.campusId(),
+		return respond(membershipService.grant(request.userId(), request.personId(), request.roleId(), request.campusId(),
 				request.departmentId(), request.memberId(), request.joiningDate(), TenantContext.getActorId()));
 	}
 
 	@PostMapping("/{id}/revoke")
 	public MembershipResponse revoke(@PathVariable Long id) {
-		return MembershipResponse.from(membershipService.revoke(id));
+		return respond(membershipService.revoke(id));
+	}
+
+	private MembershipResponse respond(OrganisationMembership membership) {
+		return MembershipResponse.from(membership, hrProfileLookup.hasProfile(membership.getPerson().getId()));
 	}
 }

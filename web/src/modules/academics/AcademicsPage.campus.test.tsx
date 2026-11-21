@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as AuthContext from "../../auth/AuthContext";
 import { setSelectedCampusId } from "../../layout/selectedCampus";
@@ -50,7 +51,11 @@ function openTab(name: string) {
 
 describe("AcademicsPage campus scope", () => {
 	it("shows a Sections card per class, campus-labelled, under All campuses", async () => {
-		render(<AcademicsPage />);
+		render(
+			<MemoryRouter>
+				<AcademicsPage />
+			</MemoryRouter>,
+		);
 		openTab("Sections");
 		await waitFor(() => expect(screen.getAllByTestId("sections-card")).toHaveLength(2));
 		expect(screen.getAllByTestId("sections-card").map((c) => c.textContent)).toEqual(["LKG - Main Campus", "LKG - Peresandra Branch"]);
@@ -58,7 +63,11 @@ describe("AcademicsPage campus scope", () => {
 
 	it("shows only the picked campus's Sections cards, and follows a campus switch", async () => {
 		act(() => setSelectedCampusId(2));
-		render(<AcademicsPage />);
+		render(
+			<MemoryRouter>
+				<AcademicsPage />
+			</MemoryRouter>,
+		);
 		openTab("Sections");
 		await waitFor(() => expect(screen.getAllByTestId("sections-card")).toHaveLength(1));
 		expect(screen.getByTestId("sections-card")).toHaveTextContent("Peresandra Branch");
@@ -70,9 +79,13 @@ describe("AcademicsPage campus scope", () => {
 
 	it("limits the Teacher assignments class picker to the picked campus and resets its pick on a switch", async () => {
 		act(() => setSelectedCampusId(null));
-		render(<AcademicsPage />);
+		render(
+			<MemoryRouter>
+				<AcademicsPage />
+			</MemoryRouter>,
+		);
 		openTab("Teacher assignments");
-		const picker = await screen.findByRole("combobox", { name: "Class offering" });
+		const picker = await screen.findByRole("combobox", { name: "Class" });
 		await waitFor(() => expect(picker).toHaveTextContent("LKG - Main Campus"));
 
 		act(() => setSelectedCampusId(2));
@@ -84,8 +97,12 @@ describe("AcademicsPage campus scope", () => {
 
 	it("explains an empty Sections tab for a campus with no classes", async () => {
 		act(() => setSelectedCampusId(99));
-		render(<AcademicsPage />);
+		render(
+			<MemoryRouter>
+				<AcademicsPage />
+			</MemoryRouter>,
+		);
 		openTab("Sections");
-		await screen.findByText(/No class offerings in the selected campus yet/);
+		await screen.findByText(/No classes in the selected campus yet/);
 	});
 });

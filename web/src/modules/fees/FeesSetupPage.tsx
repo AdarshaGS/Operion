@@ -1,7 +1,8 @@
 import { useNavigate } from "react-router-dom";
 import Box from "@mui/material/Box";
-import Button from "@mui/material/Button";
+import IconButton from "@mui/material/IconButton";
 import Stack from "@mui/material/Stack";
+import Tooltip from "@mui/material/Tooltip";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { Can } from "../../auth/Can";
 import { useBackTarget } from "../../utils/useBackTarget";
@@ -18,9 +19,11 @@ export function FeesSetupPage() {
 	return (
 		<Stack spacing={3}>
 			<Box>
-				<Button size="small" startIcon={<ArrowBackIcon />} onClick={() => navigate(back.path)}>
-					{back.fromDashboard ? "Back to dashboard" : "Back to fee collection"}
-				</Button>
+				<Tooltip title={back.fromDashboard ? "Back to dashboard" : "Back to fee collection"}>
+					<IconButton onClick={() => navigate(back.path)} aria-label={back.fromDashboard ? "Back to dashboard" : "Back to fee collection"} sx={{ ml: -1 }}>
+						<ArrowBackIcon />
+					</IconButton>
+				</Tooltip>
 			</Box>
 			<Can anyOf={["FEE_CATEGORY_MANAGE"]}>
 				<FeeCategoriesPanel />

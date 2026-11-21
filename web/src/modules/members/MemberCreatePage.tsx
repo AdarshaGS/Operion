@@ -37,7 +37,7 @@ const EMPLOYMENT_TYPES = ["PERMANENT", "CONTRACT", "PART_TIME"];
 export function MemberCreatePage() {
 	const navigate = useNavigate();
 	const location = useLocation();
-	// Back to wherever the page was opened from (/members or /settings/users).
+	// Back to wherever the page was opened from (/members or /settings/members).
 	const returnTo = (location.state as { from?: string } | null)?.from ?? "/members";
 	const canManageMembers = useCan("MEMBERSHIP_MANAGE");
 	const canManageStaff = useCan("HR_STAFF_MANAGE");
@@ -73,7 +73,7 @@ export function MemberCreatePage() {
 			// Validate everything the staff profile needs up front, so a missing field doesn't
 			// leave a Person + login behind with no staff profile.
 			if (isEmployee && (!form.memberId || !form.joiningDate || form.campusId === "" || designationId === "")) {
-				setError("Employee code (Member ID), joining date, campus and designation are required for an employee");
+				setError("Staff ID, joining date, campus and designation are required for an employee");
 				return;
 			}
 			const { person } = await submitAddMember(form);
@@ -137,7 +137,7 @@ export function MemberCreatePage() {
 					{isEmployee && (
 						<>
 							<Typography variant="caption" color="text.secondary">
-								Member ID becomes the employee code; campus, department and joining date carry over to the staff profile.
+								Staff ID is saved on the staff profile; campus, department and joining date carry over to the staff profile.
 							</Typography>
 							{!canManageStaff && (
 								<Alert severity="warning">You don't have permission to create staff profiles (HR_STAFF_MANAGE).</Alert>

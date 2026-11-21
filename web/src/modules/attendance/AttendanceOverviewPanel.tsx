@@ -117,13 +117,13 @@ export function AttendanceOverviewPanel({ onOpenRegister, onMarkAttendance }: Pr
 			{error && <Alert severity="error">{error}</Alert>}
 
 			<Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr", lg: "repeat(4, 1fr)" } }}>
-				<KpiTile icon={<GroupsIcon />} tint="violet" label="Students Enrolled" value={overview?.studentsEnrolled ?? "—"} />
+				<KpiTile icon={<GroupsIcon />} tint="violet" label="Students enrolled" value={overview?.studentsEnrolled ?? "—"} />
 				<KpiTile icon={<EventAvailableIcon />} tint="green" label="Present" value={overview?.present ?? "—"} detail={overview && overview.late > 0 ? `${overview.late} late` : undefined} />
 				<KpiTile icon={<PersonOffIcon />} tint="pink" label="Absent" value={overview?.absent ?? "—"} />
 				<KpiTile
 					icon={<ScheduleIcon />}
 					tint="orange"
-					label="Attendance Not Recorded"
+					label="Attendance not recorded"
 					value={overview ? `${overview.classesNotRecorded} ${overview.classesNotRecorded === 1 ? "class" : "classes"}` : "—"}
 					detail={overview ? `of ${overview.classesTotal}` : undefined}
 				/>
@@ -132,14 +132,14 @@ export function AttendanceOverviewPanel({ onOpenRegister, onMarkAttendance }: Pr
 			<Paper sx={{ p: 2.5 }}>
 				<Stack spacing={2}>
 					<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 2, flexWrap: "wrap" }}>
-						<Typography variant="h6">Class Attendance</Typography>
+						<Typography variant="h6">Class attendance</Typography>
 						<Stack direction="row" spacing={2} sx={{ alignItems: "center" }}>
 							<Typography variant="body2" sx={{ color: colors.inkSoft }}>
 								{filtered.length === 0 ? "No classes" : `Showing ${page * rowsPerPage + 1}–${Math.min((page + 1) * rowsPerPage, filtered.length)} of ${filtered.length} classes`}
 							</Typography>
 							<Can anyOf={["ATTENDANCE_MARK", "ATTENDANCE_MARK_ANY_SECTION"]}>
 								<Button variant="contained" startIcon={<EventAvailableIcon />} onClick={onMarkAttendance}>
-									Mark Attendance
+									Mark attendance
 								</Button>
 							</Can>
 						</Stack>
@@ -163,7 +163,7 @@ export function AttendanceOverviewPanel({ onOpenRegister, onMarkAttendance }: Pr
 						onClearAll={clearFilters}
 					>
 						<TextField select size="small" label="Class" value={classId} onChange={(e) => { setClassId(e.target.value); setPage(0); }}>
-							<MenuItem value="">All Classes</MenuItem>
+							<MenuItem value="">All classes</MenuItem>
 							{classOptions.map(([id, name]) => (
 								<MenuItem key={id} value={id}>
 									{name}
@@ -171,7 +171,7 @@ export function AttendanceOverviewPanel({ onOpenRegister, onMarkAttendance }: Pr
 							))}
 						</TextField>
 						<TextField select size="small" label="Section" value={sectionName} onChange={(e) => { setSectionName(e.target.value); setPage(0); }}>
-							<MenuItem value="">All Sections</MenuItem>
+							<MenuItem value="">All sections</MenuItem>
 							{sectionOptions.map((name) => (
 								<MenuItem key={name} value={name}>
 									{name}
@@ -179,7 +179,7 @@ export function AttendanceOverviewPanel({ onOpenRegister, onMarkAttendance }: Pr
 							))}
 						</TextField>
 						<TextField select size="small" label="Status" value={status} onChange={(e) => { setStatus(e.target.value); setPage(0); }}>
-							<MenuItem value="">All Status</MenuItem>
+							<MenuItem value="">All statuses</MenuItem>
 							<MenuItem value="RECORDED">Recorded</MenuItem>
 							<MenuItem value="PENDING">Pending</MenuItem>
 						</TextField>
@@ -189,12 +189,12 @@ export function AttendanceOverviewPanel({ onOpenRegister, onMarkAttendance }: Pr
 						<Table size="small">
 							<TableHead>
 								<TableRow>
-									<TableCell>Class &amp; Section</TableCell>
-									<TableCell>Class Teacher</TableCell>
+									<TableCell>Class &amp; section</TableCell>
+									<TableCell>Class teacher</TableCell>
 									<TableCell align="center">Present</TableCell>
 									<TableCell align="center">Absent</TableCell>
 									<TableCell align="center">Late</TableCell>
-									<TableCell sx={{ minWidth: 180 }}>Attendance Rate</TableCell>
+									<TableCell sx={{ minWidth: 180 }}>Attendance rate</TableCell>
 									<TableCell>Status</TableCell>
 									<TableCell align="right">Action</TableCell>
 								</TableRow>
@@ -277,7 +277,7 @@ export function AttendanceOverviewPanel({ onOpenRegister, onMarkAttendance }: Pr
 			</Paper>
 
 			<Box sx={{ display: "grid", gap: 2.5, gridTemplateColumns: { xs: "1fr", lg: "1.2fr 1fr" } }}>
-				<SectionCard title="Attendance by Class" icon={<BarChartIcon fontSize="small" />} tint="violet">
+				<SectionCard title="Attendance by class" icon={<BarChartIcon fontSize="small" />} tint="violet">
 					<Box sx={{ height: 260 }}>
 						{chartData.length > 0 ? (
 							<ResponsiveContainer width="100%" height="100%">
@@ -303,7 +303,7 @@ export function AttendanceOverviewPanel({ onOpenRegister, onMarkAttendance }: Pr
 					</Box>
 				</SectionCard>
 
-				<SectionCard title="Attendance Activity" icon={<ScheduleIcon fontSize="small" />} tint="blue">
+				<SectionCard title="Attendance activity" icon={<ScheduleIcon fontSize="small" />} tint="blue">
 					{overview && overview.activity.length > 0 ? (
 						<Stack spacing={1.5}>
 							{overview.activity.map((item, index) => {

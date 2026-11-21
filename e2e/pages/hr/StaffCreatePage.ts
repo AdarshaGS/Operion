@@ -16,7 +16,7 @@ export class StaffCreatePage {
 		await this.page.getByRole("combobox", { name: /^Gender/ }).click();
 		await this.page.getByRole("option", { name: "Male", exact: true }).click();
 		if (input.email) await this.page.getByLabel("Email").fill(input.email);
-		await this.page.getByLabel("Member ID (optional)").fill(input.employeeCode);
+		await this.page.getByLabel("Staff ID (optional)").fill(input.employeeCode);
 		await this.page.getByLabel("Joining date (optional)").fill(input.joiningDate);
 	}
 
@@ -26,6 +26,6 @@ export class StaffCreatePage {
 	}
 
 	async submit() {
-		await this.page.getByRole("button", { name: "Add staff member" }).click();
+		await this.page.getByRole("button", { name: "Add staff" }).click();
 	}
 }

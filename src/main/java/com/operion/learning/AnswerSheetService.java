@@ -19,6 +19,7 @@ import com.operion.identity.PersonRepository;
 import com.operion.student.AdmissionFeeGate;
 import com.operion.student.StudentEnrollment;
 import com.operion.student.StudentEnrollmentRepository;
+import com.operion.organisation.AcademicYearGuard;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -103,6 +104,7 @@ public class AnswerSheetService {
 				.orElseThrow(() -> new IllegalArgumentException("Enrollment not found: " + enrollmentId));
 		requireInScope(schedule, enrollment);
 		actor.requireWrite(enrollment.getSection().getId(), schedule.getSubject().getId());
+		AcademicYearGuard.requireOpen(enrollment.getAcademicYear(), "uploading an answer sheet");
 		admissionFeeGate.requireAllowed(enrollment, "upload an answer sheet");
 		List<String> refs = pageRefs == null ? List.of() : pageRefs.stream().filter(r -> r != null && !r.isBlank()).map(String::trim).toList();
 		if (refs.isEmpty()) {
@@ -141,6 +143,7 @@ public class AnswerSheetService {
 		AnswerSheet sheet = sheet(sheetId);
 		ExamSchedule schedule = sheet.getExamSchedule();
 		actor.requireWrite(sheet.getStudentEnrollment().getSection().getId(), schedule.getSubject().getId());
+		AcademicYearGuard.requireOpen(sheet.getStudentEnrollment().getAcademicYear(), "marking an answer sheet");
 		admissionFeeGate.requireAllowed(sheet.getStudentEnrollment(), "mark an answer sheet");
 		if (sheet.getStatus() == AnswerSheetStatus.RELEASED) {
 			throw new IllegalStateException("This sheet has been released and can no longer be changed");
@@ -184,6 +187,7 @@ public class AnswerSheetService {
 	public AnswerSheet release(LearningActor actor, Long sheetId, Instant now) {
 		AnswerSheet sheet = sheet(sheetId);
 		actor.requireWrite(sheet.getStudentEnrollment().getSection().getId(), sheet.getExamSchedule().getSubject().getId());
+		AcademicYearGuard.requireOpen(sheet.getStudentEnrollment().getAcademicYear(), "releasing an answer sheet");
 		admissionFeeGate.requireAllowed(sheet.getStudentEnrollment(), "release an answer sheet");
 		sheet.release(now);
 		return sheet;

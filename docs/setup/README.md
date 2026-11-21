@@ -89,11 +89,18 @@ Opens on `http://localhost:5173`, talks directly to the backend at `http://local
 ### First login
 
 Every organisation is a tenant, and its first admin account is created together with
-it — there's no separate signup flow.
+it. There is no public signup: only a platform admin can create an organisation, using a
+platform token from `POST /api/v1/platform/auth/login` (dev seed account
+`admin@operion.platform` / `ChangeMe123!`; rotate it before any real deployment).
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/organisations \
+curl -X POST http://localhost:8080/api/v1/platform/auth/login \
   -H "Content-Type: application/json" \
+  -d '{"email": "admin@operion.platform", "password": "ChangeMe123!"}'
+
+curl -X POST http://localhost:8080/api/v1/platform/organisations \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <platform token>" \
   -d '{
     "name": "Demo School",
     "legalName": "Demo School Trust",

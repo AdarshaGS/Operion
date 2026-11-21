@@ -34,7 +34,7 @@ export function SystemHealthPage() {
 					Operations
 				</Typography>
 				<Typography variant="h4" component="h1">
-					System Health
+					System health
 				</Typography>
 			</Stack>
 

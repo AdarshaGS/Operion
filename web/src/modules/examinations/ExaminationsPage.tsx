@@ -81,7 +81,7 @@ export function ExaminationsPage() {
 				<Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", rowGap: 1 }}>
 					<Can anyOf={["EXAM_MANAGE"]}>
 						<Button variant="contained" startIcon={<AddIcon />} onClick={() => setCreateOpen(true)} disabled={!academicYearId}>
-							Create Examination
+							Create examination
 						</Button>
 					</Can>
 				</Stack>
@@ -90,11 +90,11 @@ export function ExaminationsPage() {
 			{error && <Alert severity="error">{error}</Alert>}
 
 			<Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr", lg: "repeat(4, 1fr)" } }}>
-				<KpiTile icon={<AssignmentIcon />} tint="violet" label="Total Examinations" value={overview?.totalExams ?? "—"} detail={overview ? "this academic year" : undefined} />
+				<KpiTile icon={<AssignmentIcon />} tint="violet" label="Total examinations" value={overview?.totalExams ?? "—"} detail={overview ? "this academic year" : undefined} />
 				<KpiTile
 					icon={<EventIcon />}
 					tint="blue"
-					label="Upcoming Examinations"
+					label="Upcoming examinations"
 					value={overview?.upcomingExams ?? "—"}
 					detail={overview?.nextExam ? `Next: ${overview.nextExam.name} · ${formatDate(overview.nextExam.startDate)}` : overview ? "None scheduled" : undefined}
 					onClick={openFirst(overview?.nextExam?.examId)}
@@ -102,14 +102,14 @@ export function ExaminationsPage() {
 				<KpiTile
 					icon={<EditNoteIcon />}
 					tint="orange"
-					label="Marks Pending"
+					label="Marks pending"
 					value={overview?.marksPendingSubjects ?? "—"}
 					detail={overview ? `Subject${overview.marksPendingSubjects === 1 ? "" : "s"} across ${overview.marksPendingClasses} class${overview.marksPendingClasses === 1 ? "" : "es"}` : undefined}
 				/>
 				<KpiTile
 					icon={<BarChartIcon />}
 					tint="green"
-					label="Results Published"
+					label="Results published"
 					value={overview?.resultsPublishedExams ?? "—"}
 					detail={overview ? (overview.lastPublished ? `Last: ${overview.lastPublished.name}${overview.lastPublished.endDate ? ` · ${formatDate(overview.lastPublished.endDate)}` : ""}` : "None yet") : undefined}
 					onClick={openFirst(overview?.lastPublished?.examId)}
@@ -118,7 +118,7 @@ export function ExaminationsPage() {
 
 			<Tabs value={tab} onChange={(_, next) => setTab(next)} sx={{ borderBottom: `1px solid ${colors.rule}` }}>
 				<Tab value="overview" label="Overview" icon={<AssignmentIcon fontSize="small" />} iconPosition="start" />
-				<Tab value="grading" label="Grading Scales" icon={<GradingIcon fontSize="small" />} iconPosition="start" />
+				<Tab value="grading" label="Grading scales" icon={<GradingIcon fontSize="small" />} iconPosition="start" />
 				<Tab value="settings" label="Settings" icon={<SettingsIcon fontSize="small" />} iconPosition="start" />
 			</Tabs>
 

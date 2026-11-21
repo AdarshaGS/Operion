@@ -261,7 +261,7 @@ export function EventCalendarPanel() {
 			</Stack>
 
 			<Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} component="form" onSubmit={handleSubmit} fullWidth maxWidth="xs">
-				<DialogTitle>Add school event</DialogTitle>
+				<DialogTitle>Add event</DialogTitle>
 				<DialogContent>
 					<Stack spacing={2} sx={{ mt: 1 }}>
 						<TextField

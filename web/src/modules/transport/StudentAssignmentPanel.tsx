@@ -70,7 +70,7 @@ export function StudentAssignmentPanel() {
 			.then((enrollments) => {
 				const current = enrollments.find((e) => e.current);
 				if (!current) {
-					setError("This student has no current enrollment.");
+					setError("This student has no current enrolment.");
 					return;
 				}
 				setEnrollmentId(current.id);

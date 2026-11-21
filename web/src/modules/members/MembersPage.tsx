@@ -3,7 +3,7 @@ import Typography from "@mui/material/Typography";
 import { UsersPanel } from "../settings/UsersPanel";
 
 /** First-class /members landing page (dashboard onboarding + quick-action target) - same
- * UsersPanel that /settings/users renders, so member data is stored and managed in one
+ * UsersPanel that /settings/members renders, so member data is stored and managed in one
  * place with two entry points rather than a duplicate page. */
 export function MembersPage() {
 	return (

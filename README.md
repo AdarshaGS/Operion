@@ -66,11 +66,18 @@ Run the test suite:
 ### First login
 
 Every organisation is a tenant, and its first admin account is created together with
-it — there's no separate signup flow. Provision one, then log in:
+it. There is no public signup: only a platform admin can create an organisation. Log in as
+the platform admin (the dev seed account below; rotate it before any real deployment),
+then provision the organisation with the returned token and log in as its new admin:
 
 ```bash
-curl -X POST http://localhost:8080/api/v1/organisations \
+curl -X POST http://localhost:8080/api/v1/platform/auth/login \
   -H "Content-Type: application/json" \
+  -d '{"email": "admin@operion.platform", "password": "ChangeMe123!"}'
+
+curl -X POST http://localhost:8080/api/v1/platform/organisations \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <platform token>" \
   -d '{
     "name": "Demo School",
     "legalName": "Demo School Trust",

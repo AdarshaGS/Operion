@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import java.time.Instant;
 import java.util.List;
 
+import com.operion.authorization.OrganisationMembershipRepository;
 import com.operion.common.JpaConfig;
 import com.operion.common.MultiTenancyConfig;
 import com.operion.common.TenantContext;
@@ -52,11 +53,14 @@ class StaffInviteLifecycleTest {
 	@Autowired
 	private EmailOutboxRepository emailOutboxRepository;
 
+	@Autowired
+	private OrganisationMembershipRepository membershipRepository;
+
 	private StaffInviteService staffInviteService() {
 		// No EmailSender configured - same "no real mail transport in tests" stance as
 		// every other environment without provider keys set; sendBestEffort() degrades to
 		// a no-op FAILED outbox row rather than a real HTTP call.
-		return new StaffInviteService(staffInviteRepository, userRepository, organisationRepository, ENCODER,
+		return new StaffInviteService(staffInviteRepository, userRepository, membershipRepository, organisationRepository, ENCODER,
 				new JwtService(TEST_SECRET, 480), new RefreshTokenService(refreshTokenRepository, ENCODER),
 				new EmailDeliveryService(List.of(), emailOutboxRepository), "http://localhost:5173");
 	}

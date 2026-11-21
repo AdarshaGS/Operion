@@ -31,8 +31,8 @@ const TYPE_LABEL: Record<string, string> = { UNIT_TEST: "Unit Test", MID_TERM: "
 
 const RESULT_STYLE: Record<ResultStatus, { label: string; color: string; bg: string; action: string }> = {
 	PUBLISHED: { label: "Published", color: colors.ok, bg: colors.tintGreen, action: "View" },
-	IN_PROGRESS: { label: "In Progress", color: colors.info, bg: colors.tintBlue, action: "Manage" },
-	NOT_STARTED: { label: "Not Started", color: colors.inkSoft, bg: colors.paperSunken, action: "Configure" },
+	IN_PROGRESS: { label: "In progress", color: colors.info, bg: colors.tintBlue, action: "Manage" },
+	NOT_STARTED: { label: "Not started", color: colors.inkSoft, bg: colors.paperSunken, action: "Configure" },
 	DRAFT: { label: "Draft", color: colors.warn, bg: colors.tintOrange, action: "Configure" },
 };
 
@@ -103,7 +103,7 @@ export function ExamsOverviewPanel({ overview, academicYears, academicYearId, on
 						<Typography variant="h6">Examinations</Typography>
 						<CompactFilterBar
 							startSlot={
-								<TextField select size="small" label="Academic Year" value={academicYearId ?? ""} onChange={(e) => onAcademicYearChange(Number(e.target.value))} sx={{ minWidth: 150 }}>
+								<TextField select size="small" label="Academic year" value={academicYearId ?? ""} onChange={(e) => onAcademicYearChange(Number(e.target.value))} sx={{ minWidth: 150 }}>
 									{academicYears.map((year) => (
 										<MenuItem key={year.id} value={year.id}>
 											{year.name}
@@ -131,7 +131,7 @@ export function ExamsOverviewPanel({ overview, academicYears, academicYearId, on
 									setPage(0);
 								}}
 							>
-								<MenuItem value="">All Status</MenuItem>
+								<MenuItem value="">All statuses</MenuItem>
 								{(Object.keys(RESULT_STYLE) as ResultStatus[]).map((key) => (
 									<MenuItem key={key} value={key}>
 										{RESULT_STYLE[key].label}
@@ -141,14 +141,14 @@ export function ExamsOverviewPanel({ overview, academicYears, academicYearId, on
 							<TextField
 								select
 								size="small"
-								label="Exam Type"
+								label="Exam type"
 								value={examType}
 								onChange={(e) => {
 									setExamType(e.target.value);
 									setPage(0);
 								}}
 							>
-								<MenuItem value="">All Types</MenuItem>
+								<MenuItem value="">All types</MenuItem>
 								{Object.entries(TYPE_LABEL).map(([key, label]) => (
 									<MenuItem key={key} value={key}>
 										{label}
@@ -163,13 +163,13 @@ export function ExamsOverviewPanel({ overview, academicYears, academicYearId, on
 							<TableHead>
 								<TableRow>
 									<TableCell>#</TableCell>
-									<TableCell>Examination Name</TableCell>
+									<TableCell>Examination name</TableCell>
 									<TableCell>Type</TableCell>
 									<TableCell>Classes</TableCell>
-									<TableCell>Start Date</TableCell>
-									<TableCell>End Date</TableCell>
-									<TableCell sx={{ minWidth: 170 }}>Marks Entry</TableCell>
-									<TableCell>Result Status</TableCell>
+									<TableCell>Start date</TableCell>
+									<TableCell>End date</TableCell>
+									<TableCell sx={{ minWidth: 170 }}>Marks entry</TableCell>
+									<TableCell>Result status</TableCell>
 									<TableCell align="right">Actions</TableCell>
 								</TableRow>
 							</TableHead>
@@ -240,7 +240,7 @@ export function ExamsOverviewPanel({ overview, academicYears, academicYearId, on
 			</Paper>
 
 			<Box sx={{ display: "grid", gap: 2.5, gridTemplateColumns: { xs: "1fr", lg: "1fr 1fr 1fr" } }}>
-				<SectionCard title="Exam Schedule (Upcoming)" icon={<EventIcon fontSize="small" />} tint="violet">
+				<SectionCard title="Exam schedule (upcoming)" icon={<EventIcon fontSize="small" />} tint="violet">
 					{overview && overview.upcoming.length > 0 ? (
 						<Stack spacing={1.5}>
 							{overview.upcoming.map((item) => {
@@ -275,7 +275,7 @@ export function ExamsOverviewPanel({ overview, academicYears, academicYearId, on
 					)}
 				</SectionCard>
 
-				<SectionCard title="Marks Entry Progress" icon={<BarChartIcon fontSize="small" />} tint="green">
+				<SectionCard title="Marks entry progress" icon={<BarChartIcon fontSize="small" />} tint="green">
 					{overview && overview.marksByClass.length > 0 ? (
 						<Stack spacing={1.5} sx={{ maxHeight: 300, overflowY: "auto", pr: 0.5 }}>
 							{overview.marksByClass.map((item) => (
@@ -299,7 +299,7 @@ export function ExamsOverviewPanel({ overview, academicYears, academicYearId, on
 					)}
 				</SectionCard>
 
-				<SectionCard title="Result Summary (Published)" icon={<AssignmentIcon fontSize="small" />} tint="blue">
+				<SectionCard title="Result summary (published)" icon={<AssignmentIcon fontSize="small" />} tint="blue">
 					{summary && summary.grades.length > 0 ? (
 						<Stack spacing={2}>
 							<Stack direction="row" spacing={2} sx={{ alignItems: "center" }}>
@@ -317,7 +317,7 @@ export function ExamsOverviewPanel({ overview, academicYears, academicYearId, on
 									<Box sx={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", pointerEvents: "none" }}>
 										<Typography sx={{ fontWeight: 800, fontSize: 24, lineHeight: 1.1 }}>{summary.passRate}%</Typography>
 										<Typography variant="caption" sx={{ color: colors.inkSoft }}>
-											Pass Rate
+											Pass rate
 										</Typography>
 									</Box>
 								</Box>

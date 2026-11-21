@@ -35,11 +35,12 @@ export class PlatformOrganisationDetailPage {
 		return this.page.getByRole("table").nth(0).getByRole("row").filter({ hasText: planName });
 	}
 
-	async generateInvoice(input: { periodStart: string; periodEnd: string; dueDate: string }) {
+	async generateInvoice(input: { periodStart: string; periodEnd: string; dueDate: string; amount: string }) {
 		await this.page.getByRole("button", { name: "Generate invoice" }).click();
 		await this.page.getByLabel("Period start").fill(input.periodStart);
 		await this.page.getByLabel("Period end").fill(input.periodEnd);
 		await this.page.getByLabel("Due date").fill(input.dueDate);
+		await this.page.getByLabel("Amount").fill(input.amount);
 		await this.page.getByRole("button", { name: "Generate" }).click();
 	}
 

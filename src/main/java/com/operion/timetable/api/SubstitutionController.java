@@ -51,6 +51,24 @@ public class SubstitutionController {
 		return substitutionService.needs(teacherPersonId, from, to == null ? from : to).stream().map(SubstitutionNeedResponse::from).toList();
 	}
 
+	/**
+	 * Slots approved leave leaves without their teacher between from and to (at most 62 days), optionally for one campus;
+	 * uncoveredOnly drops the ones that already have cover.
+	 */
+	@GetMapping("/api/v1/timetable/substitutions/uncovered")
+	public List<UncoveredSlotResponse> uncovered(@RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+			@RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+			@RequestParam(required = false) Long campusId, @RequestParam(defaultValue = "false") boolean uncoveredOnly) {
+		return substitutionService.uncovered(from, to, campusId, uncoveredOnly).stream().map(UncoveredSlotResponse::from).toList();
+	}
+
+	/** A proposed cover for every uncovered leave slot between from and to (at most 14 days). Read-only: nothing is assigned. */
+	@GetMapping("/api/v1/timetable/substitutions/suggestions")
+	public List<CoverSuggestionResponse> suggestions(@RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+			@RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to, @RequestParam(required = false) Long campusId) {
+		return substitutionService.suggest(from, to, campusId).stream().map(CoverSuggestionResponse::from).toList();
+	}
+
 	@PostMapping("/api/v1/timetable/substitutions")
 	@RequirePermission("TIMETABLE_MANAGE")
 	public SubstitutionResponse assign(@Valid @RequestBody SubstitutionRequest request) {

@@ -13,10 +13,11 @@ function toLimit(value: string): number | null {
 	return value.trim() === "" || number <= 0 ? null : number;
 }
 
-/** The org-wide timetable rules: the minimum gap between class periods and the most periods a teacher may take.
- * Blank limits mean no limit; breaks and special slots are exempt from the gap. */
+/** The org-wide timetable rules: the minimum gap between class periods, the standard class period length and the
+ * most periods a teacher may take. Blank limits mean no limit; breaks and special slots are exempt from the gap. */
 export function TimetableRulesCard({ onChanged }: { onChanged?: (settings: TimetableSettingsResponse) => void }) {
 	const [gap, setGap] = useState("0");
+	const [periodMinutes, setPeriodMinutes] = useState("");
 	const [perDay, setPerDay] = useState("");
 	const [perWeek, setPerWeek] = useState("");
 	const [error, setError] = useState<string | null>(null);
@@ -25,6 +26,7 @@ export function TimetableRulesCard({ onChanged }: { onChanged?: (settings: Timet
 
 	function apply(settings: TimetableSettingsResponse) {
 		setGap(String(settings.gapMinutes));
+		setPeriodMinutes(settings.periodMinutes == null ? "" : String(settings.periodMinutes));
 		setPerDay(settings.maxTeacherPeriodsPerDay === null ? "" : String(settings.maxTeacherPeriodsPerDay));
 		setPerWeek(settings.maxTeacherPeriodsPerWeek === null ? "" : String(settings.maxTeacherPeriodsPerWeek));
 		onChanged?.(settings);
@@ -46,6 +48,7 @@ export function TimetableRulesCard({ onChanged }: { onChanged?: (settings: Timet
 			apply(
 				await updateTimetableSettings({
 					gapMinutes: Number(gap) || 0,
+					periodMinutes: toLimit(periodMinutes),
 					maxTeacherPeriodsPerDay: toLimit(perDay),
 					maxTeacherPeriodsPerWeek: toLimit(perWeek),
 				}),
@@ -92,6 +95,15 @@ export function TimetableRulesCard({ onChanged }: { onChanged?: (settings: Timet
 					fullWidth
 				/>
 			</Stack>
+			<TextField
+				label="Standard class period length (minutes)"
+				type="number"
+				value={periodMinutes}
+				onChange={(e) => setPeriodMinutes(e.target.value)}
+				helperText="New class periods default to this length. Breaks are added with their own times."
+				slotProps={{ htmlInput: { min: 5, max: 240 } }}
+				sx={{ maxWidth: { md: 420 } }}
+			/>
 			<Can anyOf={["TIMETABLE_MANAGE"]}>
 				<Button type="submit" variant="outlined" disabled={submitting} sx={{ alignSelf: "flex-start" }}>
 					Save rules

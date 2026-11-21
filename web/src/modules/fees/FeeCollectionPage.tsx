@@ -190,7 +190,7 @@ export function FeeCollectionPage() {
 			<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 2, flexWrap: "wrap" }}>
 				<Box>
 					<Typography variant="h4" sx={{ fontWeight: 800, color: colors.ink }}>
-						Fees &amp; Collections
+						Fees
 					</Typography>
 					<Typography variant="body1" sx={{ color: colors.inkSoft }}>
 						Track student fees, monitor outstanding balances, and manage collections.
@@ -199,12 +199,12 @@ export function FeeCollectionPage() {
 				<Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", rowGap: 1 }}>
 					<Can anyOf={["FEE_COLLECT"]}>
 						<Button variant="contained" startIcon={<AddCardIcon />} onClick={() => openDialog()}>
-							Collect Fee
+							Collect fee
 						</Button>
 					</Can>
 					<Can anyOf={["FEE_STRUCTURE_MANAGE", "FEE_CATEGORY_MANAGE"]}>
 						<Button variant="outlined" color="inherit" startIcon={<SettingsIcon />} onClick={() => navigate("/fees/setup")}>
-							Fee Structure
+							Fee structures
 						</Button>
 					</Can>
 					<Can anyOf={["FEE_REMINDER_SEND", "FEE_INVOICE_MANAGE"]}>
@@ -221,7 +221,7 @@ export function FeeCollectionPage() {
 			{error && <Alert severity="error">{error}</Alert>}
 
 			<Stack direction="row" spacing={2} sx={{ flexWrap: "wrap", rowGap: 2 }}>
-				<KpiTile icon={<PaymentsIcon />} tint="violet" label="Total Fees" value={overview ? currency(overview.totalFees) : "—"} />
+				<KpiTile icon={<PaymentsIcon />} tint="violet" label="Total fees" value={overview ? currency(overview.totalFees) : "—"} />
 				<KpiTile icon={<AccountBalanceWalletIcon />} tint="green" label="Collected" value={overview ? currency(overview.collected) : "—"} />
 				<KpiTile icon={<ReceiptLongIcon />} tint="orange" label="Outstanding" value={overview ? currency(overview.outstanding) : "—"} />
 				<KpiTile icon={<PriorityHighIcon />} tint="pink" label="Overdue" value={overview ? currency(overview.overdue) : "—"} />
@@ -230,7 +230,7 @@ export function FeeCollectionPage() {
 			<Paper sx={{ p: 2.5 }}>
 				<Stack spacing={2}>
 					<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-						<Typography variant="h6">Student Fee Ledger</Typography>
+						<Typography variant="h6">Student fee ledger</Typography>
 						<Typography variant="body2" sx={{ color: colors.inkSoft }}>
 							{filtered.length === 0 ? "No students" : `Showing ${page * rowsPerPage + 1}-${Math.min((page + 1) * rowsPerPage, filtered.length)} of ${filtered.length} students`}
 						</Typography>
@@ -240,12 +240,12 @@ export function FeeCollectionPage() {
 						searchValue={search}
 						onSearchChange={setSearch}
 						searchLabel="Search students"
-						searchPlaceholder="Student name or admission no."
+						searchPlaceholder="Name or admission number"
 						activeFilters={activeFilters}
 						onClearAll={clearFilters}
 					>
 						<TextField select size="small" label="Class" value={classLabel} onChange={(e) => setClassLabel(e.target.value)}>
-							<MenuItem value="">All Classes</MenuItem>
+							<MenuItem value="">All classes</MenuItem>
 							{classOptions.map((label) => (
 								<MenuItem key={label} value={label}>
 									{label}
@@ -253,7 +253,7 @@ export function FeeCollectionPage() {
 							))}
 						</TextField>
 						<TextField select size="small" label="Status" value={status} onChange={(e) => setStatus(e.target.value)}>
-							<MenuItem value="">All Status</MenuItem>
+							<MenuItem value="">All statuses</MenuItem>
 							{(Object.keys(STATUS_STYLE) as LedgerStatus[]).map((key) => (
 								<MenuItem key={key} value={key}>
 									{STATUS_STYLE[key].label}
@@ -285,10 +285,10 @@ export function FeeCollectionPage() {
 									<TableCell>Student</TableCell>
 									<TableCell>Adm. No.</TableCell>
 									<TableCell>Class</TableCell>
-									<TableCell align="right">Total Fees</TableCell>
+									<TableCell align="right">Total fees</TableCell>
 									<TableCell align="right">Paid</TableCell>
 									<TableCell align="right">Outstanding</TableCell>
-									<TableCell>Next Due Date</TableCell>
+									<TableCell>Next due date</TableCell>
 									<TableCell>Status</TableCell>
 									<TableCell align="right">Actions</TableCell>
 								</TableRow>
@@ -363,7 +363,7 @@ export function FeeCollectionPage() {
 			</Paper>
 
 			<Box sx={{ display: "grid", gap: 2.5, gridTemplateColumns: { xs: "1fr", lg: "1.2fr 1fr 1fr" } }}>
-				<SectionCard title="Fee Collection Trend" icon={<PaymentsIcon fontSize="small" />} tint="violet">
+				<SectionCard title="Fee collection trend" icon={<PaymentsIcon fontSize="small" />} tint="violet">
 					<Box sx={{ height: 240 }}>
 						{overview && overview.trend.some((point) => point.collected > 0 || point.outstanding > 0) ? (
 							<ResponsiveContainer width="100%" height="100%">
@@ -383,7 +383,7 @@ export function FeeCollectionPage() {
 					</Box>
 				</SectionCard>
 
-				<SectionCard title="Collection by Class" icon={<AccountBalanceWalletIcon fontSize="small" />} tint="green">
+				<SectionCard title="Collection by class" icon={<AccountBalanceWalletIcon fontSize="small" />} tint="green">
 					{overview && overview.byClass.length > 0 ? (
 						<Stack spacing={1.75} sx={{ maxHeight: 240, overflowY: "auto", pr: 0.5 }}>
 							{overview.byClass.map((item, index) => (
@@ -409,7 +409,7 @@ export function FeeCollectionPage() {
 					)}
 				</SectionCard>
 
-				<SectionCard title="Fee Type Breakdown" icon={<ReceiptLongIcon fontSize="small" />} tint="orange">
+				<SectionCard title="Fee type breakdown" icon={<ReceiptLongIcon fontSize="small" />} tint="orange">
 					{overview && overview.byType.length > 0 ? (
 						<Stack direction="row" spacing={2} sx={{ alignItems: "center", height: 240 }}>
 							<Box sx={{ position: "relative", width: 170, height: 170, flexShrink: 0 }}>
@@ -428,7 +428,7 @@ export function FeeCollectionPage() {
 										{shortAmount(typeTotal)}
 									</Typography>
 									<Typography variant="caption" sx={{ color: colors.inkSoft }}>
-										Total Fees
+										Total fees
 									</Typography>
 								</Box>
 							</Box>

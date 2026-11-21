@@ -196,16 +196,17 @@ export function ReportDetailPage() {
 
 	return (
 		<Stack spacing={2}>
-			<Box>
-				<Button startIcon={<ArrowBackIcon />} onClick={() => navigate("/reports")}>
-					Back to reports
-				</Button>
-			</Box>
-
 			<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 1 }}>
-				<Typography variant="h4" component="h1">
-					{report.name}
-				</Typography>
+				<Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+					<Tooltip title="Back to reports">
+						<IconButton onClick={() => navigate("/reports")} aria-label="Back to reports" sx={{ ml: -1 }}>
+							<ArrowBackIcon />
+						</IconButton>
+					</Tooltip>
+					<Typography variant="h4" component="h1">
+						{report.name}
+					</Typography>
+				</Stack>
 				<Chip label={report.status} color={REPORT_STATUS_COLOR[report.status] ?? "default"} />
 			</Box>
 

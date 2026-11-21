@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useParams } from "react-router-dom";
 import { AuthProvider } from "./auth/AuthContext";
 import { ClaimInvitePage } from "./auth/ClaimInvitePage";
 import { ClaimStaffInvitePage } from "./auth/ClaimStaffInvitePage";
@@ -97,6 +97,12 @@ import { TeacherDashboardPage } from "./portal/TeacherDashboardPage";
 import { ChildTimetablePage, MyTimetablePage } from "./portal/MyTimetablePage";
 import { MyPayslipPage, MyPayslipsPage } from "./portal/MyPayslipsPage";
 
+/** Old bookmarks: /settings/users/:userId now lives at /settings/members/:userId. */
+export function LegacySettingsUserRedirect() {
+	const { userId } = useParams();
+	return <Navigate to={`/settings/members/${userId ?? ""}`} replace />;
+}
+
 function App() {
 	return (
 		<AuthProvider>
@@ -185,7 +191,9 @@ function App() {
 							<Route path="/setup/go-live" element={<GoLiveCheckPage />} />
 							<Route path="/profile" element={<ProfilePage />} />
 							<Route path="/settings" element={<SettingsPage />} />
-							<Route path="/settings/users/:userId" element={<UserDetailPage />} />
+							<Route path="/settings/members/:userId" element={<UserDetailPage />} />
+							<Route path="/settings/users" element={<Navigate to="/settings/members" replace />} />
+							<Route path="/settings/users/:userId" element={<LegacySettingsUserRedirect />} />
 							<Route path="/settings/:section" element={<SettingsSectionPage />} />
 						</Route>
 						</Route>

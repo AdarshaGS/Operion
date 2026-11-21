@@ -4,7 +4,7 @@
 // auth contexts observe and answer by routing the user to sign-in - and throw. Nothing in
 // src/ should call fetch() against the API directly.
 
-export const SESSION_EXPIRED_MESSAGE = "Session expired - please log in again";
+export const SESSION_EXPIRED_MESSAGE = "Session expired — please sign in again";
 
 export interface SessionAuth {
 	/** The bearer token currently stored for this plane, or null when signed out. */

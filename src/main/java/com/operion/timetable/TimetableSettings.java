@@ -30,6 +30,10 @@ public class TimetableSettings extends TenantScopedEntity {
 	@Column(name = "max_teacher_periods_per_week")
 	private Integer maxTeacherPeriodsPerWeek;
 
+	/** Standard length of a class period in minutes, used to default new periods' end time; null = not configured. */
+	@Column(name = "period_minutes")
+	private Integer periodMinutes;
+
 	public TimetableSettings() {
 		this.gapMinutes = 0;
 	}

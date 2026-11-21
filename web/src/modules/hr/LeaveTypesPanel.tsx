@@ -18,16 +18,21 @@ import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import AddIcon from "@mui/icons-material/Add";
+import EditIcon from "@mui/icons-material/Edit";
+import IconButton from "@mui/material/IconButton";
+import Tooltip from "@mui/material/Tooltip";
 import { Can } from "../../auth/Can";
 import { DialogErrorAlert } from "../../components/DialogErrorAlert";
 import { ApiError } from "../../api/client";
 import { loadErrorMessage } from "./loadError";
-import { createLeaveType, listLeaveTypes, type LeaveTypeResponse } from "../../api/leaveTypes";
+import { createLeaveType, listLeaveTypes, updateLeaveType, type LeaveTypeResponse } from "../../api/leaveTypes";
 
 export function LeaveTypesPanel() {
 	const [leaveTypes, setLeaveTypes] = useState<LeaveTypeResponse[]>([]);
 	const [error, setError] = useState<string | null>(null);
 	const [dialogOpen, setDialogOpen] = useState(false);
+	// null = creating a new leave type; otherwise the one being edited (its code stays fixed).
+	const [editing, setEditing] = useState<LeaveTypeResponse | null>(null);
 	const [code, setCode] = useState("");
 	const [name, setName] = useState("");
 	const [defaultAnnualDays, setDefaultAnnualDays] = useState("");
@@ -43,19 +48,42 @@ export function LeaveTypesPanel() {
 
 	useEffect(refresh, []);
 
+	function openCreate() {
+		setEditing(null);
+		setCode("");
+		setName("");
+		setDefaultAnnualDays("");
+		setDialogError(null);
+		setDialogOpen(true);
+	}
+
+	function openEdit(leaveType: LeaveTypeResponse) {
+		setEditing(leaveType);
+		setCode(leaveType.code);
+		setName(leaveType.name);
+		setDefaultAnnualDays(leaveType.defaultAnnualDays === null ? "" : String(leaveType.defaultAnnualDays));
+		setDialogError(null);
+		setDialogOpen(true);
+	}
+
 	async function handleSubmit(event: FormEvent) {
 		event.preventDefault();
 		setSubmitting(true);
 		setDialogError(null);
+		const days = defaultAnnualDays ? Number(defaultAnnualDays) : null;
 		try {
-			await createLeaveType({ code, name, defaultAnnualDays: defaultAnnualDays ? Number(defaultAnnualDays) : null });
+			if (editing) {
+				await updateLeaveType(editing.id, { name, defaultAnnualDays: days });
+			} else {
+				await createLeaveType({ code, name, defaultAnnualDays: days });
+			}
 			setCode("");
 			setName("");
 			setDefaultAnnualDays("");
 			setDialogOpen(false);
 			refresh();
 		} catch (err) {
-			setDialogError(err instanceof ApiError ? err.message : "Failed to create leave type");
+			setDialogError(err instanceof ApiError ? err.message : editing ? "Failed to update leave type" : "Failed to create leave type");
 		} finally {
 			setSubmitting(false);
 		}
@@ -67,7 +95,7 @@ export function LeaveTypesPanel() {
 				<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
 					<Typography variant="h6">Leave types</Typography>
 					<Can anyOf={["HR_LEAVE_TYPE_MANAGE"]}>
-						<Button size="small" startIcon={<AddIcon />} onClick={() => { setDialogError(null); setDialogOpen(true); }}>
+						<Button size="small" startIcon={<AddIcon />} onClick={openCreate}>
 							Add leave type
 						</Button>
 					</Can>
@@ -83,6 +111,9 @@ export function LeaveTypesPanel() {
 								<TableCell>Name</TableCell>
 								<TableCell>Default annual days</TableCell>
 								<TableCell>Status</TableCell>
+								<Can anyOf={["HR_LEAVE_TYPE_MANAGE"]}>
+									<TableCell align="right">Actions</TableCell>
+								</Can>
 							</TableRow>
 						</TableHead>
 						<TableBody>
@@ -94,6 +125,15 @@ export function LeaveTypesPanel() {
 									<TableCell>
 										<Chip label={leaveType.status} size="small" />
 									</TableCell>
+									<Can anyOf={["HR_LEAVE_TYPE_MANAGE"]}>
+										<TableCell align="right">
+											<Tooltip title="Edit">
+												<IconButton size="small" aria-label={`Edit ${leaveType.name}`} onClick={() => openEdit(leaveType)}>
+													<EditIcon fontSize="small" />
+												</IconButton>
+											</Tooltip>
+										</TableCell>
+									</Can>
 								</TableRow>
 							))}
 						</TableBody>
@@ -102,11 +142,11 @@ export function LeaveTypesPanel() {
 			</Stack>
 
 			<Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} component="form" onSubmit={handleSubmit} fullWidth maxWidth="xs">
-				<DialogTitle>Add leave type</DialogTitle>
+				<DialogTitle>{editing ? "Edit leave type" : "Add leave type"}</DialogTitle>
 				<DialogContent>
 					<Stack spacing={2} sx={{ mt: 1 }}>
 						{dialogError && <DialogErrorAlert>{dialogError}</DialogErrorAlert>}
-						<TextField label="Code" placeholder="CASUAL" value={code} onChange={(e) => setCode(e.target.value)} required autoFocus fullWidth />
+						<TextField label="Code" placeholder="CASUAL" value={code} onChange={(e) => setCode(e.target.value)} required autoFocus={!editing} disabled={!!editing} helperText={editing ? "Code cannot be changed" : undefined} fullWidth />
 						<TextField label="Name" placeholder="Casual Leave" value={name} onChange={(e) => setName(e.target.value)} required fullWidth />
 						<TextField
 							label="Default annual days"
@@ -120,7 +160,7 @@ export function LeaveTypesPanel() {
 				<DialogActions>
 					<Button onClick={() => setDialogOpen(false)}>Cancel</Button>
 					<Button type="submit" variant="contained" disabled={submitting}>
-						Add
+						{editing ? "Save" : "Add"}
 					</Button>
 				</DialogActions>
 			</Dialog>

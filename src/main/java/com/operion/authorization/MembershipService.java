@@ -1,7 +1,10 @@
 package com.operion.authorization;
 
 import java.time.LocalDate;
+import java.util.Collection;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import com.operion.audit.AuditLogService;
 import com.operion.common.InvalidRequestException;
@@ -9,6 +12,7 @@ import com.operion.identity.Person;
 import com.operion.identity.PersonRepository;
 import com.operion.identity.User;
 import com.operion.identity.UserRepository;
+import com.operion.identity.UserStatus;
 import com.operion.organisation.Campus;
 import com.operion.organisation.CampusRepository;
 import com.operion.organisation.Department;
@@ -63,16 +67,7 @@ public class MembershipService {
 				.orElseThrow(() -> new IllegalArgumentException("No user with id " + userId));
 		Person person = personRepository.findById(personId)
 				.orElseThrow(() -> new IllegalArgumentException("No person with id " + personId));
-		Role role = roleRepository.findById(roleId)
-				.orElseThrow(() -> new IllegalArgumentException("No role with id " + roleId));
-		if (role.getStatus() != RoleStatus.ACTIVE) {
-			throw new IllegalStateException("The role " + role.getName() + " is inactive and cannot be assigned");
-		}
-		if (actorId != null) {
-			List<String> roleCodes = role.getPermissions().stream().map(Permission::getCode).toList();
-			permissionChecker.requireAll(actorId, roleCodes,
-					"You can only assign a role whose permissions you hold yourself - ask an administrator to assign " + role.getName());
-		}
+		Role role = requireGrantableRole(roleId, actorId);
 		Campus campus = campusId == null ? null : campusRepository.findById(campusId)
 				.orElseThrow(() -> new IllegalArgumentException("No campus with id " + campusId));
 		Department department = departmentId == null ? null : departmentRepository.findById(departmentId)
@@ -93,6 +88,44 @@ public class MembershipService {
 		return membership;
 	}
 
+	/** The role rules every grant must pass, callable on their own so a caller that does other work first (e.g. issuing a
+	 * login) can refuse an ineligible role up front instead of discovering it half way through: the role exists, is active,
+	 * and - when {@code actorId} is given - the actor already holds everything the role grants. */
+	public Role requireGrantableRole(Long roleId, Long actorId) {
+		Role role = roleRepository.findById(roleId)
+				.orElseThrow(() -> new IllegalArgumentException("No role with id " + roleId));
+		if (role.getStatus() != RoleStatus.ACTIVE) {
+			throw new IllegalStateException("The role " + role.getName() + " is inactive and cannot be assigned");
+		}
+		if (actorId != null) {
+			List<String> roleCodes = role.getPermissions().stream().map(Permission::getCode).toList();
+			permissionChecker.requireAll(actorId, roleCodes,
+					"You can only assign a role whose permissions you hold yourself - ask an administrator to assign " + role.getName());
+		}
+		return role;
+	}
+
+	/**
+	 * The refusals revoke() applies, callable beforehand and for a set of memberships revoked together (one person can hold
+	 * several), so a caller can refuse before it writes anything. Nothing is written here. The Owner's membership is never
+	 * revocable; a system-default (Org Admin) membership needs ANOTHER active admin outside the set whose login is itself
+	 * ACTIVE - a PENDING (never claimed) or DISABLED user cannot administer anything, so counting one would strand the org.
+	 */
+	public void requireRevocable(Collection<OrganisationMembership> memberships) {
+		if (memberships.stream().anyMatch(OrganisationMembership::isOwner)) {
+			throw new IllegalStateException("Cannot revoke the organisation Owner's membership");
+		}
+		if (memberships.stream().anyMatch(membership -> membership.getRole().isSystemDefault())) {
+			Set<Long> revoking = memberships.stream().map(OrganisationMembership::getId).collect(Collectors.toSet());
+			boolean anotherActiveAdmin = membershipRepository.findByStatus(MembershipStatus.ACTIVE).stream()
+					.anyMatch(other -> !revoking.contains(other.getId()) && other.getRole().isSystemDefault()
+							&& other.getUser().getStatus() == UserStatus.ACTIVE);
+			if (!anotherActiveAdmin) {
+				throw new IllegalStateException("Cannot revoke the last active Org Admin membership");
+			}
+		}
+	}
+
 	/** Takes an id and loads internally rather than accepting a controller-loaded
 	 * membership - a detached entity's setter call never reaches the database on its own,
 	 * it needs an explicit save() within this method's own transaction. Blocks revoking the
@@ -107,16 +140,7 @@ public class MembershipService {
 		OrganisationMembership membership = membershipRepository.findById(membershipId)
 				.orElseThrow(() -> new IllegalArgumentException("No membership with id " + membershipId));
 
-		if (membership.isOwner()) {
-			throw new IllegalStateException("Cannot revoke the organisation Owner's membership");
-		}
-		if (membership.getRole().isSystemDefault()) {
-			boolean anotherActiveAdmin = membershipRepository.findByStatus(MembershipStatus.ACTIVE).stream()
-					.anyMatch(other -> !other.getId().equals(membership.getId()) && other.getRole().isSystemDefault());
-			if (!anotherActiveAdmin) {
-				throw new IllegalStateException("Cannot revoke the last active Org Admin membership");
-			}
-		}
+		requireRevocable(List.of(membership));
 		membership.setStatus(MembershipStatus.INACTIVE);
 		OrganisationMembership saved = membershipRepository.save(membership);
 		auditLogService.record("OrganisationMembership", saved.getId(), "REVOKE", MembershipStatus.ACTIVE, MembershipStatus.INACTIVE);

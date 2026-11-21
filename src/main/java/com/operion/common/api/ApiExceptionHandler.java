@@ -7,6 +7,7 @@ import com.operion.backup.BackupFailedException;
 import com.operion.authorization.AuthorizationDeniedException;
 import com.operion.finance.PaymentGatewayException;
 import com.operion.common.InvalidRequestException;
+import com.operion.common.StaleUpdateException;
 import com.operion.common.TooManyRequestsException;
 import com.operion.common.WebhookVerificationException;
 import com.operion.identity.auth.AuthenticationFailedException;
@@ -17,6 +18,7 @@ import com.operion.storage.AssetStorageException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.dao.PessimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -39,6 +41,8 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 class ApiExceptionHandler {
 
 	private static final Logger log = LoggerFactory.getLogger(ApiExceptionHandler.class);
+
+	static final String STALE_MESSAGE = "This record was changed by someone else — reload and try again";
 
 	@ExceptionHandler(MethodArgumentNotValidException.class)
 	ResponseEntity<Map<String, String>> validationFailed(MethodArgumentNotValidException ex) {
@@ -145,6 +149,19 @@ class ApiExceptionHandler {
 	ResponseEntity<Map<String, String>> lockContention(PessimisticLockingFailureException ex) {
 		log.warn("Request rolled back by database lock contention", ex);
 		return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error", "The system is busy, please retry"));
+	}
+
+	/** Someone else saved the same record first (Hibernate's version check failed on flush). Nothing was written by this
+	 * request; the caller reloads and re-applies the edit - a 409, not a server fault. */
+	@ExceptionHandler(OptimisticLockingFailureException.class)
+	ResponseEntity<Map<String, String>> staleVersion(OptimisticLockingFailureException ex) {
+		return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error", STALE_MESSAGE));
+	}
+
+	/** An explicit version comparison in a service found the client's copy out of date; the service's message is shown. */
+	@ExceptionHandler(StaleUpdateException.class)
+	ResponseEntity<Map<String, String>> staleUpdate(StaleUpdateException ex) {
+		return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error", clientMessage(ex)));
 	}
 
 	@ExceptionHandler(AuthenticationFailedException.class)

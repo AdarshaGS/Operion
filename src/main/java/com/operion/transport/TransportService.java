@@ -10,6 +10,7 @@ import com.operion.finance.FeeService;
 import com.operion.finance.FeeStructure;
 import com.operion.finance.StudentFeeAssignment;
 import com.operion.identity.Person;
+import com.operion.organisation.AcademicYearGuard;
 import com.operion.organisation.Campus;
 import com.operion.student.StudentEnrollment;
 import org.springframework.stereotype.Service;
@@ -104,6 +105,7 @@ public class TransportService {
 	@Transactional
 	public StudentTransportAssignment assignStudent(StudentEnrollment studentEnrollment, Route route, RouteStop routeStop,
 			boolean usesPickup, boolean usesDrop, LocalDate effectiveFrom, FeeStructure transportFeeStructure) {
+		AcademicYearGuard.requireOpen(studentEnrollment.getAcademicYear(), "assigning transport");
 		studentTransportAssignmentRepository.findByStudentEnrollmentIdAndStatus(studentEnrollment.getId(), TransportAssignmentStatus.ACTIVE)
 				.ifPresent(existing -> {
 					throw new IllegalStateException("Enrollment " + studentEnrollment.getId() + " already has an active transport assignment");
@@ -126,10 +128,13 @@ public class TransportService {
 	@Transactional
 	public StudentTransportAssignment reassignRoute(StudentTransportAssignment assignment, Route route, RouteStop routeStop,
 			LocalDate effectiveFrom) {
+		AcademicYearGuard.requireOpen(assignment.getStudentEnrollment().getAcademicYear(), "changing a student's transport route");
 		requireSameCampus(assignment.getStudentEnrollment(), route);
 		requireStopOnRoute(route, routeStop);
 		assignment.end(effectiveFrom);
-		studentTransportAssignmentRepository.save(assignment);
+		// Flush the old row's end before the replacement is inserted: a flush runs INSERTs before UPDATEs, and the
+		// one-active unique key (enrollment, active_marker) would otherwise see two active rows.
+		studentTransportAssignmentRepository.saveAndFlush(assignment);
 
 		requireVehicleCapacity(route);
 		StudentTransportAssignment reassigned = studentTransportAssignmentRepository.save(new StudentTransportAssignment(

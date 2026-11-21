@@ -35,7 +35,7 @@ export function PlatformLoginPage() {
 			await login(email.trim(), password);
 			navigate("/platform/dashboard", { replace: true });
 		} catch (err) {
-			setError(err instanceof PlatformApiError ? err.message : "Login failed - please try again");
+			setError(err instanceof PlatformApiError ? err.message : "Sign-in failed - please try again");
 		} finally {
 			setSubmitting(false);
 		}

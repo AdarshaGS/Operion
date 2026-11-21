@@ -112,6 +112,11 @@ export function getMonthlySummary(enrollmentId: number, year: number, month: num
 	);
 }
 
+/** Per-day attendance rows for one enrollment between two ISO dates (inclusive). */
+export function getStudentAttendanceHistory(enrollmentId: number, from: string, to: string): Promise<StudentAttendanceResponse[]> {
+	return api.get<StudentAttendanceResponse[]>(`/api/v1/attendance/enrollments/${enrollmentId}?from=${from}&to=${to}`);
+}
+
 export interface StaffAttendanceResponse {
 	id: number;
 	personId: number;

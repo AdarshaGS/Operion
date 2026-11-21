@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
+import { useSearchParams } from "react-router-dom";
 import Alert from "@mui/material/Alert";
 import CircularProgress from "@mui/material/CircularProgress";
 import MenuItem from "@mui/material/MenuItem";
@@ -12,6 +13,7 @@ import { listSectionEnrollments } from "../../api/enrollments";
 import { listPersons } from "../../api/persons";
 import { listSections, type SectionResponse } from "../../api/sections";
 import { listTeacherAssignmentsForSection } from "../../api/teacherAssignments";
+import { useCan } from "../../auth/useCan";
 import { ClassSubjectsPanel } from "./ClassSubjectsPanel";
 import { useClassLabel } from "./classLabel";
 import { GradeLevelsPanel } from "./GradeLevelsPanel";
@@ -23,20 +25,22 @@ import { SectionTimetablePanel } from "./SectionTimetablePanel";
 import { SubjectsPanel } from "./SubjectsPanel";
 import { SubstitutionsPanel } from "./SubstitutionsPanel";
 import { TeacherAssignmentsPanel } from "./TeacherAssignmentsPanel";
+import { UncoveredPeriodsPanel } from "./UncoveredPeriodsPanel";
 
-const TABS = ["gradeLevels", "sections", "subjects", "classOfferings", "teacherAssignments", "periods", "rooms", "timetable", "substitutions"] as const;
+const TABS = ["gradeLevels", "sections", "subjects", "classOfferings", "teacherAssignments", "periods", "rooms", "timetable", "substitutions", "uncovered"] as const;
 type TabKey = (typeof TABS)[number];
 
 const TAB_LABELS: Record<TabKey, string> = {
 	gradeLevels: "Grade levels",
 	sections: "Sections",
 	subjects: "Subjects",
-	classOfferings: "Class offerings",
+	classOfferings: "Classes",
 	teacherAssignments: "Teacher assignments",
 	periods: "Periods",
 	rooms: "Rooms",
 	timetable: "Timetable",
 	substitutions: "Substitutions",
+	uncovered: "Uncovered",
 };
 
 /** Class-offering selector shared by the Sections and Teacher assignments tabs (#246) -
@@ -118,7 +122,7 @@ function SectionsTab() {
 	if (schoolClasses.length === 0) {
 		return (
 			<Alert severity="info">
-				{campusPicked ? "No class offerings in the selected campus yet." : "No class offerings yet."} Create one under the Class offerings tab, then add its
+				{campusPicked ? "No classes in the selected campus yet." : "No classes yet."} Create one under the Classes tab, then add its
 				sections here.
 			</Alert>
 		);
@@ -150,7 +154,7 @@ function ClassOfferingsTab() {
 				))}
 			</TextField>
 
-			{!schoolClassId && <Alert severity="info">Create a class offering above to assign subjects to it.</Alert>}
+			{!schoolClassId && <Alert severity="info">Create a class above to assign subjects to it.</Alert>}
 			{schoolClassId && <ClassSubjectsPanel classId={Number(schoolClassId)} />}
 		</Stack>
 	);
@@ -182,7 +186,7 @@ function SectionScopedTab({ noun, render }: { noun: string; render: (sectionId: 
 			<Stack direction="row" spacing={2} sx={{ flexWrap: "wrap" }}>
 				<TextField
 					select
-					label="Class offering"
+					label="Class"
 					value={schoolClassId}
 					onChange={(e) => setSchoolClassId(e.target.value)}
 					sx={{ minWidth: 220 }}
@@ -211,7 +215,7 @@ function SectionScopedTab({ noun, render }: { noun: string; render: (sectionId: 
 
 			{!sectionId && (
 				<Alert severity="info">
-					{schoolClassId ? "This class offering has no sections yet - add one under the Sections tab" : "No class offerings yet - create one under the Class offerings tab"} to manage {noun}.
+					{schoolClassId ? "This class has no sections yet - add one under the Sections tab" : "No classes yet - create one under the Classes tab"} to manage {noun}.
 				</Alert>
 			)}
 			{sectionId && render(Number(sectionId), Number(schoolClassId))}
@@ -233,12 +237,17 @@ function TimetableTab() {
  * Every tab reuses the same panels/APIs SchoolClassSectionsPage/SectionDetailPage/
  * Settings already use - no data-model changes, no duplicated logic. */
 export function AcademicsPage() {
-	const [tab, setTab] = useState<TabKey>("gradeLevels");
+	// The active tab lives in ?tab= so other screens (e.g. a leave's "Assign cover") can deep-link to one.
+	const [searchParams, setSearchParams] = useSearchParams();
+	const canViewTimetable = useCan("TIMETABLE_VIEW");
+	const visibleTabs = TABS.filter((t) => t !== "uncovered" || canViewTimetable);
+	const requested = searchParams.get("tab");
+	const tab: TabKey = visibleTabs.find((t) => t === requested) ?? "gradeLevels";
 
 	return (
 		<Stack spacing={3}>
-			<Tabs value={tab} onChange={(_, value) => setTab(value)}>
-				{TABS.map((t) => (
+			<Tabs value={tab} onChange={(_, value: TabKey) => setSearchParams({ tab: value })}>
+				{visibleTabs.map((t) => (
 					<Tab key={t} label={TAB_LABELS[t]} value={t} />
 				))}
 			</Tabs>
@@ -252,6 +261,7 @@ export function AcademicsPage() {
 			{tab === "rooms" && <RoomsPanel />}
 			{tab === "timetable" && <TimetableTab />}
 			{tab === "substitutions" && <SubstitutionsPanel />}
+			{tab === "uncovered" && <UncoveredPeriodsPanel />}
 		</Stack>
 	);
 }

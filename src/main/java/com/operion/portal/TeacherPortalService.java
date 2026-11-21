@@ -72,7 +72,7 @@ public class TeacherPortalService {
 	public List<TeacherLeaveBalanceSummary> leaveBalanceFor(Long userId, Long academicYearId) {
 		StaffProfile staffProfile = requireOwnStaffProfile(userId);
 		AcademicYear academicYear = findAcademicYear(academicYearId);
-		return leaveTypeRepository.findAll().stream()
+		return leaveTypeRepository.findByStatus(LeaveTypeStatus.ACTIVE).stream()
 				.map(leaveType -> {
 					double allocated = leaveBalanceRepository
 							.findByStaffProfileIdAndLeaveTypeIdAndAcademicYearId(staffProfile.getId(), leaveType.getId(), academicYear.getId())

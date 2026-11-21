@@ -8,6 +8,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -18,7 +19,8 @@ import lombok.NoArgsConstructor;
  */
 @Getter
 @Entity
-@Table(name = "academic_years")
+@Table(name = "academic_years", uniqueConstraints = {
+		@UniqueConstraint(name = "uq_academic_years_org_current", columnNames = { "organisation_id", "current_marker" }) })
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class AcademicYear extends TenantScopedEntity {
 
@@ -34,6 +36,10 @@ public class AcademicYear extends TenantScopedEntity {
 	@Column(name = "is_current", nullable = false)
 	private boolean current;
 
+	/** Mirrors {@link #current} as TRUE or NULL so a unique key can allow at most one current year per organisation. Kept in step by every mutator below. */
+	@Column(name = "current_marker")
+	private Boolean currentMarker;
+
 	@Enumerated(EnumType.STRING)
 	@Column(nullable = false, length = 20)
 	private AcademicYearStatus status;
@@ -43,6 +49,7 @@ public class AcademicYear extends TenantScopedEntity {
 		this.startDate = startDate;
 		this.endDate = endDate;
 		this.current = false;
+		this.currentMarker = null;
 		this.status = AcademicYearStatus.DRAFT;
 	}
 
@@ -62,6 +69,7 @@ public class AcademicYear extends TenantScopedEntity {
 			throw new IllegalStateException("A closed academic year cannot be made current again");
 		}
 		this.current = true;
+		this.currentMarker = true;
 		this.status = AcademicYearStatus.ACTIVE;
 	}
 
@@ -69,6 +77,7 @@ public class AcademicYear extends TenantScopedEntity {
 	 * ceasing to be "the" current year isn't the same event as this year being done. */
 	public void unmarkCurrent() {
 		this.current = false;
+		this.currentMarker = null;
 	}
 
 	public void close() {
@@ -76,6 +85,7 @@ public class AcademicYear extends TenantScopedEntity {
 			throw new IllegalStateException("Academic year is already closed");
 		}
 		this.current = false;
+		this.currentMarker = null;
 		this.status = AcademicYearStatus.CLOSED;
 	}
 }

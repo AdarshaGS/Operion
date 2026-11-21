@@ -11,6 +11,7 @@ import TextField from "@mui/material/TextField";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import ContentCopyIcon from "@mui/icons-material/ContentCopy";
+import { getSession } from "../api/tokenStore";
 import type { StaffInviteResponse } from "../api/users";
 
 interface StaffInviteDialogProps {
@@ -18,10 +19,25 @@ interface StaffInviteDialogProps {
 	onClose: () => void;
 }
 
-/** Shows a re-issued staff/user invite's one-time claim link + raw token. Members are no
- * longer created through invites (the admin sets their password), so this is only shown
- * by Settings > Users' "Resend invitation" for members still in PENDING status. See UserController.invite()/StaffInviteService - the
- * token is never stored server-side after this, so losing it means starting over. */
+/** Same query layout as the emailed link (StaffInviteService.sendInviteEmail): org first, then token. */
+function claimLink(claimToken: string): string {
+	const params = new URLSearchParams();
+	const organisationSlug = getSession()?.organisationSlug;
+	if (organisationSlug) {
+		params.set("org", organisationSlug);
+	}
+	params.set("token", claimToken);
+	return `${window.location.origin}/claim-staff-invite?${params.toString()}`;
+}
+
+/** Shows a staff invite's one-time claim link + raw token. Shown when HR gives a staff member login access (HR > Add
+ * staff, or "Give login access" on a staff profile) and by Settings > Users' "Resend invitation" for members still in
+ * PENDING status. See StaffAccessService/UserController.invite()/StaffInviteService - the token is never stored
+ * server-side after this, so losing it means starting over.
+ *
+ * The link has the same shape as the emailed one (`/claim-staff-invite?org=<slug>&token=<token>`). The org slug is the one
+ * the signed-in user typed at login; a session from before that was recorded has none, in which case the link omits `org=`
+ * and the claim page asks for it. */
 export function StaffInviteDialog({ invite, onClose }: StaffInviteDialogProps) {
 	return (
 		<Dialog open={invite !== null} onClose={onClose} fullWidth maxWidth="sm">
@@ -43,7 +59,7 @@ export function StaffInviteDialog({ invite, onClose }: StaffInviteDialogProps) {
 						<>
 							<TextField
 								label="Claim link"
-								value={`${window.location.origin}/claim-staff-invite?token=${encodeURIComponent(invite.claimToken)}`}
+								value={claimLink(invite.claimToken)}
 								fullWidth
 								slotProps={{ input: { readOnly: true } }}
 							/>

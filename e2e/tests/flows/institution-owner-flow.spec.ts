@@ -98,7 +98,7 @@ test("Institution Owner: onboarding checklist moves in real dependency order, dr
 
 	const academicYearName = `${run} Academic Year`;
 	await test.step("4a. Institution setup (setup step 1): linear wizard - profile, business, campuses; no academic year in it; checklist advances to 1 of 12", async () => {
-		await dashboard.goToSetupStep("Institution setup");
+		await dashboard.goToSetupStep("Organisation profile");
 		await expect(page).toHaveURL(/\/setup\/structure/);
 		await expect(page.getByRole("heading", { name: "Structure setup" })).toBeVisible();
 
@@ -210,7 +210,7 @@ test("Institution Owner: onboarding checklist moves in real dependency order, dr
 	const className = "Grade 1 - A";
 	const sectionName = "A";
 	await test.step("4d. Class & section creation: grade level + subject, then a class alone, do NOT flip it; a section does", async () => {
-		await dashboard.goToSetupStep("Class & section creation");
+		await dashboard.goToSetupStep("Classes & sections");
 		await expect(page).toHaveURL(/\/academics\/setup/);
 
 		const academics = new AcademicsPage(page);
@@ -260,7 +260,7 @@ test("Institution Owner: onboarding checklist moves in real dependency order, dr
 	});
 
 	await test.step("4e. Fee structure configuration (before the student steps, so students know their fees in advance): configure a category + structure; Back returns to the dashboard; checklist advances to 6 of 12", async () => {
-		await dashboard.goToSetupStep("Fee structure configuration");
+		await dashboard.goToSetupStep("Fee structures");
 		await expect(page).toHaveURL(/\/fees\/setup/);
 
 		const fees = new FeesPage(page);

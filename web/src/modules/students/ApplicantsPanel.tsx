@@ -107,7 +107,7 @@ export function ApplicantsPanel() {
 			setInquiryOpen(false);
 			refresh();
 		} catch (err) {
-			setError(err instanceof ApiError ? err.message : "Failed to record inquiry");
+			setError(err instanceof ApiError ? err.message : "Failed to record enquiry");
 		} finally {
 			setSubmitting(false);
 		}
@@ -155,14 +155,14 @@ export function ApplicantsPanel() {
 					<Typography variant="h6">Applicants</Typography>
 					<Can anyOf={["STUDENT_MANAGE"]}>
 						<Button size="small" startIcon={<AddIcon />} onClick={() => setInquiryOpen(true)}>
-							Record inquiry
+							Record enquiry
 						</Button>
 					</Can>
 				</Box>
 
 				{error && <Alert severity="error">{error}</Alert>}
 
-				{applicants.length === 0 && <Alert severity="info">No applicants under inquiry.</Alert>}
+				{applicants.length === 0 && <Alert severity="info">No applicants under enquiry.</Alert>}
 
 				{applicants.length > 0 && (
 					<TableContainer>
@@ -170,7 +170,7 @@ export function ApplicantsPanel() {
 							<TableHead>
 								<TableRow>
 									<TableCell>Applicant</TableCell>
-									<TableCell>Inquiry date</TableCell>
+									<TableCell>Enquiry date</TableCell>
 									<TableCell>Source</TableCell>
 									{canManage && <TableCell />}
 								</TableRow>
@@ -200,7 +200,7 @@ export function ApplicantsPanel() {
 			</Stack>
 
 			<Dialog open={inquiryOpen} onClose={() => setInquiryOpen(false)} component="form" onSubmit={handleInquirySubmit} fullWidth maxWidth="sm">
-				<DialogTitle>Record inquiry</DialogTitle>
+				<DialogTitle>Record enquiry</DialogTitle>
 				<DialogContent>
 					<Stack spacing={2} sx={{ mt: 1 }}>
 						<Box sx={{ display: "flex", gap: 2 }}>
@@ -230,7 +230,7 @@ export function ApplicantsPanel() {
 						</Box>
 						<Box sx={{ display: "flex", gap: 2 }}>
 							<TextField
-								label="Inquiry date"
+								label="Enquiry date"
 								type="date"
 								value={inquiryForm.inquiryDate}
 								onChange={setInquiryField("inquiryDate")}

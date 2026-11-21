@@ -126,10 +126,10 @@ class BillingCrossOrgVisibilityTest {
 		// Simulates the platform-admin plane: no org in TenantContext between calls.
 		TenantContext.clear();
 		PlatformInvoice invoiceA = billingService.generateInvoice(
-				orgA.getId(), LocalDate.of(2026, 4, 1), LocalDate.of(2027, 3, 31), LocalDate.of(2026, 4, 15));
+				orgA.getId(), LocalDate.of(2026, 4, 1), LocalDate.of(2027, 3, 31), LocalDate.of(2026, 4, 15), new BigDecimal("300.00"));
 		TenantContext.clear();
 		PlatformInvoice invoiceB = billingService.generateInvoice(
-				orgB.getId(), LocalDate.of(2026, 4, 1), LocalDate.of(2027, 3, 31), LocalDate.of(2026, 4, 15));
+				orgB.getId(), LocalDate.of(2026, 4, 1), LocalDate.of(2027, 3, 31), LocalDate.of(2026, 4, 15), new BigDecimal("700.00"));
 
 		assertThat(invoiceA.getStudentCountAtBilling()).isEqualTo(3);
 		assertThat(invoiceB.getStudentCountAtBilling()).isEqualTo(7);

@@ -6,6 +6,11 @@ export interface CreateLeaveTypeRequest {
 	defaultAnnualDays?: number | null;
 }
 
+export interface UpdateLeaveTypeRequest {
+	name: string;
+	defaultAnnualDays?: number | null;
+}
+
 export interface LeaveTypeResponse {
 	id: number;
 	code: string;
@@ -20,4 +25,8 @@ export function createLeaveType(request: CreateLeaveTypeRequest): Promise<LeaveT
 
 export function listLeaveTypes(): Promise<LeaveTypeResponse[]> {
 	return api.get<LeaveTypeResponse[]>("/api/v1/hr/leave-types");
+}
+
+export function updateLeaveType(id: number, request: UpdateLeaveTypeRequest): Promise<LeaveTypeResponse> {
+	return api.put<LeaveTypeResponse>(`/api/v1/hr/leave-types/${id}`, request);
 }

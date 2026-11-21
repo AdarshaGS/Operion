@@ -4,9 +4,12 @@ import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
+import IconButton from "@mui/material/IconButton";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
+import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import CancelIcon from "@mui/icons-material/Cancel";
 import WarningAmberIcon from "@mui/icons-material/WarningAmber";
@@ -81,9 +84,16 @@ export function GoLiveCheckPage() {
 	return (
 		<Stack spacing={3}>
 			<Box>
-				<Typography variant="h4" sx={{ color: colors.ink }}>
-					Go-live check
-				</Typography>
+				<Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+					<Tooltip title="Back to school setup review">
+						<IconButton onClick={() => navigate("/setup/review")} aria-label="Back to school setup review" sx={{ ml: -1, color: colors.inkSoft }}>
+							<ArrowBackIcon />
+						</IconButton>
+					</Tooltip>
+					<Typography variant="h4" sx={{ color: colors.ink }}>
+						Go-live check
+					</Typography>
+				</Stack>
 				<Typography variant="body1" sx={{ color: colors.inkSoft, mt: 0.5 }}>
 					For each module that is switched on: is it configured, is the data in, and can people use it.
 				</Typography>
@@ -108,12 +118,6 @@ export function GoLiveCheckPage() {
 					Not checked because they are switched off for your school: {report.hiddenModules.join(", ")}.
 				</Typography>
 			)}
-
-			<Box>
-				<Button onClick={() => navigate("/setup/review")} sx={{ color: colors.inkSoft }}>
-					Back to school setup review
-				</Button>
-			</Box>
 		</Stack>
 	);
 }

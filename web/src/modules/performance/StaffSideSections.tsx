@@ -29,7 +29,7 @@ export function StaffInformationSection({ staff, appraisal }: { staff: StaffInfo
 		<SectionCard title="Staff information" icon={<BadgeOutlinedIcon fontSize="small" />} tint="blue">
 			<Box component="dl" sx={{ m: 0, display: "grid", gap: 2, gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}>
 				<Field label="Staff name">{staff.name}</Field>
-				<Field label="Employee ID">{staff.employeeCode ?? "Not set"}</Field>
+				<Field label="Staff ID">{staff.employeeCode ?? "Not set"}</Field>
 				<Field label="Designation">{orNotSet(staff.designation)}</Field>
 				<Field label="Department">{orNotSet(staff.department)}</Field>
 				<Field label="Appraisal cycle">{appraisal.cycle.name}</Field>

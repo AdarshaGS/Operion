@@ -8,7 +8,7 @@ import { getChildStanding, type ChildStanding, type LeaderboardTrack } from "../
 
 const TRACKS: { track: LeaderboardTrack; label: string; unit: (score: number) => string }[] = [
 	{ track: "QUIZ", label: "Quizzes", unit: (s) => `${s.toFixed(1)}% average` },
-	{ track: "ACADEMIC", label: "Academic assessments", unit: (s) => `${s.toFixed(1)}% of marks` },
+	{ track: "ACADEMIC", label: "Examinations", unit: (s) => `${s.toFixed(1)}% of marks` },
 	{ track: "REWARD", label: "Rewards", unit: (s) => `${s} points` },
 ];
 

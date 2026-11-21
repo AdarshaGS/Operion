@@ -273,7 +273,7 @@ function ColumnsDialog({
 	useEffect(() => {
 		listRegulatoryExportSourceFields(schema.entityType)
 			.then(setSources)
-			.catch((err) => setError(message(err, "Failed to load the field catalog")));
+			.catch((err) => setError(message(err, "Failed to load the field catalogue")));
 	}, [schema.entityType]);
 
 	function update(index: number, patch: Partial<ColumnRow>) {

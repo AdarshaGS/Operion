@@ -47,7 +47,7 @@ export const IMPORT_ENTITIES: ImportEntityConfig[] = [
 	{
 		key: "staff",
 		label: "Staff",
-		description: "Import staff/employee details from Excel.",
+		description: "Import staff details from Excel.",
 		group: "people",
 		module: "HR",
 		icon: <BadgeIcon color="primary" />,
@@ -88,7 +88,7 @@ export const IMPORT_ENTITIES: ImportEntityConfig[] = [
 	},
 	{
 		key: "guardians",
-		label: "Parents / Guardians",
+		label: "Parents / guardians",
 		description: "Import parent or guardian details.",
 		group: "people",
 		module: "STUDENTS",
@@ -162,7 +162,7 @@ export const IMPORT_ENTITIES: ImportEntityConfig[] = [
 	{
 		key: "fee-structures",
 		label: "Fee structures",
-		description: "Import fee heads and structures.",
+		description: "Import fee categories and structures.",
 		group: "finance",
 		module: "FEES",
 		icon: <AccountBalanceIcon color="primary" />,

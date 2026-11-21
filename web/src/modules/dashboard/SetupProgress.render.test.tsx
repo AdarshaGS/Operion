@@ -44,22 +44,22 @@ describe("SetupProgress", () => {
 	beforeEach(() => localStorage.clear());
 	afterEach(() => vi.restoreAllMocks());
 
-	it("lists Team members & roles right after Academic year creation", () => {
+	it("lists Members & roles right after Academic year creation", () => {
 		renderCard(() => true);
-		const labels = screen.getAllByText(/^(Academic year creation|Team members & roles|Class & section creation)$/).map((node) => node.textContent);
-		expect(labels).toEqual(["Academic year creation", "Team members & roles", "Class & section creation"]);
+		const labels = screen.getAllByText(/^(Academic year creation|Members & roles|Classes & sections)$/).map((node) => node.textContent);
+		expect(labels).toEqual(["Academic year creation", "Members & roles", "Classes & sections"]);
 		expect(screen.getByText(/of 12 setup tasks complete/)).toBeInTheDocument();
 	});
 
 	it("puts fee structure before the student steps and leaves fee collection out", () => {
 		renderCard(() => true);
 		const order = [
-			"Institution setup",
+			"Organisation profile",
 			"Academic year creation",
-			"Team members & roles",
-			"Class & section creation",
+			"Members & roles",
+			"Classes & sections",
 			"Subject configuration",
-			"Fee structure configuration",
+			"Fee structures",
 			"Student admissions",
 			"Student record management",
 			"Attendance management",
@@ -102,7 +102,7 @@ describe("SetupProgress", () => {
 			expect(screen.getByText(String(number), { selector: "div" })).toBeInTheDocument();
 		}
 		expect(screen.queryByText("12", { selector: "div" })).not.toBeInTheDocument();
-		expect(screen.queryByText("Fee structure configuration")).not.toBeInTheDocument();
+		expect(screen.queryByText("Fee structures")).not.toBeInTheDocument();
 		expect(screen.getByText(/Steps 1.11 follow one academic year/)).toBeInTheDocument();
 	});
 
@@ -110,7 +110,7 @@ describe("SetupProgress", () => {
 		renderCard(() => true);
 		fireEvent.click(screen.getByRole("button", { name: /Next setup step/ }));
 		expect(screen.getByText("Setup guide - 0 of 12 complete")).toBeInTheDocument();
-		expect(screen.queryByText("Institution setup")).not.toBeInTheDocument();
+		expect(screen.queryByText("Organisation profile")).not.toBeInTheDocument();
 		expect(screen.getByRole("progressbar")).toBeInTheDocument();
 		expect(localStorage.getItem("operion.dashboard.setupGuideExpanded")).toBe("0");
 	});
@@ -129,7 +129,7 @@ describe("SetupProgress", () => {
 			throw new Error("storage blocked");
 		});
 		renderCard(() => true);
-		expect(screen.getByText("Institution setup")).toBeInTheDocument();
+		expect(screen.getByText("Organisation profile")).toBeInTheDocument();
 		fireEvent.click(screen.getByRole("button", { name: /Next setup step/ }));
 		expect(screen.getByText("Setup guide - 0 of 12 complete")).toBeInTheDocument();
 	});

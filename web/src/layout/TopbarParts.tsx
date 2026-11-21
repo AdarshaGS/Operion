@@ -81,18 +81,26 @@ export function GlobalSearch({ placeholder = "Search students, staff, classes, a
 	const inputRef = useRef<HTMLInputElement | null>(null);
 	const [input, setInput] = useState("");
 	const [remote, setRemote] = useState<SearchOption[]>([]);
+	// Collapsed to a single icon by default so the bar keeps its room; opens on click or Cmd/Ctrl+K.
+	const [expanded, setExpanded] = useState(false);
 	const isMac = typeof navigator !== "undefined" && /mac/i.test(navigator.platform);
 
 	useEffect(() => {
 		function onKey(event: KeyboardEvent) {
 			if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
 				event.preventDefault();
+				setExpanded(true);
 				inputRef.current?.focus();
 			}
 		}
 		window.addEventListener("keydown", onKey);
 		return () => window.removeEventListener("keydown", onKey);
 	}, []);
+
+	// The input only exists while expanded, so focus it once it has mounted.
+	useEffect(() => {
+		if (expanded) inputRef.current?.focus();
+	}, [expanded]);
 
 	useEffect(() => {
 		const query = input.trim();
@@ -133,6 +141,34 @@ export function GlobalSearch({ placeholder = "Search students, staff, classes, a
 		setInput("");
 		setRemote([]);
 		inputRef.current?.blur();
+		setExpanded(false);
+	}
+
+	if (!expanded) {
+		return (
+			// ml:auto pushes the icon (and everything after it) to the right edge, next to the year/date chips.
+			<Tooltip title={`Search (${isMac ? "⌘" : "Ctrl"} K)`}>
+				<ButtonBase
+					onClick={() => setExpanded(true)}
+					aria-label="Search"
+					sx={{
+						display: "flex",
+						alignItems: "center",
+						justifyContent: "center",
+						width: 44,
+						height: 44,
+						borderRadius: "12px",
+						backgroundColor: colors.paper,
+						border: `1px solid ${colors.rule}`,
+						flexShrink: 0,
+						ml: "auto",
+						"&:hover": { borderColor: colors.accent },
+					}}
+				>
+					<SearchIcon sx={{ color: colors.accent, fontSize: 20 }} />
+				</ButtonBase>
+			</Tooltip>
+		);
 	}
 
 	return (
@@ -148,11 +184,22 @@ export function GlobalSearch({ placeholder = "Search students, staff, classes, a
 			inputValue={input}
 			onInputChange={(_, value, reason) => setInput(reason === "reset" ? "" : value)}
 			onChange={(_, value) => go(value)}
+			// Leaving the field empty folds it back to the icon; Escape always does.
+			onBlur={() => {
+				if (!inputRef.current?.value) setExpanded(false);
+			}}
+			onKeyDown={(event) => {
+				if (event.key === "Escape") {
+					setInput("");
+					setRemote([]);
+					setExpanded(false);
+				}
+			}}
 			slotProps={{ paper: { sx: { mt: 0.75 } } }}
-			// maxWidth caps the search, so on wide windows there is spare room in the bar; mr:auto parks that gap
-			// right after the search (flex-grow is resolved first, auto margins take only what's left) so the
-			// trailing chips, bell and avatar stay packed against the right edge.
-			sx={{ maxWidth: 560, flexGrow: 1, minWidth: 0, mr: "auto" }}
+			// maxWidth caps the search, so on wide windows there is spare room in the bar; ml:auto parks that gap
+			// before the search (flex-grow is resolved first, auto margins take only what's left), so the search
+			// grows leftwards from the icon's spot and the trailing chips, bell and avatar stay on the right edge.
+			sx={{ maxWidth: 560, flexGrow: 1, minWidth: 0, ml: "auto" }}
 			renderOption={(props, option) => {
 				const { key, ...rest } = props as typeof props & { key: string };
 				return (

@@ -21,6 +21,7 @@ import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
+import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import AddIcon from "@mui/icons-material/Add";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
@@ -173,23 +174,24 @@ export function BookDetailPage() {
 
 	return (
 		<Stack spacing={2}>
-			<Box>
-				<Button startIcon={<ArrowBackIcon />} onClick={() => navigate("/library")}>
-					Back to library
-				</Button>
-			</Box>
-
 			<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-				<Box>
-					<Typography variant="h4" component="h1">
-						{book?.title ?? `Book #${bookId}`}
-					</Typography>
-					{book?.author && (
-						<Typography variant="body2" color="text.secondary">
-							by {book.author}
+				<Stack direction="row" spacing={1} sx={{ alignItems: "flex-start" }}>
+					<Tooltip title="Back to library">
+						<IconButton onClick={() => navigate("/library")} aria-label="Back to library" sx={{ ml: -1 }}>
+							<ArrowBackIcon />
+						</IconButton>
+					</Tooltip>
+					<Box>
+						<Typography variant="h4" component="h1">
+							{book?.title ?? `Book #${bookId}`}
 						</Typography>
-					)}
-				</Box>
+						{book?.author && (
+							<Typography variant="body2" color="text.secondary">
+								by {book.author}
+							</Typography>
+						)}
+					</Box>
+				</Stack>
 				{book && (
 					<Can anyOf={["LIBRARY_CATALOG_MANAGE"]}>
 						<Button size="small" startIcon={<EditIcon />} onClick={openEditBook}>

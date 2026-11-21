@@ -26,6 +26,7 @@ export function PayrollRunsPanel() {
 	const [month, setMonth] = useState(String(now.getMonth() + 1));
 	const [error, setError] = useState<string | null>(null);
 	const [loaded, setLoaded] = useState(false);
+	const [submitting, setSubmitting] = useState(false);
 
 	useEffect(() => {
 		listPayrollRuns()
@@ -38,12 +39,16 @@ export function PayrollRunsPanel() {
 
 	async function handleGenerate(event: FormEvent) {
 		event.preventDefault();
+		if (submitting) return;
+		setSubmitting(true);
 		setError(null);
 		try {
 			const run = await generatePayrollRun(Number(year), Number(month));
 			navigate(`/payroll/runs/${run.id}`);
 		} catch (err) {
 			setError(err instanceof ApiError ? err.message : "Failed to generate payroll run");
+		} finally {
+			setSubmitting(false);
 		}
 	}
 
@@ -62,7 +67,7 @@ export function PayrollRunsPanel() {
 							))}
 						</TextField>
 						<TextField label="Year" type="number" value={year} onChange={(e) => setYear(e.target.value)} sx={{ width: 120 }} />
-						<Button type="submit" variant="contained">
+						<Button type="submit" variant="contained" disabled={submitting}>
 							Generate run
 						</Button>
 					</Stack>

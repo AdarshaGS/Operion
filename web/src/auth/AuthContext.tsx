@@ -91,12 +91,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 			.finally(() => setPermissionsLoaded(true));
 	}, [session]);
 
-	const applySession = useCallback((response: { token: string; expiresAt: string; userId: number; organisationId: number }) => {
+	const applySession = useCallback((response: { token: string; expiresAt: string; userId: number; organisationId: number }, organisationSlug: string) => {
 		const newSession: StoredSession = {
 			token: response.token,
 			expiresAt: response.expiresAt,
 			userId: response.userId,
 			organisationId: response.organisationId,
+			organisationSlug: organisationSlug.trim() || undefined,
 		};
 		setSession(newSession);
 		setSessionState(newSession);
@@ -104,21 +105,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 	const login = useCallback(
 		async (organisationSlug: string, email: string, password: string) => {
-			applySession(await loginRequest({ organisationSlug, email, password }));
+			applySession(await loginRequest({ organisationSlug, email, password }), organisationSlug);
 		},
 		[applySession],
 	);
 
 	const claimInvite = useCallback(
 		async (organisationSlug: string, token: string, password: string) => {
-			applySession(await claimInviteRequest({ organisationSlug, token, password }));
+			applySession(await claimInviteRequest({ organisationSlug, token, password }), organisationSlug);
 		},
 		[applySession],
 	);
 
 	const claimStaffInvite = useCallback(
 		async (organisationSlug: string, token: string, password: string) => {
-			applySession(await claimStaffInviteRequest({ organisationSlug, token, password }));
+			applySession(await claimStaffInviteRequest({ organisationSlug, token, password }), organisationSlug);
 		},
 		[applySession],
 	);

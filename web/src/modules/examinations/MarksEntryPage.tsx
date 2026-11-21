@@ -10,6 +10,7 @@ import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
+import IconButton from "@mui/material/IconButton";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Table from "@mui/material/Table";
@@ -297,15 +298,6 @@ export function MarksEntryPage() {
 
   return (
     <Stack spacing={2}>
-      <Box>
-        <Button
-          startIcon={<ArrowBackIcon />}
-          onClick={() => navigate(`/examinations/exams/${examId}`)}
-        >
-          Back to exam
-        </Button>
-      </Box>
-
       <Box
         sx={{
           display: "flex",
@@ -313,20 +305,27 @@ export function MarksEntryPage() {
           alignItems: "center",
         }}
       >
-        <Box>
-          <Typography variant="h4" component="h1">
-            {schedule
-              ? (subjects.find((s) => s.id === schedule.subjectId)?.name ??
-                `Subject #${schedule.subjectId}`)
-              : "Marks entry"}
-          </Typography>
-          {schedule && (
-            <Typography variant="body2" color="text.secondary">
-              {schedule.examDate} — max {schedule.maxMarks}, pass{" "}
-              {schedule.passMarks}
+        <Stack direction="row" spacing={1} sx={{ alignItems: "flex-start" }}>
+          <Tooltip title="Back to examination">
+            <IconButton onClick={() => navigate(`/examinations/exams/${examId}`)} aria-label="Back to examination" sx={{ ml: -1 }}>
+              <ArrowBackIcon />
+            </IconButton>
+          </Tooltip>
+          <Box>
+            <Typography variant="h4" component="h1">
+              {schedule
+                ? (subjects.find((s) => s.id === schedule.subjectId)?.name ??
+                  `Subject #${schedule.subjectId}`)
+                : "Marks entry"}
             </Typography>
-          )}
-        </Box>
+            {schedule && (
+              <Typography variant="body2" color="text.secondary">
+                {schedule.examDate} — max {schedule.maxMarks}, pass{" "}
+                {schedule.passMarks}
+              </Typography>
+            )}
+          </Box>
+        </Stack>
         {register && (
           <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
             <Chip

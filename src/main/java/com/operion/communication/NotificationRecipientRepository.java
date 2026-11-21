@@ -1,8 +1,11 @@
 package com.operion.communication;
 
+import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -36,4 +39,9 @@ public interface NotificationRecipientRepository extends JpaRepository<Notificat
 			@Param("provider") String provider, @Param("providerMessageId") String providerMessageId);
 
 	Optional<NotificationRecipient> findByProviderAndProviderMessageId(String provider, String providerMessageId);
+
+	/** A page of ids for RetentionScheduler's purge; tenant-filtered like every query on a TenantScopedEntity. */
+	@Query("select r.id from NotificationRecipient r where r.deliveryStatus in :statuses and r.createdAt < :cutoff")
+	List<Long> findIdsByDeliveryStatusInAndCreatedAtBefore(@Param("statuses") Collection<DeliveryStatus> statuses,
+			@Param("cutoff") Instant cutoff, Pageable pageable);
 }

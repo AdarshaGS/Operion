@@ -11,6 +11,7 @@ import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
+import IconButton from "@mui/material/IconButton";
 import MenuItem from "@mui/material/MenuItem";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
@@ -21,6 +22,7 @@ import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
+import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import PrintIcon from "@mui/icons-material/Print";
@@ -125,9 +127,11 @@ export function SaleDetailPage() {
 	return (
 		<Stack spacing={2}>
 			<Box sx={{ display: "flex", justifyContent: "space-between" }} className="no-print">
-				<Button startIcon={<ArrowBackIcon />} onClick={() => navigate("/sales")}>
-					Back to sales
-				</Button>
+				<Tooltip title="Back to sales">
+					<IconButton onClick={() => navigate("/sales")} aria-label="Back to sales" sx={{ ml: -1 }}>
+						<ArrowBackIcon />
+					</IconButton>
+				</Tooltip>
 				<Button startIcon={<PrintIcon />} onClick={() => window.print()}>
 					Print receipt
 				</Button>

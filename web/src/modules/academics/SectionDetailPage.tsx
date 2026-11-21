@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import Box from "@mui/material/Box";
-import Button from "@mui/material/Button";
 import CircularProgress from "@mui/material/CircularProgress";
+import IconButton from "@mui/material/IconButton";
 import Stack from "@mui/material/Stack";
+import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { listSections, type SectionResponse } from "../../api/sections";
@@ -41,15 +42,16 @@ export function SectionDetailPage() {
 
 	return (
 		<Stack spacing={2}>
-			<Box>
-				<Button startIcon={<ArrowBackIcon />} onClick={() => navigate(`/academics/classes/${classId}`)}>
-					Back to class
-				</Button>
-			</Box>
-
-			<Typography variant="h4" component="h1">
-				Section {section?.name ?? sectionId}
-			</Typography>
+			<Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+				<Tooltip title="Back to class">
+					<IconButton onClick={() => navigate(`/academics/classes/${classId}`)} aria-label="Back to class" sx={{ ml: -1 }}>
+						<ArrowBackIcon />
+					</IconButton>
+				</Tooltip>
+				<Typography variant="h4" component="h1">
+					Section {section?.name ?? sectionId}
+				</Typography>
+			</Stack>
 
 			<TeacherAssignmentsPanel sectionId={Number(sectionId)} />
 			<SectionTimetablePanel sectionId={Number(sectionId)} classId={Number(classId)} />

@@ -91,7 +91,7 @@ export interface BlkOrg {
 	campusId: number;
 }
 
-/** Provisions a fresh, uniquely-slugged organisation through the public endpoint and logs its owner in. */
+/** Provisions a fresh, uniquely-slugged organisation through the platform-admin endpoint (see provisionOrganisation) and logs its owner in. */
 export async function newOrg(tag: string): Promise<BlkOrg> {
 	const slug = `blk-${tag}-${uniq()}`.slice(0, 60);
 	const ownerEmail = `owner@${slug}.test`;

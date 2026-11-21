@@ -27,7 +27,7 @@ public record SubstitutionNeedResponse(LocalDate date, String dayOfWeek, Long en
 				need.candidates().stream().map(SubstitutionNeedResponse::line).toList());
 	}
 
-	private static CandidateLine line(Candidate c) {
+	static CandidateLine line(Candidate c) {
 		return new CandidateLine(c.person().getId(), c.person().getFirstName() + " " + c.person().getLastName(), c.rank());
 	}
 }

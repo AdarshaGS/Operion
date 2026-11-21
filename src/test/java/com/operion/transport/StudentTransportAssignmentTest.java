@@ -54,6 +54,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import tools.jackson.databind.ObjectMapper;
@@ -237,6 +238,39 @@ class StudentTransportAssignmentTest {
 		assertThat(original.getStatus()).isEqualTo(TransportAssignmentStatus.ENDED);
 		assertThat(original.getEffectiveTo()).isEqualTo(LocalDate.of(2025, 9, 1));
 		assertThat(original.getRouteStop().getId()).isEqualTo(fixture.stop().getId());
+	}
+
+	@Test
+	void theActiveMarkerFollowsAssignReassignAndEnd() {
+		Fixture fixture = setUpFixture("transport-assign-marker");
+		StudentTransportAssignment first = transportService.assignStudent(
+				fixture.enrollment(), fixture.route(), fixture.stop(), true, true, LocalDate.of(2025, 6, 1));
+		assertThat(first.getActiveMarker()).isTrue();
+
+		RouteStop newStop = routeStopRepository.save(new RouteStop(fixture.route(), "Gate 2", 2, null, null, null, null));
+		StudentTransportAssignment second = transportService.reassignRoute(first, fixture.route(), newStop, LocalDate.of(2025, 9, 1));
+
+		assertThat(studentTransportAssignmentRepository.findById(first.getId()).orElseThrow().getActiveMarker()).isNull();
+		assertThat(studentTransportAssignmentRepository.findById(second.getId()).orElseThrow().getActiveMarker()).isTrue();
+
+		transportService.reassignRoute(second, fixture.route(), fixture.stop(), LocalDate.of(2025, 10, 1));
+		assertThat(studentTransportAssignmentRepository.findAll()).filteredOn(a -> a.getActiveMarker() != null).hasSize(1);
+
+		StudentTransportAssignment last = studentTransportAssignmentRepository.findAll().stream()
+				.filter(a -> a.getActiveMarker() != null).findFirst().orElseThrow();
+		transportService.endAssignment(last, LocalDate.of(2025, 12, 1));
+		assertThat(studentTransportAssignmentRepository.findById(last.getId()).orElseThrow().getActiveMarker()).isNull();
+	}
+
+	@Test
+	void theDatabaseRefusesASecondActiveAssignmentForTheSameEnrollment() {
+		Fixture fixture = setUpFixture("transport-assign-db-unique");
+		transportService.assignStudent(fixture.enrollment(), fixture.route(), fixture.stop(), true, true, LocalDate.of(2025, 6, 1));
+
+		// Straight through the repository, bypassing TransportService's one-active check.
+		assertThatThrownBy(() -> studentTransportAssignmentRepository.saveAndFlush(new StudentTransportAssignment(
+				fixture.enrollment(), fixture.route(), fixture.stop(), true, false, LocalDate.of(2025, 7, 1))))
+				.isInstanceOf(DataIntegrityViolationException.class);
 	}
 
 	@Test

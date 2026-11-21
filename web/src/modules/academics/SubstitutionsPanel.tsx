@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import Alert from "@mui/material/Alert";
 import Button from "@mui/material/Button";
 import MenuItem from "@mui/material/MenuItem";
@@ -38,10 +39,16 @@ export function SubstitutionsPanel() {
 	const { hasAnyPermission } = useAuth();
 	const canManage = hasAnyPermission(["TIMETABLE_MANAGE"]);
 
+	// ?teacher=&from=&to= prefill the search so other screens (a leave's "Assign cover") can deep-link here.
+	const [searchParams] = useSearchParams();
+	const prefilledTeacher = searchParams.get("teacher") ?? "";
+	const prefilledFrom = searchParams.get("from");
+	const prefilledTo = searchParams.get("to");
+
 	const [persons, setPersons] = useState<PersonResponse[]>([]);
-	const [teacherId, setTeacherId] = useState("");
-	const [from, setFrom] = useState(isoDate(0));
-	const [to, setTo] = useState(isoDate(6));
+	const [teacherId, setTeacherId] = useState(prefilledTeacher);
+	const [from, setFrom] = useState(prefilledFrom ?? isoDate(0));
+	const [to, setTo] = useState(prefilledTo ?? (prefilledFrom || isoDate(6)));
 	const [reason, setReason] = useState("");
 	const [needs, setNeeds] = useState<SubstitutionNeedResponse[] | null>(null);
 	const [choice, setChoice] = useState<Record<string, string>>({});
@@ -60,6 +67,11 @@ export function SubstitutionsPanel() {
 		listSubstitutionsOn(from).then(setArranged).catch(() => setArranged([]));
 	}
 	useEffect(loadArranged, [from]);
+	// A deep link already names the teacher and dates, so show the slots without another click.
+	useEffect(() => {
+		if (prefilledTeacher && prefilledFrom) void load();
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, []);
 
 	async function load() {
 		if (!teacherId) return;

@@ -24,10 +24,10 @@ export function StudentHistoryPanel({ enrollments, labels }: StudentHistoryPanel
 	return (
 		<Paper sx={{ p: 2 }}>
 			<Stack spacing={1.5}>
-				<Typography variant="subtitle1">Enrollment history</Typography>
+				<Typography variant="subtitle1">Enrolment history</Typography>
 				{rows.length === 0 ? (
 					<Typography variant="body2" color="text.secondary">
-						No enrollment history yet.
+						No enrolment history yet.
 					</Typography>
 				) : (
 					<TableContainer>
@@ -37,7 +37,7 @@ export function StudentHistoryPanel({ enrollments, labels }: StudentHistoryPanel
 									<TableCell>Academic year</TableCell>
 									<TableCell>Class</TableCell>
 									<TableCell>Section</TableCell>
-									<TableCell>Roll no.</TableCell>
+									<TableCell>Roll number</TableCell>
 									<TableCell>Enrolled</TableCell>
 									<TableCell />
 								</TableRow>

@@ -9,6 +9,9 @@ import java.util.List;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 
+import com.operion.authorization.MembershipStatus;
+import com.operion.authorization.OrganisationMembership;
+import com.operion.authorization.OrganisationMembershipRepository;
 import com.operion.common.TenantContext;
 import com.operion.email.EmailDeliveryService;
 import com.operion.identity.User;
@@ -36,6 +39,7 @@ public class StaffInviteService {
 
 	private final StaffInviteRepository staffInviteRepository;
 	private final UserRepository userRepository;
+	private final OrganisationMembershipRepository membershipRepository;
 	private final OrganisationRepository organisationRepository;
 	private final PasswordEncoder passwordEncoder;
 	private final JwtService jwtService;
@@ -45,11 +49,12 @@ public class StaffInviteService {
 	private final SecureRandom secureRandom = new SecureRandom();
 
 	public StaffInviteService(StaffInviteRepository staffInviteRepository, UserRepository userRepository,
-			OrganisationRepository organisationRepository, PasswordEncoder passwordEncoder, JwtService jwtService,
+			OrganisationMembershipRepository membershipRepository, OrganisationRepository organisationRepository, PasswordEncoder passwordEncoder, JwtService jwtService,
 			RefreshTokenService refreshTokenService, EmailDeliveryService emailDeliveryService,
 			@Value("${app.frontend.base-url:http://localhost:5173}") String frontendBaseUrl) {
 		this.staffInviteRepository = staffInviteRepository;
 		this.userRepository = userRepository;
+		this.membershipRepository = membershipRepository;
 		this.organisationRepository = organisationRepository;
 		this.passwordEncoder = passwordEncoder;
 		this.jwtService = jwtService;
@@ -104,6 +109,20 @@ public class StaffInviteService {
 		return new IssuedInvite(user.getId(), invite.getId(), rawToken, invite.getExpiresAt(), emailSent);
 	}
 
+	/** For a login whose access has been withdrawn before it was ever claimed (the staff member left): burns every unclaimed
+	 * invite so the link in their inbox stops working, and switches a still-PENDING shell to DISABLED so it can never be
+	 * activated. A user who has already claimed (ACTIVE) is left as is - without an ACTIVE membership they cannot sign in anyway. */
+	@Transactional
+	public void withdrawUnclaimed(Long userId) {
+		List<StaffInvite> pending = staffInviteRepository.findByUserIdAndStatus(userId, StaffInviteStatus.PENDING);
+		pending.forEach(StaffInvite::revoke);
+		staffInviteRepository.saveAll(pending);
+		userRepository.findById(userId).filter(user -> user.getStatus() == UserStatus.PENDING).ifPresent(user -> {
+			user.setStatus(UserStatus.DISABLED);
+			userRepository.save(user);
+		});
+	}
+
 	private boolean sendInviteEmail(String email, String rawToken) {
 		String organisationSlug = organisationRepository.findById(TenantContext.getOrganisationId())
 				.map(Organisation::getSlug)
@@ -143,6 +162,14 @@ public class StaffInviteService {
 			// password of a live account or re-enable one an admin switched off - so it is burned and fails like any
 			// other bad invite.
 			if (user.getStatus() != UserStatus.PENDING) {
+				invite.revoke();
+				staffInviteRepository.save(invite);
+				throw invalidInvite;
+			}
+			// A login that was given memberships but has none left ACTIVE (access withdrawn before it was claimed) must not be
+			// resurrected by the old link. One with no membership at all is the invite-first-then-grant flow and still claims.
+			List<OrganisationMembership> memberships = membershipRepository.findByUserId(user.getId());
+			if (!memberships.isEmpty() && memberships.stream().noneMatch(m -> m.getStatus() == MembershipStatus.ACTIVE)) {
 				invite.revoke();
 				staffInviteRepository.save(invite);
 				throw invalidInvite;

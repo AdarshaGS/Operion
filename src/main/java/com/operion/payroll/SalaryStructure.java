@@ -41,8 +41,11 @@ public class SalaryStructure extends TenantScopedEntity {
 		if (effectiveFrom == null) {
 			throw new InvalidRequestException("Effective-from date is required");
 		}
-		if (basicAmount == null || basicAmount.signum() < 0) {
-			throw new InvalidRequestException("Basic amount must be zero or more");
+		if (basicAmount == null || basicAmount.signum() <= 0) {
+			throw new InvalidRequestException("Basic amount must be greater than zero");
+		}
+		if (basicAmount.stripTrailingZeros().scale() > 2) {
+			throw new InvalidRequestException("Basic amount cannot have more than 2 decimal places");
 		}
 		this.staffProfile = staffProfile;
 		this.effectiveFrom = effectiveFrom;

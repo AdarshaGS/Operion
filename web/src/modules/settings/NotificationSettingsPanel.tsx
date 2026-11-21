@@ -104,10 +104,10 @@ export function NotificationSettingsPanel() {
 			<Paper sx={{ p: 3 }}>
 				<Stack spacing={2}>
 					<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-						<Typography variant="h6">Message templates</Typography>
+						<Typography variant="h6">Notification templates</Typography>
 						<Can anyOf={["NOTIFICATION_TEMPLATE_MANAGE"]}>
 							<Button size="small" startIcon={<AddIcon />} onClick={() => setDialogOpen(true)}>
-								Add template
+								Add notification template
 							</Button>
 						</Can>
 					</Box>

@@ -10,6 +10,7 @@ import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
 import MenuItem from "@mui/material/MenuItem";
 import Paper from "@mui/material/Paper";
+import IconButton from "@mui/material/IconButton";
 import Stack from "@mui/material/Stack";
 import Switch from "@mui/material/Switch";
 import Table from "@mui/material/Table";
@@ -19,6 +20,7 @@ import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
+import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import AddIcon from "@mui/icons-material/Add";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
@@ -189,7 +191,11 @@ export function OrganisationDetailPage() {
 		event.preventDefault();
 		setSubmitting(true);
 		try {
-			const amount = invoiceAmount.trim() === "" ? undefined : Number(invoiceAmount);
+			const amount = Number(invoiceAmount);
+			if (!(amount > 0)) {
+				setError("Enter an invoice amount greater than zero");
+				return;
+			}
 			await generateInvoice(orgId, { periodStart, periodEnd, dueDate, amount });
 			setInvoiceDialogOpen(false);
 			setInvoiceAmount("");
@@ -230,9 +236,11 @@ export function OrganisationDetailPage() {
 	return (
 		<Stack spacing={3}>
 			<Box>
-				<Button size="small" startIcon={<ArrowBackIcon />} onClick={() => navigate("/platform/organisations")} sx={{ color: colors.inkSoft, mb: 1, ml: -1 }}>
-					Organisations
-				</Button>
+				<Tooltip title="Back to organisations">
+					<IconButton onClick={() => navigate("/platform/organisations")} aria-label="Back to organisations" sx={{ color: colors.inkSoft, mb: 1, ml: -1 }}>
+						<ArrowBackIcon />
+					</IconButton>
+				</Tooltip>
 				<Paper sx={{ p: { xs: 2.5, md: 3 }, background: colors.heroBg, border: `1px solid ${colors.rule}` }}>
 					<Stack direction={{ xs: "column", sm: "row" }} sx={{ alignItems: { sm: "center" }, justifyContent: "space-between", gap: 2 }}>
 						<Stack direction="row" sx={{ alignItems: "center", gap: 2, minWidth: 0 }}>
@@ -499,17 +507,13 @@ export function OrganisationDetailPage() {
 							fullWidth
 						/>
 						<TextField
-							label="Amount (optional)"
+							label="Amount"
 							type="number"
+							required
 							value={invoiceAmount}
 							onChange={(e) => setInvoiceAmount(e.target.value)}
 							slotProps={{ htmlInput: { min: 0.01, step: "0.01" } }}
-							helperText={
-								activeSubscription
-									? `Leave blank to bill ${currency(activeSubscription.pricePerStudentPerYear)} × the organisation's active students. Enter an amount to bill a fixed figure instead.`
-									: undefined
-							}
-							fullWidth
+														fullWidth
 						/>
 					</Stack>
 				</DialogContent>

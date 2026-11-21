@@ -44,7 +44,7 @@ function slugify(value: string): string {
 const EMPTY_CONVERT = { name: "", legalName: "", slug: "", adminEmail: "", adminPassword: "", adminFirstName: "", adminLastName: "" };
 
 /** Working a lead: its people, history and next actions in one place, plus the hand-off into
- * onboarding ("Convert to Organisation") once it's WON. */
+ * onboarding ("Convert to organisation") once it's WON. */
 export function LeadDetailPage() {
 	const { leadId } = useParams<{ leadId: string }>();
 	const id = Number(leadId);
@@ -185,7 +185,7 @@ export function LeadDetailPage() {
 								</Button>
 								{canConvert && (
 									<Button size="small" variant="contained" onClick={openConvert}>
-										Convert to Organisation
+										Convert to organisation
 									</Button>
 								)}
 							</Stack>
@@ -268,7 +268,7 @@ export function LeadDetailPage() {
 			</Dialog>
 
 			<Dialog open={convertOpen} onClose={() => setConvertOpen(false)} component="form" onSubmit={handleConvert} fullWidth maxWidth="sm">
-				<DialogTitle>Convert to Organisation</DialogTitle>
+				<DialogTitle>Convert to organisation</DialogTitle>
 				<DialogContent>
 					<Stack spacing={2} sx={{ mt: 1 }}>
 						<Typography variant="body2" color="text.secondary">

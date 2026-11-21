@@ -1,4 +1,4 @@
-// OPEN security items: SEC-M4, SEC-M5, SEC-M7, SEC-L2, SEC-H5.
+// OPEN security items: SEC-M5, SEC-M7, SEC-L2, SEC-H5 (SEC-M4 is fixed; its tests stay here as a regression guard).
 // Every test asserts the DESIRED behaviour, so a failure here is a reproduced, still-open bug.
 
 import { expect, test } from "@playwright/test";
@@ -18,36 +18,38 @@ import {
 	post,
 	raw,
 	seedAcademics,
-	sharedPlatformAdmin,
 	uniq,
 	type BlkOrg,
 } from "../../../api/blk-helpers";
 
-test.describe("SEC-M4 anonymous organisation creation cannot choose a billing plan", () => {
-	test("[OPEN SEC-M4] a client-supplied planId is rejected or ignored (no subscription to that plan appears)", async () => {
-		const admin = await sharedPlatformAdmin();
-		const plan = await post("/api/v1/platform/plans", { code: `BLK${uniq()}`.toUpperCase().slice(0, 30), name: `Blk plan ${uniq()}`, pricePerStudentPerYear: 1 }, admin.token);
-		expect(isOk(plan), describe(plan)).toBe(true);
-
+test.describe("SEC-M4 anonymous organisation creation is not possible", () => {
+	test("SEC-M4 anonymous POST /api/v1/organisations is rejected and creates nothing", async () => {
 		const slug = `blk-m4-${uniq()}`;
-		// No Authorization header: this is the public sign-up endpoint.
+		// No Authorization header: this used to be the public sign-up endpoint.
 		const created = await post("/api/v1/organisations", {
 			name: "Blk m4",
 			legalName: "Blk m4 Pvt Ltd",
 			slug,
 			adminEmail: `owner@${slug}.test`,
 			adminPassword: BLK_PASSWORD,
-			planId: plan.body.id,
 			planStartDate: "2026-06-01",
 		});
-		if (!isOk(created)) {
-			expect(created.status, `rejection should be a 4xx: ${describe(created)}`).toBeLessThan(500);
-			return; // rejected outright: desired behaviour
-		}
-		const subs = await get(`/api/v1/platform/organisations/${created.body.id}/subscriptions`, admin.token);
-		expect(subs.status, describe(subs)).toBe(200);
-		const onChosenPlan = (subs.body as { planId: number }[]).filter((s) => s.planId === plan.body.id);
-		expect(onChosenPlan, `anonymous caller put the new school on plan ${plan.body.id}: ${describe(subs)}`).toHaveLength(0);
+		expect(created.status, `anonymous creation must be refused: ${describe(created)}`).toBe(401);
+		const login = await post("/api/v1/auth/login", { organisationSlug: slug, email: `owner@${slug}.test`, password: BLK_PASSWORD });
+		expect(login.status, `no organisation should exist for ${slug}: ${describe(login)}`).toBe(401);
+	});
+
+	test("SEC-M4 an organisation-plane token cannot create an organisation on the platform route", async () => {
+		const org = await newOrg("m4b");
+		const slug = `blk-m4c-${uniq()}`;
+		const res = await post("/api/v1/platform/organisations", {
+			name: "Blk m4c",
+			legalName: "Blk m4c Pvt Ltd",
+			slug,
+			adminEmail: `owner@${slug}.test`,
+			adminPassword: BLK_PASSWORD,
+		}, org.ownerToken);
+		expect(res.status, describe(res)).toBe(401);
 	});
 });
 

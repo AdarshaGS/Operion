@@ -9,6 +9,7 @@ import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
+import IconButton from "@mui/material/IconButton";
 import MenuItem from "@mui/material/MenuItem";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
@@ -21,6 +22,7 @@ import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import Tabs from "@mui/material/Tabs";
 import TextField from "@mui/material/TextField";
+import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import AddIcon from "@mui/icons-material/Add";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
@@ -283,7 +285,7 @@ export function ExamDetailPage() {
       const enrollments = await listStudentEnrollments(Number(reportStudentId));
       const current = enrollments.find((e) => e.current);
       if (!current) {
-        setReportError("This student has no current enrollment.");
+        setReportError("This student has no current enrolment.");
         return;
       }
       const reportCard = await publishReportCard(
@@ -317,18 +319,16 @@ export function ExamDetailPage() {
 
   return (
     <Stack spacing={3}>
-      <Box>
-        <Button
-          startIcon={<ArrowBackIcon />}
-          onClick={() => navigate("/examinations")}
-        >
-          Back to examinations
-        </Button>
-      </Box>
-
-      <Typography variant="h4" component="h1">
-        {exam.name} — {exam.examType}
-      </Typography>
+      <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+        <Tooltip title="Back to examinations">
+          <IconButton onClick={() => navigate("/examinations")} aria-label="Back to examinations" sx={{ ml: -1 }}>
+            <ArrowBackIcon />
+          </IconButton>
+        </Tooltip>
+        <Typography variant="h4" component="h1">
+          {exam.name} — {exam.examType}
+        </Typography>
+      </Stack>
 
       {error && <Alert severity="error">{error}</Alert>}
 
@@ -586,10 +586,13 @@ export function ExamDetailPage() {
               label="Section"
               value={pdfSectionId}
               onChange={(e) => setPdfSectionId(e.target.value)}
+              disabled={pdfSectionOptions.length === 0}
+              helperText={pdfSectionOptions.length === 0 ? "No sections yet - schedule a paper for a class first" : undefined}
               sx={{ minWidth: 240 }}
             >
+              {/* The value is a string like the state it feeds; a number here made the "still valid?" effect above reset the pick at once. */}
               {pdfSectionOptions.map(({ classId, section }) => (
-                <MenuItem key={section.id} value={section.id}>
+                <MenuItem key={section.id} value={String(section.id)}>
                   {className(classId)} - {section.name}
                 </MenuItem>
               ))}

@@ -266,7 +266,7 @@ window.OPERION_MAP = {
 				{ key: "departments", label: "Departments", path: "/settings/departments", desc: "The school's departments." },
 				{ key: "designations", label: "Designations", path: "/settings/designations", desc: "Staff job titles." },
 				{ key: "school-template", label: "School setup template", path: "/settings/school-template", desc: "Pre-fill grades, departments, designations, roles, fee and inventory categories, and a default grading scale." },
-				{ key: "users", label: "Members", path: "/settings/users", desc: "Member accounts and role assignments." },
+				{ key: "users", label: "Members", path: "/settings/members", desc: "Member accounts and role assignments." },
 				{ key: "roles", label: "Roles", path: "/settings/roles", desc: "Define roles and tick their permissions, grouped by module. 'Portal' roles land in the portal instead of the admin app." },
 				{ key: "audit-logs", label: "Audit logs", path: "/settings/audit-logs", desc: "Who changed roles, fee records, marks, student data and settings, and when." },
 				{ key: "profile-change-requests", label: "Profile change requests", path: "/settings/profile-change-requests", desc: "Approve phone, email or photo changes that staff and guardians request." },

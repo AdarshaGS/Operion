@@ -31,7 +31,7 @@ const FIELD_ROWS: { label: string; value: (profile: MeResponse) => string }[] = 
 	{ label: "User ID", value: (p) => String(p.userId) },
 	{ label: "First name", value: (p) => p.firstName ?? "—" },
 	{ label: "Last name", value: (p) => p.lastName ?? "—" },
-	{ label: "Office", value: (p) => p.campusName ?? "Org-wide" },
+	{ label: "Campus", value: (p) => p.campusName ?? "All campuses" },
 	{ label: "Status", value: (p) => p.status ?? "—" },
 	{ label: "Primary email", value: (p) => p.email ?? "—" },
 	{ label: "Organisation", value: (p) => p.organisationName ?? "—" },

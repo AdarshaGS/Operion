@@ -42,19 +42,35 @@ export function PayrollRunDetailPage() {
 	const navigate = useNavigate();
 	const [run, setRun] = useState<PayrollRunResponse | null>(null);
 	const [error, setError] = useState<string | null>(null);
+	const [busy, setBusy] = useState(false);
 
 	useEffect(() => {
+		// A different run id must not keep showing the previous run (or its error) while loading.
+		let cancelled = false;
+		setRun(null);
+		setError(null);
 		getPayrollRun(Number(runId))
-			.then(setRun)
-			.catch((err) => setError(err instanceof ApiError ? err.message : "Failed to load payroll run"));
+			.then((loaded) => {
+				if (!cancelled) setRun(loaded);
+			})
+			.catch((err) => {
+				if (!cancelled) setError(err instanceof ApiError ? err.message : "Failed to load payroll run");
+			});
+		return () => {
+			cancelled = true;
+		};
 	}, [runId]);
 
 	async function act(action: () => Promise<PayrollRunResponse | void>, after?: (result: PayrollRunResponse | void) => void) {
+		if (busy) return;
+		setBusy(true);
 		setError(null);
 		try {
 			after?.(await action());
 		} catch (err) {
 			setError(err instanceof ApiError ? err.message : "Action failed");
+		} finally {
+			setBusy(false);
 		}
 	}
 
@@ -74,16 +90,17 @@ export function PayrollRunDetailPage() {
 							<Stack direction="row" spacing={1}>
 								{run.status === "DRAFT" && (
 									<>
-										<Button color="error" onClick={() => act(() => discardPayrollRun(run.id), () => navigate("/payroll"))}>
+										<Button color="error" disabled={busy} onClick={() => act(() => discardPayrollRun(run.id), () => navigate("/payroll"))}>
 											Discard draft
 										</Button>
-										<Button variant="contained" onClick={() => act(() => finalizePayrollRun(run.id), (r) => setRun(r as PayrollRunResponse))}>
+										<Button variant="contained" disabled={busy} onClick={() => act(() => finalizePayrollRun(run.id), (r) => setRun(r as PayrollRunResponse))}>
 											Finalize run
 										</Button>
 									</>
 								)}
 								{run.status === "FINALIZED" && (
 									<Button
+										disabled={busy}
 										onClick={() =>
 											act(() => startPayrollCorrection(run.id), (r) => navigate(`/payroll/runs/${(r as PayrollRunResponse).id}`))
 										}

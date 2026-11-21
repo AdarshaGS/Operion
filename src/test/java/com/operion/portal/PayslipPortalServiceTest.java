@@ -45,8 +45,12 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.aop.framework.ProxyFactory;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.annotation.AnnotationTransactionAttributeSource;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.interceptor.TransactionInterceptor;
 import tools.jackson.databind.ObjectMapper;
 
 /** Staff can only see their own finalized payslips through the portal. */
@@ -70,6 +74,7 @@ class PayslipPortalServiceTest {
 	@Autowired private OrganisationMembershipRepository membershipRepository;
 	@Autowired private RoleRepository roleRepository;
 	@Autowired private UserRepository userRepository;
+	@Autowired private PlatformTransactionManager transactionManager;
 
 	@AfterEach
 	void clearTenant() {
@@ -81,6 +86,17 @@ class PayslipPortalServiceTest {
 				designation, null, LocalDate.of(2025, 6, 1), EmploymentType.PERMANENT));
 	}
 
+	/** PayrollService's run-lifecycle methods take a pessimistic lock, which needs a transaction; wrap the
+	 * hand-built service the way Spring does in the running app. */
+	private <T> T transactional(T service) {
+		ProxyFactory proxyFactory = new ProxyFactory(service);
+		proxyFactory.setProxyTargetClass(true);
+		proxyFactory.addAdvice(new TransactionInterceptor(transactionManager, new AnnotationTransactionAttributeSource()));
+		@SuppressWarnings("unchecked")
+		T proxy = (T) proxyFactory.getProxy();
+		return proxy;
+	}
+
 	@Test
 	void staffSeeOnlyTheirOwnFinalizedPayslips() {
 		Organisation organisation = organisationRepository
@@ -89,8 +105,8 @@ class PayslipPortalServiceTest {
 		AuditLogService audit = new AuditLogService(auditLogRepository, new ObjectMapper());
 		SalaryService salaryService = new SalaryService(componentRepository, structureRepository,
 				structureLineRepository, audit);
-		PayrollService payrollService = new PayrollService(runRepository, payslipRepository, payslipLineRepository,
-				staffProfileRepository, teacherAssignmentRepository, salaryService, audit);
+		PayrollService payrollService = transactional(new PayrollService(runRepository, payslipRepository,
+				payslipLineRepository, staffProfileRepository, teacherAssignmentRepository, salaryService, audit));
 		PayslipPortalService portalService = new PayslipPortalService(membershipRepository, staffProfileRepository,
 				payslipRepository, payrollService);
 

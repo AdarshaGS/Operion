@@ -81,7 +81,7 @@ export function PublicAdmissionPage() {
 			} else if (err instanceof ApiError && err.status === 400) {
 				setError(err.message);
 			} else {
-				setError("Something went wrong submitting your inquiry. Please try again.");
+				setError("Something went wrong submitting your enquiry. Please try again.");
 			}
 		} finally {
 			setSubmitting(false);
@@ -106,14 +106,14 @@ export function PublicAdmissionPage() {
 
 					{!loadError && submitted && (
 						<Alert severity="success">
-							Thank you - your inquiry has been received{options ? ` by ${options.organisationName}` : ""}. The admissions office will contact you using the details provided.
+							Thank you - your enquiry has been received{options ? ` by ${options.organisationName}` : ""}. The admissions office will contact you using the details provided.
 						</Alert>
 					)}
 
 					{!loadError && !submitted && (
 						<>
 							<Typography variant="h6" component="h1">
-								{options ? `Admission inquiry - ${options.organisationName}` : "Admission inquiry"}
+								{options ? `Admission enquiry - ${options.organisationName}` : "Admission enquiry"}
 							</Typography>
 							{error && <Alert severity="error">{error}</Alert>}
 							<Typography variant="subtitle2" color="text.secondary">
@@ -167,7 +167,7 @@ export function PublicAdmissionPage() {
 							</Box>
 
 							<Button type="submit" variant="contained" size="large" disabled={submitting || !options}>
-								{submitting ? "Submitting..." : "Submit inquiry"}
+								{submitting ? "Submitting..." : "Submit enquiry"}
 							</Button>
 						</>
 					)}

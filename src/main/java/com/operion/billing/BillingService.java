@@ -114,11 +114,8 @@ public class BillingService {
 	}
 
 	/**
-	 * Snapshots the org's current ACTIVE student headcount and bills it against the
-	 * org's ACTIVE subscription's rate for the given period - no date-based proration,
-	 * pricePerStudentPerYear is applied as a flat per-period rate (fine for the annual
-	 * cycle this is designed around; a shorter/partial period is an edge case out of
-	 * scope for this pass).
+	 * Bills the org's ACTIVE subscription for an explicit, platform-admin-entered amount, which must be
+	 * greater than zero. studentCountAtBilling is still snapshotted from the live ACTIVE headcount for the record.
 	 *
 	 * Deliberately NOT @Transactional, same reasoning as OrganisationService.provision:
 	 * Hibernate resolves the tenant identifier once per session, not per query, so
@@ -129,19 +126,12 @@ public class BillingService {
 	 * Subscription aren't tenant-scoped at all and Student's count is the only
 	 * tenant-scoped read, isolated to its own short-lived session in countActiveStudents.
 	 */
-	public PlatformInvoice generateInvoice(Long organisationId, LocalDate periodStart, LocalDate periodEnd, LocalDate dueDate) {
-		return generateInvoice(organisationId, periodStart, periodEnd, dueDate, null);
-	}
-
-	/**
-	 * As above, but the platform admin may bill an explicit amount (e.g. a school with no
-	 * enrolled students yet, or a negotiated figure). With no amount the invoice is the
-	 * subscription rate x active headcount; if that comes to zero the call is refused rather
-	 * than silently issuing a zero-value invoice. studentCountAtBilling is always the live headcount.
-	 */
 	public PlatformInvoice generateInvoice(Long organisationId, LocalDate periodStart, LocalDate periodEnd, LocalDate dueDate,
 			BigDecimal requestedAmount) {
-		if (requestedAmount != null && requestedAmount.signum() <= 0) {
+		if (requestedAmount == null) {
+			throw new InvalidRequestException("Invoice amount is required");
+		}
+		if (requestedAmount.signum() <= 0) {
 			throw new InvalidRequestException("Invoice amount must be greater than zero");
 		}
 		Organisation organisation = organisationRepository.findById(organisationId)
@@ -150,11 +140,9 @@ public class BillingService {
 				.orElseThrow(() -> new IllegalStateException("Organisation " + organisationId + " has no active subscription"));
 
 		int studentCount = countActiveStudents(organisationId);
-		BigDecimal amount = requestedAmount != null ? requestedAmount.setScale(2, RoundingMode.HALF_UP)
-				: subscription.getPricePerStudentPerYear().multiply(BigDecimal.valueOf(studentCount));
+		BigDecimal amount = requestedAmount.setScale(2, RoundingMode.HALF_UP);
 		if (amount.signum() <= 0) {
-			throw new InvalidRequestException("This organisation has no active students to bill at " + subscription.getPricePerStudentPerYear()
-					+ " per student per year - enter an invoice amount");
+			throw new InvalidRequestException("Invoice amount must be greater than zero");
 		}
 
 		PlatformInvoice invoice = platformInvoiceRepository.save(

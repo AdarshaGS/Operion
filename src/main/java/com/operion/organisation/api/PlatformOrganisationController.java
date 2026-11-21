@@ -7,6 +7,7 @@ import com.operion.organisation.OrganisationRepository;
 import com.operion.organisation.OrganisationService;
 import com.operion.organisation.OrganisationStatus;
 import com.operion.platform.settings.PlatformSettingsService;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -20,9 +21,9 @@ import org.springframework.web.bind.annotation.RestController;
  * authenticated user - moved here so it's reachable only via a platform-admin token
  * (mounted under /api/v1/platform/**, gated by PlatformAuthenticationInterceptor, never
  * by JwtAuthenticationInterceptor/PermissionInterceptor). create()/changeStatus() give
- * a platform admin the same provisioning/status-transition capability the public
- * OrganisationController exposes, without needing the school's own admin to self-serve it -
- * same OrganisationService methods, no new business logic.
+ * a platform admin provisioning/status-transition capability - create() is the only way
+ * to create an organisation (there is no public sign-up) - same OrganisationService
+ * methods, no new business logic.
  */
 @RestController
 @RequestMapping("/api/v1/platform/organisations")
@@ -53,7 +54,7 @@ public class PlatformOrganisationController {
 	}
 
 	@PostMapping
-	public OrganisationResponse create(@RequestBody CreateOrganisationRequest request) {
+	public OrganisationResponse create(@Valid @RequestBody CreateOrganisationRequest request) {
 		Organisation organisation = organisationService.provision(request.toOrganisation(), request.toProfile(),
 				request.toAdminAccount(), request.toAcademicYearDetails(), request.toPlanSelection());
 		return OrganisationResponse.from(organisation, platformSettingsService.current().getTrialDays());

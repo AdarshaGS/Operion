@@ -3,7 +3,9 @@
 // fixture org once per run; individual module specs create their own deeper data
 // through the UI (page objects), not through this file.
 
+import { PLATFORM_ADMIN_CREDENTIALS } from "../fixtures/roles";
 import { api } from "./client";
+import { platformLogin } from "./platformAuth";
 
 export interface LoginResponse {
 	token: string;
@@ -30,8 +32,11 @@ export interface CreateOrganisationInput {
 	adminLastName: string;
 }
 
-export function provisionOrganisation(input: CreateOrganisationInput) {
-	return api.post<OrganisationResponse>("/api/v1/organisations", input);
+/** Creating an organisation is platform-admin only (there is no public sign-up), so this logs in as the seeded
+ * platform admin - the same credential global-setup uses for module toggles - and calls the platform route. */
+export async function provisionOrganisation(input: CreateOrganisationInput) {
+	const admin = await platformLogin(PLATFORM_ADMIN_CREDENTIALS.email, PLATFORM_ADMIN_CREDENTIALS.password);
+	return api.post<OrganisationResponse>("/api/v1/platform/organisations", input, admin.token);
 }
 
 export function login(organisationSlug: string, email: string, password: string) {

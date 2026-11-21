@@ -3,7 +3,11 @@ package com.operion.organisation;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.math.BigDecimal;
+import java.time.DayOfWeek;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.Map;
 
@@ -43,6 +47,23 @@ import com.operion.common.imports.ImportRowResult;
 import com.operion.common.imports.ImportRowStatus;
 import com.operion.customfield.CustomFieldDefinitionRepository;
 import com.operion.customfield.CustomFieldService;
+import com.operion.finance.FeeCategory;
+import com.operion.finance.FeeCategoryType;
+import com.operion.finance.FeeService;
+import com.operion.finance.FeeService.AllocationInput;
+import com.operion.finance.FeeService.InstallmentInput;
+import com.operion.finance.FeeStructure;
+import com.operion.finance.FeeStructureGroup;
+import com.operion.finance.FeeStructureInstallment;
+import com.operion.finance.FeeStructureInstallmentRepository;
+import com.operion.finance.Invoice;
+import com.operion.finance.InvoiceRepository;
+import com.operion.finance.InvoiceStatus;
+import com.operion.finance.Payment;
+import com.operion.finance.PaymentMethod;
+import com.operion.finance.PaymentRepository;
+import com.operion.finance.StudentFeeAssignment;
+import com.operion.finance.StudentFeeAssignmentRepository;
 import com.operion.examination.Exam;
 import com.operion.examination.ExamRepository;
 import com.operion.examination.ExamSchedule;
@@ -61,6 +82,23 @@ import com.operion.examination.MarksEntryRepository;
 import com.operion.examination.ReportCardRepository;
 import com.operion.identity.Person;
 import com.operion.identity.PersonRepository;
+import com.operion.communication.CommunicationService;
+import com.operion.learning.Homework;
+import com.operion.learning.HomeworkService;
+import com.operion.learning.LearningActor;
+import com.operion.learning.QuizService;
+import com.operion.timetable.Period;
+import com.operion.transport.Route;
+import com.operion.transport.RouteRepository;
+import com.operion.transport.RouteStop;
+import com.operion.transport.RouteStopRepository;
+import com.operion.transport.StudentTransportAssignment;
+import com.operion.transport.StudentTransportAssignmentRepository;
+import com.operion.transport.TransportAssignmentStatus;
+import com.operion.transport.TransportNotificationService;
+import com.operion.transport.TransportService;
+import com.operion.timetable.TimetableEntryRepository;
+import com.operion.timetable.TimetableService;
 import com.operion.student.EnrolmentClosureCheck;
 import com.operion.student.Student;
 import com.operion.student.StudentDocumentRepository;
@@ -101,11 +139,26 @@ import tools.jackson.databind.ObjectMapper;
  * Services are built by hand, like the other module tests.
  */
 @DataJpaTest
-@Import({ MultiTenancyConfig.class, JpaConfig.class, StudentIdGenerator.class, AcademicYearService.class, EnrolmentClosureCheck.class, AdmissionFeeGate.class, ModuleAccessService.class })
+@Import({ MultiTenancyConfig.class, JpaConfig.class, StudentIdGenerator.class, AcademicYearService.class, EnrolmentClosureCheck.class, AdmissionFeeGate.class, ModuleAccessService.class,
+		FeeService.class, TimetableService.class, HomeworkService.class, QuizService.class, TransportService.class, TransportNotificationService.class,
+		CommunicationService.class })
 @Transactional(propagation = Propagation.NOT_SUPPORTED)
 class ClosedAcademicYearEnforcementTest {
 
 	@Autowired private AdmissionFeeGate admissionFeeGate;
+	@Autowired private FeeService feeService;
+	@Autowired private FeeStructureInstallmentRepository feeStructureInstallmentRepository;
+	@Autowired private InvoiceRepository invoiceRepository;
+	@Autowired private StudentFeeAssignmentRepository studentFeeAssignmentRepository;
+	@Autowired private PaymentRepository paymentRepository;
+	@Autowired private TimetableService timetableService;
+	@Autowired private TimetableEntryRepository timetableEntryRepository;
+	@Autowired private HomeworkService homeworkService;
+	@Autowired private QuizService quizService;
+	@Autowired private TransportService transportService;
+	@Autowired private RouteRepository routeRepository;
+	@Autowired private RouteStopRepository routeStopRepository;
+	@Autowired private StudentTransportAssignmentRepository studentTransportAssignmentRepository;
 
 	private static final LocalDate DAY_ONE = LocalDate.of(2025, 7, 1);
 	private static final LocalDate DAY_TWO = LocalDate.of(2025, 7, 2);
@@ -501,6 +554,168 @@ class ClosedAcademicYearEnforcementTest {
 
 		assertThat(marksEntryRepository.findById(fx.marks().getId()).orElseThrow().getMarksObtained()).isEqualTo(90.0);
 		assertThat(reportCardRepository.findAll()).hasSize(1);
+	}
+
+	// ---- finance -----------------------------------------------------------------------------------------
+
+	private record FeeSetup(FeeStructureGroup group, FeeCategory tuition, FeeCategory lab, FeeStructure structure,
+			FeeStructure secondStructure, StudentFeeAssignment assignment, FeeStructureInstallment installment, Invoice invoice) {
+	}
+
+	/** Fee structures, an assignment and one invoice, all created while the year is open. */
+	private FeeSetup setUpFees(Fixture fx) {
+		FeeStructureGroup group = feeService.createFeeStructureGroup("Grade 5 Fees", fx.year(), fx.class5());
+		FeeCategory tuition = feeService.createCategory("TUITION", "Tuition Fee", null, FeeCategoryType.GENERAL);
+		FeeCategory lab = feeService.createCategory("LAB", "Lab Fee", null, FeeCategoryType.GENERAL);
+		List<InstallmentInput> installments = List.of(new InstallmentInput(1, LocalDate.of(2025, 6, 15), new BigDecimal("10000.00")));
+		FeeStructure structure = feeService.createFeeStructure(group, tuition, new BigDecimal("10000.00"), installments);
+		FeeStructure second = feeService.createFeeStructure(group, lab, new BigDecimal("10000.00"), installments);
+		StudentFeeAssignment assignment = feeService.assignFee(fx.enrollment(), structure, null, null, null);
+		FeeStructureInstallment installment =
+				feeStructureInstallmentRepository.findByFeeStructureIdOrderByInstallmentNumber(structure.getId()).get(0);
+		Invoice invoice = feeService.generateInvoice(assignment, installment);
+		return new FeeSetup(group, tuition, lab, structure, second, assignment, installment, invoice);
+	}
+
+	@Test
+	void feeSetupAssignmentRevisionAndInvoicingAreRejectedInAClosedYear() {
+		Fixture fx = setUpFixture("closed-fees");
+		FeeSetup fees = setUpFees(fx);
+		Person other = personRepository.save(new Person("Rohan", "Das"));
+		Student second = studentService.admit(other, "ADM-closed-fees-2", LocalDate.of(2025, 5, 1), null, null, null, null, null, null,
+				"Indian", null, null, null, null);
+		StudentEnrollment secondEnrollment = studentService.enroll(second, fx.year(), fx.sectionA(), 2, LocalDate.of(2025, 6, 1));
+		closeYear(fx.year());
+		List<InstallmentInput> installments = List.of(new InstallmentInput(1, LocalDate.of(2025, 7, 15), new BigDecimal("500.00")));
+
+		assertClosed(() -> feeService.createFeeStructureGroup("Another", fx.year(), fx.class5()));
+		assertClosed(() -> feeService.createFeeStructure(fees.group(), fees.tuition(), new BigDecimal("500.00"), installments));
+		assertClosed(() -> feeService.assignFee(secondEnrollment, fees.secondStructure(), null, null, null));
+		assertClosed(() -> feeService.reviseAssignment(fees.assignment(), new BigDecimal("500.00"), "late discount", 7L));
+		assertClosed(() -> feeService.generateInvoice(fees.assignment(), fees.installment()));
+
+		// Nothing slipped through: still the one structure pair, one assignment and one invoice.
+		assertThat(invoiceRepository.findAll()).hasSize(1);
+		assertThat(studentFeeAssignmentRepository.findByStudentEnrollmentId(secondEnrollment.getId())).isEmpty();
+	}
+
+	@Test
+	void feeSetupAssignmentRevisionAndInvoicingStillWorkInAnOpenYear() {
+		Fixture fx = setUpFixture("open-fees");
+		FeeSetup fees = setUpFees(fx);
+
+		StudentFeeAssignment revised = feeService.reviseAssignment(fees.assignment(), new BigDecimal("500.00"), "late discount", 7L);
+		feeService.createFeeStructureGroup("Another", fx.year(), fx.class5());
+
+		assertThat(revised.getEffectiveAmount()).isEqualByComparingTo("9500.00");
+		assertThat(invoiceRepository.findAll()).hasSize(1);
+	}
+
+	@Test
+	void collectingAPaymentAgainstAnInvoiceInAClosedYearStillSucceeds() {
+		Fixture fx = setUpFixture("closed-year-arrears");
+		FeeSetup fees = setUpFees(fx);
+		closeYear(fx.year());
+
+		Payment payment = feeService.recordPayment(fx.year(), new BigDecimal("4000.00"), PaymentMethod.CASH, LocalDate.of(2025, 8, 1),
+				"arrears", List.of(new AllocationInput(fees.invoice().getId(), new BigDecimal("4000.00"))));
+
+		assertThat(payment.getId()).isNotNull();
+		Invoice invoice = invoiceRepository.findById(fees.invoice().getId()).orElseThrow();
+		assertThat(invoice.getAmountPaid()).isEqualByComparingTo("4000.00");
+		assertThat(invoice.getStatus()).isEqualTo(InvoiceStatus.PARTIALLY_PAID);
+		assertThat(paymentRepository.findAll()).hasSize(1);
+	}
+
+	// ---- timetable ---------------------------------------------------------------------------------------
+
+	@Test
+	void timetableEntriesAreRejectedInAClosedYear() {
+		Fixture fx = setUpFixture("closed-timetable");
+		Period period = timetableService.createPeriod(1, "Period 1", LocalTime.of(9, 0), LocalTime.of(9, 45), false);
+		closeYear(fx.year());
+		Section section = sectionRepository.findById(fx.sectionA().getId()).orElseThrow();
+
+		assertClosed(() -> timetableService.setEntry(section, fx.maths(), fx.teacher(), DayOfWeek.MONDAY, period));
+
+		assertThat(timetableEntryRepository.findBySectionId(fx.sectionA().getId())).isEmpty();
+	}
+
+	@Test
+	void timetableEntriesStillWorkInAnOpenYear() {
+		Fixture fx = setUpFixture("open-timetable");
+		Period period = timetableService.createPeriod(1, "Period 1", LocalTime.of(9, 0), LocalTime.of(9, 45), false);
+
+		timetableService.setEntry(fx.sectionA(), fx.maths(), fx.teacher(), DayOfWeek.MONDAY, period);
+
+		assertThat(timetableEntryRepository.findBySectionId(fx.sectionA().getId())).hasSize(1);
+	}
+
+	// ---- transport ---------------------------------------------------------------------------------------
+
+	@Test
+	void transportAssignmentAndRouteChangesAreRejectedInAClosedYear() {
+		Fixture fx = setUpFixture("closed-transport");
+		Route route = routeRepository.save(new Route(fx.campus(), "Route 12", "R12", null));
+		RouteStop stop = routeStopRepository.save(new RouteStop(route, "Gate 1", 1, null, null, null, null));
+		RouteStop otherStop = routeStopRepository.save(new RouteStop(route, "Gate 2", 2, null, null, null, null));
+		StudentTransportAssignment assignment =
+				transportService.assignStudent(fx.enrollment(), route, stop, true, true, LocalDate.of(2025, 6, 1));
+		Student second = studentService.admit(personRepository.save(new Person("Kabir", "Rao")), "ADM-closed-transport-2",
+				LocalDate.of(2025, 5, 1), null, null, null, null, null, null, "Indian", null, null, null, null);
+		StudentEnrollment secondEnrollment = studentService.enroll(second, fx.year(), fx.sectionA(), 2, LocalDate.of(2025, 6, 1));
+		closeYear(fx.year());
+
+		assertClosed(() -> transportService.assignStudent(secondEnrollment, route, stop, true, true, LocalDate.of(2025, 7, 1)));
+		assertClosed(() -> transportService.reassignRoute(assignment, route, otherStop, LocalDate.of(2025, 9, 1)));
+
+		assertThat(studentTransportAssignmentRepository.findAll()).hasSize(1);
+		StudentTransportAssignment unchanged = studentTransportAssignmentRepository.findById(assignment.getId()).orElseThrow();
+		assertThat(unchanged.getStatus()).isEqualTo(TransportAssignmentStatus.ACTIVE);
+		assertThat(unchanged.getRouteStop().getId()).isEqualTo(stop.getId());
+	}
+
+	@Test
+	void transportAssignmentAndRouteChangesStillWorkInAnOpenYear() {
+		Fixture fx = setUpFixture("open-transport");
+		Route route = routeRepository.save(new Route(fx.campus(), "Route 12", "R12", null));
+		RouteStop stop = routeStopRepository.save(new RouteStop(route, "Gate 1", 1, null, null, null, null));
+		RouteStop otherStop = routeStopRepository.save(new RouteStop(route, "Gate 2", 2, null, null, null, null));
+
+		StudentTransportAssignment assignment =
+				transportService.assignStudent(fx.enrollment(), route, stop, true, true, LocalDate.of(2025, 6, 1));
+		StudentTransportAssignment reassigned = transportService.reassignRoute(assignment, route, otherStop, LocalDate.of(2025, 9, 1));
+
+		assertThat(reassigned.getStatus()).isEqualTo(TransportAssignmentStatus.ACTIVE);
+		assertThat(reassigned.getRouteStop().getId()).isEqualTo(otherStop.getId());
+	}
+
+	// ---- learning ----------------------------------------------------------------------------------------
+
+	@Test
+	void homeworkAndQuizAuthoringAreRejectedInAClosedYear() {
+		Fixture fx = setUpFixture("closed-learning");
+		LearningActor admin = new LearningActor(1L, personRepository.save(new Person("Admin", "User")).getId(), true, true, true, List.of());
+		closeYear(fx.year());
+
+		assertClosed(() -> homeworkService.assign(admin, fx.sectionA().getId(), fx.maths().getId(), "Fractions", null,
+				LocalDate.of(2025, 9, 1), null));
+		assertClosed(() -> quizService.createQuiz(admin, fx.sectionA().getId(), fx.maths().getId(), "Quiz 1", null,
+				Instant.parse("2025-09-01T09:00:00Z"), Instant.parse("2025-09-01T10:00:00Z")));
+
+		assertThat(homeworkService.list(admin, fx.sectionA().getId())).isEmpty();
+		assertThat(quizService.list(admin, fx.sectionA().getId())).isEmpty();
+	}
+
+	@Test
+	void homeworkAuthoringStillWorksInAnOpenYear() {
+		Fixture fx = setUpFixture("open-learning");
+		LearningActor admin = new LearningActor(1L, personRepository.save(new Person("Admin", "User")).getId(), true, true, true, List.of());
+
+		Homework homework = homeworkService.assign(admin, fx.sectionA().getId(), fx.maths().getId(), "Fractions", null,
+				LocalDate.of(2025, 9, 1), null);
+
+		assertThat(homework.getId()).isNotNull();
 	}
 
 	// ---- close precondition ------------------------------------------------------------------------------

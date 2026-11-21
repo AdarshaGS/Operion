@@ -186,7 +186,9 @@ class ReceiptServiceTest {
 		Person person = personRepository.save(new Person(firstName, "Nair"));
 		Student student = studentRepository.save(new Student(person, studentId, admissionNumber, LocalDate.of(2025, 5, 1), null, null,
 				null, null, null, null, null, null, null, null, null, null));
-		studentEnrollmentRepository.save(new StudentEnrollment(student, year, section, 1, LocalDate.of(2025, 6, 1)));
+		studentEnrollmentRepository.save(new StudentEnrollment(student, year, section,
+				// Roll numbers are unique per section; the admission number's numeric tail keeps each student's distinct.
+				Integer.parseInt(admissionNumber.substring(admissionNumber.indexOf('-') + 1)), LocalDate.of(2025, 6, 1)));
 		return student;
 	}
 

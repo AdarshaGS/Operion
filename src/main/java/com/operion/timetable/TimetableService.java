@@ -6,6 +6,7 @@ import java.time.LocalTime;
 import java.util.List;
 import java.util.Optional;
 
+import com.operion.academic.AcademicStructureYearGuard;
 import com.operion.academic.ClassSubject;
 import com.operion.academic.ClassSubjectRepository;
 import com.operion.academic.ClassSubjectStatus;
@@ -250,6 +251,7 @@ public class TimetableService {
 	/** As above, optionally holding the slot in a room: it must be active and not used by another section in an overlapping period that day. */
 	@Transactional
 	public TimetableEntry setEntry(Section section, Subject subject, Person teacher, DayOfWeek day, Period period, Room room) {
+		AcademicStructureYearGuard.requireOpen(section, "scheduling a timetable entry");
 		if (!period.isTeaching()) {
 			throw new IllegalStateException("Cannot schedule a subject in a " + (period.getSlotType() == SlotType.BREAK ? "break" : "special")
 					+ " period (" + period.getLabel() + ")");

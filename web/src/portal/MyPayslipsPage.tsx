@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link as RouterLink, useParams } from "react-router-dom";
 import Alert from "@mui/material/Alert";
 import Button from "@mui/material/Button";
+import IconButton from "@mui/material/IconButton";
 import Link from "@mui/material/Link";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
@@ -10,7 +11,9 @@ import TableBody from "@mui/material/TableBody";
 import TableCell from "@mui/material/TableCell";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
+import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import PrintIcon from "@mui/icons-material/Print";
 import { ApiError } from "../api/client";
 import { getMyPayslip, getMyPayslips, type PayslipResponse } from "../api/payroll";
@@ -81,9 +84,11 @@ export function MyPayslipPage() {
 		<Stack spacing={2}>
 			<PayslipView payslip={payslip} />
 			<Stack direction="row" spacing={1}>
-				<Button component={RouterLink} to="/portal/payslips">
-					Back to payslips
-				</Button>
+				<Tooltip title="Back to payslips">
+					<IconButton component={RouterLink} to="/portal/payslips" aria-label="Back to payslips" sx={{ ml: -1 }}>
+						<ArrowBackIcon />
+					</IconButton>
+				</Tooltip>
 				<Button startIcon={<PrintIcon />} onClick={() => window.print()}>
 					Print
 				</Button>

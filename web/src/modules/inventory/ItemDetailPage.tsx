@@ -9,6 +9,7 @@ import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
+import IconButton from "@mui/material/IconButton";
 import MenuItem from "@mui/material/MenuItem";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
@@ -19,6 +20,7 @@ import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
+import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import AddIcon from "@mui/icons-material/Add";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
@@ -352,15 +354,16 @@ export function ItemDetailPage() {
 
 	return (
 		<Stack spacing={2}>
-			<Box>
-				<Button startIcon={<ArrowBackIcon />} onClick={() => navigate("/inventory")}>
-					Back to inventory
-				</Button>
-			</Box>
-
-			<Typography variant="h4" component="h1">
-				{item?.name ?? `Item #${itemId}`}
-			</Typography>
+			<Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+				<Tooltip title="Back to inventory">
+					<IconButton onClick={() => navigate("/inventory")} aria-label="Back to inventory" sx={{ ml: -1 }}>
+						<ArrowBackIcon />
+					</IconButton>
+				</Tooltip>
+				<Typography variant="h4" component="h1">
+					{item?.name ?? `Item #${itemId}`}
+				</Typography>
+			</Stack>
 
 			{error && <Alert severity="error">{error}</Alert>}
 

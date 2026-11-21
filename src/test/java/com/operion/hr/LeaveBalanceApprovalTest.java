@@ -147,16 +147,31 @@ class LeaveBalanceApprovalTest {
 	}
 
 	@Test
+	void updatingLeaveTypePersistsNameAndDaysButKeepsCode() {
+		Fixture fixture = setUpFixture("hr-update-leave-type");
+
+		hrService.updateLeaveType(fixture.leaveType(), "  Casual Leave (CL) ", 10.0);
+
+		LeaveType reloaded = leaveTypeRepository.findById(fixture.leaveType().getId()).orElseThrow();
+		assertThat(reloaded.getName()).isEqualTo("Casual Leave (CL)");
+		assertThat(reloaded.getDefaultAnnualDays()).isEqualTo(10.0);
+		assertThat(reloaded.getCode()).isEqualTo("CASUAL");
+		assertThatThrownBy(() -> hrService.updateLeaveType(reloaded, " ", 5.0)).isInstanceOf(InvalidRequestException.class);
+		assertThatThrownBy(() -> hrService.updateLeaveType(reloaded, "X", -1.0)).isInstanceOf(InvalidRequestException.class);
+	}
+
+	@Test
 	void approvingWithinBalanceSucceedsAndReducesRemaining() {
 		Fixture fixture = setUpFixture("hr-approve-within-balance");
 		hrService.allocateBalance(fixture.staffProfile(), fixture.leaveType(), fixture.academicYear(), 12.0);
 		LeaveRequest request = hrService.raiseLeaveRequest(
 				fixture.staffProfile(), fixture.leaveType(), fixture.academicYear(), LocalDate.of(2026, 1, 5), LocalDate.of(2026, 1, 7), 3.0, "Family event");
 
-		hrService.approve(request, 99L);
+		LeaveRequest approved = hrService.approve(request, 99L);
 
-		assertThat(request.getStatus()).isEqualTo(LeaveRequestStatus.APPROVED);
-		assertThat(request.getApprovedBy()).isEqualTo(99L);
+		assertThat(approved.getStatus()).isEqualTo(LeaveRequestStatus.APPROVED);
+		assertThat(approved.getApprovedBy()).isEqualTo(99L);
+		assertThat(leaveRequestRepository.findById(request.getId()).orElseThrow().getStatus()).isEqualTo(LeaveRequestStatus.APPROVED);
 		assertThat(hrService.getRemainingBalance(fixture.staffProfile(), fixture.leaveType(), fixture.academicYear())).isEqualTo(9.0);
 	}
 
@@ -203,7 +218,22 @@ class LeaveBalanceApprovalTest {
 				fixture.staffProfile(), fixture.leaveType(), fixture.academicYear(), LocalDate.of(2026, 1, 5), LocalDate.of(2026, 1, 5), 1.0, null);
 		hrService.approve(request, 99L);
 
-		assertThatThrownBy(() -> hrService.approve(request, 99L)).isInstanceOf(IllegalStateException.class);
+		// The caller's copy still says PENDING; approve re-reads, so the answer is "not pending", not a balance error
+		// (the 1-day request would otherwise be checked against the 11 remaining days and the stale copy let through).
+		assertThatThrownBy(() -> hrService.approve(request, 99L))
+				.isInstanceOf(IllegalStateException.class).hasMessageContaining("Only a pending leave request");
+	}
+
+	@Test
+	void reApprovingWithNoBalanceLeftStillReportsNotPendingRatherThanBalance() {
+		Fixture fixture = setUpFixture("hr-approve-twice-exhausted");
+		hrService.allocateBalance(fixture.staffProfile(), fixture.leaveType(), fixture.academicYear(), 1.0);
+		LeaveRequest request = hrService.raiseLeaveRequest(
+				fixture.staffProfile(), fixture.leaveType(), fixture.academicYear(), LocalDate.of(2026, 1, 5), LocalDate.of(2026, 1, 5), 1.0, null);
+		hrService.approve(request, 99L); // remaining is now 0, so a balance-first check would say "exceeds remaining"
+
+		assertThatThrownBy(() -> hrService.approve(request, 99L))
+				.isInstanceOf(IllegalStateException.class).hasMessageContaining("Only a pending leave request");
 	}
 
 	@Test
@@ -217,8 +247,8 @@ class LeaveBalanceApprovalTest {
 
 		LeaveRequest approved = hrService.raiseLeaveRequest(
 				fixture.staffProfile(), fixture.leaveType(), fixture.academicYear(), LocalDate.of(2026, 2, 5), LocalDate.of(2026, 2, 5), 1.0, null);
-		hrService.approve(approved, 99L);
-		assertThatThrownBy(() -> hrService.cancel(approved)).isInstanceOf(IllegalStateException.class);
+		LeaveRequest decided = hrService.approve(approved, 99L);
+		assertThatThrownBy(() -> hrService.cancel(decided)).isInstanceOf(IllegalStateException.class);
 	}
 
 	@Test
@@ -255,6 +285,46 @@ class LeaveBalanceApprovalTest {
 	}
 
 	@Test
+	void leaveRequestDaysMustBeAPositiveMultipleOfAHalf() {
+		Fixture fixture = setUpFixture("hr-leave-granularity");
+		LocalDate monday = LocalDate.of(2026, 1, 5);
+		LocalDate wednesday = LocalDate.of(2026, 1, 7);
+
+		for (double bad : new double[] {0.0001, 0.3, 0.75, 1.25, 2.9999, Double.NaN}) {
+			assertThatThrownBy(() -> hrService.raiseLeaveRequest(fixture.staffProfile(), fixture.leaveType(), fixture.academicYear(),
+					monday, wednesday, bad, null))
+					.as("numberOfDays=%s", bad).isInstanceOf(InvalidRequestException.class).hasMessageContaining("0.5");
+		}
+		assertThatThrownBy(() -> hrService.raiseLeaveRequest(fixture.staffProfile(), fixture.leaveType(), fixture.academicYear(),
+				monday, wednesday, 0.0, null)).isInstanceOf(InvalidRequestException.class);
+		assertThat(leaveRequestRepository.findByStaffProfileId(fixture.staffProfile().getId())).isEmpty();
+
+		// 0.5, 1 and 1.5 all work (separate non-overlapping days, since overlapping requests are refused).
+		assertThat(hrService.raiseLeaveRequest(fixture.staffProfile(), fixture.leaveType(), fixture.academicYear(),
+				monday, monday, 0.5, null).getNumberOfDays()).isEqualTo(0.5);
+		assertThat(hrService.raiseLeaveRequest(fixture.staffProfile(), fixture.leaveType(), fixture.academicYear(),
+				LocalDate.of(2026, 1, 6), LocalDate.of(2026, 1, 6), 1.0, null).getNumberOfDays()).isEqualTo(1.0);
+		assertThat(hrService.raiseLeaveRequest(fixture.staffProfile(), fixture.leaveType(), fixture.academicYear(),
+				wednesday, LocalDate.of(2026, 1, 8), 1.5, null).getNumberOfDays()).isEqualTo(1.5);
+	}
+
+	@Test
+	void allocatedDaysMustBeAMultipleOfAHalf() {
+		Fixture fixture = setUpFixture("hr-allocate-granularity");
+
+		for (double bad : new double[] {0.0001, 0.3, 11.75, Double.NaN, Double.POSITIVE_INFINITY}) {
+			assertThatThrownBy(() -> hrService.allocateBalance(fixture.staffProfile(), fixture.leaveType(), fixture.academicYear(), bad))
+					.as("allocatedDays=%s", bad).isInstanceOf(InvalidRequestException.class);
+		}
+		assertThat(leaveBalanceRepository.findByStaffProfileIdAndAcademicYearId(fixture.staffProfile().getId(), fixture.academicYear().getId())).isEmpty();
+
+		for (double good : new double[] {0.0, 0.5, 1.0, 12.5, 366.0}) {
+			hrService.allocateBalance(fixture.staffProfile(), fixture.leaveType(), fixture.academicYear(), good);
+			assertThat(hrService.getRemainingBalance(fixture.staffProfile(), fixture.leaveType(), fixture.academicYear())).isEqualTo(good);
+		}
+	}
+
+	@Test
 	void askingForMoreDaysThanTheRangeHasWorkingDaysIsRejected() {
 		Fixture fixture = setUpFixture("hr-leave-holiday-too-many");
 		holiday(fixture, LocalDate.of(2026, 1, 6));
@@ -284,5 +354,161 @@ class LeaveBalanceApprovalTest {
 		assertThatThrownBy(() -> hrService.raiseLeaveRequest(fixture.staffProfile(), fixture.leaveType(), fixture.academicYear(),
 				LocalDate.of(2026, 1, 11), LocalDate.of(2026, 1, 11), 1.0, null)) // a Sunday
 				.isInstanceOf(InvalidRequestException.class).hasMessageContaining("holiday or weekly off");
+	}
+
+	@Test
+	void leaveOfAnInactiveLeaveTypeCannotBeRequested() {
+		Fixture fixture = setUpFixture("hr-leave-inactive-type");
+		LeaveType inactive = leaveTypeRepository.findById(fixture.leaveType().getId()).orElseThrow();
+		org.springframework.test.util.ReflectionTestUtils.setField(inactive, "status", LeaveTypeStatus.INACTIVE);
+		leaveTypeRepository.save(inactive);
+
+		assertThatThrownBy(() -> hrService.raiseLeaveRequest(fixture.staffProfile(), inactive, fixture.academicYear(),
+				LocalDate.of(2026, 1, 5), LocalDate.of(2026, 1, 5), 1.0, null))
+				.isInstanceOf(InvalidRequestException.class).hasMessageContaining("not active");
+	}
+
+	@Test
+	void leaveOutsideTheAcademicYearIsRejected() {
+		Fixture fixture = setUpFixture("hr-leave-outside-year");
+
+		// Year runs 2025-06-01 .. 2026-04-30.
+		assertThatThrownBy(() -> hrService.raiseLeaveRequest(fixture.staffProfile(), fixture.leaveType(), fixture.academicYear(),
+				LocalDate.of(2025, 5, 28), LocalDate.of(2025, 6, 2), 2.0, null))
+				.isInstanceOf(InvalidRequestException.class).hasMessageContaining("academic year");
+		assertThatThrownBy(() -> hrService.raiseLeaveRequest(fixture.staffProfile(), fixture.leaveType(), fixture.academicYear(),
+				LocalDate.of(2026, 4, 29), LocalDate.of(2026, 5, 2), 2.0, null))
+				.isInstanceOf(InvalidRequestException.class).hasMessageContaining("academic year");
+		// The boundary days themselves are inside.
+		assertThat(hrService.raiseLeaveRequest(fixture.staffProfile(), fixture.leaveType(), fixture.academicYear(),
+				LocalDate.of(2026, 4, 29), LocalDate.of(2026, 4, 30), 2.0, null).getStatus()).isEqualTo(LeaveRequestStatus.PENDING);
+	}
+
+	@Test
+	void leaveCannotBeRequestedForStaffWhoHaveLeft() {
+		Fixture fixture = setUpFixture("hr-leave-exited-staff");
+		hrService.recordExit(fixture.staffProfile(), StaffExitType.RESIGNATION, LocalDate.of(2025, 12, 1), "Relocating", 5L);
+
+		assertThatThrownBy(() -> hrService.raiseLeaveRequest(fixture.staffProfile(), fixture.leaveType(), fixture.academicYear(),
+				LocalDate.of(2026, 1, 5), LocalDate.of(2026, 1, 5), 1.0, null))
+				.isInstanceOf(InvalidRequestException.class).hasMessageContaining("has left");
+	}
+
+	@Test
+	void allocationCannotBeCutBelowDaysAlreadyApproved() {
+		Fixture fixture = setUpFixture("hr-allocate-below-used");
+		hrService.allocateBalance(fixture.staffProfile(), fixture.leaveType(), fixture.academicYear(), 12.0);
+		LeaveRequest request = hrService.raiseLeaveRequest(
+				fixture.staffProfile(), fixture.leaveType(), fixture.academicYear(), LocalDate.of(2026, 1, 5), LocalDate.of(2026, 1, 7), 3.0, null);
+		hrService.approve(request, 99L);
+
+		assertThatThrownBy(() -> hrService.allocateBalance(fixture.staffProfile(), fixture.leaveType(), fixture.academicYear(), 2.0))
+				.isInstanceOf(InvalidRequestException.class).hasMessageContaining("already approved");
+		assertThatThrownBy(() -> hrService.allocateBalance(fixture.staffProfile(), fixture.leaveType(), fixture.academicYear(), -1.0))
+				.isInstanceOf(InvalidRequestException.class);
+		assertThat(hrService.getRemainingBalance(fixture.staffProfile(), fixture.leaveType(), fixture.academicYear())).isEqualTo(9.0);
+
+		// Exactly the used amount is allowed.
+		hrService.allocateBalance(fixture.staffProfile(), fixture.leaveType(), fixture.academicYear(), 3.0);
+		assertThat(hrService.getRemainingBalance(fixture.staffProfile(), fixture.leaveType(), fixture.academicYear())).isEqualTo(0.0);
+	}
+
+	@Test
+	void recordingAnExitEndsTheOpenAssignmentAndCancelsOnlyLaterPendingLeave() {
+		Fixture fixture = setUpFixture("hr-exit-cleanup");
+		hrService.allocateBalance(fixture.staffProfile(), fixture.leaveType(), fixture.academicYear(), 12.0);
+		LeaveRequest before = hrService.raiseLeaveRequest(
+				fixture.staffProfile(), fixture.leaveType(), fixture.academicYear(), LocalDate.of(2026, 1, 5), LocalDate.of(2026, 1, 5), 1.0, null);
+		LeaveRequest after = hrService.raiseLeaveRequest(
+				fixture.staffProfile(), fixture.leaveType(), fixture.academicYear(), LocalDate.of(2026, 3, 2), LocalDate.of(2026, 3, 3), 2.0, null);
+		LeaveRequest approvedLater = hrService.raiseLeaveRequest(
+				fixture.staffProfile(), fixture.leaveType(), fixture.academicYear(), LocalDate.of(2026, 3, 9), LocalDate.of(2026, 3, 9), 1.0, null);
+		hrService.approve(approvedLater, 99L);
+
+		hrService.recordExit(fixture.staffProfile(), StaffExitType.RESIGNATION, LocalDate.of(2026, 2, 1), "Relocating", 5L);
+
+		List<StaffAssignment> history = staffAssignmentRepository.findByStaffProfileIdOrderByStartDateDesc(fixture.staffProfile().getId());
+		assertThat(history).hasSize(1);
+		assertThat(history.get(0).getStatus()).isEqualTo(StaffAssignmentStatus.ENDED);
+		assertThat(history.get(0).getEndDate()).isEqualTo(LocalDate.of(2026, 2, 1));
+		assertThat(leaveRequestRepository.findById(before.getId()).orElseThrow().getStatus()).isEqualTo(LeaveRequestStatus.PENDING);
+		assertThat(leaveRequestRepository.findById(after.getId()).orElseThrow().getStatus()).isEqualTo(LeaveRequestStatus.CANCELLED);
+		// Cancelling approved leave is a product decision, deliberately left alone.
+		assertThat(leaveRequestRepository.findById(approvedLater.getId()).orElseThrow().getStatus()).isEqualTo(LeaveRequestStatus.APPROVED);
+	}
+
+	@Test
+	void allocationIsCappedAtADaysInAYear() {
+		Fixture fixture = setUpFixture("hr-allocate-cap");
+
+		assertThatThrownBy(() -> hrService.allocateBalance(fixture.staffProfile(), fixture.leaveType(), fixture.academicYear(), 366.5))
+				.isInstanceOf(InvalidRequestException.class).hasMessageContaining("366");
+		assertThatThrownBy(() -> hrService.allocateBalance(fixture.staffProfile(), fixture.leaveType(), fixture.academicYear(), 1_000_000))
+				.isInstanceOf(InvalidRequestException.class);
+		assertThatThrownBy(() -> hrService.allocateBalance(fixture.staffProfile(), fixture.leaveType(), fixture.academicYear(), Double.POSITIVE_INFINITY))
+				.isInstanceOf(InvalidRequestException.class);
+		assertThat(leaveBalanceRepository.findByStaffProfileIdAndAcademicYearId(fixture.staffProfile().getId(), fixture.academicYear().getId())).isEmpty();
+
+		// The bound itself is allowed.
+		hrService.allocateBalance(fixture.staffProfile(), fixture.leaveType(), fixture.academicYear(), 366.0);
+		assertThat(hrService.getRemainingBalance(fixture.staffProfile(), fixture.leaveType(), fixture.academicYear())).isEqualTo(366.0);
+	}
+
+	@Test
+	void leaveCannotBeAllocatedToStaffWhoHaveLeft() {
+		Fixture fixture = setUpFixture("hr-allocate-exited-staff");
+		hrService.recordExit(fixture.staffProfile(), StaffExitType.TERMINATION, LocalDate.of(2025, 12, 1), "Policy", 5L);
+
+		assertThatThrownBy(() -> hrService.allocateBalance(fixture.staffProfile(), fixture.leaveType(), fixture.academicYear(), 5.0))
+				.isInstanceOf(InvalidRequestException.class).hasMessageContaining("has left");
+		assertThat(leaveBalanceRepository.findByStaffProfileIdAndAcademicYearId(fixture.staffProfile().getId(), fixture.academicYear().getId())).isEmpty();
+	}
+
+	@Test
+	void anExitWithdrawsPendingLeaveThatStartsBeforeItButRunsPastIt() {
+		Fixture fixture = setUpFixture("hr-exit-spanning-leave");
+		hrService.allocateBalance(fixture.staffProfile(), fixture.leaveType(), fixture.academicYear(), 12.0);
+		LeaveRequest earlier = hrService.raiseLeaveRequest(
+				fixture.staffProfile(), fixture.leaveType(), fixture.academicYear(), LocalDate.of(2026, 1, 5), LocalDate.of(2026, 1, 5), 1.0, null);
+		// Thu 8 Jan - Wed 14 Jan straddles the exit on Tue 13 Jan.
+		LeaveRequest spanning = hrService.raiseLeaveRequest(
+				fixture.staffProfile(), fixture.leaveType(), fixture.academicYear(), LocalDate.of(2026, 1, 8), LocalDate.of(2026, 1, 14), 2.0, null);
+
+		hrService.recordExit(fixture.staffProfile(), StaffExitType.RESIGNATION, LocalDate.of(2026, 1, 13), "Relocating", 5L);
+
+		assertThat(leaveRequestRepository.findById(spanning.getId()).orElseThrow().getStatus()).isEqualTo(LeaveRequestStatus.CANCELLED);
+		assertThat(leaveRequestRepository.findById(earlier.getId()).orElseThrow().getStatus()).isEqualTo(LeaveRequestStatus.PENDING);
+	}
+
+	@Test
+	void anExitWithdrawsPendingLeaveThatEndsOnTheExitDate() {
+		Fixture fixture = setUpFixture("hr-exit-leave-ends-on-exit");
+		hrService.allocateBalance(fixture.staffProfile(), fixture.leaveType(), fixture.academicYear(), 12.0);
+		LeaveRequest endsOnExit = hrService.raiseLeaveRequest(
+				fixture.staffProfile(), fixture.leaveType(), fixture.academicYear(), LocalDate.of(2026, 1, 8), LocalDate.of(2026, 1, 9), 2.0, null);
+		LeaveRequest endedBefore = hrService.raiseLeaveRequest(
+				fixture.staffProfile(), fixture.leaveType(), fixture.academicYear(), LocalDate.of(2026, 1, 5), LocalDate.of(2026, 1, 6), 2.0, null);
+
+		hrService.recordExit(fixture.staffProfile(), StaffExitType.RESIGNATION, LocalDate.of(2026, 1, 9), "Relocating", 5L);
+
+		assertThat(leaveRequestRepository.findById(endsOnExit.getId()).orElseThrow().getStatus()).isEqualTo(LeaveRequestStatus.CANCELLED);
+		assertThat(leaveRequestRepository.findById(endedBefore.getId()).orElseThrow().getStatus()).isEqualTo(LeaveRequestStatus.PENDING);
+	}
+
+	@Test
+	void aLeftoverPendingRequestOfStaffWhoHaveLeftCannotBeApproved() {
+		Fixture fixture = setUpFixture("hr-approve-exited-staff");
+		hrService.allocateBalance(fixture.staffProfile(), fixture.leaveType(), fixture.academicYear(), 12.0);
+		// Ends before the exit date, so the exit does not withdraw it and it stays PENDING.
+		LeaveRequest leftover = hrService.raiseLeaveRequest(
+				fixture.staffProfile(), fixture.leaveType(), fixture.academicYear(), LocalDate.of(2026, 1, 5), LocalDate.of(2026, 1, 5), 1.0, null);
+		hrService.recordExit(fixture.staffProfile(), StaffExitType.RESIGNATION, LocalDate.of(2026, 1, 13), "Relocating", 5L);
+		assertThat(leaveRequestRepository.findById(leftover.getId()).orElseThrow().getStatus()).isEqualTo(LeaveRequestStatus.PENDING);
+
+		assertThatThrownBy(() -> hrService.approve(leftover, 99L))
+				.isInstanceOf(IllegalStateException.class).hasMessageContaining("has left");
+
+		assertThat(leaveRequestRepository.findById(leftover.getId()).orElseThrow().getStatus()).isEqualTo(LeaveRequestStatus.PENDING);
+		assertThat(hrService.getRemainingBalance(fixture.staffProfile(), fixture.leaveType(), fixture.academicYear())).isEqualTo(12.0);
 	}
 }

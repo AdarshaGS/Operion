@@ -1,4 +1,5 @@
 import { api } from "./client";
+import type { StaffInviteResponse } from "./users";
 
 export interface CreateStaffProfileRequest {
 	personId: number;
@@ -9,6 +10,28 @@ export interface CreateStaffProfileRequest {
 	dateOfJoining: string;
 	employmentType: string;
 	reportingManagerId?: number | null;
+	/** Optional: also give the new staff member a login. Needs MEMBERSHIP_MANAGE as well as HR_STAFF_MANAGE; the staff profile and
+	 * the login are created together or not at all. */
+	access?: StaffAccessRequest | null;
+}
+
+/** Login access for a staff member: an invited User plus a membership with `roleId`. `campusId` overrides the staff member's own
+ * campus for the membership; `phone` is the login's optional phone. */
+export interface StaffAccessRequest {
+	email: string;
+	roleId: number;
+	campusId?: number | null;
+	phone?: string | null;
+}
+
+/** Whether a staff member can sign in. `hasAccess` = an active membership exists. `status` is INVITED / ACTIVE / INACTIVE, or null
+ * if they never had access. `membershipId` and `roleName` are null unless the caller may view memberships. The whole summary is
+ * null on `StaffProfileResponse.access` for callers who hold neither MEMBERSHIP_VIEW nor MEMBERSHIP_MANAGE. */
+export interface StaffAccessSummary {
+	hasAccess: boolean;
+	membershipId: number | null;
+	roleName: string | null;
+	status: "INVITED" | "ACTIVE" | "INACTIVE" | null;
 }
 
 export interface StaffProfileResponse {
@@ -25,6 +48,10 @@ export interface StaffProfileResponse {
 	dateOfJoining: string;
 	employmentType: string;
 	status: string;
+	/** Null when the caller may not view memberships - treat as "unknown", never as "no login". */
+	access: StaffAccessSummary | null;
+	/** Set only on the response that just issued a login (create-with-access, give-access) - carries the one-time claim token. */
+	invite: StaffInviteResponse | null;
 }
 
 export interface ChangeStaffStatusRequest {
@@ -113,6 +140,11 @@ export interface StaffBankDetailResponse {
 
 export function createStaffProfile(request: CreateStaffProfileRequest): Promise<StaffProfileResponse> {
 	return api.post<StaffProfileResponse>("/api/v1/hr/staff", request);
+}
+
+/** Gives an existing, current staff member a login. 409 if they already have one or have left. */
+export function giveStaffAccess(staffProfileId: number, request: StaffAccessRequest): Promise<StaffProfileResponse> {
+	return api.post<StaffProfileResponse>(`/api/v1/hr/staff/${staffProfileId}/access`, request);
 }
 
 export function listStaffProfiles(campusId?: number): Promise<StaffProfileResponse[]> {

@@ -2,9 +2,12 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
+import IconButton from "@mui/material/IconButton";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
+import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import RadioButtonUncheckedIcon from "@mui/icons-material/RadioButtonUnchecked";
 import { useAuth } from "../../auth/AuthContext";
@@ -22,7 +25,7 @@ interface ReviewRow {
 function rowsFrom(preview: SchoolTemplatePreviewResponse): ReviewRow[] {
 	const anyPresent = (items: { alreadyExists: boolean }[]) => items.some((item) => item.alreadyExists);
 	return [
-		{ label: "Grades", done: anyPresent(preview.grades), path: "/academics", ctaLabel: "Manage grades" },
+		{ label: "Grade levels", done: anyPresent(preview.grades), path: "/academics", ctaLabel: "Manage grade levels" },
 		{ label: "Classes (current year)", done: anyPresent(preview.classes), path: "/academics", ctaLabel: "Manage classes" },
 		{ label: "Sections", done: anyPresent(preview.sections), path: "/academics", ctaLabel: "Manage sections" },
 		{ label: "Subjects", done: anyPresent(preview.subjects), path: "/academics", ctaLabel: "Manage subjects" },
@@ -68,9 +71,16 @@ export function ReviewSchoolSetupPage() {
 	return (
 		<Stack spacing={3}>
 			<Box>
-				<Typography variant="h4" sx={{ color: colors.ink }}>
-					Review school setup
-				</Typography>
+				<Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+					<Tooltip title="Back to school setup template">
+						<IconButton onClick={() => navigate("/settings/school-template")} aria-label="Back to school setup template" sx={{ ml: -1, color: colors.inkSoft }}>
+							<ArrowBackIcon />
+						</IconButton>
+					</Tooltip>
+					<Typography variant="h4" sx={{ color: colors.ink }}>
+						Review school setup
+					</Typography>
+				</Stack>
 				<Typography variant="body1" sx={{ color: colors.inkSoft, mt: 0.5 }}>
 					A quick check across everything the school setup template can pre-fill. Nothing here is required -
 					every item is reachable from Settings at any time.
@@ -119,9 +129,6 @@ export function ReviewSchoolSetupPage() {
 			<Box sx={{ display: "flex", gap: 1.5, flexWrap: "wrap" }}>
 				<Button variant="contained" onClick={() => navigate("/setup/go-live")}>
 					Run go-live check
-				</Button>
-				<Button onClick={() => navigate("/settings/school-template")} sx={{ color: colors.inkSoft }}>
-					Back to school setup template
 				</Button>
 			</Box>
 		</Stack>

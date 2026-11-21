@@ -35,7 +35,7 @@ const STEPS: WizardStep[] = [
 	{ label: "School setup template", optional: true, render: () => <SchoolTemplatePanel /> },
 	{ label: "Grade levels", optional: false, render: () => <GradeLevelsPanel /> },
 	{ label: "Subjects", optional: true, render: () => <SubjectsPanel /> },
-	{ label: "Classes / sections", optional: false, render: () => <SchoolClassesPanel /> },
+	{ label: "Classes & sections", optional: false, render: () => <SchoolClassesPanel /> },
 ];
 
 /** What each wizard step has in place right now - drives the green "done" ticks on the stepper. */
@@ -181,7 +181,7 @@ export function AcademicSetupPage() {
 					Academic setup
 				</Typography>
 				<Typography variant="body1" sx={{ color: colors.inkSoft, mt: 0.5 }}>
-					Set up your academic year, then apply the school setup template (grades, classes, sections, subjects, departments, designations and more) or add grade levels, subjects and classes by hand - one guided flow, in the right order.
+					Set up your academic year, then apply the school setup template (grade levels, classes, sections, subjects, departments, designations and more) or add grade levels, subjects and classes by hand - one guided flow, in the right order.
 				</Typography>
 			</Box>
 

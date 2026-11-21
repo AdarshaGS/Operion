@@ -119,9 +119,9 @@ public class JwtAuthenticationInterceptor implements HandlerInterceptor {
 		TenantContext.clear();
 	}
 
-	// Organisation creation is the bootstrap step - there is no token to send before the
-	// org (and its first admin login) exists yet, so it alone stays unauthenticated.
-	// claim-invite is the same shape of bootstrap for a Guardian: PortalInviteService
+	// Organisation creation is NOT public: only a platform admin may create one, through
+	// /api/v1/platform/organisations (PlatformAuthenticationInterceptor).
+	// claim-invite is the bootstrap shape for a Guardian: PortalInviteService
 	// resolves the org from the request body's slug itself, exactly like login() does,
 	// since there is no token yet to carry it. claim-staff-invite is the identical shape for
 	// StaffInviteService. password-reset/request+confirm and verify-email are the same
@@ -159,9 +159,6 @@ public class JwtAuthenticationInterceptor implements HandlerInterceptor {
 		}
 		// Certificate verification (target of the QR on a certificate): org by slug, unguessable token, minimal fields.
 		if (path.matches("/api/v1/public/orgs/[^/]+/certificates/[^/]+") && "GET".equalsIgnoreCase(request.getMethod())) {
-			return true;
-		}
-		if (path.equals("/api/v1/organisations") && "POST".equalsIgnoreCase(request.getMethod())) {
 			return true;
 		}
 		if (path.equals("/api/v1/job-applications") && "POST".equalsIgnoreCase(request.getMethod())) {

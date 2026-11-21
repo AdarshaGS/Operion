@@ -2430,8 +2430,6 @@ export interface components {
             exitDate?: string;
             reason?: string;
             destinationSchool?: string;
-            /** Format: int64 */
-            initiatedBy?: number;
         };
         StudentExitResponse: {
             /** Format: int64 */

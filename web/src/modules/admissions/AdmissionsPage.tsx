@@ -313,7 +313,7 @@ export function AdmissionsPage() {
 									<TableCell>Date of birth</TableCell>
 									<TableCell>Class</TableCell>
 									<TableCell>Guardian</TableCell>
-									<TableCell>Inquiry date</TableCell>
+									<TableCell>Enquiry date</TableCell>
 									<TableCell>Status</TableCell>
 									<TableCell />
 								</TableRow>
@@ -380,7 +380,8 @@ export function AdmissionsPage() {
 					</Typography>
 				)}
 
-				{!searching && (
+				{/* A single page of results needs no pager; Math.min keeps it if a smaller page size was chosen earlier. */}
+				{!searching && total > Math.min(size, 20) && (
 				<TablePagination
 					component="div"
 					count={total}

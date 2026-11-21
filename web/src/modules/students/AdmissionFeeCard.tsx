@@ -11,6 +11,7 @@ import TableCell from "@mui/material/TableCell";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import Typography from "@mui/material/Typography";
+import AddIcon from "@mui/icons-material/Add";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import RadioButtonUncheckedIcon from "@mui/icons-material/RadioButtonUnchecked";
 import { getFeeClearance, type FeeClearanceStatus, type FeeClearanceStepKey, type FeeClearanceViewResponse } from "../../api/admission";
@@ -63,6 +64,8 @@ export function AdmissionFeeCard({ enrollment, onChanged }: Props) {
 	const [view, setView] = useState<FeeClearanceViewResponse | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	const [collectOpen, setCollectOpen] = useState(false);
+	// True when the dialog was opened by "Assign fee" (jump to the assign form) rather than "Collect".
+	const [assignMode, setAssignMode] = useState(false);
 
 	const load = useCallback(() => {
 		getFeeClearance(enrollment.studentId, enrollment.id)
@@ -95,9 +98,30 @@ export function AdmissionFeeCard({ enrollment, onChanged }: Props) {
 					<Typography variant="subtitle1">Admission fee</Typography>
 					<Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
 						<Chip label={STATUS_LABEL[view.status]} color={STATUS_COLOR[view.status]} size="small" />
+						{/* Student-level extras (a one-off fee, a top-up for a late joiner) are assigned here, whatever the admission status. */}
+						<Can anyOf={["FEE_ASSIGNMENT_MANAGE"]}>
+							<Button
+								size="small"
+								variant="outlined"
+								startIcon={<AddIcon />}
+								onClick={() => {
+									setAssignMode(true);
+									setCollectOpen(true);
+								}}
+							>
+								Assign fee
+							</Button>
+						</Can>
 						{view.status === "PENDING" && (
 							<Can anyOf={["FEE_COLLECT"]}>
-								<Button size="small" variant="contained" onClick={() => setCollectOpen(true)}>
+								<Button
+									size="small"
+									variant="contained"
+									onClick={() => {
+										setAssignMode(false);
+										setCollectOpen(true);
+									}}
+								>
 									Collect
 								</Button>
 							</Can>
@@ -148,6 +172,7 @@ export function AdmissionFeeCard({ enrollment, onChanged }: Props) {
 			<CollectFeeDialog
 				open={collectOpen}
 				onClose={closeCollect}
+				startWithAssign={assignMode}
 				target={{ studentEnrollmentId: enrollment.id, academicYearId: enrollment.academicYearId, schoolClassId: enrollment.schoolClassId }}
 			/>
 		</Paper>

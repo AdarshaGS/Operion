@@ -71,16 +71,16 @@ const NAV_GROUPS: PlatformNavGroup[] = [
 		items: [
 			{ label: "Usage", path: "/platform/usage", icon: <BarChartIcon />, built: true },
 			{ label: "Activity", path: "/platform/activity", icon: <TimelineIcon />, built: true },
-			{ label: "System Health", path: "/platform/system-health", icon: <MonitorHeartIcon />, built: true },
+			{ label: "System health", path: "/platform/system-health", icon: <MonitorHeartIcon />, built: true },
 		],
 	},
 	{
 		label: "Support",
-		items: [{ label: "Support / Issues", path: "/platform/support", icon: <SupportAgentIcon />, built: true }],
+		items: [{ label: "Support / issues", path: "/platform/support", icon: <SupportAgentIcon />, built: true }],
 	},
 	{
 		label: "Settings",
-		items: [{ label: "Platform Settings", path: "/platform/settings", icon: <SettingsIcon />, built: true }],
+		items: [{ label: "Platform settings", path: "/platform/settings", icon: <SettingsIcon />, built: true }],
 	},
 ];
 
@@ -131,7 +131,7 @@ export function PlatformLayout() {
 					<>
 						<Chip label="PLATFORM" size="small" sx={{ fontWeight: 700, letterSpacing: "0.06em", color: colors.accent, backgroundColor: colors.accentSoft, flexShrink: 0 }} />
 						<GlobalSearch placeholder="Search organisations, pages, anything..." pages={searchPages} lookup={lookupOrganisations} />
-						<Box sx={{ ml: "auto", flexShrink: 0 }}>
+						<Box sx={{ flexShrink: 0 }}>
 							<AccountButton name="Platform admin" subtitle="Platform owner" onClick={(event: MouseEvent<HTMLElement>) => setAnchorEl(event.currentTarget)} />
 						</Box>
 					</>

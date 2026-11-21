@@ -8,7 +8,7 @@ import { colors } from "../../theme";
 import { useVisibleSettingsGroups } from "./settingsSections";
 
 /** Landing page for Settings - a list of what can be configured, grouped under labeled
- * sections (Organisation / Access & Security / Configuration / System), each opening its
+ * sections (Organisation / Access & security / Configuration / System), each opening its
  * own page (SettingsSectionPage) rather than every panel being stacked inline on one long
  * page. Same underlying panels as before, just organized like a menu instead of a wall
  * of forms. */

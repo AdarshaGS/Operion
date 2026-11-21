@@ -12,10 +12,23 @@ import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
 import Typography from "@mui/material/Typography";
 import Tooltip from "@mui/material/Tooltip";
+import { Can } from "../../auth/Can";
+import { useAuth } from "../../auth/AuthContext";
 import { useCan } from "../../auth/useCan";
-import { AddMemberFields, EMPTY_ADD_MEMBER_FORM, submitAddMember, type AddMemberFormState } from "../../components/AddMemberForm";
+import {
+	EMPTY_ADD_MEMBER_FORM,
+	MemberLoginFields,
+	MemberPersonFields,
+	MemberPlacementFields,
+	MemberRoleField,
+	submitAddMember,
+	type AddMemberFormState,
+} from "../../components/AddMemberForm";
+import { StaffInviteDialog } from "../../components/StaffInviteDialog";
 import { listCampuses, type CampusResponse } from "../../api/campuses";
+import type { StaffInviteResponse } from "../../api/users";
 import { ApiError } from "../../api/client";
+import type { PersonResponse } from "../../api/persons";
 import { listDepartments, type DepartmentResponse } from "../../api/departments";
 import { listDesignations, type DesignationResponse } from "../../api/designations";
 import { listRoles, type RoleResponse } from "../../api/roles";
@@ -53,9 +66,22 @@ export function StaffCreatePage() {
 	const [submitting, setSubmitting] = useState(false);
 	// Creating the StaffProfile is POST /hr/staff (HR_STAFF_MANAGE); the person/user steps before it carry their own codes.
 	const canManageStaff = useCan("HR_STAFF_MANAGE");
+	const { hasPermission } = useAuth();
 
 	const [wantsStaffProfile, setWantsStaffProfile] = useState(true);
+	// Optional: invite this person to sign in (a login + membership) in the same step as the staff profile. Only reachable
+	// through the <Can> block below, so it can never be true for someone without the membership-granting permission.
+	const [givesAccess, setGivesAccess] = useState(false);
+	const [accessRoleId, setAccessRoleId] = useState<number | "">("");
+	const [issuedInvite, setIssuedInvite] = useState<StaffInviteResponse | null>(null);
+	const [landingPath, setLandingPath] = useState("/hr");
+	const inviting = wantsStaffProfile && givesAccess;
 	const [hrExtension, setHrExtension] = useState<HrExtension>(EMPTY_HR_EXTENSION);
+	// The Person created on a previous submit that then failed at the staff-profile/login step. A retry reuses it instead of
+	// creating a second Person; `key` is the person fields it was created from, so editing any of them starts a fresh Person.
+	const [createdPerson, setCreatedPerson] = useState<{ person: PersonResponse; key: string } | null>(null);
+	// The backend refuses a role whose permissions the actor does not hold themselves, so only offer roles they can delegate.
+	const delegableRoles = roles.filter((role) => role.status === "ACTIVE" && role.permissionCodes.every((code) => hasPermission(code)));
 
 	useEffect(() => {
 		listCampuses().then(setCampuses).catch(() => {});
@@ -75,7 +101,12 @@ export function StaffCreatePage() {
 		setSubmitting(true);
 		try {
 			if (wantsStaffProfile && (!form.memberId || !form.joiningDate || !hrExtension.designationId)) {
-				setError("Employee code, joining date, and designation are required to create an HR staff profile");
+				setError("Staff ID, joining date, and designation are required to create an HR staff profile");
+				setSubmitting(false);
+				return;
+			}
+			if (inviting && (!form.email || accessRoleId === "")) {
+				setError("An email address and a role are required to give login access");
 				setSubmitting(false);
 				return;
 			}
@@ -85,9 +116,21 @@ export function StaffCreatePage() {
 				return;
 			}
 
-			const { person, user } = await submitAddMember(form);
+			// When inviting, the login is created by the staff-profile call below (one transaction), so no password login or
+			// role grants are made here.
+			const personKey = JSON.stringify([form.firstName, form.lastName, form.gender, form.email, form.phone, form.address]);
+			let person: PersonResponse;
+			let user: Awaited<ReturnType<typeof submitAddMember>>["user"] = null;
+			if (inviting && createdPerson !== null && createdPerson.key === personKey) {
+				person = createdPerson.person;
+			} else {
+				({ person, user } = await submitAddMember(inviting ? { ...form, roleIds: [] } : form));
+				if (inviting) {
+					setCreatedPerson({ person, key: personKey });
+				}
+			}
 
-			let landingPath = user ? `/settings/users/${user.id}` : "/hr";
+			let landingPath = user ? `/settings/members/${user.id}` : "/hr";
 			if (wantsStaffProfile) {
 				const staffProfile = await createStaffProfile({
 					personId: person.id,
@@ -98,13 +141,20 @@ export function StaffCreatePage() {
 					dateOfJoining: form.joiningDate,
 					employmentType: hrExtension.employmentType,
 					reportingManagerId: hrExtension.reportingManagerId === "" ? null : Number(hrExtension.reportingManagerId),
+					access: inviting ? { email: form.email, roleId: Number(accessRoleId), phone: form.phone || null } : null,
 				});
 				landingPath = `/hr/staff/${staffProfile.id}`;
+				if (staffProfile.invite) {
+					// Show the claim link before leaving - the token is never shown again.
+					setLandingPath(landingPath);
+					setIssuedInvite(staffProfile.invite);
+					return;
+				}
 			}
 
 			navigate(landingPath, { replace: true });
 		} catch (err) {
-			setError(err instanceof ApiError ? err.message : "Failed to add staff member");
+			setError(err instanceof ApiError ? err.message : "Failed to add staff");
 		} finally {
 			setSubmitting(false);
 		}
@@ -113,22 +163,23 @@ export function StaffCreatePage() {
 	return (
 		<Stack spacing={2}>
 			<Typography variant="h4" component="h1">
-				Add staff member
+				Add staff
 			</Typography>
 
 			{error && <Alert severity="error">{error}</Alert>}
 
 			<Paper component="form" onSubmit={handleSubmit} sx={{ p: 3 }}>
 				<Stack spacing={2}>
-					<Typography variant="subtitle1">Member details</Typography>
-					<AddMemberFields
-						value={form}
-						onChange={setForm}
-						campuses={campuses}
-						departments={departments}
-						roles={roles}
-						rolesRequired={false}
-					/>
+					<Typography variant="subtitle1">Staff details</Typography>
+					{/* AddMemberFields' parts, so the password and role fields can step aside while an invite is chosen below. */}
+					<MemberPersonFields value={form} onChange={setForm} campuses={campuses} departments={departments} roles={roles} rolesRequired={false} />
+					{!inviting && (
+						<MemberLoginFields value={form} onChange={setForm} campuses={campuses} departments={departments} roles={roles} rolesRequired={false} />
+					)}
+					<MemberPlacementFields value={form} onChange={setForm} campuses={campuses} departments={departments} roles={roles} rolesRequired={false} />
+					{!inviting && (
+						<MemberRoleField value={form} onChange={setForm} campuses={campuses} departments={departments} roles={roles} rolesRequired={false} />
+					)}
 
 					<Divider />
 					<FormControlLabel
@@ -182,18 +233,51 @@ export function StaffCreatePage() {
 						</Box>
 					)}
 
+					{wantsStaffProfile && (
+						<Can anyOf={["MEMBERSHIP_MANAGE"]}>
+							<FormControlLabel
+								control={<Checkbox checked={givesAccess} onChange={(e) => setGivesAccess(e.target.checked)} />}
+								label="Give login access (emails them an invite to set their own password)"
+							/>
+							{givesAccess && (
+								<TextField
+									select
+									label="Role"
+									value={accessRoleId}
+									onChange={(e) => setAccessRoleId(e.target.value === "" ? "" : Number(e.target.value))}
+									required
+									helperText="Uses the email above. Staff are added to the campus and department chosen above. Only roles whose permissions you hold yourself are listed."
+									fullWidth
+								>
+									{delegableRoles.map((role) => (
+										<MenuItem key={role.id} value={role.id}>
+											{role.name}
+										</MenuItem>
+									))}
+								</TextField>
+							)}
+						</Can>
+					)}
+
 					<Box sx={{ display: "flex", gap: 2, justifyContent: "flex-end" }}>
 						<Button onClick={() => navigate("/hr")}>Cancel</Button>
 						<Tooltip title={wantsStaffProfile && !canManageStaff ? "You don't have permission to create staff profiles" : ""}>
 							<span>
 								<Button type="submit" variant="contained" disabled={submitting || (wantsStaffProfile && !canManageStaff)}>
-									{submitting ? "Adding..." : "Add staff member"}
+									{submitting ? "Adding..." : "Add staff"}
 								</Button>
 							</span>
 						</Tooltip>
 					</Box>
 				</Stack>
 			</Paper>
+			<StaffInviteDialog
+				invite={issuedInvite}
+				onClose={() => {
+					setIssuedInvite(null);
+					navigate(landingPath, { replace: true });
+				}}
+			/>
 		</Stack>
 	);
 }

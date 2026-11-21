@@ -8,6 +8,7 @@ import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
+import Divider from "@mui/material/Divider";
 import Grid from "@mui/material/Grid";
 import IconButton from "@mui/material/IconButton";
 import Menu from "@mui/material/Menu";
@@ -25,7 +26,6 @@ import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import AddIcon from "@mui/icons-material/Add";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import EditIcon from "@mui/icons-material/Edit";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import RemoveCircleIcon from "@mui/icons-material/RemoveCircle";
 import { Can } from "../../auth/Can";
@@ -79,7 +79,7 @@ export function UserDetailPage() {
 	const location = useLocation();
 	const [searchParams, setSearchParams] = useSearchParams();
 	const canManageMembers = useCan("MEMBERSHIP_MANAGE");
-	// Reachable from both /members/:userId and /settings/users/:userId - back goes to
+	// Reachable from both /members/:userId and /settings/members/:userId - back goes to
 	// whichever list the caller entered from, not always Settings.
 	const fromMembers = location.pathname.startsWith("/members");
 
@@ -229,17 +229,22 @@ export function UserDetailPage() {
 
 	return (
 		<Stack spacing={2}>
-			<Box>
-				<Button startIcon={<ArrowBackIcon />} onClick={() => navigate(fromMembers ? "/members" : "/settings")}>
-					{fromMembers ? "Back to members" : "Back to settings"}
-				</Button>
-			</Box>
-
 			<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 2 }}>
 				<Box>
-					<Typography variant="h4" component="h1">
-						{personName}
-					</Typography>
+					<Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+						<Tooltip title={fromMembers ? "Back to members" : "Back to settings"}>
+							<IconButton
+								onClick={() => navigate(fromMembers ? "/members" : "/settings")}
+								aria-label={fromMembers ? "Back to members" : "Back to settings"}
+								sx={{ ml: -1 }}
+							>
+								<ArrowBackIcon />
+							</IconButton>
+						</Tooltip>
+						<Typography variant="h4" component="h1">
+							{personName}
+						</Typography>
+					</Stack>
 					{user && (
 						<Typography variant="body2" color="text.secondary">
 							{user.email} · {user.phone ?? "No phone on file"}
@@ -251,34 +256,35 @@ export function UserDetailPage() {
 				</Box>
 				{user && (
 					<Can anyOf={["MEMBERSHIP_MANAGE"]}>
-						<Stack direction="row" spacing={1}>
-							<Button size="small" startIcon={<EditIcon />} onClick={openEdit}>
+						<Tooltip title="Member actions">
+							<span>
+								<IconButton aria-label="Member actions" disabled={statusSubmitting} onClick={(e) => setStatusMenuAnchor(e.currentTarget)}>
+									<MoreVertIcon />
+								</IconButton>
+							</span>
+						</Tooltip>
+						<Menu anchorEl={statusMenuAnchor} open={statusMenuAnchor !== null} onClose={() => setStatusMenuAnchor(null)}>
+							<MenuItem
+								onClick={() => {
+									setStatusMenuAnchor(null);
+									openEdit();
+								}}
+							>
 								Edit member
-							</Button>
-							<Button
-								size="small"
-								variant="outlined"
-								color={primaryStatusAction.nextStatus === "DISABLED" ? "error" : "primary"}
-								disabled={statusSubmitting}
+							</MenuItem>
+							<Divider />
+							<MenuItem
 								onClick={() => handleStatusChange(primaryStatusAction.nextStatus)}
+								sx={primaryStatusAction.nextStatus === "DISABLED" ? { color: "error.main" } : undefined}
 							>
 								{primaryStatusAction.label}
-							</Button>
-							{overflowActions.length > 0 && (
-								<>
-									<IconButton size="small" onClick={(e) => setStatusMenuAnchor(e.currentTarget)}>
-										<MoreVertIcon fontSize="small" />
-									</IconButton>
-									<Menu anchorEl={statusMenuAnchor} open={statusMenuAnchor !== null} onClose={() => setStatusMenuAnchor(null)}>
-										{overflowActions.map((action) => (
-											<MenuItem key={action.nextStatus} onClick={() => handleStatusChange(action.nextStatus)}>
-												{action.label}
-											</MenuItem>
-										))}
-									</Menu>
-								</>
-							)}
-						</Stack>
+							</MenuItem>
+							{overflowActions.map((action) => (
+								<MenuItem key={action.nextStatus} onClick={() => handleStatusChange(action.nextStatus)}>
+									{action.label}
+								</MenuItem>
+							))}
+						</Menu>
 					</Can>
 				)}
 			</Box>
@@ -294,7 +300,7 @@ export function UserDetailPage() {
 						<Grid container spacing={2}>
 							<AccountField label="Email" value={user?.email ?? "—"} />
 							<AccountField label="Phone" value={user?.phone ?? "No phone on file"} />
-							<AccountField label="Member ID" value={memberId} />
+							<AccountField label="Staff ID" value={memberId} />
 							<AccountField label="Status" value={<MemberStatusChip status={status} />} />
 							<AccountField label="Invitation date" value={user ? new Date(user.invitedAt).toLocaleDateString() : "—"} />
 							<AccountField label="Last login" value={user?.lastLoginAt ? new Date(user.lastLoginAt).toLocaleString() : "Never signed in"} />
@@ -369,7 +375,7 @@ export function UserDetailPage() {
 											<TableCell>{membership.roleName}</TableCell>
 											<TableCell>
 												{membership.campusId === null
-													? "Org-wide"
+													? "All campuses"
 													: (campuses.find((c) => c.id === membership.campusId)?.name ?? membership.campusId)}
 											</TableCell>
 											<TableCell>{membership.departmentName ?? "—"}</TableCell>
@@ -433,12 +439,12 @@ export function UserDetailPage() {
 						</TextField>
 						<TextField
 							select
-							label="Campus (optional — org-wide if left blank)"
+							label="Campus (optional — all campuses if left blank)"
 							value={campusId}
 							onChange={(e) => setCampusId(e.target.value === "" ? "" : Number(e.target.value))}
 							fullWidth
 						>
-							<MenuItem value="">Org-wide</MenuItem>
+							<MenuItem value="">All campuses</MenuItem>
 							{campuses.map((campus) => (
 								<MenuItem key={campus.id} value={campus.id}>
 									{campus.name}

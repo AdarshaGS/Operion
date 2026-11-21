@@ -28,7 +28,7 @@ export class DashboardPage {
 		return this.page.getByText(/of 12 setup tasks complete/);
 	}
 
-	/** label is a lifecycle step's title, e.g. "Institution setup" or "Class & section creation". */
+	/** label is a lifecycle step's title, e.g. "Organisation profile" or "Classes & sections". */
 	async goToSetupStep(label: string) {
 		// SetupProgress renders each step's label as a <p> (role "paragraph") - scoping to
 		// that role avoids colliding with a same-named sidebar nav <button> ("Students",

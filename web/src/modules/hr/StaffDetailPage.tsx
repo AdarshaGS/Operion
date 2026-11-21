@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { Fragment, useEffect, useRef, useState, type FormEvent } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
@@ -9,6 +9,7 @@ import Dialog from "@mui/material/Dialog";
 import DialogActions from "@mui/material/DialogActions";
 import DialogContent from "@mui/material/DialogContent";
 import DialogTitle from "@mui/material/DialogTitle";
+import IconButton from "@mui/material/IconButton";
 import MenuItem from "@mui/material/MenuItem";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
@@ -19,6 +20,7 @@ import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
 import TextField from "@mui/material/TextField";
+import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import AddIcon from "@mui/icons-material/Add";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
@@ -26,6 +28,7 @@ import { Can } from "../../auth/Can";
 import { ModuleEnabled } from "../../auth/ModuleEnabled";
 import { useAuth } from "../../auth/AuthContext";
 import { MemberStatusChip } from "../../components/MemberStatusChip";
+import { StaffInviteDialog } from "../../components/StaffInviteDialog";
 import { TeacherTimetablePanel } from "../academics/TeacherTimetablePanel";
 import { TeacherUnavailabilityPanel } from "../academics/TeacherUnavailabilityPanel";
 import { SalaryStructurePanel } from "../payroll/SalaryStructurePanel";
@@ -47,6 +50,7 @@ import {
 } from "../../api/leaveRequests";
 import { listLeaveTypes, type LeaveTypeResponse } from "../../api/leaveTypes";
 import { LeaveDaysHint } from "../../components/LeaveDaysHint";
+import { LeaveCoverPanel } from "./LeaveCoverPanel";
 import { grantMembership, listMemberships, type MembershipResponse } from "../../api/memberships";
 import { getPerson, type PersonResponse } from "../../api/persons";
 import { listRoles, type RoleResponse } from "../../api/roles";
@@ -55,6 +59,7 @@ import {
 	changeStaffStatus,
 	getStaffBankDetails,
 	getStaffProfile,
+	giveStaffAccess,
 	listStaffAssignments,
 	listStaffDocuments,
 	listStaffExits,
@@ -69,7 +74,7 @@ import {
 	type StaffExitResponse,
 	type StaffProfileResponse,
 } from "../../api/staffProfiles";
-import { createUser } from "../../api/users";
+import { createUser, type StaffInviteResponse } from "../../api/users";
 
 /** ON_LEAVE is deliberately excluded - it's derived automatically by StaffLeaveStatusScheduler
  * from approved leave requests, never a manually-set target (see StaffProfileStatus's own doc). */
@@ -100,6 +105,7 @@ export function StaffDetailPage() {
 	const [academicYears, setAcademicYears] = useState<AcademicYearResponse[]>([]);
 	const [documents, setDocuments] = useState<StaffDocumentResponse[]>([]);
 	const [leaveRequests, setLeaveRequests] = useState<LeaveRequestResponse[]>([]);
+	const [coverOpenId, setCoverOpenId] = useState<number | null>(null);
 	const [error, setError] = useState<string | null>(null);
 	const [loading, setLoading] = useState(true);
 	const [submitting, setSubmitting] = useState(false);
@@ -110,6 +116,8 @@ export function StaffDetailPage() {
 
 	const { hasAnyPermission } = useAuth();
 	const canViewPayroll = hasAnyPermission(["HR_PAYROLL_VIEW"]);
+	// The invite endpoint needs both permissions (any-of <Can> cannot express "and").
+	const canGiveAccess = hasAnyPermission(["HR_STAFF_MANAGE"]) && hasAnyPermission(["MEMBERSHIP_MANAGE"]);
 
 	const [memberStatus, setMemberStatus] = useState<string | null>(null);
 	const [roles, setRoles] = useState<RoleResponse[]>([]);
@@ -126,6 +134,10 @@ export function StaffDetailPage() {
 	const [grantDepartmentId, setGrantDepartmentId] = useState<number | "">("");
 	const [grantSubmitting, setGrantSubmitting] = useState(false);
 	const [grantPassword, setGrantPassword] = useState("");
+	const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
+	const [inviteEmail, setInviteEmail] = useState("");
+	const [inviteRoleId, setInviteRoleId] = useState<number | "">("");
+	const [issuedInvite, setIssuedInvite] = useState<StaffInviteResponse | null>(null);
 
 	const [documentDialogOpen, setDocumentDialogOpen] = useState(false);
 	const [documentType, setDocumentType] = useState("");
@@ -229,8 +241,31 @@ export function StaffDetailPage() {
 			setGrantDepartmentId("");
 			setGrantDialogOpen(false);
 			refreshLoginAccess(person.id);
+			// profile.access drives the card, so re-read it too.
+			if (profile) getStaffProfile(profile.id).then(setProfile).catch(() => {});
 		} catch (err) {
-			setDialogError(err instanceof ApiError ? err.message : "Failed to grant login access");
+			setDialogError(err instanceof ApiError ? err.message : "Failed to give login access");
+		} finally {
+			setGrantSubmitting(false);
+		}
+	}
+
+	async function handleGiveAccess(event: FormEvent) {
+		event.preventDefault();
+		if (!profile || inviteRoleId === "") return;
+		setGrantSubmitting(true);
+		setDialogError(null);
+		try {
+			const updated = await giveStaffAccess(profile.id, { email: inviteEmail, roleId: inviteRoleId });
+			// The claim token is only returned once and lives only in the dialog's own state - keep it out of the profile held
+			// in page state (and so out of anything that re-renders or logs that profile).
+			const { invite, ...profileWithoutInvite } = updated;
+			setProfile({ ...profileWithoutInvite, invite: null });
+			setInviteDialogOpen(false);
+			setInviteRoleId("");
+			setIssuedInvite(invite);
+		} catch (err) {
+			setDialogError(err instanceof ApiError ? err.message : "Failed to give login access");
 		} finally {
 			setGrantSubmitting(false);
 		}
@@ -273,6 +308,10 @@ export function StaffDetailPage() {
 			})
 			.catch(() => {});
 	}
+
+	const accessStatus = profile?.access?.status ?? memberStatus;
+	const hasLoginAccess = profile?.access ? profile.access.hasAccess : memberStatus !== null;
+	const hasLeft = profile?.status === "RESIGNED" || profile?.status === "TERMINATED";
 
 	function leaveTypeLabel(id: number): string {
 		return leaveTypes.find((t) => t.id === id)?.name ?? `Leave type #${id}`;
@@ -470,15 +509,16 @@ export function StaffDetailPage() {
 
 	return (
 		<Stack spacing={2}>
-			<Box>
-				<Button startIcon={<ArrowBackIcon />} onClick={() => navigate("/hr")}>
-					Back to HR
-				</Button>
-			</Box>
-
-			<Typography variant="h4" component="h1">
-				{person ? `${person.firstName} ${person.lastName}` : `Staff #${staffProfileId}`}
-			</Typography>
+			<Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+				<Tooltip title="Back to HR">
+					<IconButton onClick={() => navigate("/hr")} aria-label="Back to HR" sx={{ ml: -1 }}>
+						<ArrowBackIcon />
+					</IconButton>
+				</Tooltip>
+				<Typography variant="h4" component="h1">
+					{person ? `${person.firstName} ${person.lastName}` : `Staff #${staffProfileId}`}
+				</Typography>
+			</Stack>
 
 			{error && <Alert severity="error">{error}</Alert>}
 
@@ -607,20 +647,48 @@ export function StaffDetailPage() {
 				</Paper>
 			</Can>
 
-			<Paper sx={{ p: 3 }}>
-				<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-					<Typography variant="body1">Login access</Typography>
-					{memberStatus ? (
-						<MemberStatusChip status={memberStatus} />
-					) : (
-						<Can anyOf={["MEMBERSHIP_MANAGE"]}>
-							<Button size="small" variant="outlined" onClick={() => { setDialogError(null); setGrantDialogOpen(true); }}>
-								Grant login access
-							</Button>
-						</Can>
-					)}
-				</Box>
-			</Paper>
+			{/* access is null for callers without MEMBERSHIP_VIEW/MANAGE - showing "No login" to them would be a guess, so hide the card. */}
+			{profile?.access && (
+				<Paper sx={{ p: 3 }}>
+					<Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+						<Box>
+							<Typography variant="body1">Login access</Typography>
+							<Typography variant="body2" color="text.secondary">
+								{hasLoginAccess
+									? `Signs in as ${profile?.access?.roleName ?? "a member"}`
+									: profile?.access?.status === "INACTIVE"
+										? "Access was revoked"
+										: "No login — this person cannot sign in"}
+							</Typography>
+						</Box>
+						<Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
+							{accessStatus && <MemberStatusChip status={accessStatus} />}
+							{!hasLoginAccess && !hasLeft && (
+								<>
+									{canGiveAccess && (
+										<Button
+											size="small"
+											variant="contained"
+											onClick={() => {
+												setDialogError(null);
+												setInviteEmail(person?.email ?? "");
+												setInviteDialogOpen(true);
+											}}
+										>
+											Give access
+										</Button>
+									)}
+									<Can anyOf={["MEMBERSHIP_MANAGE"]}>
+										<Button size="small" variant="outlined" onClick={() => { setDialogError(null); setGrantDialogOpen(true); }}>
+											Give login access
+										</Button>
+									</Can>
+								</>
+							)}
+						</Box>
+					</Box>
+				</Paper>
+			)}
 
 			<Paper sx={{ p: 3 }}>
 				<Stack spacing={2}>
@@ -761,30 +829,44 @@ export function StaffDetailPage() {
 								</TableHead>
 								<TableBody>
 									{leaveRequests.map((request) => (
-										<TableRow key={request.id}>
-											<TableCell>{leaveTypeLabel(request.leaveTypeId)}</TableCell>
-											<TableCell>{request.startDate}</TableCell>
-											<TableCell>{request.endDate}</TableCell>
-											<TableCell>{request.numberOfDays}</TableCell>
-											<TableCell>
-												<Chip label={request.status} size="small" />
-											</TableCell>
-											<TableCell>
-												{request.status === "PENDING" && (
-													<Can anyOf={["HR_LEAVE_MANAGE"]}>
-														<Button size="small" onClick={() => handleApprove(request.id)}>
-															Approve
+										<Fragment key={request.id}>
+											<TableRow>
+												<TableCell>{leaveTypeLabel(request.leaveTypeId)}</TableCell>
+												<TableCell>{request.startDate}</TableCell>
+												<TableCell>{request.endDate}</TableCell>
+												<TableCell>{request.numberOfDays}</TableCell>
+												<TableCell>
+													<Chip label={request.status} size="small" />
+												</TableCell>
+												<TableCell>
+													{request.status === "APPROVED" && (
+														<Button size="small" aria-expanded={coverOpenId === request.id} onClick={() => setCoverOpenId(coverOpenId === request.id ? null : request.id)}>
+															{coverOpenId === request.id ? "Hide cover" : "Timetable cover"}
 														</Button>
-														<Button size="small" color="error" onClick={() => handleReject(request.id)}>
-															Reject
-														</Button>
-														<Button size="small" onClick={() => handleCancel(request.id)}>
-															Cancel
-														</Button>
-													</Can>
-												)}
-											</TableCell>
-										</TableRow>
+													)}
+													{request.status === "PENDING" && (
+														<Can anyOf={["HR_LEAVE_MANAGE"]}>
+															<Button size="small" onClick={() => handleApprove(request.id)}>
+																Approve
+															</Button>
+															<Button size="small" color="error" onClick={() => handleReject(request.id)}>
+																Reject
+															</Button>
+															<Button size="small" onClick={() => handleCancel(request.id)}>
+																Cancel
+															</Button>
+														</Can>
+													)}
+												</TableCell>
+											</TableRow>
+											{request.status === "APPROVED" && coverOpenId === request.id && (
+												<TableRow>
+													<TableCell colSpan={6}>
+														<LeaveCoverPanel personId={profile?.personId ?? null} startDate={request.startDate} endDate={request.endDate} numberOfDays={request.numberOfDays} />
+													</TableCell>
+												</TableRow>
+											)}
+										</Fragment>
 									))}
 								</TableBody>
 							</Table>
@@ -959,8 +1041,45 @@ export function StaffDetailPage() {
 				</DialogActions>
 			</Dialog>
 
+			<Dialog open={inviteDialogOpen} onClose={() => setInviteDialogOpen(false)} component="form" onSubmit={handleGiveAccess} fullWidth maxWidth="xs">
+				<DialogTitle>Give login access</DialogTitle>
+				<DialogContent>
+					{dialogError && <DialogErrorAlert>{dialogError}</DialogErrorAlert>}
+					<Stack spacing={2} sx={{ mt: 1 }}>
+						<Typography variant="body2" color="text.secondary">
+							They are emailed an invite to set their own password. Their campus and department follow this staff profile.
+						</Typography>
+						<TextField label="Email" type="email" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} required fullWidth />
+						<TextField
+							select
+							label="Role"
+							value={inviteRoleId}
+							onChange={(e) => setInviteRoleId(e.target.value === "" ? "" : Number(e.target.value))}
+							required
+							fullWidth
+						>
+							{roles
+								.filter((role) => role.status === "ACTIVE")
+								.map((role) => (
+									<MenuItem key={role.id} value={role.id}>
+										{role.name}
+									</MenuItem>
+								))}
+						</TextField>
+					</Stack>
+				</DialogContent>
+				<DialogActions>
+					<Button onClick={() => setInviteDialogOpen(false)}>Cancel</Button>
+					<Button type="submit" variant="contained" disabled={grantSubmitting}>
+						Send invite
+					</Button>
+				</DialogActions>
+			</Dialog>
+
+			<StaffInviteDialog invite={issuedInvite} onClose={() => setIssuedInvite(null)} />
+
 			<Dialog open={grantDialogOpen} onClose={() => setGrantDialogOpen(false)} component="form" onSubmit={handleGrantLoginAccess} fullWidth maxWidth="xs">
-				<DialogTitle>Grant login access</DialogTitle>
+				<DialogTitle>Give login access</DialogTitle>
 				<DialogContent>
 					{dialogError && <DialogErrorAlert>{dialogError}</DialogErrorAlert>}
 					<Stack spacing={2} sx={{ mt: 1 }}>
@@ -993,12 +1112,12 @@ export function StaffDetailPage() {
 						</TextField>
 						<TextField
 							select
-							label="Campus (optional — org-wide if left blank)"
+							label="Campus (optional — all campuses if left blank)"
 							value={grantCampusId}
 							onChange={(e) => setGrantCampusId(e.target.value === "" ? "" : Number(e.target.value))}
 							fullWidth
 						>
-							<MenuItem value="">Org-wide</MenuItem>
+							<MenuItem value="">All campuses</MenuItem>
 							{campuses.map((campus) => (
 								<MenuItem key={campus.id} value={campus.id}>
 									{campus.name}
@@ -1024,7 +1143,7 @@ export function StaffDetailPage() {
 				<DialogActions>
 					<Button onClick={() => setGrantDialogOpen(false)}>Cancel</Button>
 					<Button type="submit" variant="contained" disabled={grantSubmitting}>
-						Grant access
+						Give access
 					</Button>
 				</DialogActions>
 			</Dialog>
@@ -1036,12 +1155,12 @@ export function StaffDetailPage() {
 					<Stack spacing={2} sx={{ mt: 1 }}>
 						<TextField
 							select
-							label="Campus (optional — org-wide if left blank)"
+							label="Campus (optional — all campuses if left blank)"
 							value={transferCampusId}
 							onChange={(e) => setTransferCampusId(e.target.value === "" ? "" : Number(e.target.value))}
 							fullWidth
 						>
-							<MenuItem value="">Org-wide</MenuItem>
+							<MenuItem value="">All campuses</MenuItem>
 							{campuses.map((campus) => (
 								<MenuItem key={campus.id} value={campus.id}>
 									{campus.name}

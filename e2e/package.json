@@ -6,6 +6,7 @@
     "test": "playwright test",
     "test:ui": "playwright test --ui",
     "test:headed": "playwright test --headed",
+    "test:leave-cover": "playwright test -c leave-cover-playwright.config.ts",
     "report": "playwright show-report"
   },
   "devDependencies": {

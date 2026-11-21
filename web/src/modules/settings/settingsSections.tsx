@@ -71,7 +71,7 @@ export interface SettingsGroup {
 /** Single source of truth for both the Settings landing page (SettingsPage) and each
  * section's own page (SettingsSectionPage) - one list drives the grouped tile grid and
  * the /settings/:section route so the two can't drift out of sync. Sections are grouped
- * under five labeled groups (Organisation / Access & Security / Configuration / Compliance / System);
+ * under five labeled groups (Organisation / Access & security / Configuration / Compliance / System);
  * a not-yet-built section slots into the group it belongs to as soon as it ships. */
 export const SETTINGS_GROUPS: SettingsGroup[] = [
 	{
@@ -97,7 +97,7 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
 			{
 				key: "campuses",
 				label: "Campuses",
-				description: "Add or manage branch and location campuses",
+				description: "Add or manage campuses",
 				icon: <LocationCityIcon />,
 				panel: <CampusesPanel />,
 				selfTitled: true,
@@ -121,7 +121,7 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
 			{
 				key: "school-template",
 				label: "School setup template",
-				description: "Pre-fill grades, departments, designations, roles, fee and inventory categories, and a default grading scale",
+				description: "Pre-fill grade levels, departments, designations, roles, fee and inventory categories, and a default grading scale",
 				icon: <AutoAwesomeIcon />,
 				panel: <SchoolTemplatePanel />,
 				selfTitled: true,
@@ -130,10 +130,10 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
 	},
 	{
 		key: "access-security",
-		label: "Access & Security",
+		label: "Access & security",
 		sections: [
 			{
-				key: "users",
+				key: "members",
 				label: "Members",
 				description: "Manage member accounts and role assignments",
 				icon: <GroupIcon />,
@@ -215,7 +215,7 @@ export const SETTINGS_GROUPS: SettingsGroup[] = [
 			{
 				key: "notifications",
 				label: "Notifications",
-				description: "Message templates - channel credentials and who may send live under Integrations & Roles",
+				description: "Notification templates - channel credentials and who may send live under Integrations & Roles",
 				icon: <NotificationsIcon />,
 				panel: <NotificationSettingsPanel />,
 				module: "COMMUNICATION",

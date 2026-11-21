@@ -34,7 +34,12 @@ public class ParentService {
 			boolean primaryGuardian, boolean emergencyContact, boolean canPickup, boolean canReceiveCommunication,
 			int contactPriority) {
 		if (primaryGuardian) {
-			studentGuardianRepository.findByStudentIdAndPrimaryGuardianTrue(student.getId()).ifPresent(StudentGuardian::unsetPrimary);
+			// Flush the demotion before the new link is written: a flush runs INSERTs before UPDATEs, and the unique
+			// key on (student, primary_marker) would otherwise see two primaries.
+			studentGuardianRepository.findByStudentIdAndPrimaryGuardianTrue(student.getId()).ifPresent(existing -> {
+				existing.unsetPrimary();
+				studentGuardianRepository.saveAndFlush(existing);
+			});
 		}
 		return studentGuardianRepository.save(new StudentGuardian(student, guardian, relationshipType, primaryGuardian,
 				emergencyContact, canPickup, canReceiveCommunication, contactPriority));
@@ -55,7 +60,10 @@ public class ParentService {
 		if (primaryGuardian) {
 			studentGuardianRepository.findByStudentIdAndPrimaryGuardianTrue(studentGuardian.getStudent().getId())
 					.filter(existing -> !existing.getId().equals(studentGuardian.getId()))
-					.ifPresent(StudentGuardian::unsetPrimary);
+					.ifPresent(existing -> {
+						existing.unsetPrimary();
+						studentGuardianRepository.saveAndFlush(existing);
+					});
 		}
 		studentGuardian.update(relationshipType, primaryGuardian, emergencyContact, canPickup, canReceiveCommunication, contactPriority);
 		return studentGuardianRepository.save(studentGuardian);

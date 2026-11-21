@@ -23,12 +23,14 @@ interface Props {
 	onClose: () => void;
 	/** Set when opened from a ledger row; otherwise the dialog starts with a student search. */
 	target?: FeeTarget | null;
+	/** Jump straight to the Assign fee form once the student's fee structures load. */
+	startWithAssign?: boolean;
 }
 
 /** Fee collection for one student - the same StudentFeesPanel the page used to host inline,
  * now opened over the overview from a ledger row or the "Collect Fee" button (which first
  * asks which student, so a student with no invoice yet can still be assigned fees). */
-export function CollectFeeDialog({ open, onClose, target }: Props) {
+export function CollectFeeDialog({ open, onClose, target, startWithAssign }: Props) {
 	const [studentId, setStudentId] = useState<number | "">("");
 	const [enrollment, setEnrollment] = useState<StudentEnrollmentResponse | null>(null);
 	const [resolveError, setResolveError] = useState<string | null>(null);
@@ -49,12 +51,12 @@ export function CollectFeeDialog({ open, onClose, target }: Props) {
 			.then((enrollments) => {
 				const current = enrollments.find((e) => e.current);
 				if (!current) {
-					setResolveError("This student has no current class enrollment yet — enroll them before assigning fees.");
+					setResolveError("This student has no current class enrolment yet — enrol them before assigning fees.");
 					return;
 				}
 				setEnrollment(current);
 			})
-			.catch((err) => setResolveError(err instanceof ApiError ? err.message : "Failed to load student enrollment"));
+			.catch((err) => setResolveError(err instanceof ApiError ? err.message : "Failed to load student enrolment"));
 	}, [studentId]);
 
 	const panelTarget: FeeTarget | null = target ?? (enrollment ? { studentEnrollmentId: enrollment.id, academicYearId: enrollment.academicYearId, schoolClassId: enrollment.schoolClassId } : null);
@@ -80,6 +82,7 @@ export function CollectFeeDialog({ open, onClose, target }: Props) {
 							studentEnrollmentId={panelTarget.studentEnrollmentId}
 							academicYearId={panelTarget.academicYearId}
 							schoolClassId={panelTarget.schoolClassId}
+							openAssignOnLoad={startWithAssign}
 						/>
 					)}
 				</Stack>

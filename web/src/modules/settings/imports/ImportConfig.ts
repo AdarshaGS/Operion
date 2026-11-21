@@ -38,7 +38,7 @@ export const IMPORT_GROUP_LABELS: Record<ImportGroupKey, string> = {
 export const IMPORT_GROUP_DESCRIPTIONS: Record<ImportGroupKey, string> = {
 	people: "Import staff, students and parents.",
 	academics: "Import academic structure and related data.",
-	finance: "Import fee structure and related data.",
+	finance: "Import fee structures.",
 	operations: "Import inventory, transport and other operational data.",
 	library: "Import library books and members.",
 };

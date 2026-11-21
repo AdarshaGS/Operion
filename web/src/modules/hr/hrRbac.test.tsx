@@ -52,14 +52,14 @@ describe("StaffCreatePage RBAC (HR_STAFF_MANAGE)", () => {
 	it("enables the submit button for a staff manager", async () => {
 		grant("HR_STAFF_MANAGE");
 		render(<MemoryRouter><StaffCreatePage /></MemoryRouter>);
-		const submit = await screen.findByRole("button", { name: "Add staff member" });
+		const submit = await screen.findByRole("button", { name: "Add staff" });
 		await waitFor(() => expect(submit).toBeEnabled());
 	});
 
 	it("disables the submit button without the permission while a staff profile is requested", async () => {
 		grant("MEMBERSHIP_MANAGE");
 		render(<MemoryRouter><StaffCreatePage /></MemoryRouter>);
-		const submit = await screen.findByRole("button", { name: "Add staff member" });
+		const submit = await screen.findByRole("button", { name: "Add staff" });
 		expect(submit).toBeDisabled();
 	});
 });

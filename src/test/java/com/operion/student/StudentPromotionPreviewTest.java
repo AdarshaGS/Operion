@@ -344,7 +344,10 @@ class StudentPromotionPreviewTest {
 
 		// ...but a student who still holds a current source-year enrolment and already has a target-year row is ALREADY_DONE.
 		Student alreadyPlaced = school.enrolled("Jai", school.source5B);
-		studentEnrollmentRepository.save(new StudentEnrollment(alreadyPlaced, school.target, target6A, 9, EFFECTIVE));
+		// The target-year row is not current (the student still holds the source-year one), as the one-current key requires.
+		StudentEnrollment targetRow = new StudentEnrollment(alreadyPlaced, school.target, target6A, 9, EFFECTIVE);
+		targetRow.close(StudentEnrollmentStatus.WITHDRAWN, EFFECTIVE);
+		studentEnrollmentRepository.save(targetRow);
 
 		StudentPreview result = byStudent(previewService.preview(school.request()).get(0).students(), alreadyPlaced);
 		assertThat(result.proposedAction()).isEqualTo(Proposal.ALREADY_DONE);

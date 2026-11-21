@@ -106,8 +106,8 @@ export function AttendancePage() {
 			</Box>
 			<Tabs value={active} onChange={(_, value) => setTab(value)} sx={{ borderBottom: `1px solid ${colors.rule}` }}>
 				{showClass && <Tab value="overview" label="Overview" icon={<BarChartIcon fontSize="small" />} iconPosition="start" />}
-				{showClass && <Tab value="class" label="Class Register" icon={<MenuBookIcon fontSize="small" />} iconPosition="start" />}
-				{showStaff && <Tab value="staff" label="Staff Attendance" icon={<GroupsIcon fontSize="small" />} iconPosition="start" />}
+				{showClass && <Tab value="class" label="Class register" icon={<MenuBookIcon fontSize="small" />} iconPosition="start" />}
+				{showStaff && <Tab value="staff" label="Staff attendance" icon={<GroupsIcon fontSize="small" />} iconPosition="start" />}
 			</Tabs>
 			{active === "overview" && <AttendanceOverviewPanel onOpenRegister={openRegister} onMarkAttendance={() => navigate("/attendance/mark")} />}
 			{active === "class" && <ClassRegisterPanel preset={preset} onShowOverview={() => setTab("overview")} />}

@@ -37,4 +37,10 @@ public class LeaveType extends TenantScopedEntity {
 		this.defaultAnnualDays = defaultAnnualDays;
 		this.status = LeaveTypeStatus.ACTIVE;
 	}
+
+	/** Code stays fixed after creation (it is the identifier operators and imports refer to); name and default days are editable. */
+	public void update(String name, Double defaultAnnualDays) {
+		this.name = name;
+		this.defaultAnnualDays = defaultAnnualDays;
+	}
 }

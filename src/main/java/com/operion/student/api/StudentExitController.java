@@ -1,6 +1,7 @@
 package com.operion.student.api;
 
 import com.operion.common.EnumParam;
+import com.operion.common.TenantContext;
 import jakarta.validation.Valid;
 import java.util.List;
 
@@ -41,7 +42,7 @@ public class StudentExitController {
 				.orElseThrow(() -> new IllegalArgumentException("No student with id " + studentId));
 
 		StudentExit exit = studentService.recordExit(student, EnumParam.parse(StudentExitType.class, request.exitType()),
-				request.exitDate(), request.reason(), request.destinationSchool(), request.initiatedBy());
+				request.exitDate(), request.reason(), request.destinationSchool(), TenantContext.getActorId());
 		return StudentExitResponse.from(exit);
 	}
 

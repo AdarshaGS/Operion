@@ -3,10 +3,12 @@ import { Link as RouterLink, useParams, useSearchParams } from "react-router-dom
 import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
+import IconButton from "@mui/material/IconButton";
 import MenuItem from "@mui/material/MenuItem";
 import Skeleton from "@mui/material/Skeleton";
 import Stack from "@mui/material/Stack";
 import TextField from "@mui/material/TextField";
+import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { useAuth } from "../../auth/AuthContext";
@@ -69,10 +71,14 @@ export function StaffAppraisalPage() {
 	return (
 		<Stack spacing={2.5}>
 			<Box>
-				<Button component={RouterLink} to={backTo} startIcon={<ArrowBackIcon />} size="small" sx={{ mb: 1, ml: -1 }}>Back to Performance</Button>
 				<Stack direction={{ xs: "column", md: "row" }} spacing={2} sx={{ justifyContent: "space-between", alignItems: { md: "flex-start" } }}>
 					<Box>
 						<Stack direction="row" spacing={1.5} sx={{ alignItems: "center", flexWrap: "wrap", rowGap: 0.5 }}>
+							<Tooltip title="Back to performance">
+								<IconButton component={RouterLink} to={backTo} aria-label="Back to performance" sx={{ ml: -1 }}>
+									<ArrowBackIcon />
+								</IconButton>
+							</Tooltip>
 							<Typography component="h1" variant="h4" sx={{ overflowWrap: "anywhere", fontSize: { xs: "1.6rem", sm: "2.125rem" } }}>{staff?.name ?? (appraisal || error ? "Appraisal" : <Skeleton width={220} />)}</Typography>
 							{staff && <ReviewStatusChip status={staff.reviewStatus} />}
 						</Stack>

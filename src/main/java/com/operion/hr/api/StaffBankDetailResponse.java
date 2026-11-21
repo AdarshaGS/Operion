@@ -6,16 +6,23 @@ public record StaffBankDetailResponse(
 		Long id, Long staffProfileId, String bankAccountHolderName, String bankAccountNumber, String bankName,
 		String bankBranchCode, String taxIdentifier) {
 
-	public static StaffBankDetailResponse from(StaffBankDetail detail) {
+	/** {@code full} is true for callers who hold HR_STAFF_MANAGE (they edit the number, so they get it whole); everyone else
+	 * receives the account number and the tax identifier (PAN-like) masked down to their last four characters. */
+	public static StaffBankDetailResponse from(StaffBankDetail detail, boolean full) {
 		return new StaffBankDetailResponse(detail.getId(), detail.getStaffProfile().getId(), detail.getBankAccountHolderName(),
-				mask(detail.getBankAccountNumber()), detail.getBankName(), detail.getBankBranchCode(), detail.getTaxIdentifier());
+				full ? detail.getBankAccountNumber() : mask(detail.getBankAccountNumber()), detail.getBankName(), detail.getBankBranchCode(),
+				full ? detail.getTaxIdentifier() : mask(detail.getTaxIdentifier()));
 	}
 
-	/** Only the last four digits ever leave the server; the full number stays in the database for payroll. */
-	static String mask(String accountNumber) {
-		if (accountNumber == null || accountNumber.length() <= 4) {
-			return accountNumber;
+	/** Only the last four characters ever leave the server for a non-manager; a value of four or fewer characters is hidden
+	 * entirely, since showing it would be showing all of it. The full value stays in the database for payroll. */
+	static String mask(String value) {
+		if (value == null || value.isEmpty()) {
+			return value;
 		}
-		return "*".repeat(accountNumber.length() - 4) + accountNumber.substring(accountNumber.length() - 4);
+		if (value.length() <= 4) {
+			return "*".repeat(value.length());
+		}
+		return "*".repeat(value.length() - 4) + value.substring(value.length() - 4);
 	}
 }

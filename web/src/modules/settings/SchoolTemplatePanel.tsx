@@ -63,7 +63,7 @@ interface CategoryConfig {
 }
 
 const CATEGORIES: CategoryConfig[] = [
-	{ key: "GRADE", label: "Grades", fields: ["stage", "sequenceOrder"], extraColumn: (item) => item.stage ?? "—" },
+	{ key: "GRADE", label: "Grade levels", fields: ["stage", "sequenceOrder"], extraColumn: (item) => item.stage ?? "—" },
 	{ key: "DEPARTMENT", label: "Departments", fields: [] },
 	{ key: "DESIGNATION", label: "Designations", fields: [] },
 	{ key: "ROLE", label: "Roles", fields: ["description", "permissionCodes"], extraColumn: (item) => `${item.permissionCodes.length} permissions` },
@@ -522,7 +522,7 @@ export function SchoolTemplatePanel() {
 					<Box>
 						<PanelTitle>School setup template</PanelTitle>
 						<Typography variant="body2" color="text.secondary">
-							Your own editable catalog of grades, departments, designations, roles, fee categories, inventory
+							Your own editable catalogue of grade levels, departments, designations, roles, fee categories, inventory
 							categories, items, asset types, leave types, subjects, and grading scale bands (a class is created for each ticked grade that also has a ticked class, with every ticked section added to each class) - add, edit, or remove anything below, then apply to create the
 							real records. Nothing is applied automatically.
 						</Typography>

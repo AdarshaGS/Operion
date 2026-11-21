@@ -45,7 +45,7 @@ export function LoginPage() {
 			// with ORGANISATION_MANAGE) vs Students (everyone else), see IndexRedirect.tsx.
 			navigate("/", { replace: true });
 		} catch (err) {
-			setError(err instanceof ApiError ? err.message : "Login failed - please try again");
+			setError(err instanceof ApiError ? err.message : "Sign-in failed - please try again");
 		} finally {
 			setSubmitting(false);
 		}

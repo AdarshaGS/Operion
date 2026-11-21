@@ -41,7 +41,8 @@ public class AcademicYearService {
 				.filter(current -> !current.getId().equals(id))
 				.ifPresent(current -> {
 					current.unmarkCurrent();
-					academicYearRepository.save(current);
+					// Flush before the new year is marked: the one-current unique key would otherwise see both rows current.
+					academicYearRepository.saveAndFlush(current);
 				});
 
 		target.markCurrent();

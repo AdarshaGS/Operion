@@ -12,11 +12,14 @@ import com.operion.identity.Person;
 import com.operion.identity.PersonRepository;
 import com.operion.identity.User;
 import com.operion.identity.UserRepository;
+import com.operion.identity.UserStatus;
 import com.operion.organisation.Campus;
 import com.operion.organisation.CampusRepository;
 import com.operion.organisation.DepartmentRepository;
 import com.operion.organisation.Organisation;
 import com.operion.organisation.OrganisationRepository;
+import java.util.List;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -249,5 +252,54 @@ class MembershipServiceTest {
 		membershipService.grant(secondAdminUser.getId(), secondAdminPerson.getId(), adminRole.getId(), null, null);
 
 		assertThatThrownBy(() -> membershipService.revoke(ownerMembershipId)).isInstanceOf(IllegalStateException.class);
+	}
+
+	/** Two org admins, the second one's login in {@code otherStatus}; returns the first admin's membership id. */
+	private Long twoAdminsWhereTheOtherIs(UserStatus otherStatus, String emailPrefix) {
+		Role adminRole = roleRepository.save(new Role("Org Admin", "system default", true));
+
+		User firstAdminUser = userRepository.save(new User(emailPrefix + "-1@example.com", null, "hash"));
+		Person firstAdminPerson = personRepository.save(new Person("First", "Admin"));
+		Long firstMembershipId = membershipService.grant(firstAdminUser.getId(), firstAdminPerson.getId(), adminRole.getId(), null, null).getId();
+
+		User otherAdminUser = new User(emailPrefix + "-2@example.com", null, "hash");
+		otherAdminUser.setStatus(otherStatus);
+		otherAdminUser = userRepository.save(otherAdminUser);
+		Person otherAdminPerson = personRepository.save(new Person("Other", "Admin"));
+		membershipService.grant(otherAdminUser.getId(), otherAdminPerson.getId(), adminRole.getId(), null, null);
+		return firstMembershipId;
+	}
+
+	@Test
+	void anotherAdminWhoseLoginIsStillPendingDoesNotCountAsAnActiveAdmin() {
+		Long membershipId = twoAdminsWhereTheOtherIs(UserStatus.PENDING, "pending-other");
+
+		assertThatThrownBy(() -> membershipService.revoke(membershipId))
+				.isInstanceOf(IllegalStateException.class).hasMessageContaining("last active Org Admin");
+		assertThat(membershipRepository.findById(membershipId).orElseThrow().getStatus()).isEqualTo(MembershipStatus.ACTIVE);
+	}
+
+	@Test
+	void anotherAdminWhoseLoginIsDisabledDoesNotCountAsAnActiveAdmin() {
+		Long membershipId = twoAdminsWhereTheOtherIs(UserStatus.DISABLED, "disabled-other");
+
+		assertThatThrownBy(() -> membershipService.revoke(membershipId))
+				.isInstanceOf(IllegalStateException.class).hasMessageContaining("last active Org Admin");
+		assertThat(membershipRepository.findById(membershipId).orElseThrow().getStatus()).isEqualTo(MembershipStatus.ACTIVE);
+	}
+
+	@Test
+	void requireRevocableTreatsAWholeSetTogetherSoTwoAdminsCannotRevokeEachOther() {
+		Role adminRole = roleRepository.save(new Role("Org Admin", "system default", true));
+		User firstUser = userRepository.save(new User("set-1@example.com", null, "hash"));
+		User secondUser = userRepository.save(new User("set-2@example.com", null, "hash"));
+		OrganisationMembership first = membershipService.grant(firstUser.getId(), personRepository.save(new Person("A", "One")).getId(),
+				adminRole.getId(), null, null);
+		OrganisationMembership second = membershipService.grant(secondUser.getId(), personRepository.save(new Person("B", "Two")).getId(),
+				adminRole.getId(), null, null);
+
+		membershipService.requireRevocable(List.of(first));
+		assertThatThrownBy(() -> membershipService.requireRevocable(List.of(first, second)))
+				.isInstanceOf(IllegalStateException.class).hasMessageContaining("last active Org Admin");
 	}
 }

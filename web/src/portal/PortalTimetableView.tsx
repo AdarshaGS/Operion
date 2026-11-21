@@ -4,6 +4,7 @@ import Alert from "@mui/material/Alert";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Chip from "@mui/material/Chip";
+import IconButton from "@mui/material/IconButton";
 import Paper from "@mui/material/Paper";
 import Stack from "@mui/material/Stack";
 import Table from "@mui/material/Table";
@@ -12,7 +13,9 @@ import TableCell from "@mui/material/TableCell";
 import TableContainer from "@mui/material/TableContainer";
 import TableHead from "@mui/material/TableHead";
 import TableRow from "@mui/material/TableRow";
+import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import { ApiError } from "../api/client";
 import type { PortalCover, PortalTimetableResponse } from "../api/timetable";
 import { TimetableGrid } from "../modules/academics/TimetableGrid";
@@ -72,10 +75,14 @@ export function PortalTimetableView({
 	return (
 		<Stack spacing={2}>
 			<Stack direction="row" sx={{ justifyContent: "space-between", alignItems: "center" }}>
-				<Typography variant="h5">{title}</Typography>
-				<Button size="small" component={RouterLink} to={backTo}>
-					Back to dashboard
-				</Button>
+				<Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+					<Tooltip title="Back to dashboard">
+						<IconButton component={RouterLink} to={backTo} aria-label="Back to dashboard" sx={{ ml: -1 }}>
+							<ArrowBackIcon />
+						</IconButton>
+					</Tooltip>
+					<Typography variant="h5">{title}</Typography>
+				</Stack>
 			</Stack>
 
 			{error && <Alert severity="error">{error}</Alert>}

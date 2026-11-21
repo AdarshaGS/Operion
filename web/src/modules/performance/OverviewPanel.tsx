@@ -120,7 +120,7 @@ export function OverviewPanel({ overview, loading, error, onRetry, canReview, ca
 
 			<Paper variant="outlined">
 				<Box sx={{ p: 1.5 }}>
-					<CompactFilterBar searchValue={filters.search} onSearchChange={(search) => change({ search })} searchLabel="Search staff" searchPlaceholder="Name or employee ID"
+					<CompactFilterBar searchValue={filters.search} onSearchChange={(search) => change({ search })} searchLabel="Search staff" searchPlaceholder="Name or staff ID"
 						activeFilters={activeFilters} onClearAll={() => change(NO_FILTERS)}>
 						<TextField select size="small" label="Department" value={filters.department} onChange={(e) => change({ department: e.target.value })}>
 							<MenuItem value="">All departments</MenuItem>
@@ -197,7 +197,7 @@ function StaffTableRow({ row, canReview, onOpen }: { row: StaffRow; canReview: b
 		<TableRow hover sx={{ cursor: "pointer", "&:last-child td": { borderBottom: 0 } }} onClick={onOpen}>
 			<TableCell>
 				<Typography variant="body2" sx={{ fontWeight: 600 }}>{row.name}</Typography>
-				<Typography variant="caption" color="text.secondary">{row.employeeCode ?? "No employee ID"}</Typography>
+				<Typography variant="caption" color="text.secondary">{row.employeeCode ?? "No staff ID"}</Typography>
 			</TableCell>
 			<TableCell>{orNotSet(row.designation)}</TableCell>
 			<TableCell>{orNotSet(row.department)}</TableCell>

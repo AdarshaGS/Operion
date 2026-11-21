@@ -46,7 +46,7 @@ export class FeesPage {
 	}
 
 	async addStructure(input: { categoryName: string; amount: number; installmentDueDate: string }) {
-		await this.page.getByRole("button", { name: "Add component" }).click();
+		await this.page.getByRole("button", { name: "Add fee category line" }).click();
 		await this.page.getByRole("combobox", { name: "Fee category" }).click();
 		await this.page.getByRole("option", { name: input.categoryName }).click();
 		await this.page.getByLabel("Total amount").fill(String(input.amount));

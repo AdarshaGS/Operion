@@ -18,6 +18,9 @@ import org.springframework.web.bind.annotation.RestController;
 @RequirePermission("TIMETABLE_VIEW")
 public class TimetableSettingsController {
 
+	private static final int MIN_PERIOD_MINUTES = 5;
+	private static final int MAX_PERIOD_MINUTES = 240;
+
 	private final TimetableSettingsRepository settingsRepository;
 
 	public TimetableSettingsController(TimetableSettingsRepository settingsRepository) {
@@ -39,11 +42,17 @@ public class TimetableSettingsController {
 				&& request.maxTeacherPeriodsPerDay() > request.maxTeacherPeriodsPerWeek()) {
 			throw new InvalidRequestException("The daily teacher workload limit cannot exceed the weekly limit");
 		}
+		Integer periodMinutes = request.periodMinutes();
+		if (periodMinutes != null && (periodMinutes < MIN_PERIOD_MINUTES || periodMinutes > MAX_PERIOD_MINUTES)) {
+			throw new InvalidRequestException("The standard class period length must be between " + MIN_PERIOD_MINUTES
+					+ " and " + MAX_PERIOD_MINUTES + " minutes (leave it empty if not set)");
+		}
 		TimetableSettings settings = settingsRepository.findByOrganisationId(TenantContext.getOrganisationId())
 				.orElseGet(TimetableSettings::new);
 		settings.setGapMinutes(request.gapMinutes());
 		settings.setMaxTeacherPeriodsPerDay(request.maxTeacherPeriodsPerDay());
 		settings.setMaxTeacherPeriodsPerWeek(request.maxTeacherPeriodsPerWeek());
+		settings.setPeriodMinutes(periodMinutes);
 		return TimetableSettingsResponse.from(settingsRepository.save(settings));
 	}
 

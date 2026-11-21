@@ -156,7 +156,7 @@ export function BusinessSettingsPanel({ onSaved, formId }: BusinessSettingsPanel
 						disabled={!canEdit}
 						fullWidth
 					/>
-					<TextField label="Primary color" placeholder="#1976d2" value={primaryColor} onChange={(e) => setPrimaryColor(e.target.value)} disabled={!canEdit} fullWidth />
+					<TextField label="Primary colour" placeholder="#1976d2" value={primaryColor} onChange={(e) => setPrimaryColor(e.target.value)} disabled={!canEdit} fullWidth />
 				</Box>
 				<TextField label="Logo URL" value={logoUrl} onChange={(e) => setLogoUrl(e.target.value)} disabled={!canEdit} fullWidth />
 

@@ -119,12 +119,12 @@ class SubscriptionLifecycleTest {
 		TenantContext.set(organisation.getId(), null);
 
 		assertThatThrownBy(() -> billingService.generateInvoice(
-				organisation.getId(), LocalDate.of(2026, 4, 1), LocalDate.of(2027, 3, 31), LocalDate.of(2026, 4, 15)))
+				organisation.getId(), LocalDate.of(2026, 4, 1), LocalDate.of(2027, 3, 31), LocalDate.of(2026, 4, 15), new BigDecimal("100.00")))
 				.isInstanceOf(IllegalStateException.class);
 	}
 
 	@Test
-	void invoiceAmountIsComputedFromTheLiveActiveStudentCountAtTheSubscribedRate() {
+	void invoiceBillsTheEnteredAmountAndSnapshotsTheLiveActiveStudentCount() {
 		Organisation organisation = newOrganisation("headcount-school");
 		TenantContext.set(organisation.getId(), null);
 		addActiveStudent("HC-1");
@@ -135,7 +135,7 @@ class SubscriptionLifecycleTest {
 		billingService.subscribe(organisation.getId(), plan.getId(), LocalDate.of(2026, 4, 1));
 
 		PlatformInvoice invoice = billingService.generateInvoice(
-				organisation.getId(), LocalDate.of(2026, 4, 1), LocalDate.of(2027, 3, 31), LocalDate.of(2026, 4, 15));
+				organisation.getId(), LocalDate.of(2026, 4, 1), LocalDate.of(2027, 3, 31), LocalDate.of(2026, 4, 15), new BigDecimal("450.00"));
 
 		assertThat(invoice.getStudentCountAtBilling()).isEqualTo(3);
 		assertThat(invoice.getAmount()).isEqualByComparingTo("450.00");
@@ -173,17 +173,16 @@ class SubscriptionLifecycleTest {
 	}
 
 	@Test
-	void aZeroValueInvoiceIsRefusedWhenThereAreNoStudentsAndNoAmount() {
+	void aMissingZeroOrNegativeAmountIsRefused() {
 		Organisation organisation = newOrganisation("zero-school");
 		TenantContext.set(organisation.getId(), null);
 		Plan plan = billingService.createPlan("ZERO-" + organisation.getId(), "Zero Plan", new BigDecimal("150.00"));
 		billingService.subscribe(organisation.getId(), plan.getId(), LocalDate.of(2026, 4, 1));
 
-		assertThatThrownBy(() -> billingService.generateInvoice(
-				organisation.getId(), LocalDate.of(2026, 4, 1), LocalDate.of(2027, 3, 31), LocalDate.of(2026, 4, 15)))
-				.isInstanceOf(InvalidRequestException.class);
-		assertThatThrownBy(() -> billingService.generateInvoice(
-				organisation.getId(), LocalDate.of(2026, 4, 1), LocalDate.of(2027, 3, 31), LocalDate.of(2026, 4, 15), BigDecimal.ZERO))
-				.isInstanceOf(InvalidRequestException.class);
+		for (BigDecimal bad : new BigDecimal[] { null, BigDecimal.ZERO, new BigDecimal("-5"), new BigDecimal("0.004") }) {
+			assertThatThrownBy(() -> billingService.generateInvoice(
+					organisation.getId(), LocalDate.of(2026, 4, 1), LocalDate.of(2027, 3, 31), LocalDate.of(2026, 4, 15), bad))
+					.isInstanceOf(InvalidRequestException.class);
+		}
 	}
 }

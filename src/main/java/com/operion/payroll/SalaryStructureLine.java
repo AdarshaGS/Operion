@@ -39,6 +39,12 @@ public class SalaryStructureLine extends TenantScopedEntity {
 				&& value.compareTo(BigDecimal.valueOf(100)) > 0) {
 			throw new InvalidRequestException("A percentage component cannot exceed 100");
 		}
+		// A flat value is money (stored to the cent); a percentage keeps the column's 4 decimals.
+		int maxScale = component.getCalculationBasis() == CalculationBasis.PERCENT_OF_BASIC ? 4 : 2;
+		if (value.stripTrailingZeros().scale() > maxScale) {
+			throw new InvalidRequestException(
+					"Component value cannot have more than " + maxScale + " decimal places");
+		}
 		this.salaryStructure = salaryStructure;
 		this.component = component;
 		this.value = value;
